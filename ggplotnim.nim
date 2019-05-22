@@ -31,17 +31,17 @@ type
     facets: seq[Facet]
     geoms: seq[Geom]
 
-proc ggplot[T](data: T, aes: Aesthetics): GgPlot[T] =
+proc ggplot*[T](data: T, aes: Aesthetics): GgPlot[T] =
   result = GgPlot[T](data: data,
                      aes: @[aes])
   # TODO: fill others with defaults
 
-proc geom_point(): Geom =
+proc geom_point*(): Geom =
   result = Geom(kind: gkPoint)
 proc geom_bar(): Geom =
   result = Geom(kind: gkBar)
 
-proc ggtitle(title: string, subtitle = ""): (string, string) = (title, subtitle)
+proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
 proc createLegend(view: var Viewport,
                   title: string,
@@ -112,36 +112,36 @@ proc createLegend(view: var Viewport,
   header.addObj label
   view[startIdx] = header
 
-proc aes(x, y: string, color = ""): Aesthetics =
+proc aes*(x, y: string, color = ""): Aesthetics =
   result = Aesthetics(x: x, y: y, color: color)
 
-proc `+`(p: GgPlot, geom: Geom): GgPlot =
+proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
   result.geoms.add geom
 
-proc `+`(p: GgPlot, facet: Facet): GgPlot =
+proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   ## adds the given facet to the GgPlot object
   result = p
   result.facets.add facet
 
-proc `+`(p: GgPlot, scale: Scales): GgPlot =
+proc `+`*(p: GgPlot, scale: Scales): GgPlot =
   ## adds the given facet to the GgPlot object
   result = p
   result.scales.add scale
 
-proc `+`(p: GgPlot, aes: Aesthetics): GgPlot =
+proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
   ## adds the given aesthetics to the GgPlot object
   result = p
   result.aes.add aes
 
-proc `+`(p: GgPlot, titleTup: (string, string)): GgPlot =
+proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
   ## adds the given title / subtitle to the GgPlot object
   result = p
   result.title = titleTup[0]
   result.subtitle = titleTup[1]
 
-proc draw(p: GgPlot, fname: string) =
+proc draw*(p: GgPlot, fname: string) =
   # check if any aes
   doAssert p.aes.len > 0, "Needs at least one aesthetics!"
   # determine min and max scales of aes
@@ -253,7 +253,7 @@ proc draw(fname: string): Draw = Draw(fname: fname)
 proc `+`(p: GgPlot, d: Draw): GgPlot =
   p.draw(d.fname)
 
-proc readCsv(fname: string): Table[string, seq[string]] =
+proc readCsv*(fname: string): Table[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
   ## values, where idx 0 corresponds to the first data value
   var s = newFileStream(fname, fmRead)
@@ -277,4 +277,6 @@ let mpg = readCsv("data/mpg.csv")
 let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
   geom_point() + draw("scatter.pdf")
 let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
-  geom_point() + draw("scatterColor.pdf")
+  geom_point() +
+  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+  draw("scatterColor.pdf")
