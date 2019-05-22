@@ -24,6 +24,8 @@ type
 
   GgPlot[T] = object
     data: T
+    title: string
+    subtitle: string
     aes: seq[Aesthetics]
     scales: seq[Scales]
     facets: seq[Facet]
@@ -38,6 +40,8 @@ proc geom_point(): Geom =
   result = Geom(kind: gkPoint)
 proc geom_bar(): Geom =
   result = Geom(kind: gkBar)
+
+proc ggtitle(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
 proc createLegend(view: var Viewport,
                   title: string,
@@ -126,6 +130,12 @@ proc `+`(p: GgPlot, aes: Aesthetics): GgPlot =
   ## adds the given aesthetics to the GgPlot object
   result = p
   result.aes.add aes
+
+proc `+`(p: GgPlot, titleTup: (string, string)): GgPlot =
+  ## adds the given title / subtitle to the GgPlot object
+  result = p
+  result.title = titleTup[0]
+  result.subtitle = titleTup[1]
 
 proc draw(p: GgPlot, fname: string) =
   # check if any aes
@@ -221,6 +231,17 @@ proc draw(p: GgPlot, fname: string) =
                     markers,
                     colorsCat)
     img[5] = lg
+  if p.title.len > 0:
+    var titleView = img[1]
+    let font = Font(family: "sans-serif",
+                    size: 16.0,
+                    color: black)
+    let title = titleView.initText(c(0.0, 0.5),
+                                   p.title,
+                                   taLeft,
+                                   font = some(font))
+    titleView.addObj title
+    img[1] = titleView
   img.draw(fname)
 
 proc draw(fname: string): Draw = Draw(fname: fname)
