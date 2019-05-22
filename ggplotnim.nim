@@ -220,7 +220,7 @@ proc draw*(p: GgPlot, fname: string) =
     lg.height = quant(img[4].height.val / 2.0, ukRelative) #quant(0.5, ukRelative)
     echo "lg view height ", lg.hView
     lg.origin.y = lg.origin.y + c1(img[4].height.val / 4.0)
-    lg.origin.x = lg.origin.x + img.c1(0.1, akX, ukCentimeter)
+    lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
     echo lg.width
     var markers: seq[GraphObject]
     for k, v in colorsCat:
