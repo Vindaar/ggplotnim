@@ -1,4 +1,4 @@
-import sequtils, tables, sets
+import sequtils, tables, sets, algorithm
 import ginger
 import parsecsv, streams, strutils
 
@@ -42,7 +42,7 @@ proc geom_bar(): Geom =
 proc createLegend(view: var Viewport,
                   title: string,
                   markers: seq[GraphObject],
-                  cat: Table[string, Color]) =
+                  cat: OrderedTable[string, Color]) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
@@ -139,17 +139,16 @@ proc draw(p: GgPlot, fname: string) =
     xScale = (low: minX, high: maxX)
     yScale = (low: minY, high: maxY)
 
-  var colorsCat: Table[string, Color]
+  var colorsCat: OrderedTable[string, Color]
   var colors: seq[string]
   var colorCs: seq[Color]
   if p.aes[0].color.len > 0:
     colors = p.data[p.aes[0].color]
-    let catSet = colors.toSet
-    colorCs = ggColorHue(catSet.card)
-    var i = 0
-    for k in catSet:
+    # convert to set to filter duplicates, back to seq and sort
+    let catSeq = colors.toSet.toSeq.sorted
+    colorCs = ggColorHue(catSeq.len)
+    for i, k in catSet:
       colorsCat[k] = colorCs[i]
-      inc i
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
