@@ -61,10 +61,14 @@ proc createLegend(view: var Viewport,
     var ch = view[i]
     let viewRatio = ch.hView.val / ch.wView.val
     let sizeY = ch.height.toPoints(some(ch.hView))
+    let style = Style(lineType: ltSolid,
+                      lineWidth: 1.0,
+                      color: color(1.0, 1.0, 1.0),
+                      fillColor: grey92)
     var rect = ch.initRect(c(0.0, 0.0),
                            quant(ch.height.val * viewRatio, ukRelative),
                            quant(1.0, ukRelative),
-                           color = grey92)
+                           style = some(style))
     rect.name = "markerRectangle"
     # add marker ontop of rect
     let point = ch.initPoint(Coord(x: c1(ch.height.val / 2.0 * viewRatio),
