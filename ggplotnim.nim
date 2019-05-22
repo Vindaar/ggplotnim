@@ -161,7 +161,7 @@ proc draw*(p: GgPlot, fname: string) =
     # convert to set to filter duplicates, back to seq and sort
     let catSeq = colors.toSet.toSeq.sorted
     colorCs = ggColorHue(catSeq.len)
-    for i, k in catSet:
+    for i, k in catSeq:
       colorsCat[k] = colorCs[i]
 
   # create the plot
