@@ -175,7 +175,7 @@ proc draw(p: GgPlot, fname: string) =
     img.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
                                    quant(0.0, ukRelative),
                                    quant(5.0, ukCentimeter)],
-               rowheights = @[quant(1.0, ukCentimeter),
+               rowheights = @[quant(1.25, ukCentimeter),
                               quant(0.0, ukRelative),
                               quant(2.0, ukCentimeter)])
   else:
@@ -189,8 +189,8 @@ proc draw(p: GgPlot, fname: string) =
   var plt = img[4]
   plt.background()
   let
-    xticks = plt.xticks(8)
-    yticks = plt.yticks(5)
+    xticks = plt.xticks(10)
+    yticks = plt.yticks(10)
     xtickLabels = plt.tickLabels(xticks)
     ytickLabels = plt.tickLabels(yticks)
     xlabel = plt.xlabel(p.aes[0].x)
@@ -217,9 +217,9 @@ proc draw(p: GgPlot, fname: string) =
     echo lg.origin
     echo lg.width
     echo lg.height
-    lg.height = quant(0.5, ukRelative)
+    lg.height = quant(img[4].height.val / 2.0, ukRelative) #quant(0.5, ukRelative)
     echo "lg view height ", lg.hView
-    lg.origin.y = lg.origin.y + c1(0.2)
+    lg.origin.y = lg.origin.y + c1(img[4].height.val / 4.0)
     lg.origin.x = lg.origin.x + img.c1(0.1, akX, ukCentimeter)
     echo lg.width
     var markers: seq[GraphObject]
