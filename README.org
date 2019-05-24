@@ -1,0 +1,44 @@
+* ggplotnim - ggplot2 in Nim
+
+This package, as the name suggests, will become a "sort of" port of
+[[https://ggplot2.tidyverse.org/][ggplot2]] for Nim. 
+
+It is based on the [[https://github.com/vindaar/ginger/][ginger]] package. 
+
+Currently it is in a purely prototyping state. The code as it is only
+a proof of concept for myself to see whether =ginger= is at a point
+where it's technically feasible to draw =ggplot2= like plots and to
+see how well the syntax can be ported to Nim.
+
+On the plus side, thanks to Nim's macro system, even the =~= function
+syntax works already, so that one can create a plot like so:
+#+BEGIN_SRC nim
+let plt = ggplot(mpg, aes(displ ~ cty / hwy)) +
+  geom_point() 
+#+END_SRC 
+would create a plot of displacement vs the ratio of city to highway
+mpg. All identifiers appearing in the formula are taken to be strings,
+which should appear in the data frame we give to =ggplot= (currently
+it's just using =Table[string, seq[string]]=. 
+
+The formula mentioned will be stored as =(displ (/ cty hwy))= and a
+proc can be used to apply the mathematical functions in the correct
+order to a data frame given.
+Although at the moment the input to =aes= is not implemented, but for
+a working proof of concept, check out the tests.
+
+** Examples
+
+The following are just the first plots I reproduced.
+
+*** Scatter of displ ~ hwy
+
+[[file:media/scatter.png]]
+
+*** Scatter of displ ~ hwy, class as color scale
+
+[[file:media/scatterColor.png]]
+
+*** Histogram of hwy
+
+[[file:media/simpleHisto.png]]
