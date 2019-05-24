@@ -2,6 +2,8 @@ import sequtils, tables, sets, algorithm, strutils
 import ginger
 import parsecsv, streams, strutils
 
+import seqmath
+
 import macros
 
 import formula
@@ -10,8 +12,8 @@ export formula
 type
   Aesthetics = object
     x: string
-    y: string
-    color: string
+    y: Option[string]
+    color: Option[string]
 
   Scales = object
     discard
@@ -23,9 +25,14 @@ type
     fname: string
 
   GeomKind = enum
-    gkPoint, gkBar
+    gkPoint, gkBar, gkHistogram, gkFreqPoly
   Geom = object
-    kind: GeomKind
+    case kind: GeomKind
+    of gkHistogram, gkFreqPoly:
+      bins: int # number of bins
+      binWidth: float # width of bins in terms of the data
+    else:
+      discard
 
   GgPlot[T] = object
     data: T
@@ -41,10 +48,17 @@ proc ggplot*[T](data: T, aes: Aesthetics): GgPlot[T] =
                      aes: @[aes])
   # TODO: fill others with defaults
 
-proc geom_point*(): Geom =
+func geom_point*(): Geom =
   result = Geom(kind: gkPoint)
-proc geom_bar(): Geom =
+
+func geom_bar(): Geom =
   result = Geom(kind: gkBar)
+
+func geom_histogram*(binWidth = 0.0, bins = 0): Geom =
+  result = Geom(kind: gkHistogram)
+
+func geom_freqpoly*(): Geom =
+  result = Geom(kind: gkHistogram)
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
@@ -80,22 +94,10 @@ proc createLegend(view: var Viewport,
                                    y: c1(0.5)),
                              marker = markers[j].ptMarker,
                              color = cat[catSeq[j]])
-    echo point
-    #let rectBla = ch.initRect(Coord(x: c1(cX),#centerX,
-    #                                y: c1(2 * cY)),#centerY),
-    #                           quant(0.25, ukCentimeter),
-    #                           quant(0.25, ukCentimeter),
-    #                           #marker = markers[j].ptMarker,
-    #                           color = cat[catSeq[j]])
-
-    #'let point2 = ch.initPoint(Coord(x: c1(cX),#centerX,
-    #                                y: c1(0.0)),#centerY),
-    #                         marker = markers[j].ptMarker,
-    #                         color = cat[catSeq[j]])
 
     let label = ch.initText(
       Coord(
-        x: c1(ch.height.val * viewRatio) + c1(quant(0.3, ukCentimeter).toRelative(ch.wImg).val),#ch.origin.x + c1(ch.height.val + quant(0.3, ukCentimeter).toRelative(ch.wImg).val),
+        x: c1(ch.height.val * viewRatio) + c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),#ch.origin.x + c1(ch.height.val + quant(0.3, ukCentimeter).toRelative(ch.wImg).val),
         y: c1(0.5)),
       catSeq[j],
       alignKind = taLeft
@@ -117,12 +119,17 @@ proc createLegend(view: var Viewport,
   header.addObj label
   view[startIdx] = header
 
-proc aes*(x, y: string, color = ""): Aesthetics =
-  result = Aesthetics(x: x, y: y, color: color)
+proc aes*(x: string, y = "", color = ""): Aesthetics =
+  var yOpt: Option[string]
+  var colorOpt: Option[string]
+  if y.len > 0:
+    yOpt = some(y)
+  if color.len > 0:
+    colorOpt = some(color)
+  result = Aesthetics(x: x, y: yOpt, color: colorOpt)
 
 proc aes*(x: FormulaNode, color = ""): Aesthetics =
-  echo x
-  result = Aesthetics(x: "", y: "", color: color)
+  result = Aesthetics(x: "", y: some(""), color: some(color))
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
@@ -150,35 +157,48 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
   result.title = titleTup[0]
   result.subtitle = titleTup[1]
 
-proc draw*(p: GgPlot, fname: string) =
+proc ggsave*(p: GgPlot, fname: string) =
   # check if any aes
   doAssert p.aes.len > 0, "Needs at least one aesthetics!"
-  # determine min and max scales of aes
-  let
-    minX = p.data[p.aes[0].x].mapIt(it.parseFloat).min
-    maxX = p.data[p.aes[0].x].mapIt(it.parseFloat).max
-    minY = p.data[p.aes[0].y].mapIt(it.parseFloat).min
-    maxY = p.data[p.aes[0].y].mapIt(it.parseFloat).max
-    xScale = (low: minX, high: maxX)
-    yScale = (low: minY, high: maxY)
 
-  var colorsCat: OrderedTable[string, Color]
-  var colors: seq[string]
-  var colorCs: seq[Color]
-  if p.aes[0].color.len > 0:
-    colors = p.data[p.aes[0].color]
-    # convert to set to filter duplicates, back to seq and sort
-    let catSeq = colors.toSet.toSeq.sorted
-    colorCs = ggColorHue(catSeq.len)
-    for i, k in catSeq:
-      colorsCat[k] = colorCs[i]
+  const
+    numXTicks = 10
+    numYTicks = 10
+
+  var
+    xScale: Scale
+    yScale: Scale
+    colorsCat: OrderedTable[string, Color]
+    colors: seq[string]
+  for aes in p.aes:
+    # determine min and max scales of aes
+    let
+      minX = p.data[aes.x].mapIt(it.parseFloat).min
+      maxX = p.data[aes.x].mapIt(it.parseFloat).max
+    xScale = (low: minX, high: maxX)
+    var
+      minY: float
+      maxY: float
+    if aes.y.isSome:
+      minY = p.data[aes.y.get].mapIt(it.parseFloat).min
+      maxY = p.data[aes.y.get].mapIt(it.parseFloat).max
+      yScale = (low: minY, high: maxY)
+
+    if aes.color.isSome:
+      var colorCs: seq[Color]
+      colors = p.data[aes.color.get]
+      # convert to set to filter duplicates, back to seq and sort
+      let catSeq = colors.toSet.toSeq.sorted
+      colorCs = ggColorHue(catSeq.len)
+      for i, k in catSeq:
+        colorsCat[k] = colorCs[i]
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
                          yScale = some(yScale))
 
   var drawLegend = false
-  if p.aes[0].color.len > 0:
+  if p.aes[0].color.isSome:
     # create legend
     drawLegend = true
     img.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
@@ -194,43 +214,97 @@ proc draw*(p: GgPlot, fname: string) =
                rowheights = @[quant(1.0, ukCentimeter),
                               quant(0.0, ukRelative),
                               quant(2.0, ukCentimeter)])
+
+
   # get viewport of plot
   var plt = img[4]
   plt.background()
+
+  var data = newSeq[GraphObject]()
+  for geom in p.geoms:
+    case geom.kind
+    of gkPoint:
+      for aes in p.aes:
+        let xData = p.data[aes.x].mapIt(it.parseFloat)
+        let yData = p.data[aes.y.get].mapIt(it.parseFloat)
+        for i in 0 ..< xData.len:
+          if aes.color.isSome:
+            #let style = Style(fillColor: colorsCat[colors[i]])
+            data.add initPoint(plt, (x: xData[i], y: yData[i]),
+                               marker = mkCircle,
+                               color = colorsCat[colors[i]])
+          else:
+            data.add initPoint(plt, (x: xData[i], y: yData[i]),
+                               marker = mkCircle)
+    of gkHistogram:
+      for aes in p.aes:
+
+        # before performing a calculation for the histogram viewports, get the
+        # new xScale, by calling calcTickLocations with it
+        # Note: we don't have to assign it to the `plt` viewport, since that will
+        # happen when calculation of the actual ticks will be done later on
+        let (newXScale, _, _) = calcTickLocations(xScale, numXTicks)
+
+        # generate the histogram itself
+        let rawDat = p.data[aes.x].mapIt(it.parseFloat)
+        const nbins = 30
+        let binWidth = (newXScale.high - newXScale.low).float / nbins.float
+        #let bin_edges = linspace(newXScale.low - binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
+        let hist = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
+
+        # given the histogram, we can now deduce the base yScale we need
+        let yScaleBase = (low: 0.0, high: hist.max.float)
+        # however, this is not the final one, since we still have to calculate
+        # the tick locations, which might change it again
+        let (newYScale, _, _) = calcTickLocations(yScaleBase, numYTicks)
+
+        # create viewports showing the bars
+        plt.yScale = newYScale
+        img.yScale = newYScale
+        plt.layout(nbins, 1)
+        var i = 0
+        for p in mitems(plt):
+          doAssert p.yScale.high >= hist.max.float
+          let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
+          let style = Style(lineType: ltSolid,
+                            lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
+                                            # between bins at size of exactly 1.0 bin width
+                            color: grey20,
+                            fillColor: grey20)
+          let r = p.initRect(c(0.0, yPos), # bottom left
+                             quant(1.0, ukRelative),
+                             quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
+                             style = some(style))
+          p.addObj r
+          inc i
+    else:
+      discard
+
   let
-    xticks = plt.xticks(10)
-    yticks = plt.yticks(10)
+    xticks = plt.xticks(numXTicks)
+    yticks = plt.yticks(numYTicks)
     xtickLabels = plt.tickLabels(xticks)
     ytickLabels = plt.tickLabels(yticks)
     xlabel = plt.xlabel(p.aes[0].x)
-    ylabel = plt.ylabel(p.aes[0].y)
     grdlines = plt.initGridLines(some(xticks), some(yticks))
-  let xData = p.data[p.aes[0].x].mapIt(it.parseFloat)
-  let yData = p.data[p.aes[0].y].mapIt(it.parseFloat)
-  var data = newSeq[GraphObject](xData.len)
-  for i in 0 ..< xData.len:
-    if colors.len > 0:
-      #let style = Style(fillColor: colorsCat[colors[i]])
-      data.add initPoint(plt, (x: xData[i], y: yData[i]),
-                         marker = mkCircle,
-                         color = colorsCat[colors[i]])
-    else:
-      data.add initPoint(plt, (x: xData[i], y: yData[i]),
-                         marker = mkCircle)
+
+  var ylabel: GraphObject
+  case p.geoms[0].kind
+  of gkPoint:
+    ylabel = plt.ylabel(p.aes[0].y.get)
+  of gkHistogram:
+    ylabel = plt.ylabel("count")
+  else: discard
+
 
   plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines], data)
   img[4] = plt
 
   if drawLegend:
     var lg = img[5]
-    echo lg.origin
-    echo lg.width
-    echo lg.height
     lg.height = quant(img[4].height.val / 2.0, ukRelative) #quant(0.5, ukRelative)
-    echo "lg view height ", lg.hView
     lg.origin.y = lg.origin.y + c1(img[4].height.val / 4.0)
     lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
-    echo lg.width
     var markers: seq[GraphObject]
     for k, v in colorsCat:
       markers.add initPoint(plt,
@@ -240,7 +314,7 @@ proc draw*(p: GgPlot, fname: string) =
     #              title: string,
     #              markers: seq[GraphObject],
     #              cat: Table[string, Color]) =
-    lg.createLegend(p.aes[0].color,
+    lg.createLegend(p.aes[0].color.get,
                     markers,
                     colorsCat)
     img[5] = lg
@@ -257,10 +331,10 @@ proc draw*(p: GgPlot, fname: string) =
     img[1] = titleView
   img.draw(fname)
 
-proc draw(fname: string): Draw = Draw(fname: fname)
+proc ggsave(fname: string): Draw = Draw(fname: fname)
 
 proc `+`(p: GgPlot, d: Draw): GgPlot =
-  p.draw(d.fname)
+  p.ggsave(d.fname)
 
 proc readCsv*(fname: string): Table[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
@@ -284,8 +358,19 @@ proc readCsv*(fname: string): Table[string, seq[string]] =
 let mpg = readCsv("data/mpg.csv")
 
 let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point() + draw("scatter.pdf")
+  geom_point() + ggsave("scatter.pdf")
 let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
   ggtitle("ggplotnim - or I Suck At Naming Things™") +
-  draw("scatterColor.pdf")
+  ggsave("scatterColor.pdf")
+
+let pltHisto = ggplot(mpg, aes("hwy")) +
+  geom_histogram() +
+  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+  ggsave("simpleHisto.pdf")
+
+
+#let pltCalc = ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
+#  geom_point() +
+#  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+#  ggsave("scatterColor.pdf")
