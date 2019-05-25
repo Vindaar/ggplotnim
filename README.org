@@ -27,9 +27,33 @@ order to a data frame given.
 Although at the moment the input to =aes= is not implemented, but for
 a working proof of concept, check out the tests.
 
+** Dependencies
+
+For anyone brave enough to try to run this code at the moment, a few
+words on dependencies.
+
+My fork of =seqmath= is required:
+[[https://github.com/vindaar/seqmath]]
+
+The cairo wrapper:
+#+BEGIN_SRC sh
+nimble install cairo
+#+END_SRC
+
+And a branch of =chroma=, for which I haven't created a PR yet, which
+adds HCL support (to calculate the ggplot2 colors). I still need to
+port the RGB->HCL conversion, which I didn't need yet:
+https://github.com/Vindaar/chroma/tree/addHclSpace
+
+With these the code should hopefully compile just fine.
+
+
 ** Examples
 
-The following are just the first plots I reproduced.
+The following are just the first plots I reproduced. The =mpg= dataset
+being used has to be read via the =readCsv= proc (or your own, but it
+has to be a =Table[string, seq[string]]= for now for lack of a proper
+dataframe). The file is located in [[file:data/mpg.csv]] part of the repository.
 
 *** Scatter of displ ~ hwy
 
