@@ -75,7 +75,7 @@ proc createLegend(view: var Viewport,
   var catSeq: seq[string]
   for k, v in cat:
     catSeq.add k
-  for i in startIdx + 1 ..< view.len:#startIdx + 2:#view.len:
+  for i in startIdx + 1 ..< view.len:
     # create rectangle showing style of data points
     var ch = view[i]
     let viewRatio = ch.hView.val / ch.wView.val
@@ -97,13 +97,12 @@ proc createLegend(view: var Viewport,
 
     let label = ch.initText(
       Coord(
-        x: c1(ch.height.val * viewRatio) + c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),#ch.origin.x + c1(ch.height.val + quant(0.3, ukCentimeter).toRelative(ch.wImg).val),
+        x: c1(ch.height.val * viewRatio) +
+           c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
         y: c1(0.5)),
       catSeq[j],
       alignKind = taLeft
     )
-    #rect.addObj point
-    #ch.children.add rect
     ch.addObj [rect, point, label]
     view[i] = ch
     inc j
@@ -370,7 +369,6 @@ proc readCsv*(fname: string): Table[string, seq[string]] =
   result = initTable[string, seq[string]]()
   for col in items(x.headers):
     result[col] = @[]
-  echo result
   while readRow(x):
     for col in items(x.headers):
       result[col].add x.rowEntry(col)
