@@ -333,7 +333,7 @@ proc ggsave*(p: GgPlot, fname: string) =
 
 proc ggsave(fname: string): Draw = Draw(fname: fname)
 
-proc `+`(p: GgPlot, d: Draw): GgPlot =
+proc `+`(p: GgPlot, d: Draw) =
   p.ggsave(d.fname)
 
 proc readCsv*(fname: string): Table[string, seq[string]] =
@@ -358,13 +358,15 @@ proc readCsv*(fname: string): Table[string, seq[string]] =
 let mpg = readCsv("data/mpg.csv")
 
 let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point() + ggsave("scatter.pdf")
-let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+  geom_point()
+plt.ggsave("scatter.pdf")
+
+ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
   ggtitle("ggplotnim - or I Suck At Naming Things™") +
   ggsave("scatterColor.pdf")
 
-let pltHisto = ggplot(mpg, aes("hwy")) +
+ggplot(mpg, aes("hwy")) +
   geom_histogram() +
   ggsave("simpleHisto.pdf")
 

@@ -57,11 +57,15 @@ dataframe). The file is located in [[file:data/mpg.csv]] part of the repository.
 
 *** Scatter of displ ~ hwy
 
-Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a dataframe.
+Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a
+dataframe. 
 #+BEGIN_SRC nim
-let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
+ggplot(mpg, aes(x = "displ", y = "hwy")) +
   geom_point() + ggsave("scatter.pdf")
 #+END_SRC
+Note: if the =ggsave= call is omitted, the return value will be a
+=GgPlot= object, which can either be inspected or modified or called
+upon with =ggsave= at a later time.
 
 [[file:media/scatter.png]]
 
@@ -70,7 +74,7 @@ let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
 Same scatter plot as above, but with a grouping by a third quantity
 ="class"= encoded in the dot color. Also adds a title to the plot.
 #+BEGIN_SRC nim
-let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
   ggtitle("ggplotnim - or I Suck At Naming Things™") +
   ggsave("scatterColor.pdf")
@@ -82,7 +86,7 @@ let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
 
 A simple histogram of one quantity ="hwy"= of a dataframe.
 #+BEGIN_SRC nim
-let pltHisto = ggplot(mpg, aes("hwy")) +
+ggplot(mpg, aes("hwy")) +
   geom_histogram() +
   ggsave("simpleHisto.pdf")
 #+END_SRC
