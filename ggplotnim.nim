@@ -13,7 +13,8 @@ type
   Aesthetics = object
     x: string
     y: Option[string]
-    color: Option[string]
+    color: Option[string] # classify by color
+    size: Option[string] # classify by size
 
   Scales = object
     discard
@@ -27,6 +28,10 @@ type
   GeomKind = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly
   Geom = object
+    style: Option[Style] # if set, apply this style instead of parent's
+    aes: Aesthetics # a geom can have its own aesthetics. Needs to be part of
+                    # the `Geom`, because if we add it to `GgPlot` we lose track
+                    # of which geom it corresponds to
     case kind: GeomKind
     of gkHistogram, gkFreqPoly:
       bins: int # number of bins
@@ -54,11 +59,27 @@ func geom_point*(): Geom =
 func geom_bar(): Geom =
   result = Geom(kind: gkBar)
 
-func geom_histogram*(binWidth = 0.0, bins = 0): Geom =
-  result = Geom(kind: gkHistogram)
+func geom_histogram*(binWidth = 0.0, bins = 0,
+                     color: Color = grey20, # color of the bars
+                    ): Geom =
+  let style = Style(lineType: ltSolid,
+                    lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
+                                    # between bins at size of exactly 1.0 bin width
+                    color: color, # default color
+                    fillColor: color)
+  result = Geom(kind: gkHistogram,
+                style: some(style))
 
-func geom_freqpoly*(): Geom =
-  result = Geom(kind: gkHistogram)
+func geom_freqpoly*(color: Color = grey20, # color of the line
+                    size: float = 1.0, # line width of the line
+                    lineType: LineType = ltSolid,
+                   ): Geom =
+  let style = Style(lineType: lineType,
+                    lineWidth: size,
+                    color: color,
+                    fillColor: transparent)
+  result = Geom(kind: gkFreqPoly,
+                style: some(style))
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
@@ -239,8 +260,16 @@ proc ggsave*(p: GgPlot, fname: string) =
   var plt = img[4]
   plt.background()
 
-  var data = newSeq[GraphObject]()
   for geom in p.geoms:
+    var data = newSeq[GraphObject]()
+    # for each geom, we create a child viewport of `plt` covering
+    # the whole viewport, which will house the data we just created.
+    # Due to being a child, if will be drawn *after* its parent. This way things like
+    # ticks will be below the data.
+    # On the other hand this allows us to draw several geoms in on a plot and have the
+    # order of the function calls `geom_*` be preserved
+    var pChild = plt.addViewport()
+
     case geom.kind
     of gkPoint:
       for aes in p.aes:
@@ -249,18 +278,18 @@ proc ggsave*(p: GgPlot, fname: string) =
         for i in 0 ..< xData.len:
           if aes.color.isSome:
             #let style = Style(fillColor: colorsCat[colors[i]])
-            data.add initPoint(plt, (x: xData[i], y: yData[i]),
+            data.add initPoint(pChild, (x: xData[i], y: yData[i]),
                                marker = mkCircle,
                                color = colorsCat[colors[i]])
           else:
-            data.add initPoint(plt, (x: xData[i], y: yData[i]),
+            data.add initPoint(pChild, (x: xData[i], y: yData[i]),
                                marker = mkCircle)
-    of gkHistogram:
+    of gkHistogram, gkFreqPoly:
       for aes in p.aes:
 
         # before performing a calculation for the histogram viewports, get the
         # new xScale, by calling calcTickLocations with it
-        # Note: we don't have to assign it to the `plt` viewport, since that will
+        # Note: we don't have to assign it to the `pChild` viewport, since that will
         # happen when calculation of the actual ticks will be done later on
         let (newXScale, _, _) = calcTickLocations(xScale, numXTicks)
 
@@ -268,7 +297,10 @@ proc ggsave*(p: GgPlot, fname: string) =
         let rawDat = p.data[aes.x].mapIt(it.parseFloat)
         const nbins = 30
         let binWidth = (newXScale.high - newXScale.low).float / nbins.float
-        #let bin_edges = linspace(newXScale.low - binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
+
+        # TODO: if aes.colos.isSome we have to group the data we histogram first
+        # and calculate histograms for each
+
         let hist = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
 
         # given the histogram, we can now deduce the base yScale we need
@@ -278,26 +310,63 @@ proc ggsave*(p: GgPlot, fname: string) =
         let (newYScale, _, _) = calcTickLocations(yScaleBase, numYTicks)
 
         # create viewports showing the bars
-        plt.yScale = newYScale
-        img.yScale = newYScale
-        plt.layout(nbins, 1)
-        var i = 0
-        for p in mitems(plt):
-          doAssert p.yScale.high >= hist.max.float
-          let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
-          let style = Style(lineType: ltSolid,
-                            lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
-                                            # between bins at size of exactly 1.0 bin width
-                            color: grey20,
-                            fillColor: grey20)
-          let r = p.initRect(c(0.0, yPos), # bottom left
-                             quant(1.0, ukRelative),
-                             quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
-                             style = some(style))
-          p.addObj r
-          inc i
+        pChild.yScale = newYScale
+
+        var style: Option[Style]
+        if geom.style.isSome:
+          style = geom.style
+        else:
+          # TODO: inherit from parent somehow?
+          discard
+        if geom.kind == gkHistogram:
+          pChild.layout(nbins, 1)
+          var i = 0
+          for p in mitems(pChild):
+            doAssert p.yScale.high >= hist.max.float
+            echo "I ", i , " for len ", hist.len
+            let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
+            let r = p.initRect(c(0.0, yPos), # bottom left
+                               quant(1.0, ukRelative),
+                               quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
+                               style = style)
+            p.addObj r
+            inc i
+        else:
+          doAssert geom.kind == gkFreqPoly
+          # only single viewport will be used
+          # calculate bin centers
+          let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
+          # build data points for polyLine
+          var points = newSeq[Point](nbins)
+          for i in 0 ..< nbins:
+            points[i] = (x: binCenters[i], y: hist[i].float)
+
+          # TODO: rewrite code such that user hands style, but we convert to
+          # `Style` in geom?
+          var style: Option[Style]
+          if geom.style.isSome:
+            style = geom.style
+          else:
+            # TODO: somehow inherit something from GgPlot, maybe via themes?
+            discard
+          # have to update the scale of our viewport! `initPolyLine` depends on it
+          # However: we could change the `ginger` code to accept a seq[Coord] instead and
+          # use the `newXScale, newYScale` as the ukData scale instead!
+          pChild.xScale = newXScale
+          data.add pChild.initPolyLine(points, style)
+
+      # for these types there is no y data scale attached to the image so far,
+      # thus we assign `pChild`'s data scale to it
+      # TODO: solve this more elegantly!
+      plt.yScale = pChild.yScale
+      img.yScale = pChild.yScale
     else:
       discard
+
+    # add the data to the child
+    pChild.addObj data
+    # add the data viewport to the plt
+    plt.children.add pChild
 
   let
     xticks = plt.xticks(numXTicks)
@@ -315,8 +384,7 @@ proc ggsave*(p: GgPlot, fname: string) =
     ylabel = plt.ylabel("count")
   else: discard
 
-
-  plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines], data)
+  plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
   img[4] = plt
 
   if drawLegend:
