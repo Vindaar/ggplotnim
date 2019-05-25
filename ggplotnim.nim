@@ -157,6 +157,39 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
   result.title = titleTup[0]
   result.subtitle = titleTup[1]
 
+proc requiresLegend(p: GgPlot): bool =
+  ## returns true if the plot requires a legend to be drawn
+  if p.aes.anyIt(it.color.isSome) or
+     p.aes.anyIt(it.size.isSome) or
+     p.geoms.anyIt(it.aes.color.isSome) or
+     p.geoms.anyIt(it.aes.size.isSome):
+    result = true
+  else:
+    result = false
+
+proc plotLayoutWithLegend(view: var Viewport) =
+  ## creates a layout for a plot in the current viewport that leaves space
+  ## for a legend. Important indices of the created viewports:
+  ## - main plot: idx = 4
+  ## - legend: idx = 5
+  view.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
+                                  quant(0.0, ukRelative),
+                                  quant(5.0, ukCentimeter)],
+              rowheights = @[quant(1.25, ukCentimeter),
+                             quant(0.0, ukRelative),
+                             quant(2.0, ukCentimeter)])
+
+proc plotLayoutWithoutLegend(view: var Viewport) =
+  ## creates a layout for a plot in the current viewport without a legend
+  ## Main plot viewport will be:
+  ## idx = 4
+  view.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
+                                  quant(0.0, ukRelative),
+                                  quant(1.0, ukCentimeter)],
+              rowheights = @[quant(1.0, ukCentimeter),
+                             quant(0.0, ukRelative),
+                             quant(2.0, ukCentimeter)])
+
 proc ggsave*(p: GgPlot, fname: string) =
   # check if any aes
   doAssert p.aes.len > 0, "Needs at least one aesthetics!"
@@ -197,24 +230,11 @@ proc ggsave*(p: GgPlot, fname: string) =
   var img = initViewport(xScale = some(xScale),
                          yScale = some(yScale))
 
-  var drawLegend = false
-  if p.aes[0].color.isSome:
-    # create legend
-    drawLegend = true
-    img.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
-                                   quant(0.0, ukRelative),
-                                   quant(5.0, ukCentimeter)],
-               rowheights = @[quant(1.25, ukCentimeter),
-                              quant(0.0, ukRelative),
-                              quant(2.0, ukCentimeter)])
+  let drawLegend = p.requiresLegend
+  if drawLegend:
+    img.plotLayoutWithLegend()
   else:
-    img.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
-                                   quant(0.0, ukRelative),
-                                   quant(1.0, ukCentimeter)],
-               rowheights = @[quant(1.0, ukCentimeter),
-                              quant(0.0, ukRelative),
-                              quant(2.0, ukCentimeter)])
-
+    img.plotLayoutWithoutLegend()
 
   # get viewport of plot
   var plt = img[4]
