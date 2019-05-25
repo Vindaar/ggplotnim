@@ -456,6 +456,17 @@ ggplot(mpg, aes("hwy")) +
   geom_histogram() +
   ggsave("simpleHisto.pdf")
 
+ggplot(mpg, aes("hwy")) +
+  geom_freqpoly() +
+  ggsave("freqpoly.pdf")
+
+ggplot(mpg, aes("hwy")) +
+  geom_histogram() + # the order of the geom calls decides the order in which
+                     # they are drawn! FreqPoly will be drawn on top of histo
+  geom_freqpoly(color = parseHex("FD971F"),
+                size = 3.0) +
+  ggsave("histoPlusFreqpoly.pdf")
+
 
 #let pltCalc = ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
 #  geom_point() +

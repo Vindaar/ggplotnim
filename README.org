@@ -92,3 +92,29 @@ ggplot(mpg, aes("hwy")) +
 #+END_SRC
 
 [[file:media/simpleHisto.png]]
+
+*** Frequency line plot
+Same as the histogram above, but as a frequence line.
+#+BEGIN_SRC nim
+ggplot(mpg, aes("hwy")) +
+  geom_freqpoly() +
+  ggsave("freqpoly.pdf")
+#+END_SRC
+
+[[file:media/freqpoly.png]]
+
+*** Combining several geoms, setting aesthetics of specific geoms
+
+A combination of a histogram and a frequency line plot. Also showcases
+the ability to set aesthetics of specific geoms to a constant value
+(in this case change line width and color of the =freqpoly= line).
+Note that the order in which the =geom_*= functions are called is also
+the order in which they are drawn.
+#+BEGIN_SRC nim
+ggplot(mpg, aes("hwy")) +
+  geom_histogram() +
+  geom_freqpoly(color = parseHex("FD971F"),
+                size = 3.0) +
+#+END_SRC
+
+[[file:media/histoPlusFreqpoly.png]]
