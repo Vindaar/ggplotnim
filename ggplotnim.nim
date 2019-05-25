@@ -366,7 +366,6 @@ let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
 
 let pltHisto = ggplot(mpg, aes("hwy")) +
   geom_histogram() +
-  ggtitle("ggplotnim - or I Suck At Naming Things™") +
   ggsave("simpleHisto.pdf")
 
 

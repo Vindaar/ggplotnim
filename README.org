@@ -33,12 +33,34 @@ The following are just the first plots I reproduced.
 
 *** Scatter of displ ~ hwy
 
+Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a dataframe.
+#+BEGIN_SRC nim
+let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
+  geom_point() + ggsave("scatter.pdf")
+#+END_SRC
+
 [[file:media/scatter.png]]
 
 *** Scatter of displ ~ hwy, class as color scale
 
+Same scatter plot as above, but with a grouping by a third quantity
+="class"= encoded in the dot color. Also adds a title to the plot.
+#+BEGIN_SRC nim
+let pltColor = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+  geom_point() +
+  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+  ggsave("scatterColor.pdf")
+#+END_SRC
+
 [[file:media/scatterColor.png]]
 
 *** Histogram of hwy
+
+A simple histogram of one quantity ="hwy"= of a dataframe.
+#+BEGIN_SRC nim
+let pltHisto = ggplot(mpg, aes("hwy")) +
+  geom_histogram() +
+  ggsave("simpleHisto.pdf")
+#+END_SRC
 
 [[file:media/simpleHisto.png]]
