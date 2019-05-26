@@ -47,6 +47,53 @@ https://github.com/Vindaar/chroma/tree/addHclSpace
 
 With these the code should hopefully compile just fine.
 
+** Data frame
+
+The library implements a naive data frame, which provides 3 of the "5
+verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
+- =filter=
+- =mutate=, =transmute=
+= =select=, =rename=
+which are all based on the =FormulaNode= object. Basically they all
+receive =varargs[FormulaNode]=, which is evaluated in context of the
+given dataframe.
+
+Creationg of a =FormulaNode= can be done either directly via untyped
+templates acting on =+=, =-=, =*=, =/=, =~=. Using the =mpg= data set
+as an example:
+#+BEGIN_SRC nim
+let f = displ ~ hwy / cty
+#+END_SRC
+would describe the dependence of the displacement (=displ=) of the
+ratio of the highway to the freeway mpg. 
+Echoeing this formula prints it as a lisp like tree:
+#+BEGIN_SRC 
+(~ displ (/ hwy cty))
+#+END_SRC
+Note that the =~= in the untyped templates always acts as the root
+node of the resulting tree. The LHS of it is always considered the
+dependend quantity.
+In these templates however, the identifiers are converted to strings
+and must match the names in the data frame!
+
+The second way to create a =FormulaNode= is via the =f{}= macro. This
+provides a little more flexibility:
+#+BEGIN_SRC nim
+let f = f{ "displ" ~ "hwy" / mean("cty") }
+#+END_SRC
+Note that here all keys *must* be explicit strings. Everything that is
+*not* as string, will be interepreted in the calling scope. However,
+only specific identifiers are allowed, namely those that match a
+procedure, which only takes a single column as input and outputs a
+single value, to be precise:
+#+BEGIN_SRC nim
+proc (p: PersistentVector[Value]): Value
+#+END_SRC
+However, a lifting template is provided to lift any 
+=proc (s: seq[float]): float= proc to this type. 
+
+The =PersistentVector= is an implementation detail of the data frame
+at the moment and may be changed back to =seq= soon.
 
 ** Examples
 
@@ -68,6 +115,39 @@ Note: if the =ggsave= call is omitted, the return value will be a
 upon with =ggsave= at a later time.
 
 [[file:media/scatter.png]]
+
+*** Filtering data frame before plotting
+
+We may now also perform some operations on the data frame, before we
+plot it. For instance we can filter on a string (or a number) and
+perform calculations on columns:
+#+BEGIN_SRC nim
+df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
+  .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
+  ) # <- note that we have to use normal UFCS to hand to `ggplot`!
+  .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) + 
+  geom_point() +
+  ggsave("scatterFromDf.pdf")
+#+END_SRC
+
+[[file:media/scatterFromDF.png]]
+
+*** Mutating via local procedure
+
+In addition we can use locally defined procedures in the =f{}= macro
+as well (see above for caveats). For instance we can normalize a
+column by dividing by the mean:
+#+BEGIN_SRC nim
+df.mutate(f{"cty_norm" ~ "cty" / mean("cty")}) # divide cty by mean
+  .ggplot(aes(x = "displ", y = "cty_norm", color = "class")) +
+  geom_point() +
+  ggsave("classVsNormCty.pdf")
+#+END_SRC
+Note that calculations involving explicit numbers or constants is not
+supported yet. For that the implementation of =FormulaNode= must be
+changed to use =Value= as well.
+
+[[file:media/classVsNormCty.png]]
 
 *** Scatter of displ ~ hwy, class as color scale
 
