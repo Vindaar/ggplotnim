@@ -489,10 +489,25 @@ proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
       result[col].add x.rowEntry(col)
 
 let mpg = readCsv("data/mpg.csv")
-
 let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
   geom_point()
 plt.ggsave("scatter.pdf")
+let df = toDf(mpg)
+
+df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
+  .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
+  ) # <- note that we have to use normal UFCS to hand to `ggplot`!
+  .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) + 
+  geom_point() +
+  ggsave("scatterFromDf.pdf")
+
+df.mutate(f{"cty_norm" ~ "cty" / mean("cty")})
+          # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
+          # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
+          # needs to be converted to type Value before we can do that
+  .ggplot(aes(x = "displ", y = "cty_norm", color = "class")) +
+  geom_point() +
+  ggsave("classVsNormCty.pdf")
 
 ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
