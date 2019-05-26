@@ -100,6 +100,48 @@ proc toFloat*(v: Value): float =
   of VFloat: result = v.fnum
   else: discard
 
+proc isValidVal(v: Value, f: FormulaNode): bool =
+  doAssert v.kind != VObject
+  doAssert f.kind == fkTerm
+  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  case v.kind
+  of VInt, VFloat:
+    case f.op
+    of amEqual:
+      result = v.toFloat == f.rhs.val.toFloat
+    of amGreater:
+      result = v.toFloat > f.rhs.val.toFloat
+    of amLess:
+      result = v.toFloat < f.rhs.val.toFloat
+    of amGeq:
+      result = v.toFloat >= f.rhs.val.toFloat
+    of amLeq:
+      result = v.toFloat <= f.rhs.val.toFloat
+    else:
+      raise newException(Exception, "comparison of kind " & $f.op & " does " &
+        "not make sense for value kind of " & $v.kind & "!")
+  of VString:
+    doAssert not f.rhs.val.isDigit, "comparison must be with another string!"
+    case f.op
+    of amEqual:
+      result = v.str == f.rhs.val
+    of amGreater:
+      result = v.str > f.rhs.val
+    of amLess:
+      result = v.str < f.rhs.val
+    else:
+      raise newException(Exception, "comparison of kind " & $f.op & " does " &
+        "not make sense for value kind of " & $v.kind & "!")
+  else:
+    raise newException(Exception, "comparison for kind " & $v.kind &
+      " not yet implemented!")
+
+proc isValidRow(v: Value, f: FormulaNode): bool =
+  doAssert v.kind == VObject
+  doAssert f.kind == fkTerm
+  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  let lhsVal = f.lhs.val
+  result = lhsVal.isValidVal(f)
 template liftScalarFloatProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
