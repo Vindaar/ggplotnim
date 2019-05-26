@@ -238,6 +238,7 @@ proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
   let lhsVal = f.lhs.val
   result = lhsVal.isValidVal(f)
+
 proc delete(df: DataFrame, rowIdx: int): DataFrame =
   result = df
   for k in keys(df):
@@ -337,10 +338,9 @@ proc expand(n: NimNode): NimNode =
       n1 = n[1]
     result = isSingle(nil, n1, kind)
   else:
-    echo n.treeRepr
     error("Unsupported kind " & $n.kind)
 
-proc constructVariable(n: NimNode): NimNode =
+proc constructVariable*(n: NimNode): NimNode =
   var val = ""
   if n.kind != nnkNilLit:
     val = n.strVal
@@ -561,10 +561,16 @@ proc `$`*(node: FormulaNode): string =
   result = newStringOfCap(1024)
   toUgly(result, node)
 
-proc serialize*(node: FormulaNode, data: Table[string, seq[string]], idx: int): float =
+import typetraits
+proc serialize*[T](node: var FormulaNode, data: T, idx: int): float =
   case node.kind
   of fkVariable:
-    result = data[node.val][idx].parseFloat
+    when type(data) is DataFrame:
+      result = data[node.val][idx].toFloat
+    elif type(data) is Table[string, seq[string]]:
+      result = data[node.val][idx].parseFloat
+    else:
+      error("Unsupported type " & $type(data) & " for serialization!")
   of fkTerm:
     case node.op
     of amPlus:
@@ -577,3 +583,23 @@ proc serialize*(node: FormulaNode, data: Table[string, seq[string]], idx: int): 
       result = node.lhs.serialize(data, idx) / node.rhs.serialize(data, idx)
     of amDep:
       raise newException(Exception, "Cannot serialize a term still containing a dependency!")
+    else:
+      raise newException(Exception, "Cannot serialize a term of kind " & $node.op & "!")
+  of fkFunction:
+    # for now assert that the argument to the function is just a string
+    # Extend this if support for statements like `mean("x" + "y")` (whatever
+    # that is even supposed to mean) is to be added.
+    doAssert node.arg.kind == fkVariable
+    # we also convert to float for the time being. Implement a different proc or make this
+    # generic, we want to support functions returning e.g. `string` (maybe to change the
+    # field name at runtime via some magic proc)
+    #echo "Accessing ", data[node.arg.val]
+    when type(data) is DataFrame:
+      if node.res.isSome:
+        result = node.res.unsafeGet.toFloat
+      else:
+        result = node.fn(data[node.arg.val]).toFloat
+        node.res = some(Value(kind: VFloat, fnum: result))
+    else:
+      raise newException(Exception, "Cannot serialize a fkFunction for a data " &
+        " frame of this type: " & $(type(data).name) & "!")
