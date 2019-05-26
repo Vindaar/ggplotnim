@@ -60,6 +60,46 @@ type
       arg*: FormulaNode
       res: Option[Value] # the result of fn(arg), so that we can cache it
                          # instead of recalculating it for every index potentially
+iterator keys(row: Value): string =
+  doAssert row.kind == VObject
+  for k in keys(row.fields):
+    yield k
+
+proc `[]`*(v: Value, key: string): Value =
+  doAssert v.kind == VObject
+  result = v.fields[key]
+
+proc `[]=`*(v: var Value, key: string, val: Value) =
+  doAssert v.kind == VObject
+  v.fields[key] = val
+
+proc `$`*(v: Value): string =
+  ## converts the given value to its value as a string
+  case v.kind
+  of VInt:
+    result = $v.num
+  of VFloat:
+    result = &"{v.fnum:g}"
+  of VBool:
+    result = $v.bval
+  of VString:
+    result = v.str
+  of VObject:
+    for k, x in v.fields:
+      result.add (&"{k} : {x}")
+  of VNull:
+    result = "null"
+
+proc toSeq(v: PersistentVector[Value]): seq[Value] =
+  result = v[0 ..< v.len]
+
+proc toFloat*(v: Value): float =
+  doAssert v.kind in {VInt, VFloat}
+  case v.kind
+  of VInt: result = v.num.float
+  of VFloat: result = v.fnum
+  else: discard
+
 template liftScalarFloatProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
