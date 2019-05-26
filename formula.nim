@@ -60,10 +60,30 @@ type
       arg*: FormulaNode
       res: Option[Value] # the result of fn(arg), so that we can cache it
                          # instead of recalculating it for every index potentially
+
+type
+  DataFrame* = object
+    len*: int
+    data*: OrderedTable[string, PersistentVector[Value]]
+    #data: Table[string, seq[Value]]
+
+iterator keys(df: DataFrame): string =
+  for k in keys(df.data):
+    yield k
+
 iterator keys(row: Value): string =
   doAssert row.kind == VObject
   for k in keys(row.fields):
     yield k
+
+proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] =
+#proc `[]`(df: DataFrame, k: string): seq[Value] =
+  result = df.data[k]
+
+proc `[]=`*(df: var DataFrame, k: string, vec: PersistentVector[Value]) =
+#proc `[]=`(df: var DataFrame, k: string, vec: seq[Value]) =
+  df.data[k] = vec
+  # doAssert df.len == vec.len
 
 proc `[]`*(v: Value, key: string): Value =
   doAssert v.kind == VObject
@@ -90,8 +110,84 @@ proc `$`*(v: Value): string =
   of VNull:
     result = "null"
 
+proc print*(df: DataFrame, numLines = 20): string =
+  ## converts the first `numLines` to a table
+  let num = min(df.len, numLines)
+  # write header
+  result.add align("Idx", 10)
+  for k in keys(df):
+    result.add &"{k:>10}"
+  result.add "\n"
+  for i in 0 ..< num:
+    result.add &"{i:>10}"
+    for k in keys(df):
+      result.add &"{df[k][i]:>10}"
+    result.add "\n"
+
+func isInt(s: string): bool =
+  result = s.isDigit
+
+func isFloat(s: string): bool =
+  result = s.replace(".", "").isDigit
+
+func isBool(s: string): bool = false
+func parseBool(s: string): bool = false
+
+proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
+  ## creates a data frame from a table of seq[string]
+  result = DataFrame(len: 0)
+  for k, v in t:
+    var vec = initVector[Value]()
+    var data = newSeq[Value]()
+    # check first element of v for type
+    if v.len > 0:
+      #if v[0].isInt:
+      #  for x in v:
+      #    data.add Value(kind: VInt, num: x.parseInt)
+      if v[0].isFloat:
+        for x in v:
+          data.add Value(kind: VFloat, fnum: x.parseFloat)
+      elif v[0].isBool:
+        for x in v:
+          data.add Value(kind: VBool, bval: x.parseBool)
+      else:
+        # assume string
+        for x in v:
+          data.add Value(kind: VString, str: x)
+      vec = data.toPersistentVector
+    #result.data[k] = data
+    result.data[k] = vec
+    if result.len == 0:
+      result.len = result.data[k].len
+
+proc hasKey(df: DataFrame, key: string): bool =
+  result = df.data.hasKey(key)
+
+iterator items(df: DataFrame): Value =
+  # returns each row of the dataframe as a Value of kind VObject
+  for i in 0 ..< df.len:
+    var res = Value(kind: VObject)
+    for k in keys(df):
+      res[k] = df[k][i]
+    yield res
+
+iterator pairs(df: DataFrame): (int, Value) =
+  # returns each row of the dataframe as a Value of kind VObject
+  for i in 0 ..< df.len:
+    var res = Value(kind: VObject)
+    for k in keys(df):
+      res[k] = df[k][i]
+    yield (i, res)
+
 proc toSeq(v: PersistentVector[Value]): seq[Value] =
   result = v[0 ..< v.len]
+
+proc toSeq(df: DataFrame, key: string): seq[Value] =
+  result = df[key].toSeq
+
+proc toFloat*(s: string): float =
+  # TODO: replace by `toFloat(v: Value)`!
+  result = s.parseFloat
 
 proc toFloat*(v: Value): float =
   doAssert v.kind in {VInt, VFloat}
@@ -142,6 +238,26 @@ proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
   let lhsVal = f.lhs.val
   result = lhsVal.isValidVal(f)
+proc delete(df: DataFrame, rowIdx: int): DataFrame =
+  result = df
+  for k in keys(df):
+    var s = df[k][0 ..< df.len]
+    s.delete(rowIdx)
+    #result[k] = s
+    result[k] = toPersistentVector(s)
+  result.len = result.len - 1
+
+proc add(df: var DataFrame, row: Value) =
+  for k in keys(row):
+    #var s = df[k]
+    #s.add row[k]
+    #df[k] = s
+    if not df.hasKey(k):
+      df[k] = initVector[Value]()
+    df[k] = df[k].add row[k]
+    doAssert df.len + 1 == df[k].len
+  df.len = df.len + 1
+
 template liftScalarFloatProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
