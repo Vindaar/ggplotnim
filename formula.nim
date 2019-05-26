@@ -259,6 +259,73 @@ proc add(df: var DataFrame, row: Value) =
     doAssert df.len + 1 == df[k].len
   df.len = df.len + 1
 
+func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
+  if conds.len == 1:
+    let c = conds[0]
+    doAssert c.kind == fkTerm
+    doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+    result = c
+  else: discard
+
+template checkCondition(c: FormulaNode): untyped =
+  doAssert c.kind == fkTerm
+  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+
+func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
+  # returns a proc which contains the condition given by the Formulas
+  result = (
+    proc(v: Value): bool =
+      result = false
+      for c in conds:
+        if not v.isValidVal(c):
+          result = false
+          break
+  )
+
+func getFilteredIdx(df: DataFrame, cond: FormulaNode): seq[int] =
+  ## return indices allowed after filter
+  let key = cond.lhs.val
+  let pv = df[key]
+  result = toSeq(0 ..< df.len).filterIt(pv[it].isValidVal(cond))
+
+func getFilteredIdx(idx: seq[int], df: DataFrame, cond: FormulaNode): seq[int] =
+  ## return indices allowed after filter, starting from a given sequence
+  ## of allowed indices
+  let key = cond.lhs.val
+  let pv = df[key]
+  result = idx.filterIt(pv[it].isValidVal(cond))
+
+#func getFilteredIdx(df: DataFrame, isValid: proc(v: Value): bool): seq[int] =
+#  ## return indices allowed after filter
+#  let key = cond.lhs.val
+#  let pv = df[key]
+#  result = toSeq(0 ..< df.len).filterIt(isValid(pv[it]))
+
+func filter(p: PersistentVector[Value], idx: seq[int]): PersistentVector[Value] =
+  result = toPersistentVector(idx.mapIt(p[it]))
+
+#func filter(p: seq[Value], idx: seq[int]): seq[Value] =
+#  result = idx.mapIt(p[it])
+
+proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
+  ## returns the data frame filtered by the conditions given
+  var fullCondition: FormulaNode
+  var filterIdx: seq[int]
+  for c in conds:
+    checkCondition(c)
+    if filterIdx.len > 0:
+      filterIdx = filterIdx.getFilteredIdx(df, c)
+    else:
+      filterIdx = getFilteredIdx(df, c)
+  #let condProc = buildCondProc(conds)
+
+  #let filterIdx = getFilteredIdx(df, fullCondition)
+  #let filterIdx = getFilteredIdx(df, condProc)
+  for k in keys(df):
+    result[k] = initVector[Value]()
+    result[k] = df[k].filter(filterIdx)
+  result.len = filterIdx.len
+
 template liftScalarFloatProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
@@ -314,6 +381,96 @@ macro `{}`*(x, y: untyped): untyped =
   if x.repr == "f":
     result = buildFormula(y)
 
+proc `$`*(node: FormulaNode): string
+
+proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Value]) =
+  ## calculates a new column based on the `fn` given
+  doAssert fn.lhs.kind == fkVariable
+  let colName = fn.lhs.val
+  # mutable copy so that we can cache the result of `fn(arg)` if such a
+  # function call is involved
+  var mfn = fn
+  var newCol = newSeq[Value](df.len)
+  for i in 0 ..< df.len:
+    newCol[i] = Value(kind: VFloat, fnum: mfn.rhs.serialize(df, i))
+  result = (colName, toPersistentVector(newCol))
+
+proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame with an additional mutated column, described
+  ## by the functions `fns`.
+  ## Each formula `fn` given will be used to create a new column in the
+  ## dataframe.
+  ## We assume that the LHS of the formula corresponds to a fkVariable
+  ## that's used to designate the new name.
+  result = df
+  for fn in fns:
+    if fn.kind == fkVariable:
+      result[fn.val] = df[fn.val]
+    else:
+      let (colName, newCol) = result.calcNewColumn(fn)
+      result[colName] = newCol
+
+proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame cut to the columns created by `fns`, which
+  ## should involve a calculation. To only cut to one or more columns
+  ## use the `select` proc.
+  ## A function may only contain a `fkVariable` in order to keep the
+  ## column without modification.
+  ## We assume that the LHS of the formula corresponds to a fkVariable
+  ## that's used to designate the new name.
+  # since result dataframe is empty, copy len of input
+  result.len = df.len
+  for fn in fns:
+    if fn.kind == fkVariable:
+      result[fn.val] = df[fn.val]
+    else:
+      let (colName, newCol) = df.calcNewColumn(fn)
+      result[colName] = newCol
+
+proc select*[T: string | FormulaNode](df: DataFrame, cols: varargs[T]): DataFrame =
+  ## Returns the data frame cut to the names given as `cols`. The argument
+  ## may either be the name of a column as a string, or a `FormulaNode` describing
+  ## either a selection with a name applied in form of an "equation" (c/f mpg dataset):
+  ## mySelection ~ hwy
+  ## or just an `fkVariable` stating the name of the column. Using the former approach
+  ## it's possible to select and rename a column at the same time.
+  ## Note that the columns will be ordered from left to right given by the order
+  ## of the `cols` argument!
+  result.len = df.len
+  for fn in cols:
+    when type(T) is string:
+      result[fn] = df[fn]
+    else:
+      if fn.kind == fkVariable:
+        result[fn.val] = df[fn.val]
+      else:
+        doAssert fn.rhs.kind == fkVariable, "if you wish to perform a calculation " &
+          "of one or more columns, please use `transmute` or `mutate`!"
+        result[fn.lhs.val] = df[fn.rhs.val]
+        #let (colName, newCol) = df.calcNewColumn(fn)
+        #result[colName] = newCol
+
+proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame with the columns described by `cols` renamed to
+  ## the names on the LHS of the given `FormulaNode`. All other columns will
+  ## be left untouched.
+  ## Note that the renamed columns will be stacked on the right side of the
+  ## data frame!
+  ## NOTE: The operator between the LHS and RHS of the formulas does not
+  ## have to be `~`, but for clarity it should be.
+  result = df
+  for fn in cols:
+    doAssert fn.kind == fkTerm, "The formula must be term!"
+    doAssert fn.rhs.kind == fkVariable, "the RHS of the formula must be a name " &
+      "given as a `fkVariable`!"
+    result[fn.lhs.val] = df[fn.rhs.val]
+    # remove the column of the old name
+    result.data.del(fn.rhs.val)
+
+
+################################################################################
+####### FORMULA
+################################################################################
 
 proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode
 proc expand(n: NimNode): NimNode =

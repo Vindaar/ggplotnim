@@ -6,6 +6,8 @@ import seqmath
 
 import macros
 
+import persvector
+
 import formula
 export formula
 
