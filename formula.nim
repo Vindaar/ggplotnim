@@ -236,8 +236,8 @@ proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert v.kind == VObject
   doAssert f.kind == fkTerm
   doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
-  let lhsVal = f.lhs.val
-  result = lhsVal.isValidVal(f)
+  let lhsKey = f.lhs.val
+  result = v[lhsKey].isValidVal(f)
 
 proc delete(df: DataFrame, rowIdx: int): DataFrame =
   result = df
