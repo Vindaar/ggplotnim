@@ -1,8 +1,33 @@
-import macros, tables, strutils
+import macros, tables, strutils, options
+
+import persvector, sequtils, seqmath, stats, strformat
 
 type
+  ValueKind* = enum
+    VNull,
+    VBool,
+    VInt,
+    VFloat,
+    VString,
+    VObject
+
+  Value* = object
+    case kind*: ValueKind
+    of VString:
+      str*: string
+    of VInt:
+      num*: BiggestInt
+    of VFloat:
+      fnum*: float
+    of VBool:
+      bval*: bool
+    of VObject:
+      fields*: OrderedTable[string, Value]
+    of VNull:
+      discard
+
   FormulaKind* = enum
-    fkTerm, fkVariable#, fkFunction, #fkFormula
+    fkTerm, fkVariable, fkFunction, #fkFormula
 
   ArithmeticKind* = enum
     amPlus = "+"
@@ -27,7 +52,43 @@ type
       rhs*: FormulaNode
       op*: ArithmeticKind
     of fkVariable:
-      val*: string
+      val*: string # TODO: replace by `Value`!
+    of fkFunction:
+      # storing a function to be applied to the data
+      fnName*: string
+      fn*: proc(s: PersistentVector[Value]): Value
+      arg*: FormulaNode
+      res: Option[Value] # the result of fn(arg), so that we can cache it
+                         # instead of recalculating it for every index potentially
+proc serialize*[T](node: var FormulaNode, data: T, idx: int): float
+proc constructVariable*(n: NimNode): NimNode
+proc constructFunction*(n: NimNode): NimNode
+proc buildFormula(n: NimNode): NimNode
+proc handleSide(n: NimNode): NimNode =
+  case n.kind
+  of nnkInfix:
+    result = buildFormula(n)
+  of nnkStrLit:
+    result = constructVariable(n)
+  of nnkCall:
+    result = constructFunction(n)
+  else:
+    raise newException(Exception, "Not implemented!")
+
+proc buildFormula(n: NimNode): NimNode =
+  expectKind(n, nnkInfix)
+  let opid = n[0].strVal
+  let op = quote do:
+    parseEnum[ArithmeticKind](`opid`)
+  let lhs = handleSide(n[1])
+  let rhs = handleSide(n[2])
+  result = quote do:
+    FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
+
+macro `{}`*(x, y: untyped): untyped =
+  if x.repr == "f":
+    result = buildFormula(y)
+
 
 proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode
 proc expand(n: NimNode): NimNode =
@@ -65,6 +126,13 @@ proc constructVariable(n: NimNode): NimNode =
     val = ""
   result = quote do:
     FormulaNode(kind: fkVariable, val: `val`)
+
+proc constructFunction*(n: NimNode): NimNode =
+  let fname = n[0].strVal
+  let fn = n[0]
+  let arg = constructVariable(n[1])
+  result = quote do:
+    FormulaNode(kind: fkFunction, fnName: `fname`, fn: `fn`, arg: `arg`)
 
 proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode =
   var
@@ -257,6 +325,12 @@ proc toUgly*(result: var string, node: FormulaNode) =
     result.add ")"
   of fkVariable:
     result.add node.val
+  of fkFunction:
+    result.add "("
+    result.add node.fnName
+    result.add " "
+    result.toUgly node.arg
+    result.add ")"
 
 proc `$`*(node: FormulaNode): string =
   ## Converts `node` to its string representation
