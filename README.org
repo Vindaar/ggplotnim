@@ -130,6 +130,8 @@ df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
   ggsave("scatterFromDf.pdf")
 #+END_SRC
 
+/And eeehm, I guess the legend is broken if we only have a single entry.../
+
 [[file:media/scatterFromDF.png]]
 
 *** Mutating via local procedure
