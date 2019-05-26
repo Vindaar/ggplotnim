@@ -212,10 +212,53 @@ proc plotLayoutWithoutLegend(view: var Viewport) =
                              quant(0.0, ukRelative),
                              quant(2.0, ukCentimeter)])
 
+proc dataTo[T: Table | OrderedTable | DataFrame; U](
+  df: T,
+  col: string,
+  outType: typedesc[U]): seq[U] =
+  ## reads the column `col` from the Table / DataFrame and converts
+  ## it to `outType`, returns it as a `seq[outType]`
+  ## NOTE: For now we just assume that a Table will be of kind
+  ## `Table[string, seq[string]]`!
+  when type(T) is Table or type(T) is OrderedTable:
+    # well we just assume that the data is a string of numbers
+    # so parse to float and then convert to out type
+    # for proper support of string types etc., need the `Value` type
+    when outType is SomeNumber:
+      result = df[col].mapIt(it.parseFloat.outType)
+    elif outType is string:
+      result = df[col]
+  else:
+    # make a check of the type of the first element of the seq
+    let dkind = df[col][0].kind
+    when outType is SomeNumber:
+      case dkind
+      of VInt:
+        result = df[col].toSeq.mapIt(it.num.outType)
+      of VFloat:
+        result = df[col].toSeq.mapIt(it.fnum.outType)
+      else: discard
+    elif outType is string:
+      case dkind
+      of VString:
+        result = df[col].toSeq.mapIt(it.str.outType)
+      else: discard
+    elif outType is bool:
+      case dking
+      of VBool:
+        result = df[col].toSeq.mapIt(it.bval.outType)
+      else: discard
+    else:
+      case dkind
+      of VObject:
+        doAssert false, "there cannot be a column with object type!"
+      of VNull:
+        raise newException(Exception, "Column " & $col & " has no data!")
+      else: discard
+
 proc ggsave*(p: GgPlot, fname: string) =
   # check if any aes
   doAssert p.aes.len > 0, "Needs at least one aesthetics!"
-
   const
     numXTicks = 10
     numYTicks = 10
@@ -227,21 +270,23 @@ proc ggsave*(p: GgPlot, fname: string) =
     colors: seq[string]
   for aes in p.aes:
     # determine min and max scales of aes
+    let xdata = p.data.dataTo(aes.x, float)
     let
-      minX = p.data[aes.x].mapIt(it.parseFloat).min
-      maxX = p.data[aes.x].mapIt(it.parseFloat).max
+      minX = xdata.min
+      maxX = xdata.max
     xScale = (low: minX, high: maxX)
     var
       minY: float
       maxY: float
     if aes.y.isSome:
-      minY = p.data[aes.y.get].mapIt(it.parseFloat).min
-      maxY = p.data[aes.y.get].mapIt(it.parseFloat).max
+      let ydata = p.data.dataTo(aes.y.get, float)
+      minY = ydata.min
+      maxY = ydata.max
       yScale = (low: minY, high: maxY)
 
     if aes.color.isSome:
       var colorCs: seq[Color]
-      colors = p.data[aes.color.get]
+      colors = p.data.dataTo(aes.color.get, string)
       # convert to set to filter duplicates, back to seq and sort
       let catSeq = colors.toSet.toSeq.sorted
       colorCs = ggColorHue(catSeq.len)
@@ -275,8 +320,8 @@ proc ggsave*(p: GgPlot, fname: string) =
     case geom.kind
     of gkPoint:
       for aes in p.aes:
-        let xData = p.data[aes.x].mapIt(it.parseFloat)
-        let yData = p.data[aes.y.get].mapIt(it.parseFloat)
+        let xData = p.data.dataTo(aes.x, float)
+        let yData = p.data.dataTo(aes.y.get, float)
         for i in 0 ..< xData.len:
           if aes.color.isSome:
             #let style = Style(fillColor: colorsCat[colors[i]])
@@ -296,7 +341,7 @@ proc ggsave*(p: GgPlot, fname: string) =
         let (newXScale, _, _) = calcTickLocations(xScale, numXTicks)
 
         # generate the histogram itself
-        let rawDat = p.data[aes.x].mapIt(it.parseFloat)
+        let rawDat = p.data.dataTo(aes.x, float)
         const nbins = 30
         let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
@@ -425,7 +470,7 @@ proc ggsave(fname: string): Draw = Draw(fname: fname)
 proc `+`(p: GgPlot, d: Draw) =
   p.ggsave(d.fname)
 
-proc readCsv*(fname: string): Table[string, seq[string]] =
+proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
   ## values, where idx 0 corresponds to the first data value
   var s = newFileStream(fname, fmRead)
@@ -436,7 +481,7 @@ proc readCsv*(fname: string): Table[string, seq[string]] =
   open(x, s, fname)
   var isHeader = true
   x.readHeaderRow()
-  result = initTable[string, seq[string]]()
+  result = initOrderedTable[string, seq[string]]()
   for col in items(x.headers):
     result[col] = @[]
   while readRow(x):
