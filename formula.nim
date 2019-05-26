@@ -10,6 +10,11 @@ type
     amMul = "*"
     amDiv = "/"
     amDep = "~"
+    amEqual = "=="
+    amGreater = ">"
+    amLess = ">"
+    amGeq = ">="
+    amLeq = "<="
 
   FormulaNode* = ref FormulaNodeObj
   FormulaNodeObj = object
@@ -200,6 +205,46 @@ template `*`*(x, y: untyped): FormulaNode =
 
 template `/`*(x, y: untyped): FormulaNode =
   deconstruct(x, y, amDiv)
+
+proc initVariable(x: string): FormulaNode =
+  result = FormulaNode(kind: fkVariable,
+                       val: x)
+
+template makeMathProc(operator, opKind: untyped): untyped =
+  proc `operator`*(x, y: string): FormulaNode =
+    let
+      lhs = initVariable(x)
+      rhs = initVariable(y)
+    result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
+                         op: opKind)
+  proc `operator`*(lhs: FormulaNode, y: string): FormulaNode =
+    let rhs = initVariable(y)
+    result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
+                         op: opKind)
+  proc `operator`*(x: string, rhs: FormulaNode): FormulaNode =
+    let lhs = initVariable(x)
+    result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
+                         op: opKind)
+
+# there are no overloads using `:` syntax for +, -, *, / since
+# then the operator precedence would be overwritten!
+# For comparison operators this does not matter.
+#makeMathProc(`+`, amPlus)
+#makeMathProc(`-`, amMinus)
+#makeMathProc(`*`, amMul)
+#makeMathProc(`/`, amDiv)
+#makeMathProc(`~`, amDep)
+makeMathProc(`:~`, amDep)
+makeMathProc(`:=`, amEqual)
+makeMathProc(equal, amEqual)
+makeMathProc(`:>`, amGreater)
+makeMathProc(greater, amGreater)
+makeMathProc(`:<`, amLess)
+makeMathProc(less, amLess)
+makeMathProc(`:>=`, amGeq)
+makeMathProc(geq, amGeq)
+makeMathProc(`:<=`, amLeq)
+makeMathProc(leq, amLeq)
 
 proc toUgly*(result: var string, node: FormulaNode) =
   var comma = false
