@@ -54,6 +54,7 @@ verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
 - =filter=
 - =mutate=, =transmute=
 = =select=, =rename=
+
 which are all based on the =FormulaNode= object. Basically they all
 receive =varargs[FormulaNode]=, which is evaluated in context of the
 given dataframe.
