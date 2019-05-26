@@ -60,6 +60,32 @@ type
       arg*: FormulaNode
       res: Option[Value] # the result of fn(arg), so that we can cache it
                          # instead of recalculating it for every index potentially
+template liftScalarFloatProc(name: untyped): untyped =
+  proc `name`*(v: PersistentVector[Value]): Value =
+    result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
+
+template liftScalarIntProc(name: untyped): untyped =
+  proc `name`*(v: PersistentVector[Value]): Value =
+    result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
+
+template liftScalarStringProc(name: untyped): untyped =
+  proc `name`*(v: PersistentVector[Value]): Value =
+    result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toInt)))
+
+liftScalarFloatProc(mean)
+
+template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
+  proc `name`*(v: PersistentVector[Value]): `outType` =
+    result = v[0 ..< v.len].mapIt(`name`(it.toFloat))
+
+liftVectorProcToPersVec(ln, seq[float])
+
+#template liftProcToString(name: untyped, outType: untyped): untyped =
+#  proc `name`(df: DataFrame, x: string): `outType` =
+#    result = `name`(df[x])
+#
+#liftProcToString(mean, float)
+
 proc serialize*[T](node: var FormulaNode, data: T, idx: int): float
 proc constructVariable*(n: NimNode): NimNode
 proc constructFunction*(n: NimNode): NimNode
