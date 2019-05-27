@@ -21,7 +21,7 @@ mpg. All identifiers appearing in the formula are taken to be strings,
 which should appear in the data frame we give to =ggplot= (currently
 it's just using =Table[string, seq[string]]=. 
 
-The formula mentioned will be stored as =(displ (/ cty hwy))= and a
+The formula mentioned will be stored as =(~ displ (/ cty hwy))= and a
 proc can be used to apply the mathematical functions in the correct
 order to a data frame given.
 Although at the moment the input to =aes= is not implemented, but for
