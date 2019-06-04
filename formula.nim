@@ -607,13 +607,11 @@ macro getFunctionType(fn: typed): untyped =
   ## - `ScalarValuedFunc` == proc(s: Value): Value
   ## Using `when T is VectorValuedFunc` in `createFormula` always enters
   ## the `else` branch?!
-  echo "REPR ", fn.treeRepr
   case fn.kind
   of nnkSym:
     result = getFuncKind(fn)
   else:
     error("Invalid node kind " & $fn.kind)
-  echo result.treeRepr
 
 proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode =
   ## creates a `FormulaNode` of `fkFunction` with the correct `funcKind` based on the
