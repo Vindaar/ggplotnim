@@ -326,19 +326,33 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
     result[k] = df[k].filter(filterIdx)
   result.len = filterIdx.len
 
-template liftScalarFloatProc(name: untyped): untyped =
+template liftVectorFloatProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
 
-template liftScalarIntProc(name: untyped): untyped =
+template liftVectorIntProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
 
-template liftScalarStringProc(name: untyped): untyped =
+template liftVectorStringProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toInt)))
 
-liftScalarFloatProc(mean)
+template liftScalarFloatProc(name: untyped): untyped =
+  proc `name`*(v: Value): Value =
+    result = Value(kind: VFloat, fnum: `name`(v.toFloat))
+
+template liftScalarIntProc(name: untyped): untyped =
+  proc `name`*(v: Value): Value =
+    result = Value(kind: VInt, num: `name`(v.toInt))
+
+template liftScalarStringProc(name: untyped): untyped =
+  proc `name`*(v: Value): Value =
+    result = Value(kind: VString, str: `name`(v.toString))
+
+liftVectorFloatProc(mean)
+liftScalarFloatProc(abs)
+liftScalarFloatProc(ln)
 
 template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): `outType` =
