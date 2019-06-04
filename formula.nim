@@ -2,6 +2,9 @@ import macros, tables, strutils, options
 
 import persvector, sequtils, seqmath, stats, strformat
 
+# for error messages to print types
+import typetraits
+
 type
   ValueKind* = enum
     VNull,
@@ -28,6 +31,12 @@ type
 
   FormulaKind* = enum
     fkTerm, fkVariable, fkFunction, #fkFormula
+
+  VectorValuedFunc* = proc(s: PersistentVector[Value]): Value
+  ScalarValuedFunc* = proc(s: Value): Value
+
+  FuncKind* = enum
+    funcVector, funcScalar
 
   ArithmeticKind* = enum
     amPlus = "+"
@@ -56,10 +65,14 @@ type
     of fkFunction:
       # storing a function to be applied to the data
       fnName*: string
-      fn*: proc(s: PersistentVector[Value]): Value
       arg*: FormulaNode
-      res: Option[Value] # the result of fn(arg), so that we can cache it
-                         # instead of recalculating it for every index potentially
+      case fnKind*: FuncKind
+      of funcVector:
+        fnV*: proc(s: PersistentVector[Value]): Value
+        res: Option[Value] # the result of fn(arg), so that we can cache it
+                           # instead of recalculating it for every index potentially
+      of funcScalar:
+        fnS*: proc(s: Value): Value
 
 type
   DataFrame* = object
@@ -522,12 +535,107 @@ proc constructVariable*(n: NimNode): NimNode =
   result = quote do:
     FormulaNode(kind: fkVariable, val: `val`)
 
+proc isValidFunc(fn: NimNode): bool =
+  ## Checks if the given `fn` sym node represents a valid function
+  ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
+  let impl = fn.getTypeImpl
+  result = false
+  case impl.kind
+  of nnkProcTy:
+    let argType = impl[0][1][1]
+    if argType.kind == nnkBracketExpr:
+      if eqIdent(argType[0], "PersistentVector") and
+         eqIdent(argType[1], "Value"):
+        result = true
+    else:
+      if eqIdent(argType, "Value"):
+        result = true
+  of nnkBracketExpr:
+    expectKind(impl[1], nnkProcTy)
+    result = isValidFunc(impl[1])
+  else:
+    error("Invalid kind " & $impl.kind)
+
+macro extractFunction(fn: typed): untyped =
+  ## returns the correct function from a potential `nnkClosedSymChoice`.
+  ## If `fn` is already a SymNode, will return the function, if if is
+  ## a valid function under `isValidFunc`.
+  result = newEmptyNode()
+  case fn.kind
+  of nnkSym:
+    if isValidFunc(fn):
+      # if a valid function, return it
+      result = fn
+  of nnkClosedSymChoice:
+    # if a generic, check if there exists a valid choice
+    for ch in fn:
+      if isValidFunc(ch):
+        result = ch
+        return result
+  else:
+    error("Invalid node kind " & $fn.kind)
+  if result.kind == nnkEmpty:
+    error("Could not find an appropriate function of `VectorValuedKind` or " &
+      "`ScalarValuedKind`! Make sure to lift the `" & $fn.repr & "` proc you " &
+      "wish to use!")
+
+proc getFuncKind(fn: NimNode): NimNode =
+  ## returns the type of function of `fn`. It is assumed that generics have
+  ## already been resolved by `extractFunction`. It is called by the
+  ## `getFunctionType` macro.
+  let impl = fn.getTypeImpl
+  case impl.kind
+  of nnkProcTy:
+    let argType = impl[0][1][1]
+    if argType.kind == nnkBracketExpr:
+      doAssert eqIdent(argType[0], "PersistentVector")
+      doAssert eqIdent(argType[1], "Value")
+      result = ident"VectorValuedFunc"
+    else:
+      doAssert eqIdent(argType, "Value")
+      result = ident"ScalarValuedFunc"
+  of nnkBracketExpr:
+    expectKind(impl[1], nnkProcTy)
+    result = getFuncKind(impl[1])
+  else:
+    error("Invalid kind " & $impl.kind)
+
+macro getFunctionType(fn: typed): untyped =
+  ## helper macro to work around issue in `createFormula`.
+  ## Returns the type of the function that we are handed. Either a
+  ## - `VectorValuedFunc` == proc(s: PersistentVector[Value]): Value
+  ## - `ScalarValuedFunc` == proc(s: Value): Value
+  ## Using `when T is VectorValuedFunc` in `createFormula` always enters
+  ## the `else` branch?!
+  echo "REPR ", fn.treeRepr
+  case fn.kind
+  of nnkSym:
+    result = getFuncKind(fn)
+  else:
+    error("Invalid node kind " & $fn.kind)
+  echo result.treeRepr
+
+proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode =
+  ## creates a `FormulaNode` of `fkFunction` with the correct `funcKind` based on the
+  ## given `fn`.
+  type fnType = getFunctionType(T)
+  when fnType is VectorValuedFunc:
+    result = FormulaNode(kind: fkFunction, fnName: name, arg: arg,
+                         fnKind: funcVector, fnV: fn)
+  elif fnType is ScalarValuedFunc:
+    result = FormulaNode(kind: fkFunction, fnName: name, arg: arg,
+                         fnKind: funcScalar, fnS: fn)
+  else:
+    raise newException(Exception, "Invalid function type: " & $type(fn).name)
+
 proc constructFunction*(n: NimNode): NimNode =
   let fname = n[0].strVal
   let fn = n[0]
   let arg = constructVariable(n[1])
   result = quote do:
-    FormulaNode(kind: fkFunction, fnName: `fname`, fn: `fn`, arg: `arg`)
+    # potentially extract the function from a generic
+    let fnArg = extractFunction(`fn`)
+    createFormula(`fname`, fnArg, `arg`)
 
 proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode =
   var
@@ -732,7 +840,6 @@ proc `$`*(node: FormulaNode): string =
   result = newStringOfCap(1024)
   toUgly(result, node)
 
-import typetraits
 proc serialize*[T](node: var FormulaNode, data: T, idx: int): float =
   case node.kind
   of fkVariable:
@@ -766,11 +873,18 @@ proc serialize*[T](node: var FormulaNode, data: T, idx: int): float =
     # field name at runtime via some magic proc)
     #echo "Accessing ", data[node.arg.val]
     when type(data) is DataFrame:
-      if node.res.isSome:
-        result = node.res.unsafeGet.toFloat
-      else:
-        result = node.fn(data[node.arg.val]).toFloat
-        node.res = some(Value(kind: VFloat, fnum: result))
+      case node.fnKind
+      of funcVector:
+        # a function taking a vector. Check if result already computed, else apply
+        # to the column and store the result
+        if node.res.isSome:
+          result = node.res.unsafeGet.toFloat
+        else:
+          result = node.fnV(data[node.arg.val]).toFloat
+          node.res = some(Value(kind: VFloat, fnum: result))
+      of funcScalar:
+        # just a function taking a scalar. Apply to current `idx`
+        result = node.fnS(data[node.arg.val][idx]).toFloat
     else:
       raise newException(Exception, "Cannot serialize a fkFunction for a data " &
         " frame of this type: " & $(type(data).name) & "!")
