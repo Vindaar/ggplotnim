@@ -679,6 +679,71 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.data.del(fn.rhs.val.str)
 
+proc outerJoin*(df1, df2: DataFrame, by: string): DataFrame =
+  ## returns a data frame joined by the given key `by` in such a way as to only keep
+  ## rows found in both data frames
+  # build sets from both columns and seqs of their corresponding indices
+  let
+    col1 = toSeq(df1, by)
+    col2 = toSeq(df2, by)
+  let colSet1 = col1.toSet
+  let colSet2 = col2.toSet
+  let intersection = colSet1 * colSet2
+  let idxDf1 = toSeq(0 ..< col1.len).filterIt(col1[it] in intersection)
+  let idxDf2 = toSeq(0 ..< col2.len).filterIt(col2[it] in intersection)
+  var
+    i = 0
+    j = 0
+  let
+    keys1 = block:
+      var tmp: seq[string]
+      for k in keys(df1):
+        tmp.add k
+      tmp.toSet
+    keys2 = block:
+      var tmp: seq[string]
+      for k in keys(df2):
+        tmp.add k
+      tmp.toSet
+    allKeys = keys1 + keys2
+  var row = Value(kind: VObject)
+  var seqTab = initOrderedTable[string, seq[Value]]()
+  for k in allKeys:
+    seqTab[k] = newSeq[Value](max(idxDf1.len, idxDf2.len))
+  var count = 0
+  while i < idxDf1.len and
+        j < idxDf2.len:
+    let il = idxDf1[i]
+    let jl = idxDf2[j]
+    # indices point to same row, merge row
+    if df1[by][il] == df2[by][jl]:
+      for k in allKeys:
+        if k in keys1 and k in keys2:
+          doAssert df1[k][il] == df2[k][jl]
+          seqTab[k][count] = df1[k][il]
+        elif k in keys1:
+          seqTab[k][count] = df1[k][il]
+        elif k in keys2:
+          seqTab[k][count] = df2[k][jl]
+    # now increase the indices as required
+    if i != idxDf1.high and
+       j != idxDf2.high and
+       (df1[by][idxDf1[i+1]] == df2[by][idxDf2[j+1]]):
+      inc i
+      inc j
+    elif i != idxDf1.high and (df1[by][idxDf1[i+1]] == df2[by][jl]):
+      inc i
+    elif j != idxDf2.high and (df1[by][il] == df2[by][idxDf2[j+1]]):
+      inc j
+    elif i == idxDf1.high and j == idxDf2.high:
+      break
+    else:
+      raise newException(Exception, "This should not happen")
+    inc count
+  result.len = count
+  for k in keys(seqTab):
+    result[k] = seqTab[k].toPersistentVector
+
 
 ################################################################################
 ####### FORMULA
