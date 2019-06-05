@@ -1040,22 +1040,23 @@ template `*`*(x, y: untyped): FormulaNode =
 template `/`*(x, y: untyped): FormulaNode =
   deconstruct(x, y, amDiv)
 
-proc initVariable(x: string): FormulaNode =
+proc initVariable[T](x: T): FormulaNode =
   result = FormulaNode(kind: fkVariable,
-                       val: x)
+                       val: % x)
 
 template makeMathProc(operator, opKind: untyped): untyped =
-  proc `operator`*(x, y: string): FormulaNode =
+  #proc `operator`*(x, y: string): FormulaNode =
+  proc `operator`*[T, U](x: T, y: U): FormulaNode =
     let
       lhs = initVariable(x)
       rhs = initVariable(y)
     result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
                          op: opKind)
-  proc `operator`*(lhs: FormulaNode, y: string): FormulaNode =
+  proc `operator`*[T](lhs: FormulaNode, y: T): FormulaNode =
     let rhs = initVariable(y)
     result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
                          op: opKind)
-  proc `operator`*(x: string, rhs: FormulaNode): FormulaNode =
+  proc `operator`*[T](x: T, rhs: FormulaNode): FormulaNode =
     let lhs = initVariable(x)
     result = FormulaNode(kind: fkTerm, lhs: lhs, rhs: rhs,
                          op: opKind)

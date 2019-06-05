@@ -8,7 +8,7 @@ import macros
 
 import persvector
 
-import formula
+import ggplotnim / formula
 export formula
 
 type
@@ -76,7 +76,10 @@ proc getColor[T: SomeInteger | string](s: Scales, k: T): Color =
 proc getColorKey(s: Scales, at: int): string =
   ## returns the key of the colorMap at insertion index `at`
   ## This works because `colorMap` is an OrderedTable
-  result = toSeq(keys(s.colorMap))[at]
+  var tmp = newSeq[string](s.colorMap.len)
+  for k in keys(s.colorMap):
+    tmp.add k
+  result = tmp[at]
 
 proc addAes(p: var GgPlot, aes: Aesthetics) =
   ## adds the aesthetics to the plot. This is non trivial, because
