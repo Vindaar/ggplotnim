@@ -353,7 +353,7 @@ template seqsToDf*(s: varargs[untyped]): untyped =
 proc hasKey(df: DataFrame, key: string): bool =
   result = df.data.hasKey(key)
 
-iterator items(df: DataFrame): Value =
+iterator items*(df: DataFrame): Value =
   # returns each row of the dataframe as a Value of kind VObject
   for i in 0 ..< df.len:
     var res = Value(kind: VObject)
@@ -361,7 +361,7 @@ iterator items(df: DataFrame): Value =
       res[k] = df[k][i]
     yield res
 
-iterator pairs(df: DataFrame): (int, Value) =
+iterator pairs*(df: DataFrame): (int, Value) =
   # returns each row of the dataframe as a Value of kind VObject
   for i in 0 ..< df.len:
     var res = Value(kind: VObject)
