@@ -1,6 +1,6 @@
-import macros, tables, strutils, options, fenv
+import macros, tables, strutils, options, fenv, sets, hashes
 
-import persvector, sequtils, seqmath, stats, strformat
+import persvector, sequtils, seqmath, stats, strformat, algorithm
 
 # for error messages to print types
 import typetraits
@@ -122,6 +122,24 @@ proc `$`*(v: Value): string =
       result.add (&"{k} : {x}")
   of VNull:
     result = "null"
+
+proc hash(x: Value): Hash =
+  case x.kind
+  of VInt:
+    result = hash(x.num)
+  of VFloat:
+    result = hash(x.fnum)
+  of VString:
+    result = hash(x.str)
+  of VBool:
+    result = hash(x.bval)
+  of VObject:
+    for k, v in x.fields:
+      result = result !& hash(k)
+      result = result !& hash(v)
+  of VNull:
+    result = 0
+  result = !$result
 
 proc `%`*(v: string): Value =
   result = Value(kind: VString, str: v)
