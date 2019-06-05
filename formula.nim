@@ -61,7 +61,7 @@ type
       rhs*: FormulaNode
       op*: ArithmeticKind
     of fkVariable:
-      val*: string # TODO: replace by `Value`!
+      val*: Value
     of fkFunction:
       # storing a function to be applied to the data
       fnName*: string
@@ -327,15 +327,16 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
   of VInt, VFloat:
     case f.op
     of amEqual:
-      result = v.toFloat == f.rhs.val.toFloat
+      result = v.toFloat.nearlyEqual(f.rhs.val.toFloat)
     of amGreater:
-      result = v.toFloat > f.rhs.val.toFloat
+      #result = v.toFloat > f.rhs.val.toFloat
+      result = v > f.rhs.val
     of amLess:
-      result = v.toFloat < f.rhs.val.toFloat
+      result = v < f.rhs.val
     of amGeq:
-      result = v.toFloat >= f.rhs.val.toFloat
+      result = v >= f.rhs.val
     of amLeq:
-      result = v.toFloat <= f.rhs.val.toFloat
+      result = v <= f.rhs.val
     else:
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
@@ -343,11 +344,11 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     doAssert not f.rhs.val.isDigit, "comparison must be with another string!"
     case f.op
     of amEqual:
-      result = v.str == f.rhs.val
+      result = v == f.rhs.val
     of amGreater:
-      result = v.str > f.rhs.val
+      result = v > f.rhs.val
     of amLess:
-      result = v.str < f.rhs.val
+      result = v < f.rhs.val
     else:
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
@@ -360,7 +361,8 @@ proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert f.kind == fkTerm
   doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
   let lhsKey = f.lhs.val
-  result = v[lhsKey].isValidVal(f)
+  doAssert f.lhs.val.kind == VString
+  result = v[lhsKey.str].isValidVal(f)
 
 proc delete(df: DataFrame, rowIdx: int): DataFrame =
   result = df
@@ -408,14 +410,16 @@ func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
 func getFilteredIdx(df: DataFrame, cond: FormulaNode): seq[int] =
   ## return indices allowed after filter
   let key = cond.lhs.val
-  let pv = df[key]
+  doAssert key.kind == VString
+  let pv = df[key.str]
   result = toSeq(0 ..< df.len).filterIt(pv[it].isValidVal(cond))
 
 func getFilteredIdx(idx: seq[int], df: DataFrame, cond: FormulaNode): seq[int] =
   ## return indices allowed after filter, starting from a given sequence
   ## of allowed indices
   let key = cond.lhs.val
-  let pv = df[key]
+  doAssert key.kind == VString
+  let pv = df[key.str]
   result = idx.filterIt(pv[it].isValidVal(cond))
 
 #func getFilteredIdx(df: DataFrame, isValid: proc(v: Value): bool): seq[int] =
@@ -489,15 +493,18 @@ liftVectorProcToPersVec(ln, seq[float])
 #
 #liftProcToString(mean, float)
 
-proc serialize*[T](node: var FormulaNode, data: T, idx: int): float
-proc constructVariable*(n: NimNode): NimNode
+proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float
+proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode
 proc constructFunction*(n: NimNode): NimNode
 proc buildFormula(n: NimNode): NimNode
 proc handleSide(n: NimNode): NimNode =
   case n.kind
   of nnkInfix:
     result = buildFormula(n)
-  of nnkStrLit:
+  of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
+    result = constructVariable(n)
+  of nnkIdent:
+    # should correspond to a known identifier in the calling scope
     result = constructVariable(n)
   of nnkCall:
     result = constructFunction(n)
@@ -523,13 +530,14 @@ proc `$`*(node: FormulaNode): string
 proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Value]) =
   ## calculates a new column based on the `fn` given
   doAssert fn.lhs.kind == fkVariable
-  let colName = fn.lhs.val
+  doAssert fn.lhs.val.kind == VString
+  let colName = $fn.lhs.val
   # mutable copy so that we can cache the result of `fn(arg)` if such a
   # function call is involved
   var mfn = fn
   var newCol = newSeq[Value](df.len)
   for i in 0 ..< df.len:
-    newCol[i] = Value(kind: VFloat, fnum: mfn.rhs.serialize(df, i))
+    newCol[i] = Value(kind: VFloat, fnum: mfn.rhs.evaluate(df, i))
   result = (colName, toPersistentVector(newCol))
 
 proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
@@ -542,7 +550,8 @@ proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   result = df
   for fn in fns:
     if fn.kind == fkVariable:
-      result[fn.val] = df[fn.val]
+      doAssert fn.val.kind == VString
+      result[fn.val.str] = df[fn.val.str]
     else:
       let (colName, newCol) = result.calcNewColumn(fn)
       result[colName] = newCol
@@ -559,7 +568,8 @@ proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   result.len = df.len
   for fn in fns:
     if fn.kind == fkVariable:
-      result[fn.val] = df[fn.val]
+      doAssert fn.val.kind == VString
+      result[fn.val.str] = df[fn.val.str]
     else:
       let (colName, newCol) = df.calcNewColumn(fn)
       result[colName] = newCol
@@ -579,11 +589,14 @@ proc select*[T: string | FormulaNode](df: DataFrame, cols: varargs[T]): DataFram
       result[fn] = df[fn]
     else:
       if fn.kind == fkVariable:
-        result[fn.val] = df[fn.val]
+        doAssert fn.val.kind == VString
+        result[fn.val.str] = df[fn.val.str]
       else:
         doAssert fn.rhs.kind == fkVariable, "if you wish to perform a calculation " &
           "of one or more columns, please use `transmute` or `mutate`!"
-        result[fn.lhs.val] = df[fn.rhs.val]
+        doAssert fn.lhs.val.kind == VString
+        doAssert fn.rhs.val.kind == VString
+        result[fn.lhs.val.str] = df[fn.rhs.val.str]
         #let (colName, newCol) = df.calcNewColumn(fn)
         #result[colName] = newCol
 
@@ -600,9 +613,11 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     doAssert fn.kind == fkTerm, "The formula must be term!"
     doAssert fn.rhs.kind == fkVariable, "the RHS of the formula must be a name " &
       "given as a `fkVariable`!"
-    result[fn.lhs.val] = df[fn.rhs.val]
+    doAssert fn.lhs.val.kind == VString
+    doAssert fn.rhs.val.kind == VString
+    result[fn.lhs.val.str] = df[fn.rhs.val.str]
     # remove the column of the old name
-    result.data.del(fn.rhs.val)
+    result.data.del(fn.rhs.val.str)
 
 
 ################################################################################
@@ -634,16 +649,31 @@ proc expand(n: NimNode): NimNode =
   else:
     error("Unsupported kind " & $n.kind)
 
-proc constructVariable*(n: NimNode): NimNode =
-  var val = ""
-  if n.kind != nnkNilLit:
-    val = n.strVal
-  else:
+proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
+  echo n.treeRepr
+  var val: NimNode
+  case n.kind
+  of nnkNilLit:
     # empty value meaning no comparison. Only allowed for something like
     # ~ x
-    val = ""
+    val = newLit("")
+  of nnkIdent:
+    echo "IDENT ! ", n.treeRepr
+    when identIsVar:
+      # identifier corresopnds to variable in local scope, take it
+      val = n
+    else:
+      # identifier corresponds to key in data frame (`constructVariable` called
+      # from untyped templates)
+      val = newLit n.strVal
+  of nnkStrLit:
+    val = n#.strVal
+  of nnkIntLit .. nnkFloat64Lit:
+    val = n
+  else:
+    error("Unsupported kind to construct variable " & $n.kind)
   result = quote do:
-    FormulaNode(kind: fkVariable, val: `val`)
+    FormulaNode(kind: fkVariable, val: % `val`)
 
 proc isValidFunc(fn: NimNode): bool =
   ## Checks if the given `fn` sym node represents a valid function
@@ -751,12 +781,12 @@ proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode =
     rhs: NimNode
   if x.len == 0:
     # is single
-    lhs = constructVariable(x)
+    lhs = constructVariable(x, identIsVar = false)
   else:
     lhs = expand(x)
   if y.len == 0:
     # is single
-    rhs = constructVariable(y)
+    rhs = constructVariable(y, identIsVar = false)
   else:
     rhs = expand(y)
 
@@ -935,7 +965,7 @@ proc toUgly*(result: var string, node: FormulaNode) =
     result.toUgly node.rhs
     result.add ")"
   of fkVariable:
-    result.add node.val
+    result.add $node.val
   of fkFunction:
     result.add "("
     result.add node.fnName
@@ -948,29 +978,39 @@ proc `$`*(node: FormulaNode): string =
   result = newStringOfCap(1024)
   toUgly(result, node)
 
-proc serialize*[T](node: var FormulaNode, data: T, idx: int): float =
+proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
+  echo "Node ", node
   case node.kind
   of fkVariable:
-    when type(data) is DataFrame:
-      result = data[node.val][idx].toFloat
-    elif type(data) is Table[string, seq[string]]:
-      result = data[node.val][idx].parseFloat
+    case node.val.kind
+    of VString:
+      # the given node corresponds to a key of the data frame
+      when type(data) is DataFrame:
+        result = data[node.val.str][idx].toFloat
+      elif type(data) is Table[string, seq[string]]:
+        result = data[node.val.str][idx].parseFloat
+      else:
+        error("Unsupported type " & $type(data) & " for serialization!")
+    of VFloat, VInt:
+      # take the literal value of the node
+      result = node.val.toFloat
     else:
-      error("Unsupported type " & $type(data) & " for serialization!")
+      raise newException(Exception, "Node kind of " & $node.kind & " does not " &
+        "make sense for evaluation!")
   of fkTerm:
     case node.op
     of amPlus:
-      result = node.lhs.serialize(data, idx) + node.rhs.serialize(data, idx)
+      result = node.lhs.evaluate(data, idx) + node.rhs.evaluate(data, idx)
     of amMinus:
-      result = node.lhs.serialize(data, idx) - node.rhs.serialize(data, idx)
+      result = node.lhs.evaluate(data, idx) - node.rhs.evaluate(data, idx)
     of amMul:
-      result = node.lhs.serialize(data, idx) * node.rhs.serialize(data, idx)
+      result = node.lhs.evaluate(data, idx) * node.rhs.evaluate(data, idx)
     of amDiv:
-      result = node.lhs.serialize(data, idx) / node.rhs.serialize(data, idx)
+      result = node.lhs.evaluate(data, idx) / node.rhs.evaluate(data, idx)
     of amDep:
-      raise newException(Exception, "Cannot serialize a term still containing a dependency!")
+      raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
     else:
-      raise newException(Exception, "Cannot serialize a term of kind " & $node.op & "!")
+      raise newException(Exception, "Cannot evaluate a term of kind " & $node.op & "!")
   of fkFunction:
     # for now assert that the argument to the function is just a string
     # Extend this if support for statements like `mean("x" + "y")` (whatever
@@ -985,14 +1025,15 @@ proc serialize*[T](node: var FormulaNode, data: T, idx: int): float =
       of funcVector:
         # a function taking a vector. Check if result already computed, else apply
         # to the column and store the result
+        doAssert node.arg.val.kind == VString
         if node.res.isSome:
           result = node.res.unsafeGet.toFloat
         else:
-          result = node.fnV(data[node.arg.val]).toFloat
+          result = node.fnV(data[node.arg.val.str]).toFloat
           node.res = some(Value(kind: VFloat, fnum: result))
       of funcScalar:
         # just a function taking a scalar. Apply to current `idx`
-        result = node.fnS(data[node.arg.val][idx]).toFloat
+        result = node.fnS(data[node.arg.val.str][idx]).toFloat
     else:
-      raise newException(Exception, "Cannot serialize a fkFunction for a data " &
+      raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
         " frame of this type: " & $(type(data).name) & "!")
