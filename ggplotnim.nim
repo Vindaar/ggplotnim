@@ -559,6 +559,9 @@ df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
   ggsave("scatterFromDf.pdf")
 
 df.mutate(f{"cty_norm" ~ "cty" / mean("cty")})
+let val = 1000
+let key = "cty"
+df.mutate(f{"cty_norm" ~ "cty" / mean(key) * val})
           # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
           # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
           # needs to be converted to type Value before we can do that
