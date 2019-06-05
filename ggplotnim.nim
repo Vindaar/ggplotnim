@@ -545,52 +545,61 @@ proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
     for col in items(x.headers):
       result[col].add x.rowEntry(col)
 
-let mpg = readCsv("data/mpg.csv")
-let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point()
-plt.ggsave("scatter.pdf")
-let df = toDf(mpg)
 
-df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
-  .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
-  ) # <- note that we have to use normal UFCS to hand to `ggplot`!
-  .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) +
-  geom_point() +
-  ggsave("scatterFromDf.pdf")
+when isMainModule:
+  let mpg = readCsv("data/mpg.csv")
+  let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point()
+  plt.ggsave("scatter.pdf")
+  let df = toDf(mpg)
 
-df.mutate(f{"cty_norm" ~ "cty" / mean("cty")})
-let val = 1000
-let key = "cty"
-df.mutate(f{"cty_norm" ~ "cty" / mean(key) * val})
-          # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
-          # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
-          # needs to be converted to type Value before we can do that
-  .ggplot(aes(x = "displ", y = "cty_norm", color = "class")) +
-  geom_point() +
-  ggsave("classVsNormCty.pdf")
+  df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
+    .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
+    ) # <- note that we have to use normal UFCS to hand to `ggplot`!
+    .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) +
+    geom_point() +
+    ggsave("scatterFromDf.pdf")
 
-ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
-  geom_point() +
-  ggtitle("ggplotnim - or I Suck At Naming Things™") +
-  ggsave("scatterColor.pdf")
+  #let re = df.mutate(f{"cty_norm" ~ "cty" / abs("hwy")})
+            # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
+            # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
+            # needs to be converted to type Value before we can do that
 
-ggplot(mpg, aes("hwy")) +
-  geom_histogram() +
-  ggsave("simpleHisto.pdf")
+  let f = f{"cty_norm" ~ "cty" / mean("cty") * 2.0}
+  echo "Func ", f
 
-ggplot(mpg, aes("hwy")) +
-  geom_freqpoly() +
-  ggsave("freqpoly.pdf")
+  let val = 1000
+  let key = "cty"
+  df.mutate(f{"cty_norm" ~ "cty" / mean(key) * val})
+            # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
+            # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
+            # needs to be converted to type Value before we can do that
+    .ggplot(aes(x = "displ", y = "cty_norm", color = "class")) +
+    geom_point() +
+    ggsave("classVsNormCty.pdf")
 
-ggplot(mpg, aes("hwy")) +
-  geom_histogram() + # the order of the geom calls decides the order in which
-                     # they are drawn! FreqPoly will be drawn on top of histo
-  geom_freqpoly(color = parseHex("FD971F"),
-                size = 3.0) +
-  ggsave("histoPlusFreqpoly.pdf")
+  ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+    geom_point() +
+    ggtitle("ggplotnim - or I Suck At Naming Things™") +
+    ggsave("scatterColor.pdf")
+
+  ggplot(mpg, aes("hwy")) +
+    geom_histogram() +
+    ggsave("simpleHisto.pdf")
+
+  ggplot(mpg, aes("hwy")) +
+    geom_freqpoly() +
+    ggsave("freqpoly.pdf")
+
+  ggplot(mpg, aes("hwy")) +
+    geom_histogram() + # the order of the geom calls decides the order in which
+                       # they are drawn! FreqPoly will be drawn on top of histo
+    geom_freqpoly(color = parseHex("FD971F"),
+                  size = 3.0) +
+    ggsave("histoPlusFreqpoly.pdf")
 
 
-#let pltCalc = ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
-#  geom_point() +
-#  ggtitle("ggplotnim - or I Suck At Naming Things™") +
-#  ggsave("scatterColor.pdf")
+  #let pltCalc = ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
+  #  geom_point() +
+  #  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+  #  ggsave("scatterColor.pdf")
