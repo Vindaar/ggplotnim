@@ -123,6 +123,24 @@ proc `$`*(v: Value): string =
   of VNull:
     result = "null"
 
+proc `%`*(v: string): Value =
+  result = Value(kind: VString, str: v)
+
+proc `%`*(v: float): Value =
+  result = Value(kind: VFloat, fnum: v)
+
+proc `%`*(v: int): Value =
+  result = Value(kind: VInt, num: v)
+
+proc `%`*(v: bool): Value =
+  result = Value(kind: VBool, bval: v)
+
+#proc `%`*(v: Table[string, Value]): Value =
+#  result = Value(kind: VObject, fields: v.toOrderedTable)
+
+proc `%`*(v: OrderedTable[string, Value]): Value =
+  result = Value(kind: VObject, fields: v)
+
 proc print*(df: DataFrame, numLines = 20): string =
   ## converts the first `numLines` to a table
   let num = min(df.len, numLines)
