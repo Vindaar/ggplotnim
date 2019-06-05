@@ -269,16 +269,20 @@ proc `<=`*(v, w: Value): bool =
 
 proc print*(df: DataFrame, numLines = 20): string =
   ## converts the first `numLines` to a table
+  var maxLen = 0
+  for k in keys(df):
+    maxLen = max(k.len, maxLen)
+  let alignBy = maxLen + 4
   let num = min(df.len, numLines)
   # write header
-  result.add align("Idx", 10)
+  result.add align("Idx", alignBy)
   for k in keys(df):
-    result.add &"{k:>10}"
+    result.add align($k, alignBy)
   result.add "\n"
   for i in 0 ..< num:
-    result.add &"{i:>10}"
+    result.add align($i, alignBy)
     for k in keys(df):
-      result.add &"{df[k][i]:>10}"
+      result.add align($df[k][i], alignBy)
     result.add "\n"
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
