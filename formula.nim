@@ -1,4 +1,4 @@
-import macros, tables, strutils, options
+import macros, tables, strutils, options, fenv
 
 import persvector, sequtils, seqmath, stats, strformat
 
@@ -141,6 +141,114 @@ proc `%`*(v: bool): Value =
 proc `%`*(v: OrderedTable[string, Value]): Value =
   result = Value(kind: VObject, fields: v)
 
+func isInt(s: string): bool =
+  result = s.isDigit
+
+func isFloat(s: string): bool =
+  ## TODO: float may also be written as exponential!
+  result = s.replace(".", "").isDigit
+
+func isDigit(v: Value): bool =
+  ## checks whether the string contained in `Value` is purely made from digits
+  doAssert v.kind == VString
+  result = v.str.isDigit
+
+func isInt(v: Value): bool =
+  ## checks whether the string stored in a `Value` is an integer
+  doAssert v.kind == VString
+  result = v.isDigit
+
+func isFloat(v: Value): bool =
+  ## checks whether the string stored in a `Value` is a float
+  doAssert v.kind == VString
+  result = v.str.replace(".", "").isDigit
+
+func isBool(s: string): bool = false
+func parseBool(s: string): bool = false
+
+proc toFloat*(v: Value): float =
+  doAssert v.kind in {VInt, VFloat}
+  case v.kind
+  of VInt: result = v.num.float
+  of VFloat: result = v.fnum
+  else: discard
+
+proc nearlyEqual(x, y: float, eps = 1e-10): bool =
+  ## equality check for floats which tries to work around floating point
+  ## errors
+  ## Taken from: https://floating-point-gui.de/errors/comparison/
+  let absX = abs(x)
+  let absY = abs(y)
+  let diff = abs(x - y)
+  if x == y:
+    # shortcut, handles infinities
+    result = true
+  elif x == 0 or
+       y == 0 or
+       diff < minimumPositiveValue(system.float):
+    # a or b is zero or both are extremely close to it
+    # relative error is less meaningful here
+    result =  diff < (eps * minimumPositiveValue(system.float))
+  else:
+    # use relative error
+    result = diff / min((absX + absY), maximumPositiveValue(system.float)) < eps
+
+proc `==`*(v, w: Value): bool =
+  ## checks whether the values are equal
+  if v.kind != w.kind:
+    result = false
+  else:
+    case v.kind
+    of VString:
+      result = v.str == w.str
+    of VInt:
+      result = v.num == w.num
+    of VFloat:
+      result = v.fnum == w.fnum
+    of VBool:
+      result = v.bval == w.bval
+    of VObject:
+      # NOTE: taken from json module
+      # we cannot use OrderedTable's equality here as
+      # the order does not matter for equality here.
+      if v.fields.len != w.fields.len: return false
+      for key, val in v.fields:
+        if not w.fields.hasKey(key): return false
+        if w.fields[key] != val: return false
+      result = true
+    of VNull:
+      result = true
+
+proc `<`*(v, w: Value): bool =
+  ## checks whether the `v` is smaller than `w`
+  ## Note: this is only defined for a subset of the possible types!
+  ## Note2: if both are numbers of different kind (`VInt` and `VFloat`) the
+  ## values are compared as a float! For very large values this would be problematic,
+  ## but here we are lenient and assume the user uses `Value` for small calculations!
+  if v.kind != w.kind and
+     v.kind in {VFloat, VInt} and
+     w.kind in {VFloat, VInt}:
+    # comparison via `nearlyEqual`
+    result = v.toFloat.nearlyEqual(w.toFloat)
+  else:
+    case v.kind
+    of VString:
+      result = v.str < w.str
+    of VInt:
+      result = v.num < w.num
+    of VFloat:
+      result = v.fnum < w.fnum
+    else:
+      raise newException(Exception, "Comparison `<` does not make sense for " &
+        "Value kind " & $v.kind & "!")
+
+proc `<=`*(v, w: Value): bool =
+  ## checks whether `v` is smaller or equal than `w`
+  if v == w:
+    result = true
+  elif v < w:
+    result = true
+
 proc print*(df: DataFrame, numLines = 20): string =
   ## converts the first `numLines` to a table
   let num = min(df.len, numLines)
@@ -154,15 +262,6 @@ proc print*(df: DataFrame, numLines = 20): string =
     for k in keys(df):
       result.add &"{df[k][i]:>10}"
     result.add "\n"
-
-func isInt(s: string): bool =
-  result = s.isDigit
-
-func isFloat(s: string): bool =
-  result = s.replace(".", "").isDigit
-
-func isBool(s: string): bool = false
-func parseBool(s: string): bool = false
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
@@ -219,13 +318,6 @@ proc toSeq(df: DataFrame, key: string): seq[Value] =
 proc toFloat*(s: string): float =
   # TODO: replace by `toFloat(v: Value)`!
   result = s.parseFloat
-
-proc toFloat*(v: Value): float =
-  doAssert v.kind in {VInt, VFloat}
-  case v.kind
-  of VInt: result = v.num.float
-  of VFloat: result = v.fnum
-  else: discard
 
 proc isValidVal(v: Value, f: FormulaNode): bool =
   doAssert v.kind != VObject
