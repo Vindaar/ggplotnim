@@ -989,8 +989,10 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
         result = data[node.val.str][idx].toFloat
       elif type(data) is Table[string, seq[string]]:
         result = data[node.val.str][idx].parseFloat
+      elif type(data) is OrderedTable[string, seq[string]]:
+        result = data[node.val.str][idx].parseFloat
       else:
-        error("Unsupported type " & $type(data) & " for serialization!")
+        raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
     of VFloat, VInt:
       # take the literal value of the node
       result = node.val.toFloat
