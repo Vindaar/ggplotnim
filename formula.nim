@@ -144,11 +144,11 @@ proc hash(x: Value): Hash =
 proc `%`*(v: string): Value =
   result = Value(kind: VString, str: v)
 
-proc `%`*(v: float): Value =
-  result = Value(kind: VFloat, fnum: v)
+proc `%`*(v: SomeFloat): Value =
+  result = Value(kind: VFloat, fnum: v.float)
 
-proc `%`*(v: int): Value =
-  result = Value(kind: VInt, num: v)
+proc `%`*(v: SomeInteger): Value =
+  result = Value(kind: VInt, num: v.int)
 
 proc `%`*(v: bool): Value =
   result = Value(kind: VBool, bval: v)
