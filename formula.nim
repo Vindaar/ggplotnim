@@ -312,6 +312,44 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
     if result.len == 0:
       result.len = result.data[k].len
 
+proc toVector*[T](s: seq[T]): PersistentVector[Value] =
+  var valSeq = newSeq[Value](s.len)
+  for i, x in s:
+    valSeq[i] = % x
+  result = valSeq.toPersistentVector
+
+macro toTab*(s: untyped): untyped =
+  let data = ident"columns"
+  result = newStmtList()
+  result.add quote do:
+    var `data`: DataFrame
+  for a in s:
+    case a.kind
+    of nnkIdent:
+      let key = a.strVal
+      result.add quote do:
+        `data`[`key`] = `a`.toVector
+        `data`.len = `a`.len
+    of nnkExprColonExpr:
+      let nameCh = a[0]
+      let seqCh = a[1]
+      result.add quote do:
+        `data`[`nameCh`] = `seqCh`.toVector
+        `data`.len = `seqCh`.len
+    else:
+      error("Unsupported kind " & $a.kind)
+  result = quote do:
+    block:
+      `result`
+      `data`
+  #echo result.treerepr
+  echo result.repr
+
+template seqsToDf*(s: varargs[untyped]): untyped =
+  ## converts an arbitrary number of sequences to a `DataFrame` or any
+  ## number of key / value pairs where we have string / seq[T] pairs.
+  toTab(s)
+
 proc hasKey(df: DataFrame, key: string): bool =
   result = df.data.hasKey(key)
 
