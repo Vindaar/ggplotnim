@@ -76,24 +76,70 @@ dependend quantity.
 In these templates however, the identifiers are converted to strings
 and must match the names in the data frame!
 
+*** =f{}= macro to create formulas
 The second way to create a =FormulaNode= is via the =f{}= macro. This
 provides a little more flexibility:
 #+BEGIN_SRC nim
 let f = f{ "displ" ~ "hwy" / mean("cty") }
 #+END_SRC
 Note that here all keys *must* be explicit strings. Everything that is
-*not* as string, will be interepreted in the calling scope. However,
-only specific identifiers are allowed, namely those that match a
-procedure, which only takes a single column as input and outputs a
-single value, to be precise:
+*not* a string, will be interepreted in the calling scope. 
+
+If the identifier is the first element of a =nnkCall=, e.g. as in
+=mean("cty")=, it will be stored in a =FormulaNode= of kind
+=fkFunction=. An =fkFunction= itself may contain two different kinds
+of functions, as evident by the implementation:
 #+BEGIN_SRC nim
-proc (p: PersistentVector[Value]): Value
+# storing a function to be applied to the data
+fnName: string
+arg: FormulaNode
+case fnKind*: FuncKind
+of funcVector:
+  fnV: proc(s: PersistentVector[Value]): Value
+  res: Option[Value] # the result of fn(arg), so that we can cache it
+                     # instead of recalculating it for every index potentially
+of funcScalar:
+  fnS: proc(s: Value): Value
 #+END_SRC
-However, a lifting template is provided to lift any 
-=proc (s: seq[float]): float= proc to this type. 
+We store the name of the function as a string for debugging and
+echoeing. The function must only take a single argument (this may be
+changed in the future / we may wrap a function with multiple arguments
+in a template in the future). It can either be a procedure taking a
+vector of =Values= corresponding to a proc working on a whole column
+as the input (e.g. =mean=) or a scalar function taking a single
+=Value= (e.g. =abs=). In the latter case the function is applied to
+each index of the key of the data frame given by =arg=.
+
+Lifting templates are provided to lift any:
+- =liftVector[T]Proc=: =proc (s: seq[T]): T= proc to =proc(s:
+  PersistentVector[Value]): Value=
+- =liftScalar[T]Proc=: =proc (s: T): T= proc to =proc(s: Value): Value=
+where =T= may be =float, int, string=.
 
 The =PersistentVector= is an implementation detail of the data frame
 at the moment and may be changed back to =seq= soon.
+
+On the other hand if an identifier is not part of a =nnkCall= it is
+interpreted as a variable declared in the calling scope and will be
+converted to a =Value= using =%= and stored as a =fkVariable=. 
+
+Literal interger and float values are also allowed.
+
+**** Examples
+
+Using a lifted vector valued function and local variables as keys and
+integer values:
+#+BEGIN_SRC nim
+let val = 1000
+let key = "cty"
+let f = f{"cty_norm" ~ "cty" / mean(key) * val}
+#+END_SRC
+
+Using a lifted scalar valued function and local variables as keys and
+float literal values for a random calculation:
+#+BEGIN_SRC nim
+let g = f{"cty_by_2ln_hwy" ~ "cty" / (ln("hwy") * 2)}
+#+END_SRC
 
 ** Examples
 
