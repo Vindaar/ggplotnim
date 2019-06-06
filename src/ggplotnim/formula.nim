@@ -80,11 +80,11 @@ type
     data*: OrderedTable[string, PersistentVector[Value]]
     #data: Table[string, seq[Value]]
 
-iterator keys(df: DataFrame): string =
+iterator keys*(df: DataFrame): string =
   for k in keys(df.data):
     yield k
 
-iterator keys(row: Value): string =
+iterator keys*(row: Value): string =
   doAssert row.kind == VObject
   for k in keys(row.fields):
     yield k
@@ -267,7 +267,7 @@ proc `<=`*(v, w: Value): bool =
   elif v < w:
     result = true
 
-proc print*(df: DataFrame, numLines = 20): string =
+proc pretty*(df: DataFrame, numLines = 20): string =
   ## converts the first `numLines` to a table
   var maxLen = 0
   for k in keys(df):
@@ -284,6 +284,9 @@ proc print*(df: DataFrame, numLines = 20): string =
     for k in keys(df):
       result.add align($df[k][i], alignBy)
     result.add "\n"
+
+proc `$`*(df: DataFrame): string =
+  result = df.pretty
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
