@@ -679,7 +679,7 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.data.del(fn.rhs.val.str)
 
-proc outerJoin*(df1, df2: DataFrame, by: string): DataFrame =
+proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   ## returns a data frame joined by the given key `by` in such a way as to only keep
   ## rows found in both data frames
   # build sets from both columns and seqs of their corresponding indices
@@ -695,6 +695,7 @@ proc outerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     i = 0
     j = 0
   let
+    # for some reason we can't do toSeq(keys(df1)) anymore...
     keys1 = block:
       var tmp: seq[string]
       for k in keys(df1):
