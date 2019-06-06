@@ -543,10 +543,10 @@ proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
   x.readHeaderRow()
   result = initOrderedTable[string, seq[string]]()
   for col in items(x.headers):
-    result[col] = @[]
+    result[col.strip] = @[]
   while readRow(x):
     for col in items(x.headers):
-      result[col].add x.rowEntry(col)
+      result[col.strip].add x.rowEntry(col).strip
 
 
 when isMainModule:
