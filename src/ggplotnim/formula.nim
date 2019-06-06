@@ -682,6 +682,22 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.data.del(fn.rhs.val.str)
 
+proc arange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
+  ## sorts the data frame in ascending / descending `order` by key `by`
+  let col = toSeq(df[by])
+  let idx = toSeq(0 .. col.high)
+  var idxCol = zip(idx, col)
+  idxCol.sort(
+    cmp = (
+      proc(x, y: (int, Value)): int =
+        result = system.cmp(x[1], y[1])
+    ),
+    order = order
+  )
+  result.len = df.len
+  for k in keys(df):
+    result[k] = idxCol.mapIt(df[k][it[0]]).toPersistentVector
+
 proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   ## returns a data frame joined by the given key `by` in such a way as to only keep
   ## rows found in both data frames
