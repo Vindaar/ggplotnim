@@ -244,6 +244,7 @@ ggplot(mpg, aes("hwy")) +
   geom_histogram() +
   geom_freqpoly(color = parseHex("FD971F"),
                 size = 3.0) +
+  ggsave("histoPlusFreqpoly.pdf")
 #+END_SRC
 
 [[file:media/histoPlusFreqpoly.png]]
