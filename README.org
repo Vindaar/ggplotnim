@@ -162,6 +162,20 @@ upon with =ggsave= at a later time.
 
 [[file:media/scatter.png]]
 
+*** Scatter of displ ~ hwy, class as color scale
+
+Same scatter plot as above, but with a grouping by a third quantity
+="class"= encoded in the dot color. Also adds a title to the plot.
+#+BEGIN_SRC nim
+ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+  geom_point() +
+  ggtitle("ggplotnim - or I Suck At Naming Things™") +
+  ggsave("scatterColor.pdf")
+#+END_SRC
+
+[[file:media/scatterColor.png]]
+
+
 *** Filtering data frame before plotting
 
 We may now also perform some operations on the data frame, before we
@@ -196,19 +210,6 @@ supported yet. For that the implementation of =FormulaNode= must be
 changed to use =Value= as well.
 
 [[file:media/classVsNormCty.png]]
-
-*** Scatter of displ ~ hwy, class as color scale
-
-Same scatter plot as above, but with a grouping by a third quantity
-="class"= encoded in the dot color. Also adds a title to the plot.
-#+BEGIN_SRC nim
-ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
-  geom_point() +
-  ggtitle("ggplotnim - or I Suck At Naming Things™") +
-  ggsave("scatterColor.pdf")
-#+END_SRC
-
-[[file:media/scatterColor.png]]
 
 *** Histogram of hwy
 
