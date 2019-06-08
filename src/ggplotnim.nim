@@ -200,7 +200,7 @@ proc createLegend(view: var Viewport,
   header.addObj label
   view[startIdx] = header
 
-proc aes*(x: string, y = "", color = ""): Aesthetics =
+proc aes*(x: string, y = "", color = "", shape = "", size = ""): Aesthetics =
   var yOpt: Option[string]
   var colorOpt: Option[string]
   if y.len > 0:
@@ -209,7 +209,7 @@ proc aes*(x: string, y = "", color = ""): Aesthetics =
     colorOpt = some(color)
   result = Aesthetics(x: x, y: yOpt, color: colorOpt)
 
-proc aes*(x: FormulaNode, color = ""): Aesthetics =
+proc aes*(x: FormulaNode, color = "", shape = "", size = ""): Aesthetics =
   result = Aesthetics(x: "", y: some(""), color: some(color))
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
