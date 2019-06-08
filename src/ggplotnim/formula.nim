@@ -778,7 +778,7 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.data.del(fn.rhs.val.str)
 
-proc arange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
+proc arrange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
   ## sorts the data frame in ascending / descending `order` by key `by`
   let col = toSeq(df[by])
   let idx = toSeq(0 .. col.high)
@@ -799,8 +799,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   ## rows found in both data frames
   # build sets from both columns and seqs of their corresponding indices
   let
-    df1S = df1.arange(by)
-    df2S = df2.arange(by)
+    df1S = df1.arrange(by)
+    df2S = df2.arrange(by)
   let
     col1 = toSeq(df1S, by)
     col2 = toSeq(df2S, by)
