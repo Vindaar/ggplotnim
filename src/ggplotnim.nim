@@ -11,6 +11,8 @@ import persvector
 import ggplotnim / formula
 export formula
 
+export sets
+
 type
   Aesthetics = object
     x: string
@@ -61,6 +63,11 @@ type
     facets: seq[Facet]
     geoms: seq[Geom]
 
+proc dataTo[T: Table | OrderedTable | DataFrame; U](
+  df: T,
+  col: string,
+  outType: typedesc[U]): seq[U]
+
 proc getColor[T: SomeInteger | string](s: Scales, k: T): Color =
   ## returns the color from the `Scales` based on either a key
   ## as a string or as an index
@@ -88,7 +95,7 @@ proc addAes(p: var GgPlot, aes: Aesthetics) =
     # get the column by which we want to color
     let colors = p.data.dataTo(aes.color.get, string)
     # convert to set to filter duplicates, back to seq and sort
-    let catSeq = colors.toSet.toSeq.sorted
+    let catSeq = colors.toHashSet.toSeq.sorted
     let colorCs = ggColorHue(catSeq.len)
     var cScale = Scales()
     cScale.colors = colors
@@ -525,9 +532,9 @@ proc ggsave*(p: GgPlot, fname: string) =
     img[1] = titleView
   img.draw(fname)
 
-proc ggsave(fname: string): Draw = Draw(fname: fname)
+proc ggsave*(fname: string): Draw = Draw(fname: fname)
 
-proc `+`(p: GgPlot, d: Draw) =
+proc `+`*(p: GgPlot, d: Draw) =
   p.ggsave(d.fname)
 
 proc readCsv*(fname: string): OrderedTable[string, seq[string]] =

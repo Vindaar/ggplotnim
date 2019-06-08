@@ -381,10 +381,10 @@ iterator pairs*(df: DataFrame): (int, Value) =
       res[k] = df[k][i]
     yield (i, res)
 
-proc toSeq(v: PersistentVector[Value]): seq[Value] =
+proc toSeq*(v: PersistentVector[Value]): seq[Value] =
   result = v[0 ..< v.len]
 
-proc toSeq(df: DataFrame, key: string): seq[Value] =
+proc toSeq*(df: DataFrame, key: string): seq[Value] =
   result = df[key].toSeq
 
 proc toFloat*(s: string): float =
