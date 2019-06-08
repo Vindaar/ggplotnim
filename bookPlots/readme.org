@@ -1,0 +1,8 @@
+* Plots from ggplot2 book
+This directory will contain files (one file for each chapter)
+containing all plots the =ggplot2= book by Hadley Wickham contains.
+
+If the code to create the plot deviates from the book, the
+corresponding R code is shown in a comment above. Aside from minor
+things like using explicit strings in many cases for the =x= and =y=
+arguments.
