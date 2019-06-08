@@ -75,9 +75,18 @@ type
         fnS*: proc(s: Value): Value
 
 type
+  DataFrameKind = enum
+    dfNormal, dfGrouped
+
   DataFrame* = object
     len*: int
     data*: OrderedTable[string, PersistentVector[Value]]
+    case kind: DataFrameKind
+    of dfGrouped:
+      # a grouped data frame stores the keys of the groups and maps them to
+      # a set of the categories
+      groupMap: OrderedTable[string, HashSet[Value]]
+    else: discard
     #data: Table[string, seq[Value]]
 
 iterator keys*(df: DataFrame): string =
@@ -557,6 +566,7 @@ liftVectorProcToPersVec(ln, seq[float])
 #liftProcToString(mean, float)
 
 proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float
+proc evaluate*[T](node: var FormulaNode, data: T): Value
 proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode
 proc constructFunction*(n: NimNode): NimNode
 proc buildFormula(n: NimNode): NimNode
@@ -568,7 +578,9 @@ proc handleSide(n: NimNode): NimNode =
     result = constructVariable(n)
   of nnkIdent:
     # should correspond to a known identifier in the calling scope
+    echo "ISS ", n.treeRepr
     result = constructVariable(n)
+    echo "RES ~??? ", result.treeRepr
   of nnkCall:
     result = constructFunction(n)
   else:
@@ -581,6 +593,9 @@ proc buildFormula(n: NimNode): NimNode =
     parseEnum[ArithmeticKind](`opid`)
   let lhs = handleSide(n[1])
   let rhs = handleSide(n[2])
+  echo "lhs ", lhs.treeRepr
+  echo "rhs ", rhs.treeRepr
+  echo "mn ", n.treeRepr
   result = quote do:
     FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
 
@@ -769,6 +784,52 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   for k in keys(seqTab):
     result[k] = seqTab[k].toPersistentVector
 
+proc group_by*(df: DataFrame, by: varargs[string]): DataFrame =
+  ## returns a grouped data frame grouped by all keys `by`
+  ## A grouped data frame is a lazy affair. It only calculates the groups,
+  ## but unless e.g. `summarize` is called on it, remains unchanged.
+  result = DataFrame(kind: dfGrouped)
+  result.data = df.data
+  result.len = df.len
+  for key in by:
+    result.groupMap[key] = toSet(toSeq(result[key]))
+
+proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
+  ## returns a data frame with the summaries applied given by `fn`. They
+  ## are applied in the order in which they are given
+  result = DataFrame(kind: dfNormal)
+  for fn in fns:
+    var mfn = fn
+    # TODO: take next assert out, by adding option to create pure function with
+    # f{} macro, i.e. f{mean("cyl")}
+    doAssert fn.kind == fkTerm, "function must have named result!"
+    doAssert fn.rhs.kind == fkFunction
+    doAssert fn.lhs.kind == fkVariable
+    case df.kind
+    of dfNormal:
+      # just apply the function
+      let res = toPersistentVector(@[mfn.rhs.evaluate(df)])
+      result[fn.lhs.val.str] = res
+      result.len = res.len
+    of dfGrouped:
+      # apply the function to each ``group``
+      for k, classes in df.groupMap:
+        for class in classes:
+          # add current class to `k`, but only if not already done on a
+          # previous function
+          if result.hasKey(k) and result[k].len < classes.len:
+            result[k] = result[k].add class
+          else:
+            result[k] = toPersistentVector(@[class])
+          var dfcopy = df.filter(f{k == class})
+          let x = mfn.rhs.evaluate(dfcopy)
+          let lhsKey = mfn.lhs.val.str
+          if result.hasKey(lhsKey):
+            result[lhsKey] = result[lhsKey].add x
+          else:
+            result[lhsKey] = toPersistentVector(@[x])
+        # at some point `k` should have the correct length of the dataframe
+        result.len = result[k].len
 
 ################################################################################
 ####### FORMULA
@@ -800,7 +861,7 @@ proc expand(n: NimNode): NimNode =
     error("Unsupported kind " & $n.kind)
 
 proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
-  echo n.treeRepr
+  echo "HAAA ", n.treeRepr
   var val: NimNode
   case n.kind
   of nnkNilLit:
@@ -1190,3 +1251,34 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
     else:
       raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
         " frame of this type: " & $(type(data).name) & "!")
+
+proc evaluate*[T](node: var FormulaNode, data: T): Value =
+  ## evaluation of a data frame under a given `FormulaNode`. This is a reducing
+  ## operation. It returns a single value from a whole data frame (by working on
+  ## a single column)
+  case node.kind
+  of fkFunction:
+    # for now assert that the argument to the function is just a string
+    # Extend this if support for statements like `mean("x" + "y")` (whatever
+    # that is even supposed to mean) is to be added.
+    doAssert node.arg.kind == fkVariable
+    # we also convert to float for the time being. Implement a different proc or make this
+    # generic, we want to support functions returning e.g. `string` (maybe to change the
+    # field name at runtime via some magic proc)
+    #echo "Accessing ", data[node.arg.val]
+    when type(data) is DataFrame:
+      case node.fnKind
+      of funcVector:
+        # here we do ``not`` store the result of the calculation in the `node`, since
+        # we may run the same function on different datasets + we only call this
+        # "once" anyways
+        doAssert node.arg.val.kind == VString
+        result = node.fnV(data[node.arg.val.str])
+      of funcScalar:
+        raise newException(Exception, "The given evaluator function must work on" &
+          " a whole column!")
+    else:
+      raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
+        " frame of this type: " & $(type(data).name) & "!")
+  else:
+    raise newException(Exception, "Only `fkFunction` is supported, not " & $node.kind)
