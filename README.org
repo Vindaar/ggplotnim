@@ -49,14 +49,16 @@ With these the code should hopefully compile just fine.
 
 ** Data frame
 
-The library implements a naive data frame, which provides 3 of the "5
+The library implements a naive data frame, which provides the "5
 verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
 - =filter=
 - =mutate=, =transmute=
 - =select=, =rename=
-which are all based on the =FormulaNode= object. Basically they all
-receive =varargs[FormulaNode]=, which is evaluated in context of the
-given dataframe.
+- =arrange=
+- =summarize=
+and also =group_by=, which are all based on the =FormulaNode=
+object. Basically they all receive =varargs[FormulaNode]=, which is
+evaluated in context of the given dataframe.
 
 Creationg of a =FormulaNode= can be done either directly via untyped
 templates acting on =+=, =-=, =*=, =/=, =~=. Using the =mpg= data set
