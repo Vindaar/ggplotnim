@@ -565,10 +565,91 @@ liftVectorProcToPersVec(ln, seq[float])
 #
 #liftProcToString(mean, float)
 
+proc isValidFunc(fn: NimNode): bool =
+  ## Checks if the given `fn` sym node represents a valid function
+  ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
+  let impl = fn.getTypeImpl
+  result = false
+  case impl.kind
+  of nnkProcTy:
+    let argType = impl[0][1][1]
+    if argType.kind == nnkBracketExpr:
+      if eqIdent(argType[0], "PersistentVector") and
+         eqIdent(argType[1], "Value"):
+        result = true
+    else:
+      if eqIdent(argType, "Value"):
+        result = true
+  of nnkBracketExpr:
+    expectKind(impl[1], nnkProcTy)
+    result = isValidFunc(impl[1])
+  else:
+    error("Invalid kind " & $impl.kind)
+
+macro extractFunction(fn: typed): untyped =
+  ## returns the correct function from a potential `nnkClosedSymChoice`.
+  ## If `fn` is already a SymNode, will return the function, if if is
+  ## a valid function under `isValidFunc`.
+  result = newEmptyNode()
+  case fn.kind
+  of nnkSym:
+    if isValidFunc(fn):
+      # if a valid function, return it
+      result = fn
+  of nnkClosedSymChoice:
+    # if a generic, check if there exists a valid choice
+    for ch in fn:
+      if isValidFunc(ch):
+        result = ch
+        return result
+  else:
+    error("Invalid node kind " & $fn.kind)
+  if result.kind == nnkEmpty:
+    error("Could not find an appropriate function of `VectorValuedKind` or " &
+      "`ScalarValuedKind`! Make sure to lift the `" & $fn.repr & "` proc you " &
+      "wish to use!")
+
+proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode
 proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float
 proc evaluate*[T](node: var FormulaNode, data: T): Value
-proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode
-proc constructFunction*(n: NimNode): NimNode
+# introduce identity `%` for value to avoid having to check whether
+# a variable is already a value in macro construction
+proc `%`(v: Value): Value = v
+proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
+  echo "HAAA ", n.treeRepr
+  var val: NimNode
+  case n.kind
+  of nnkNilLit:
+    # empty value meaning no comparison. Only allowed for something like
+    # ~ x
+    val = newLit("")
+  of nnkIdent:
+    echo "IDENT ! ", n.treeRepr
+    when identIsVar:
+      # identifier corresopnds to variable in local scope, take it
+      val = n
+    else:
+      # identifier corresponds to key in data frame (`constructVariable` called
+      # from untyped templates)
+      val = newLit n.strVal
+  of nnkStrLit:
+    val = n#.strVal
+  of nnkIntLit .. nnkFloat64Lit:
+    val = n
+  else:
+    error("Unsupported kind to construct variable " & $n.kind)
+  result = quote do:
+    FormulaNode(kind: fkVariable, val: % `val`)
+
+proc constructFunction*(n: NimNode): NimNode =
+  let fname = n[0].strVal
+  let fn = n[0]
+  let arg = constructVariable(n[1])
+  result = quote do:
+    # potentially extract the function from a generic
+    let fnArg = extractFunction(`fn`)
+    createFormula(`fname`, fnArg, `arg`)
+
 proc buildFormula(n: NimNode): NimNode
 proc handleSide(n: NimNode): NimNode =
   case n.kind
@@ -860,76 +941,6 @@ proc expand(n: NimNode): NimNode =
   else:
     error("Unsupported kind " & $n.kind)
 
-proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
-  echo "HAAA ", n.treeRepr
-  var val: NimNode
-  case n.kind
-  of nnkNilLit:
-    # empty value meaning no comparison. Only allowed for something like
-    # ~ x
-    val = newLit("")
-  of nnkIdent:
-    echo "IDENT ! ", n.treeRepr
-    when identIsVar:
-      # identifier corresopnds to variable in local scope, take it
-      val = n
-    else:
-      # identifier corresponds to key in data frame (`constructVariable` called
-      # from untyped templates)
-      val = newLit n.strVal
-  of nnkStrLit:
-    val = n#.strVal
-  of nnkIntLit .. nnkFloat64Lit:
-    val = n
-  else:
-    error("Unsupported kind to construct variable " & $n.kind)
-  result = quote do:
-    FormulaNode(kind: fkVariable, val: % `val`)
-
-proc isValidFunc(fn: NimNode): bool =
-  ## Checks if the given `fn` sym node represents a valid function
-  ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
-  let impl = fn.getTypeImpl
-  result = false
-  case impl.kind
-  of nnkProcTy:
-    let argType = impl[0][1][1]
-    if argType.kind == nnkBracketExpr:
-      if eqIdent(argType[0], "PersistentVector") and
-         eqIdent(argType[1], "Value"):
-        result = true
-    else:
-      if eqIdent(argType, "Value"):
-        result = true
-  of nnkBracketExpr:
-    expectKind(impl[1], nnkProcTy)
-    result = isValidFunc(impl[1])
-  else:
-    error("Invalid kind " & $impl.kind)
-
-macro extractFunction(fn: typed): untyped =
-  ## returns the correct function from a potential `nnkClosedSymChoice`.
-  ## If `fn` is already a SymNode, will return the function, if if is
-  ## a valid function under `isValidFunc`.
-  result = newEmptyNode()
-  case fn.kind
-  of nnkSym:
-    if isValidFunc(fn):
-      # if a valid function, return it
-      result = fn
-  of nnkClosedSymChoice:
-    # if a generic, check if there exists a valid choice
-    for ch in fn:
-      if isValidFunc(ch):
-        result = ch
-        return result
-  else:
-    error("Invalid node kind " & $fn.kind)
-  if result.kind == nnkEmpty:
-    error("Could not find an appropriate function of `VectorValuedKind` or " &
-      "`ScalarValuedKind`! Make sure to lift the `" & $fn.repr & "` proc you " &
-      "wish to use!")
-
 proc getFuncKind(fn: NimNode): NimNode =
   ## returns the type of function of `fn`. It is assumed that generics have
   ## already been resolved by `extractFunction`. It is called by the
@@ -976,15 +987,6 @@ proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode =
                          fnKind: funcScalar, fnS: fn)
   else:
     raise newException(Exception, "Invalid function type: " & $type(fn).name)
-
-proc constructFunction*(n: NimNode): NimNode =
-  let fname = n[0].strVal
-  let fn = n[0]
-  let arg = constructVariable(n[1])
-  result = quote do:
-    # potentially extract the function from a generic
-    let fnArg = extractFunction(`fn`)
-    createFormula(`fname`, fnArg, `arg`)
 
 proc isSingle(x, y: NimNode, op: ArithmeticKind): NimNode =
   var
