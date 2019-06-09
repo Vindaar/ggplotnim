@@ -669,13 +669,56 @@ proc handleSide(n: NimNode): NimNode =
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
 
+proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
+  ## a helper proc to reorder an nnkInfix tree according to the
+  ## `~` contained in it, so that `~` is at the top tree.
+  ## (the actual result is simply the tree reordered, but without
+  ## the tilde. Reassembly must happen outside this proc)
+  result = copyNimTree(n)
+  for i, ch in n:
+    case ch.kind
+    of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar:
+      discard
+    of nnkInfix:
+      if ch == tilde:
+        result[i] = tilde[2]
+      else:
+        result[i] = reorderRawTilde(ch, tilde)
+    else:
+      error("Unsupported kind " & $ch.kind)
+
+proc recurseFind(n: NimNode, cond: NimNode): NimNode =
+  ## a helper proc to find a node matching `cond` recursively
+  for i, ch in n:
+    if ch == cond:
+      result = n
+      break
+    else:
+      let found = recurseFind(ch, cond)
+      if found.kind != nnkNilLIt:
+        result = found
+
 proc buildFormula(n: NimNode): NimNode =
   expectKind(n, nnkInfix)
-  let opid = n[0].strVal
+
+  let tilde = recurseFind(n,
+                          cond = ident"~")
+  var node = n
+  if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
+    # only reorder the tree, if it does contain a tilde and the
+    # tree is not already ordered (i.e. nnkInfix at top with tilde as
+    # LHS)
+    let replaced = reorderRawTilde(n, tilde)
+    let full = nnkInfix.newTree(tilde[0],
+                                tilde[1],
+                                replaced)
+    node = full
+
+  let opid = node[0].strVal
   let op = quote do:
     parseEnum[ArithmeticKind](`opid`)
-  let lhs = handleSide(n[1])
-  let rhs = handleSide(n[2])
+  let lhs = handleSide(node[1])
+  let rhs = handleSide(node[2])
   echo "lhs ", lhs.treeRepr
   echo "rhs ", rhs.treeRepr
   echo "mn ", n.treeRepr
