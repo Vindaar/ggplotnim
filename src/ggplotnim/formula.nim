@@ -664,8 +664,10 @@ proc handleSide(n: NimNode): NimNode =
     echo "RES ~??? ", result.treeRepr
   of nnkCall:
     result = constructFunction(n)
+  of nnkPar:
+    result = buildFormula(n[0]) #constructFunction(n[0])
   else:
-    raise newException(Exception, "Not implemented!")
+    raise newException(Exception, "Not implemented! " & $n.kind)
 
 proc buildFormula(n: NimNode): NimNode =
   expectKind(n, nnkInfix)

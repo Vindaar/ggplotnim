@@ -21,6 +21,12 @@ test "Testing ~ formula creation":
   doAssert $gg1 == "(~ hwy (- (+ displ cyl) cty))"
   doAssert $gg2 == "(~ hwy (- (+ displ cyl) cty))"
 
+test "Testing ~ formula creation using f{} macro":
+  let f = f{"meanCty" ~ ("hwy" + "cty")}
+  let g = meanCty ~ hwy + cty
+  doAssert $f == $g
+  # TODO: Add more tests here...
+
 test "Serializing ~ formula":
   let mpg = readCsv("data/mpg.csv")
   let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
