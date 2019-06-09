@@ -690,8 +690,8 @@ proc `$`*(node: FormulaNode): string
 
 proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Value]) =
   ## calculates a new column based on the `fn` given
-  doAssert fn.lhs.kind == fkVariable
-  doAssert fn.lhs.val.kind == VString
+  doAssert fn.lhs.kind == fkVariable, " was " & $fn
+  doAssert fn.lhs.val.kind == VString, " was " & $fn
   let colName = $fn.lhs.val
   # mutable copy so that we can cache the result of `fn(arg)` if such a
   # function call is involved
