@@ -22,9 +22,9 @@ proc ch2_3() =
   # Should create ticks for each possible labels in x / y and create a
   # scatter plot like that. X und Y scale thus become based on classes
   # tick numbers replaced by values!
-  #ggplot(mpg, aes("model", "manufacturer")) +
-  #  geom_point() +
-  #  ggsave("figs/2.3_3.pdf")
+  # ggplot(mpg, aes("model", "manufacturer")) +
+  #   geom_point() +
+  #   ggsave("figs/2.3_3.pdf")
 
   ggplot(mpg, aes("cty", "hwy")) +
     geom_point() +
@@ -74,9 +74,29 @@ proc ch2_3() =
   # the continouos data scale given by the data of the given key. Should
   # probably define a range in of the size of the points e.g. 1.0 - 10.0
   # points or whatever and scale in that. Using Quantities that should be easy.
-  #ggplot(mpg, aes(x = "displ", y = "hwy", size = "cyl")) +
-  #  geom_point() +
-  #  ggsave("figs/2.3_10.pdf")
+  ggplot(mpg, aes(x = "displ", y = "hwy", size = "cyl")) +
+    geom_point() +
+    ggsave("figs/2.3_10.pdf")
+
+  # Classifying a geom by a non existant key in the data frame now works.
+  # It's currently implemented by checking whether the key exists in the
+  # data frame. If not, we add a dummy value with the value corresponding
+  # to the key given. We could extend this to even support numerical values,
+  # but then we have to change the `col` field of the `Scale` to be a `Value`.
+  # For more complicated things, mutating the data frame beforehand is certainly
+  # advisable though.
+  # NOTE: This currently still only works for `geom_point`, since we simply
+  # have not implemented `aes` arguments to the other geoms. That's an easy
+  # change though.
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point(aes(color = "blue")) +
+    ggsave("figs/2.3_11.pdf")
+
+  # works now
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point(color = parseHex("0000FF")) +
+    ggsave("figs/2.3_12.pdf")
+
 
 
 when isMainModule:
