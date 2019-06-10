@@ -2,6 +2,8 @@ import sequtils, tables, sets, algorithm, strutils
 import ginger
 import parsecsv, streams, strutils
 
+import random
+
 import seqmath
 
 import macros
@@ -13,30 +15,72 @@ export formula
 
 export sets
 
+import chroma
+export chroma
+
 type
   Aesthetics = object
-    x: string
+    # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
+    # possibly `scTranformedData`.
+    x: Option[string]
     y: Option[string]
-    color: Option[string] # classify by color
-    size: Option[string] # classify by size
+    # Replace these by e.g. `color: Option[Scale]` and have `Scale` be variant
+    # type that stores its kind `kind: scColor` and `key: string`.
+    color: Option[Scale] # classify by color
+    size: Option[Scale] # classify by size
+    shape: Option[Scale] # classify by shape
+
+  ScaleKind = enum
+    scLinearData, scTransformedData, scColor, scShape, scSize
+
+  DiscreteKind = enum
+    dcDiscrete, dcContinuous
+
+  ScaleValue = object
+    case kind: ScaleKind
+    of scLinearData:
+      # just stores a data value
+      val: Value
+    of scTransformedData:
+      # data under some transformation. E.g. log, tanh, ...
+      rawVal: Value
+      # where `trans` is our assigned transformation function
+      trans: proc(v: Value): Value
+    of scColor:
+      # stores a color
+      color: Color
+    of scShape:
+      # a marker kind
+      marker: MarkerKind
+    of scSize:
+      # a size of something, e.g. a marker
+      size: float
 
   # TODO: should not one scale belong to only one axis?
-  # But if we do that, how do we find the correct scale in the seq[Scales]?
-  # Replace seq[Scales] by e.g. Table[string, Scales] where string is some
+  # But if we do that, how do we find the correct scale in the seq[Scale]?
+  # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
   # static identifier we can calculate to retrieve it?
   # e.g. `xaxis`, `<name of geom>.xaxis` etc.?
-  Scales = object
-    numXTicks: int
-    numYTicks: int
-    # scale represented by grouping string classes by colors
-    colorMap: OrderedTable[string, Color]
-    # stores the data for the color column so that we can get the
-    # color class for each element
-    colors: seq[string]
+  Scale = object
+    # the column which this scale corresponds to
+    col: string
+    scKind: ScaleKind
+    case kind: DiscreteKind
+    of dcDiscrete:
+      # For discrete data this is a good solution. How about continuous data?
+      valueMap: OrderedTable[Value, ScaleValue]
+      # seq of labels to access via index
+      labelSeq: seq[Value]
+    of dcContinuous:
+      # For continuous we might want to add a `Scale` in the ginger sense
+      dataScale: ginger.Scale
+      # with this we can calculate on the fly the required values given the
+      # data
 
   Facet = object
     discard
 
+  # helper object to compose `ggsave` via `+` with `ggplot`
   Draw = object
     fname: string
 
@@ -58,64 +102,202 @@ type
     data: T
     title: string
     subtitle: string
-    aes: seq[Aesthetics]
-    scales: seq[Scales]
+    # GgPlot can only contain a single `aes` by itself. Geoms may contain
+    # seperate ones
+    aes: Aesthetics
+    numXticks: int
+    numYticks: int
     facets: seq[Facet]
     geoms: seq[Geom]
+
+proc getValue(s: Scale, label: Value): ScaleValue =
+  ## returns the `ScaleValue` of the given Scale `s` for `label`
+  result = s.valueMap[label]
+
+proc getLabelKey(s: Scale, at: int): Value =
+  ## returns the key at index `at` for the Scale `s`
+  result = s.labelSeq[at]
+
+proc guessType(s: seq[Value]): ValueKind =
+  ## returns a ``guess`` (!) of the data type stored in `s`.
+  ## We check a subset of 100 elements of the seq (or the whole if
+  ## < 100 elements) and see if they match a single ValueKind.
+  ## If they do match, return it, else return `VNull`
+  var r = initRand(299792458) # for now just set a local state
+  let idxNum = min(99, s.high)
+  let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
+  result = VNull
+  var resultSet = false
+  for i in randIdx:
+    if not resultSet:
+      result = s[i].kind
+      resultSet = true
+    else:
+      if result != s[i].kind:
+        return VNull
+
+proc isDiscreteData(s: seq[Value]): bool =
+  ## returns an ``estimate`` (!) of whether the given sequence of
+  ## data is most likely discrete or continuous. First determine
+  ## most probable type, then check for discreteness
+  ## - if Values are strings: discrete
+  ## - if float / int: generate set of first 100 elements, check
+  ##   if cardinality of set > 50: continuous, else discrete
+  ## - if bool: discrete
+  let guessedT = s.guessType
+  case guessedT
+  of VString:
+    result = true
+  of VFloat, VInt:
+    # same approach as in `guessType`
+    var r = initRand(42) # for now just set a local state
+    let idxNum = min(99, s.high)
+    let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
+    let elements = randIdx.mapIt(s[it]).toHashSet
+    if elements.card > (idxNum.float / 2.0).round.int:
+      result = false
+    else:
+      result = true
+  of VBool:
+    result = true
+  of VNull:
+    result = false
+  of VObject:
+     raise newException(Exception, "A VObject can neither be discrete nor continuous!")
+
+proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
+  let isDiscrete = refVals.isDiscreteData
+  if isDiscrete:
+    case scale.scKind
+    of scColor, scSize, scShape:
+      result = scale.getValue(val)
+    of scLinearData:
+      # that's just the value itself
+      result = ScaleValue(kind: scLinearData, val: val)
+    else:
+      raise newException(Exception, "`mapDataToScale` not yet implemented for " &
+        "discrete data of kind " & $scale.scKind)
+  else:
+    case scale.scKind
+    of scLinearData:
+      # again, that's still just the value itself
+      result = ScaleValue(kind: scLinearData, val: val)
+    of scSize:
+      # TODO: regardless of continuous or discrete data, bin the
+      # data and determine size by binning!
+      const numSizes = 5
+      const minSize = 2.0
+      const maxSize = 7.0
+      const stepSize = (maxSize - minSize) / numSizes.float
+      let dataRange = (low: min(refVals), high: max(refVals))
+      # calc the actual size for contiuous data
+      result = ScaleValue(kind: scSize, size: minSize + (maxSize - minSize) *
+        (val.toFloat - dataRange.low.toFloat) / (dataRange.high.toFloat - dataRange.low.toFloat))
+    else:
+      raise newException(Exception, "`mapDataToScale` not yet implemented for " &
+        "continuous data of kind " & $scale.scKind)
 
 proc dataTo[T: Table | OrderedTable | DataFrame; U](
   df: T,
   col: string,
   outType: typedesc[U]): seq[U]
 
-proc getColor[T: SomeInteger | string](s: Scales, k: T): Color =
-  ## returns the color from the `Scales` based on either a key
-  ## as a string or as an index
-  # doAssert s.kind == skColor
-  when T is SomeInteger:
-    # return the color corresponding to row `k` of the
-    # color column
-    result = s.colorMap[s.colors[k]]
-  else:
-    # return the color corresponding to class `k`
-    result = s.colorMap[k]
+proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
+               scKind: static ScaleKind): Option[Scale] =
+  ## fills the `Scale` of `scKind` kind of the `aes`
+  if not scaleOpt.isSome:
+    return none[Scale]()
+  let scale = scaleOpt.unsafeGet
 
-proc getColorKey(s: Scales, at: int): string =
-  ## returns the key of the colorMap at insertion index `at`
-  ## This works because `colorMap` is an OrderedTable
-  var tmp = newSeq[string](s.colorMap.len)
-  for k in keys(s.colorMap):
-    tmp.add k
-  result = tmp[at]
+  var res = Scale(scKind: scKind, col: scale.col)
+  # get the data column we scale by
+  var data: seq[Value]
+  if scale.col in p.data:
+    data = p.data.dataTo(scale.col, Value)
+  else:
+    data = @[Value(kind: VString, str: scale.col)]
+
+  let isDiscrete = data.isDiscreteData
+  if isDiscrete:
+    # generate a discrete `Scale`
+    res = Scale(scKind: scKind, col: scale.col, kind: dcDiscrete)
+    # convert to set to filter duplicates, back to seq and sort
+    res.labelSeq = data.toHashSet.toSeq.sorted
+    var valueMap = initOrderedTable[Value, ScaleValue]()
+    case scKind
+    of scColor:
+      let colorCs = ggColorHue(res.labelSeq.len)
+      for i, k in res.labelSeq:
+        valueMap[k] = ScaleValue(kind: scColor, color: colorCs[i])
+    of scSize:
+      let numSizes = min(res.labelSeq.len, 5)
+      const minSize = 2.0
+      const maxSize = 7.0
+      let stepSize = (maxSize - minSize) / numSizes.float
+      for i, k in res.labelSeq:
+        valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
+    else:
+      raise newException(Exception, "`fillScale` not implemented for " & $scKind)
+    res.valueMap = valueMap
+  result = some(res)
+
+proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
+  # TODO: we must estimate whether the given column is "continuous like" or
+  # "discrete like"
+  # If continuous like in case of
+  # - color: create colorbar
+  # - shape: raise exception not possible
+  # - size: bin the data and use bins as fixed sizes
+  result = aes
+  result.color = aes.color.fillScale(p, scColor)
+  # not implemented yet:
+  #result.shape = aes.shape.fillScale(p, scShape)
+  result.size = aes.size.fillScale(p, scSize)
 
 proc addAes(p: var GgPlot, aes: Aesthetics) =
   ## adds the aesthetics to the plot. This is non trivial, because
   ## an aestetics encodes information that may have to be calculated
-  if aes.color.isSome:
-    # get the column by which we want to color
-    let colors = p.data.dataTo(aes.color.get, string)
-    # convert to set to filter duplicates, back to seq and sort
-    let catSeq = colors.toHashSet.toSeq.sorted
-    let colorCs = ggColorHue(catSeq.len)
-    var cScale = Scales()
-    cScale.colors = colors
-    for i, k in catSeq:
-      cScale.colorMap[k] = colorCs[i]
-    p.scales.add cScale
-  # finally add the actual aesthetics
-  p.aes.add aes
+  p.aes = fillAes(p, aes)
 
 proc ggplot*[T](data: T, aes: Aesthetics): GgPlot[T] =
-  let defaultScale = Scales(numXTicks: 10,
-                            numYTicks: 10)
   result = GgPlot[T](data: data,
-                     scales: @[defaultScale])
+                     numXticks: 10,
+                     numYticks: 10)
   result.addAes aes
-  echo "GG HAS SCALES ", result.scales.len
   # TODO: fill others with defaults
 
-func geom_point*(): Geom =
-  result = Geom(kind: gkPoint)
+proc orNone(s: string): Option[string] =
+  ## returns either a `some(s)` if s.len > 0 or none[string]()
+  if s.len == 0: none[string]()
+  else: some(s)
+
+proc orNoneScale(s: string, scKind: static ScaleKind): Option[Scale] =
+  ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
+  ## `s` is empty
+  if s.len > 0:
+    result = some(Scale(scKind: scKind, col: s))
+  else:
+    result = none[Scale]()
+
+proc aes*(x = "", y = "", color = "", shape = "", size = ""): Aesthetics =
+  result = Aesthetics(x: x.orNone, y: y.orNone,
+                      color: color.orNoneScale(scColor),
+                      shape: shape.orNoneScale(scShape),
+                      size: size.orNoneScale(scSize))
+
+proc aes*(x: FormulaNode, color = "", shape = "", size = ""): Aesthetics =
+  result = Aesthetics(x: none[string](), y: none[string](),
+                      color: color.orNoneScale(scColor),
+                      shape: shape.orNoneScale(scShape),
+                      size: size.orNoneScale(scSize))
+
+func geom_point*(aes: Aesthetics = aes(),
+                 color: Color = black,
+                 size: float = 3.0): Geom =
+  result = Geom(kind: gkPoint,
+                style: some(Style(color: color,
+                                  size: size)),
+                aes: aes)
 
 func geom_bar(): Geom =
   result = Geom(kind: gkBar)
@@ -148,13 +330,18 @@ proc geom_tile*(): Geom =
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
 proc createLegend(view: var Viewport,
-                  title: string,
-                  markers: seq[GraphObject],
-                  cat: Scales) =
+                  cat: Scale,
+                  markers: seq[GraphObject]) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
-  view.layout(1, rows = cat.colorMap.len + 1)
+  case cat.kind
+  of dcDiscrete:
+    view.layout(1, rows = cat.valueMap.len + 1)
+  of dcContinuous:
+    # for now 5 sizes...
+    view.layout(1, rows = 5 + 1)
+
   # iterate only over added children, skip first, because we actual legend first
   var j = 0
   for i in startIdx + 1 ..< view.len:
@@ -172,17 +359,30 @@ proc createLegend(view: var Viewport,
                            style = some(style))
     rect.name = "markerRectangle"
     # add marker ontop of rect
+    # TODO: the markers given must contain all information already, that is:
+    # - marker kind
+    # - marker size
+    # - marker color
+    # then here we should just pop those in. Also need to differentiate between legends
+    # made of markers and color bars!
     let point = ch.initPoint(Coord(x: c1(ch.height.val / 2.0 * viewRatio),
                                    y: c1(0.5)),
                              marker = markers[j].ptMarker,
-                             color = cat.getColor(cat.getColorKey(j)))
+                             size = markers[j].ptSize,
+                             color = markers[j].ptColor)
+    var labelText = ""
+    case cat.scKind
+    of scColor, scShape, scSize:
+      labelText = $cat.getLabelKey(j)
+    else:
+      raise newException(Exception, "`createLegend` unsupported for " & $cat.scKind)
 
     let label = ch.initText(
       Coord(
         x: c1(ch.height.val * viewRatio) +
            c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
         y: c1(0.5)),
-      cat.getColorKey(j),
+      labelText,
       alignKind = taLeft
     )
     ch.addObj [rect, point, label]
@@ -193,36 +393,27 @@ proc createLegend(view: var Viewport,
   var label = header.initText(
     Coord(x: header.origin.x,
           y: header.origin.y + c1(header.height.val * 3.0 * header.hView.val / header.wView.val)),
-    title,
+    cat.col,
     alignKind = taLeft)
   # set to bold
   label.txtFont.bold = true
   header.addObj label
   view[startIdx] = header
 
-proc aes*(x: string, y = "", color = "", shape = "", size = ""): Aesthetics =
-  var yOpt: Option[string]
-  var colorOpt: Option[string]
-  if y.len > 0:
-    yOpt = some(y)
-  if color.len > 0:
-    colorOpt = some(color)
-  result = Aesthetics(x: x, y: yOpt, color: colorOpt)
-
-proc aes*(x: FormulaNode, color = "", shape = "", size = ""): Aesthetics =
-  result = Aesthetics(x: "", y: some(""), color: some(color))
-
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
-  result.geoms.add geom
+  # fill the aesthetics of the geom
+  var mgeom = geom
+  mgeom.aes = fillAes(p, geom.aes)
+  result.geoms.add mgeom
 
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   ## adds the given facet to the GgPlot object
   result = p
   result.facets.add facet
 
-proc `+`*(p: GgPlot, scale: Scales): GgPlot =
+proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   ## adds the given facet to the GgPlot object
   result = p
   result.scales.add scale
@@ -240,8 +431,8 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
 
 proc requiresLegend(p: GgPlot): bool =
   ## returns true if the plot requires a legend to be drawn
-  if p.aes.anyIt(it.color.isSome) or
-     p.aes.anyIt(it.size.isSome) or
+  if p.aes.color.isSome or
+     p.aes.size.isSome or
      p.geoms.anyIt(it.aes.color.isSome) or
      p.geoms.anyIt(it.aes.size.isSome):
     result = true
@@ -317,91 +508,120 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
 
 proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## creates the GraphObjects for a `gkPoint` geom
+  ## TODO: we could unify the code in the `create*Gobj` procs, by
+  ## - making all procs in ginger take a `Style`
+  ## - just build the style in the same way we do here (in a separate proc)
+  ##   and create the `GraphObject`
   doAssert geom.kind == gkPoint
-  for aes in p.aes:
-    let xData = p.data.dataTo(aes.x, float)
-    let yData = p.data.dataTo(aes.y.get, float)
-    for i in 0 ..< xData.len:
-      if aes.color.isSome:
-        let xx = p.scales[1]
-
-        #let style = Style(fillColor: colorsCat[colors[i]])
-        result.add initPoint(view, (x: xData[i], y: yData[i]),
-                           marker = mkCircle,
-                           color = p.scales[1].getColor(i))
+  #for aes in p.aes:
+  let xData = p.data.dataTo(p.aes.x.get, float)
+  let yData = p.data.dataTo(p.aes.y.get, float)
+  doAssert geom.style.isSome
+  let style = geom.style.unsafeGet
+  for i in 0 ..< xData.len:
+    # TODO: change `initPoint` to receive a style and extract internally
+    # or keep current way? Currently `GraphObject.goPoint` uses explicit
+    # fields for `color` and `size`. Until we strictly use `GraphObject.style` for
+    # this, that change would not make sense
+    var
+      marker = mkCircle
+      size = style.size
+      color = style.color
+    if p.aes.color.isSome or geom.aes.color.isSome:
+      let cScale = if geom.aes.color.isSome: geom.aes.color.unsafeGet
+                   else: p.aes.color.unsafeGet
+      var colorData: seq[Value]
+      if cScale.col in p.data:
+        colorData = p.data.dataTo(cScale.col, Value)
       else:
-        result.add initPoint(view, (x: xData[i], y: yData[i]),
-                           marker = mkCircle)
+        colorData = toSeq(0 .. xData.high).mapIt(Value(kind: VString, str: cScale.col))
+      # TODO: Handle by `mapDataToScale` to work with discrete / continuous?!
+      # / for more general interface?
+      color = cScale.getValue(colorData[i]).color
+    if p.aes.size.isSome or geom.aes.size.isSome:
+      let sScale = if geom.aes.size.isSome: geom.aes.size.unsafeGet
+                   else: p.aes.size.unsafeGet
+      let sizeData = toSeq(p.data[sScale.col])
+      size = mapDataToScale(sizeData, sizeData[i], sScale).size
+    if p.aes.shape.isSome or geom.aes.shape.isSome:
+      let shScale = if geom.aes.shape.isSome: geom.aes.shape.unsafeGet
+                   else: p.aes.shape.unsafeGet
+      let shapeData = p.data.dataTo(shScale.col, Value)
+      marker = shScale.getValue(shapeData[i]).marker
+    result.add initPoint(view, (x: xData[i], y: yData[i]),
+                         marker = marker,
+                         color = color,
+                         size = size)
 
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
-  for aes in p.aes:
-    # before performing a calculation for the histogram viewports, get the
-    # new xScale, by calling calcTickLocations with it
-    # Note: we don't have to assign it to the `view` viewport, since that will
-    # happen when calculation of the actual ticks will be done later on
-    let (newXScale, _, _) = calcTickLocations(view.xScale, p.scales[0].numXTicks)
+  #for aes in p.aes:
+  let aes = p.aes
+  # before performing a calculation for the histogram viewports, get the
+  # new xScale, by calling calcTickLocations with it
+  # Note: we don't have to assign it to the `view` viewport, since that will
+  # happen when calculation of the actual ticks will be done later on
+  let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
 
-    # generate the histogram itself
-    let rawDat = p.data.dataTo(aes.x, float)
-    const nbins = 30
-    let binWidth = (newXScale.high - newXScale.low).float / nbins.float
+  # generate the histogram itself
+  let rawDat = p.data.dataTo(aes.x.get, float)
+  const nbins = 30
+  let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
-    # TODO: if aes.colos.isSome we have to group the data we histogram first
-    # and calculate histograms for each
+  # TODO: if aes.colos.isSome we have to group the data we histogram first
+  # and calculate histograms for each
 
-    let hist = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
+  let hist = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
 
-    # given the histogram, we can now deduce the base yScale we need
-    let yScaleBase = (low: 0.0, high: hist.max.float)
-    # however, this is not the final one, since we still have to calculate
-    # the tick locations, which might change it again
-    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.scales[0].numYTicks)
+  # given the histogram, we can now deduce the base yScale we need
+  let yScaleBase = (low: 0.0, high: hist.max.float)
+  # however, this is not the final one, since we still have to calculate
+  # the tick locations, which might change it again
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
 
-    # create viewports showing the bars
-    view.yScale = newYScale
+  # create viewports showing the bars
+  view.yScale = newYScale
 
+  var style: Option[Style]
+  if geom.style.isSome:
+    style = geom.style
+  else:
+    # TODO: inherit from parent somehow?
+    discard
+  if geom.kind == gkHistogram:
+    view.layout(nbins, 1)
+    var i = 0
+    for p in mitems(view):
+      doAssert p.yScale.high >= hist.max.float
+      let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
+      let r = p.initRect(c(0.0, yPos), # bottom left
+                         quant(1.0, ukRelative),
+                         quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
+                         style = style)
+      p.addObj r
+      inc i
+  else:
+    doAssert geom.kind == gkFreqPoly
+    # only single viewport will be used
+    # calculate bin centers
+    let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
+    # build data points for polyLine
+    var points = newSeq[Point](nbins)
+    for i in 0 ..< nbins:
+      points[i] = (x: binCenters[i], y: hist[i].float)
+
+    # TODO: rewrite code such that user hands style, but we convert to
+    # `Style` in geom?
     var style: Option[Style]
     if geom.style.isSome:
       style = geom.style
     else:
-      # TODO: inherit from parent somehow?
+      # TODO: somehow inherit something from GgPlot, maybe via themes?
       discard
-    if geom.kind == gkHistogram:
-      view.layout(nbins, 1)
-      var i = 0
-      for p in mitems(view):
-        doAssert p.yScale.high >= hist.max.float
-        echo "I ", i , " for len ", hist.len
-        let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
-        let r = p.initRect(c(0.0, yPos), # bottom left
-                           quant(1.0, ukRelative),
-                           quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
-                           style = style)
-        p.addObj r
-        inc i
-    else:
-      doAssert geom.kind == gkFreqPoly
-      # only single viewport will be used
-      # calculate bin centers
-      let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
-      # build data points for polyLine
-      var points = newSeq[Point](nbins)
-      for i in 0 ..< nbins:
-        points[i] = (x: binCenters[i], y: hist[i].float)
-
-      # TODO: rewrite code such that user hands style, but we convert to
-      # `Style` in geom?
-      var style: Option[Style]
-      if geom.style.isSome:
-        style = geom.style
-      else:
-        # TODO: somehow inherit something from GgPlot, maybe via themes?
-        discard
-      # have to update the scale of our viewport! `initPolyLine` depends on it
-      # However: we could change the `ginger` code to accept a seq[Coord] instead and
-      # use the `newXScale, newYScale` as the ukData scale instead!
-      view.xScale = newXScale
-      result.add view.initPolyLine(points, style)
+    # have to update the scale of our viewport! `initPolyLine` depends on it
+    # However: we could change the `ginger` code to accept a seq[Coord] instead and
+    # use the `newXScale, newYScale` as the ukData scale instead!
+    view.xScale = newXScale
+    result.add view.initPolyLine(points, style)
 
 proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## performs the required conversion of the data from the data
@@ -414,38 +634,79 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
   else:
     discard
 
+proc generateLegendMarkers(plt: Viewport, aes: Aesthetics,
+                           kind: ScaleKind): seq[GraphObject] =
+  ## generate the required Legend Markers for the given `aes`
+  case kind
+  of scColor:
+    if aes.color.isSome:
+      let scale = aes.color.unsafeGet
+      doAssert scale.scKind == scColor
+      for i in 0 ..< scale.valueMap.len:
+        let color = scale.getValue(scale.getLabelKey(i)).color
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = mkCircle,
+                             color = color) # assign same marker as above
+  of scShape:
+    if aes.shape.isSome:
+      let scale = aes.shape.unsafeGet
+      doAssert scale.scKind == scShape
+      for i in 0 ..< scale.valueMap.len:
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = scale.getValue(scale.getLabelKey(i)))
+  of scSize:
+    if aes.size.isSome:
+      let scale = aes.size.unsafeGet
+      doAssert scale.scKind == scSize
+      for i in 0 ..< scale.valueMap.len:
+        let size = scale.getValue(scale.getLabelKey(i)).size
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = mkCircle,
+                             size = size)
+
+  else:
+    raise newException(Exception, "`createLegend` unsupported for " & $kind)
+
+
 proc ggsave*(p: GgPlot, fname: string) =
   # check if any aes
-  doAssert p.aes.len > 0, "Needs at least one aesthetics!"
+  #doAssert p.aes.len > 0, "Needs at least one aesthetics!"
   const
     numXTicks = 10
     numYTicks = 10
 
   var
-    xScale: Scale
-    yScale: Scale
+    xScale: ginger.Scale
+    yScale: ginger.Scale
     colorsCat: OrderedTable[string, Color]
     colors: seq[string]
-  for aes in p.aes:
-    # determine min and max scales of aes
-    let xdata = p.data.dataTo(aes.x, float)
-    let
-      minX = xdata.min
-      maxX = xdata.max
-    xScale = (low: minX, high: maxX)
-    var
-      minY: float
-      maxY: float
-    if aes.y.isSome:
-      let ydata = p.data.dataTo(aes.y.get, float)
-      minY = ydata.min
-      maxY = ydata.max
-      yScale = (low: minY, high: maxY)
+  #for aes in p.aes:
+  # determine min and max scales of aes
+  let xdata = p.data.dataTo(p.aes.x.get, float)
+  let
+    minX = xdata.min
+    maxX = xdata.max
+  xScale = (low: minX, high: maxX)
+  var
+    minY: float
+    maxY: float
+  if p.aes.y.isSome:
+    let ydata = p.data.dataTo(p.aes.y.get, float)
+    minY = ydata.min
+    maxY = ydata.max
+    yScale = (low: minY, high: maxY)
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
                          yScale = some(yScale))
 
+  # NOTE: the question if ``not`` whether a `PLOT` requires a legend
+  # but rather whether an `AESTHETIC` with an attached `SCALE` requires
+  # legend! So check for each `aes` whether we have to draw a legend!
+  # Assembly of the plot layout thus has to happen at the very end
   let drawLegend = p.requiresLegend
   if drawLegend:
     img.plotLayoutWithLegend()
@@ -487,13 +748,13 @@ proc ggsave*(p: GgPlot, fname: string) =
     yticks = plt.yticks(numYTicks)
     xtickLabels = plt.tickLabels(xticks)
     ytickLabels = plt.tickLabels(yticks)
-    xlabel = plt.xlabel(p.aes[0].x)
+    xlabel = plt.xlabel(p.aes.x.get)
     grdlines = plt.initGridLines(some(xticks), some(yticks))
 
   var ylabel: GraphObject
   case p.geoms[0].kind
   of gkPoint:
-    ylabel = plt.ylabel(p.aes[0].y.get)
+    ylabel = plt.ylabel(p.aes.y.get)
   of gkHistogram:
     ylabel = plt.ylabel("count")
   else: discard
@@ -501,24 +762,34 @@ proc ggsave*(p: GgPlot, fname: string) =
   plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
   img[4] = plt
 
-  if drawLegend:
+  # draw legends
+  for aes in concat(@[p.aes], p.geoms.mapIt(it.aes)):
     var lg = img[5]
     lg.height = quant(img[4].height.val / 2.0, ukRelative) #quant(0.5, ukRelative)
-    lg.origin.y = lg.origin.y + c1(img[4].height.val / 4.0)
+    lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
     lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
     var markers: seq[GraphObject]
-    for k, v in p.scales[1].colors:
-      markers.add initPoint(plt,
-                            (0.0, 0.0), # dummy coordinates
-                            marker = mkCircle) # assign same marker as above
-        #proc createLegend(view: var Viewport,
-    #              title: string,
-    #              markers: seq[GraphObject],
-    #              cat: Table[string, Color]) =
-    lg.createLegend(p.aes[0].color.get,
-                    markers,
-                    p.scales[1])
+    # TODO: The following currently creates stacked legends for each Scale that
+    # requires one. Need to create a `seq[Viewport]` or something to first build
+    # all legends and then calculate the sizes required.
+    if aes.color.isSome:
+      # handle color legend
+      markers = lg.generateLegendMarkers(aes, scColor)
+      let color = aes.color.unsafeGet
+      lg.createLegend(color, markers)
+    if aes.shape.isSome:
+      # handle shape legend
+      markers = lg.generateLegendMarkers(aes, scShape)
+      let shape = aes.shape.unsafeGet
+      lg.createLegend(shape, markers)
+    if aes.size.isSome:
+      # handle size legend
+      markers = lg.generateLegendMarkers(aes, scSize)
+      let size = aes.size.unsafeGet
+      lg.createLegend(size, markers)
+
     img[5] = lg
+
   if p.title.len > 0:
     var titleView = img[1]
     let font = Font(family: "sans-serif",
