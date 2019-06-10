@@ -307,22 +307,22 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   result = DataFrame(len: 0)
   for k, v in t:
     var vec = initVector[Value]()
-    var data = newSeq[Value]()
+    var data = newSeq[Value](v.len)
     # check first element of v for type
     if v.len > 0:
       #if v[0].isInt:
       #  for x in v:
       #    data.add Value(kind: VInt, num: x.parseInt)
       if v[0].isFloat:
-        for x in v:
-          data.add Value(kind: VFloat, fnum: x.parseFloat)
+        for i, x in v:
+          data[i] = Value(kind: VFloat, fnum: x.parseFloat)
       elif v[0].isBool:
-        for x in v:
-          data.add Value(kind: VBool, bval: x.parseBool)
+        for i, x in v:
+          data[i] = Value(kind: VBool, bval: x.parseBool)
       else:
         # assume string
-        for x in v:
-          data.add Value(kind: VString, str: x)
+        for i, x in v:
+          data[i] = Value(kind: VString, str: x)
       vec = data.toPersistentVector
     #result.data[k] = data
     result.data[k] = vec
