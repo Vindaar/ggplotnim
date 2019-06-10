@@ -468,6 +468,9 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
   outType: typedesc[U]): seq[U] =
   ## reads the column `col` from the Table / DataFrame and converts
   ## it to `outType`, returns it as a `seq[outType]`
+  ## NOTE: This proc may also be used as a means to extract a column from
+  ## a `DataFrame` as a `seq[Value]`, although that is identical to just
+  ## calling `toSeq(df[column])`.
   ## NOTE: For now we just assume that a Table will be of kind
   ## `Table[string, seq[string]]`!
   when type(T) is Table or type(T) is OrderedTable:
@@ -480,6 +483,7 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
       result = df[col]
   else:
     # make a check of the type of the first element of the seq
+    # TODO: replace by call to `guessType`
     let dkind = df[col][0].kind
     when outType is SomeNumber:
       case dkind
@@ -498,6 +502,8 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
       of VBool:
         result = df[col].toSeq.mapIt(it.bval.outType)
       else: discard
+    elif outType is Value:
+      result = toSeq(df[col])
     else:
       case dkind
       of VObject:
