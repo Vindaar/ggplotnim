@@ -115,6 +115,11 @@ proc `[]=`*(v: var Value, key: string, val: Value) =
   doAssert v.kind == VObject
   v.fields[key] = val
 
+proc contains*(df: DataFrame, key: string): bool =
+  ## Contains proc for `DataFrames`, which checks if the `key` names
+  ## a column in the `DataFrame`
+  result = df.data.hasKey(key)
+
 proc `$`*(v: Value): string =
   ## converts the given value to its value as a string
   case v.kind
@@ -132,7 +137,7 @@ proc `$`*(v: Value): string =
   of VNull:
     result = "null"
 
-proc hash(x: Value): Hash =
+proc hash*(x: Value): Hash =
   case x.kind
   of VInt:
     result = hash(x.num)
