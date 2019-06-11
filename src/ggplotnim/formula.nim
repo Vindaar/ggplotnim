@@ -46,7 +46,7 @@ type
     amDep = "~"
     amEqual = "=="
     amGreater = ">"
-    amLess = ">"
+    amLess = "<"
     amGeq = ">="
     amLeq = "<="
 
