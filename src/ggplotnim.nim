@@ -687,7 +687,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   # TODO: if aes.colos.isSome we have to group the data we histogram first
   # and calculate histograms for each
 
-  let hist = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
+  let (hist, _) = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
 
   # given the histogram, we can now deduce the base yScale we need
   let yScaleBase = (low: 0.0, high: hist.max.float)
