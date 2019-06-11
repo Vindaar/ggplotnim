@@ -155,6 +155,10 @@ proc hash*(x: Value): Hash =
     result = 0
   result = !$result
 
+proc `%`*(c: char): Value =
+  ## we convert a `char` to a `string`!
+  result = Value(kind: VString, str: $c)
+
 proc `%`*(v: string): Value =
   result = Value(kind: VString, str: v)
 
@@ -172,6 +176,12 @@ proc `%`*(v: bool): Value =
 
 proc `%`*(v: OrderedTable[string, Value]): Value =
   result = Value(kind: VObject, fields: v)
+
+proc `%`*[T](s: seq[T]): seq[Value] =
+  ## converts a `seq[T]` to a `seq[Value]`
+  result = newSeq[Value](s.len)
+  for i, x in s:
+    result[i] = % x
 
 func isInt(s: string): bool =
   result = s.isDigit
