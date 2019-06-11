@@ -339,11 +339,22 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
     if result.len == 0:
       result.len = result.data[k].len
 
-proc toVector*[T](s: seq[T]): PersistentVector[Value] =
+proc toVector*[T: not Value](s: seq[T]): PersistentVector[Value] =
   var valSeq = newSeq[Value](s.len)
   for i, x in s:
     valSeq[i] = % x
   result = valSeq.toPersistentVector
+
+proc toVector*(s: seq[Value]): PersistentVector[Value] =
+  ## the overload of `toVector`, which simply calls `toPersistentVector` directly
+  result = toPersistentVector(s)
+
+proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
+  ## creates a data frame from a table of `seq[Value]`. Simply have to convert
+  ## the `seq[Value]` to a `PersistentVector[Value]` and add to DF.
+  result = DataFrame(len: 0)
+  for k, v in t:
+    result[k] = v.toVector
 
 macro toTab*(s: untyped): untyped =
   let data = ident"columns"
