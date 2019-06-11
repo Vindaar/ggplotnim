@@ -26,6 +26,10 @@ test "Testing ~ formula creation using f{} macro":
   let g = meanCty ~ hwy + cty
   doAssert $f == $g
   # TODO: Add more tests here...
+  # create with `.` access
+  let tup = (a: 5.5, b: "ok")
+  let h = f{tup.a == tup.b}
+  doAssert $h == "(== 5.5 ok)"
 
 test "Serializing ~ formula":
   let mpg = readCsv("data/mpg.csv")

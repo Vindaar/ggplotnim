@@ -641,6 +641,10 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     val = n#.strVal
   of nnkIntLit .. nnkFloat64Lit:
     val = n
+  of nnkDotExpr:
+    # probably field access of some object
+    echo n.treeRepr
+    val = n
   else:
     error("Unsupported kind to construct variable " & $n.kind)
   result = quote do:
@@ -664,13 +668,13 @@ proc handleSide(n: NimNode): NimNode =
     result = constructVariable(n)
   of nnkIdent:
     # should correspond to a known identifier in the calling scope
-    echo "ISS ", n.treeRepr
     result = constructVariable(n)
-    echo "RES ~??? ", result.treeRepr
   of nnkCall:
     result = constructFunction(n)
   of nnkPar:
     result = buildFormula(n[0]) #constructFunction(n[0])
+  of nnkDotExpr:
+    result = constructVariable(n)
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
 
