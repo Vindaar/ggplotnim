@@ -589,6 +589,7 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
       marker = mkCircle
       size = style.size
       color = style.color
+    # TODO: Make use of `enumerateScales` and `changeStyle` here!
     if p.aes.color.isSome or geom.aes.color.isSome:
       let cScale = if geom.aes.color.isSome: geom.aes.color.unsafeGet
                    else: p.aes.color.unsafeGet
@@ -615,20 +616,59 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
                          color = color,
                          size = size)
 
-proc createLineGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+proc changeStyle(s: Style, scVal: ScaleValue): Style =
+  ## returns a modified style with the appropriate field replaced
+  result = s
+  case scVal.kind
+  of scColor:
+    result.color = scVal.color
+  of scSize:
+    result.size = scVal.size
+  else:
+    raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
+      "supported at the moment!")
+
+proc createLineGobj(view: var Viewport,
+                    p: GgPlot,
+                    geom: Geom): seq[GraphObject] =
   ## creates the `goPolyLine` objects for the given geom
   doAssert geom.kind == gkLine
   doAssert geom.style.isSome
-  let xData = p.data.dataTo(p.aes.x.get, float)
-  let yData = p.data.dataTo(p.aes.y.get, float)
-  # create points needed for polyLine
-  var points = newSeq[Point](xData.len)
-  # TODO: check for additional grouping via `geom.aes`!
-  for i in 0 ..< xData.len:
-    points[i] = (x: xData[i], y: yData[i])
-  # sort the points to that the lines are not connected arbitrarily
-  points = points.sortedByIt(it.x)
-  result.add view.initPolyLine(points, geom.style)
+  var style = geom.style.unsafeGet
+  var any = false
+  for scale in enumerateScales(p, geom):
+    any = true
+    var data: seq[Value]
+    # TODO: we do not actually make use of `data`!
+    if scale.col in p.data:
+      data = p.data.dataTo(scale.col, Value)
+    else:
+      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
+    for label, val in scale:
+      when type(p.data) is DataFrame:
+        let df = p.data.filter(f{scale.col == label})
+      else:
+        let df = toDf(p.data).filter(f{scale.col == label})
+      # now get the labeled data
+      let xData = df.dataTo(p.aes.x.get, float)
+      let yData = df.dataTo(p.aes.y.get, float)
+      # create points needed for polyLine
+      var points = newSeq[Point](xData.len)
+      for i in 0 ..< xData.len:
+        points[i] = (x: xData[i], y: yData[i])
+      style = changeStyle(style, val)
+      points = points.sortedByIt(it.x)
+      result.add view.initPolyLine(points, some(style))
+  if not any:
+    let xData = p.data.dataTo(p.aes.x.get, float)
+    let yData = p.data.dataTo(p.aes.y.get, float)
+    # create points needed for polyLine
+    var points = newSeq[Point](xData.len)
+    for i in 0 ..< xData.len:
+      points[i] = (x: xData[i], y: yData[i])
+    # sort the points to that the lines are not connected arbitrarily
+    points = points.sortedByIt(it.x)
+    result.add view.initPolyLine(points, geom.style)
 
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   #for aes in p.aes:
@@ -765,6 +805,12 @@ proc ggsave*(p: GgPlot, fname: string) =
   #for aes in p.aes:
   # determine min and max scales of aes
   let xdata = p.data.dataTo(p.aes.x.get, float)
+  # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
+  # also `string` data, after reading `xdata` not into `float`, but into `Value`.
+  # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
+  # gives us `VFloat` values, instead of `VString` with floats as string
+  # For a `DataFrame` this should work, but for a `Table` it won't (as it's
+  # `seq[string]` internally).
   let
     minX = xdata.min
     maxX = xdata.max
@@ -795,7 +841,6 @@ proc ggsave*(p: GgPlot, fname: string) =
   # get viewport of plot
   var plt = img[4]
   plt.background()
-
   for geom in p.geoms:
     # for each geom, we create a child viewport of `plt` covering
     # the whole viewport, which will house the data we just created.
@@ -829,7 +874,6 @@ proc ggsave*(p: GgPlot, fname: string) =
     ytickLabels = plt.tickLabels(yticks)
     xlabel = plt.xlabel(p.aes.x.get)
     grdlines = plt.initGridLines(some(xticks), some(yticks))
-
   var ylabel: GraphObject
   case p.geoms[0].kind
   of gkPoint:
@@ -837,7 +881,6 @@ proc ggsave*(p: GgPlot, fname: string) =
   of gkHistogram:
     ylabel = plt.ylabel("count")
   else: discard
-
   plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
   img[4] = plt
 

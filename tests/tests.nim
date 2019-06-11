@@ -1,7 +1,6 @@
 import unittest
 import ggplotnim
 
-
 test "Testing ~ formula creation":
   let f = x ~ y
   let a = x ~ (a - b)
