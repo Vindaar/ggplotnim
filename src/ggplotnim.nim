@@ -85,7 +85,7 @@ type
     fname: string
 
   GeomKind = enum
-    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile
+    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom = object
     style: Option[Style] # if set, apply this style instead of parent's
     aes: Aesthetics # a geom can have its own aesthetics. Needs to be part of
@@ -301,6 +301,18 @@ func geom_point*(aes: Aesthetics = aes(),
 
 func geom_bar(): Geom =
   result = Geom(kind: gkBar)
+
+func geom_line*(aes: Aesthetics = aes(),
+                color: Color = grey20,
+                size: float = 1.0,
+                lineType: LineType = ltSolid): Geom =
+  result = Geom(kind: gkLine,
+                style: some(Style(color: color,
+                                  lineWidth: size,
+                                  lineType: lineType,
+                                  fillColor: transparent)),
+                aes: aes)
+
 
 func geom_histogram*(binWidth = 0.0, bins = 0,
                      color: Color = grey20, # color of the bars
@@ -559,6 +571,21 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
                          color = color,
                          size = size)
 
+proc createLineGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+  ## creates the `goPolyLine` objects for the given geom
+  doAssert geom.kind == gkLine
+  doAssert geom.style.isSome
+  let xData = p.data.dataTo(p.aes.x.get, float)
+  let yData = p.data.dataTo(p.aes.y.get, float)
+  # create points needed for polyLine
+  var points = newSeq[Point](xData.len)
+  # TODO: check for additional grouping via `geom.aes`!
+  for i in 0 ..< xData.len:
+    points[i] = (x: xData[i], y: yData[i])
+  # sort the points to that the lines are not connected arbitrarily
+  points = points.sortedByIt(it.x)
+  result.add view.initPolyLine(points, geom.style)
+
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   #for aes in p.aes:
   let aes = p.aes
@@ -637,6 +664,8 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
     result = view.createPointGobj(p, geom)
   of gkHistogram, gkFreqPoly:
     result = view.createHistFreqPolyGobj(p, geom)
+  of gkLine:
+    result = view.createLineGobj(p, geom)
   else:
     discard
 
@@ -661,7 +690,7 @@ proc generateLegendMarkers(plt: Viewport, aes: Aesthetics,
       for i in 0 ..< scale.valueMap.len:
         result.add initPoint(plt,
                              (0.0, 0.0), # dummy coordinates
-                             marker = scale.getValue(scale.getLabelKey(i)))
+                             marker = scale.getValue(scale.getLabelKey(i)).marker)
   of scSize:
     if aes.size.isSome:
       let scale = aes.size.unsafeGet
