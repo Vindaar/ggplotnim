@@ -118,6 +118,50 @@ proc getLabelKey(s: Scale, at: int): Value =
   ## returns the key at index `at` for the Scale `s`
   result = s.labelSeq[at]
 
+iterator enumerateLabels*(s: Scale): Value =
+  for k in s.labelSeq:
+    yield k
+
+iterator enumerateLabelPairs*(s: Scale): (int, Value) =
+  for i, k in s.labelSeq:
+    yield (i, k)
+
+iterator pairs*(s: Scale): (Value, ScaleValue) =
+  for k, v in s.valueMap:
+    yield (k, v)
+
+iterator values*(s: Scale): ScaleValue =
+  for v in values(s.valueMap):
+    yield v
+
+iterator keys*(s: Scale): Value =
+  ## NOTE: for clarity use `enumerateLabels` instead!
+  for k in keys(s.valueMap):
+    yield k
+
+iterator enumerateScales(p: GgPlot, geom: Geom): Scale =
+  ## yields each scale that is not `none` found in the `GgPlot` or
+  ## `geom`. If the same scale is found in both `GgPlot` and the `geom`
+  ## the `geom` Scale overrides the `GgPlot` scale!
+  let
+    paes = p.aes
+    gaes = geom.aes
+  # color Scale
+  if gaes.color.isSome:
+    yield gaes.color.unsafeGet
+  elif paes.color.isSome:
+    yield paes.color.unsafeGet
+  # shape Scale
+  if gaes.shape.isSome:
+    yield gaes.shape.unsafeGet
+  elif paes.shape.isSome:
+    yield paes.shape.unsafeGet
+  # size scale
+  if gaes.size.isSome:
+    yield gaes.size.unsafeGet
+  elif paes.size.isSome:
+    yield paes.size.unsafeGet
+
 proc guessType(s: seq[Value]): ValueKind =
   ## returns a ``guess`` (!) of the data type stored in `s`.
   ## We check a subset of 100 elements of the seq (or the whole if
