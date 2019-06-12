@@ -235,6 +235,23 @@ proc nearlyEqual(x, y: float, eps = 1e-10): bool =
     # use relative error
     result = diff / min((absX + absY), maximumPositiveValue(system.float)) < eps
 
+template makeMath(op: untyped): untyped =
+  proc `op`*(v, w: Value): Value =
+    ## Adds two Values together, if they are addeable.
+    ## These operations only work for `VInt` and `VFloat`. `VInt` is converted
+    ## to floats for the calculation. The result is always a `VFloat`!
+    if v.kind in {VFloat, VInt} and
+       w.kind in {VFloat, VInt}:
+      result = Value(kind: VFloat, fnum: `op`(v.toFloat, w.toFloat))
+    else:
+      raise newException(Exception, "Math operation does not make sense for " &
+        "Value kind " & $v.kind & "!")
+
+makeMath(`+`)
+makeMath(`-`)
+makeMath(`*`)
+makeMath(`/`)
+
 proc `==`*(v, w: Value): bool =
   ## checks whether the values are equal
   if v.kind != w.kind:
