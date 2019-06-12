@@ -297,6 +297,8 @@ proc `<`*(v, w: Value): bool =
       result = v.num < w.num
     of VFloat:
       result = v.fnum < w.fnum
+    of VBool:
+      result = v.bval < v.bval
     else:
       raise newException(Exception, "Comparison `<` does not make sense for " &
         "Value kind " & $v.kind & "!")
@@ -464,6 +466,22 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
       result = v > f.rhs.val
     of amLess:
       result = v < f.rhs.val
+    else:
+      raise newException(Exception, "comparison of kind " & $f.op & " does " &
+        "not make sense for value kind of " & $v.kind & "!")
+  of VBool:
+    doAssert f.rhs.val.kind == VBool, "comparison must be with another bool!"
+    case f.op
+    of amEqual:
+      result = v == f.rhs.val
+    of amGreater:
+      result = v > f.rhs.val
+    of amLess:
+      result = v < f.rhs.val
+    of amGeq:
+      result = v >= f.rhs.val
+    of amLeq:
+      result = v <= f.rhs.val
     else:
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
