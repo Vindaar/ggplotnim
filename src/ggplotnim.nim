@@ -27,12 +27,13 @@ type
     y: Option[string]
     # Replace these by e.g. `color: Option[Scale]` and have `Scale` be variant
     # type that stores its kind `kind: scColor` and `key: string`.
+    fill: Option[Scale] # classify by fill color
     color: Option[Scale] # classify by color
     size: Option[Scale] # classify by size
     shape: Option[Scale] # classify by shape
 
   ScaleKind = enum
-    scLinearData, scTransformedData, scColor, scShape, scSize
+    scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize
 
   DiscreteKind = enum
     dcDiscrete, dcContinuous
@@ -47,7 +48,7 @@ type
       rawVal: Value
       # where `trans` is our assigned transformation function
       trans: proc(v: Value): Value
-    of scColor:
+    of scFillColor, scColor:
       # stores a color
       color: Color
     of scShape:
@@ -147,17 +148,20 @@ iterator enumerateScales(p: GgPlot, geom: Geom): Scale =
   let
     paes = p.aes
     gaes = geom.aes
+  template genYield(field: untyped): untyped =
+    if gaes.field.isSome:
+      yield gaes.field.unsafeGet
+    elif paes.field.isSome:
+      yield paes.field.unsafeGet
   # color Scale
-  if gaes.color.isSome:
-    yield gaes.color.unsafeGet
-  elif paes.color.isSome:
-    yield paes.color.unsafeGet
+  genYield(color)
+  # fill Scale
+  genYield(fill)
   # shape Scale
-  if gaes.shape.isSome:
-    yield gaes.shape.unsafeGet
-  elif paes.shape.isSome:
-    yield paes.shape.unsafeGet
-  # size scale
+  genYield(shape)
+  # size Scale
+  # calling the template does not work ?! Fails with `undelcared identifier: scale`?!
+  # genYield(size)
   if gaes.size.isSome:
     yield gaes.size.unsafeGet
   elif paes.size.isSome:
@@ -214,7 +218,7 @@ proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
   let isDiscrete = refVals.isDiscreteData
   if isDiscrete:
     case scale.scKind
-    of scColor, scSize, scShape:
+    of scColor, scFillColor, scSize, scShape:
       result = scale.getValue(val)
     of scLinearData:
       # that's just the value itself
@@ -271,10 +275,14 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     res.labelSeq = data.toHashSet.toSeq.sorted
     var valueMap = initOrderedTable[Value, ScaleValue]()
     case scKind
-    of scColor:
+    of scColor, scFillColor:
       let colorCs = ggColorHue(res.labelSeq.len)
       for i, k in res.labelSeq:
-        valueMap[k] = ScaleValue(kind: scColor, color: colorCs[i])
+        # NOTE: workaround, since we cannot do `kind: sckind` atm
+        valueMap[k] = if scKind == scColor:
+                        ScaleValue(kind: scColor, color: colorCs[i])
+                      else:
+                        ScaleValue(kind: scFillColor, color: colorCs[i])
     of scSize:
       let numSizes = min(res.labelSeq.len, 5)
       const minSize = 2.0
@@ -296,6 +304,7 @@ proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
   # - size: bin the data and use bins as fixed sizes
   result = aes
   result.color = aes.color.fillScale(p, scColor)
+  result.fill = aes.fill.fillScale(p, scFillColor)
   # not implemented yet:
   #result.shape = aes.shape.fillScale(p, scShape)
   result.size = aes.size.fillScale(p, scSize)
@@ -325,15 +334,17 @@ proc orNoneScale(s: string, scKind: static ScaleKind): Option[Scale] =
   else:
     result = none[Scale]()
 
-proc aes*(x = "", y = "", color = "", shape = "", size = ""): Aesthetics =
+proc aes*(x = "", y = "", color = "", fill = "", shape = "", size = ""): Aesthetics =
   result = Aesthetics(x: x.orNone, y: y.orNone,
                       color: color.orNoneScale(scColor),
+                      fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
                       size: size.orNoneScale(scSize))
 
-proc aes*(x: FormulaNode, color = "", shape = "", size = ""): Aesthetics =
+proc aes*(x: FormulaNode, color = "", fill = "", shape = "", size = ""): Aesthetics =
   result = Aesthetics(x: none[string](), y: none[string](),
                       color: color.orNoneScale(scColor),
+                      fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
                       size: size.orNoneScale(scSize))
 
@@ -430,7 +441,7 @@ proc createLegend(view: var Viewport,
                              color = markers[j].ptColor)
     var labelText = ""
     case cat.scKind
-    of scColor, scShape, scSize:
+    of scColor, scFillColor, scShape, scSize:
       labelText = $cat.getLabelKey(j)
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $cat.scKind)
@@ -490,8 +501,10 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
 proc requiresLegend(p: GgPlot): bool =
   ## returns true if the plot requires a legend to be drawn
   if p.aes.color.isSome or
+     p.aes.fill.isSome or
      p.aes.size.isSome or
      p.geoms.anyIt(it.aes.color.isSome) or
+     p.geoms.anyIt(it.aes.fill.isSome) or
      p.geoms.anyIt(it.aes.size.isSome):
     result = true
   else:
@@ -576,6 +589,11 @@ proc changeStyle(s: Style, scVal: ScaleValue): Style =
   case scVal.kind
   of scColor:
     result.color = scVal.color
+  of scFillColor:
+    # for FillColor we set both the stroke and fill color to the
+    # same value
+    result.color = scVal.color
+    result.fillColor = scVal.color
   of scSize:
     result.size = scVal.size
   else:
@@ -759,11 +777,22 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
 proc generateLegendMarkers(plt: Viewport, aes: Aesthetics,
                            kind: ScaleKind): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
+  # TODO: rewrite this either via a template, proc or macro!
   case kind
   of scColor:
     if aes.color.isSome:
       let scale = aes.color.unsafeGet
       doAssert scale.scKind == scColor
+      for i in 0 ..< scale.valueMap.len:
+        let color = scale.getValue(scale.getLabelKey(i)).color
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = mkCircle,
+                             color = color) # assign same marker as above
+  of scFillColor:
+    if aes.fill.isSome:
+      let scale = aes.fill.unsafeGet
+      doAssert scale.scKind == scFillColor
       for i in 0 ..< scale.valueMap.len:
         let color = scale.getValue(scale.getLabelKey(i)).color
         result.add initPoint(plt,
@@ -897,11 +926,17 @@ proc ggsave*(p: GgPlot, fname: string) =
     # TODO: The following currently creates stacked legends for each Scale that
     # requires one. Need to create a `seq[Viewport]` or something to first build
     # all legends and then calculate the sizes required.
+    # TODO: rewrite with enumerate scales!
     if aes.color.isSome:
       # handle color legend
       markers = lg.generateLegendMarkers(aes, scColor)
       let color = aes.color.unsafeGet
       lg.createLegend(color, markers)
+    if aes.fill.isSome:
+      # handle color legend
+      markers = lg.generateLegendMarkers(aes, scFillColor)
+      let fill = aes.fill.unsafeGet
+      lg.createLegend(fill, markers)
     if aes.shape.isSome:
       # handle shape legend
       markers = lg.generateLegendMarkers(aes, scShape)
