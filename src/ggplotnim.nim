@@ -568,54 +568,6 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
         raise newException(Exception, "Column " & $col & " has no data!")
       else: discard
 
-proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
-  ## creates the GraphObjects for a `gkPoint` geom
-  ## TODO: we could unify the code in the `create*Gobj` procs, by
-  ## - making all procs in ginger take a `Style`
-  ## - just build the style in the same way we do here (in a separate proc)
-  ##   and create the `GraphObject`
-  doAssert geom.kind == gkPoint
-  #for aes in p.aes:
-  let xData = p.data.dataTo(p.aes.x.get, float)
-  let yData = p.data.dataTo(p.aes.y.get, float)
-  doAssert geom.style.isSome
-  let style = geom.style.unsafeGet
-  for i in 0 ..< xData.len:
-    # TODO: change `initPoint` to receive a style and extract internally
-    # or keep current way? Currently `GraphObject.goPoint` uses explicit
-    # fields for `color` and `size`. Until we strictly use `GraphObject.style` for
-    # this, that change would not make sense
-    var
-      marker = mkCircle
-      size = style.size
-      color = style.color
-    # TODO: Make use of `enumerateScales` and `changeStyle` here!
-    if p.aes.color.isSome or geom.aes.color.isSome:
-      let cScale = if geom.aes.color.isSome: geom.aes.color.unsafeGet
-                   else: p.aes.color.unsafeGet
-      var colorData: seq[Value]
-      if cScale.col in p.data:
-        colorData = p.data.dataTo(cScale.col, Value)
-      else:
-        colorData = toSeq(0 .. xData.high).mapIt(Value(kind: VString, str: cScale.col))
-      # TODO: Handle by `mapDataToScale` to work with discrete / continuous?!
-      # / for more general interface?
-      color = cScale.getValue(colorData[i]).color
-    if p.aes.size.isSome or geom.aes.size.isSome:
-      let sScale = if geom.aes.size.isSome: geom.aes.size.unsafeGet
-                   else: p.aes.size.unsafeGet
-      let sizeData = toSeq(p.data[sScale.col])
-      size = mapDataToScale(sizeData, sizeData[i], sScale).size
-    if p.aes.shape.isSome or geom.aes.shape.isSome:
-      let shScale = if geom.aes.shape.isSome: geom.aes.shape.unsafeGet
-                   else: p.aes.shape.unsafeGet
-      let shapeData = p.data.dataTo(shScale.col, Value)
-      marker = shScale.getValue(shapeData[i]).marker
-    result.add initPoint(view, (x: xData[i], y: yData[i]),
-                         marker = marker,
-                         color = color,
-                         size = size)
-
 proc changeStyle(s: Style, scVal: ScaleValue): Style =
   ## returns a modified style with the appropriate field replaced
   result = s
@@ -627,6 +579,55 @@ proc changeStyle(s: Style, scVal: ScaleValue): Style =
   else:
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
+
+proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+  ## creates the GraphObjects for a `gkPoint` geom
+  ## TODO: we could unify the code in the `create*Gobj` procs, by
+  ## - making all procs in ginger take a `Style`
+  ## - just build the style in the same way we do here (in a separate proc)
+  ##   and create the `GraphObject`
+  doAssert geom.kind == gkPoint
+  doAssert geom.style.isSome
+  var style = geom.style.unsafeGet
+  let marker = mkCircle
+  var any = false
+  for scale in enumerateScales(p, geom):
+    any = true
+    var data: seq[Value]
+    # TODO: we do not actually make use of `data`!
+    if scale.col in p.data:
+      data = p.data.dataTo(scale.col, Value)
+    else:
+      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
+    for label, val in scale:
+      when type(p.data) is DataFrame:
+        let df = p.data.filter(f{scale.col == label})
+      else:
+        let df = toDf(p.data).filter(f{scale.col == label})
+      # now get the labeled data
+      let xData = df.dataTo(p.aes.x.get, float)
+      let yData = df.dataTo(p.aes.y.get, float)
+      # create all data points
+      for i in 0 ..< xData.len:
+        case scale.scKind
+        of scShape:
+          # Marker is not encoded in `ginger.Style`, hence get retrieve manually
+          marker = scale.getValue(val)
+        else:
+          style = changeStyle(style, val)
+        result.add initPoint(view, (x: xData[i], y: yData[i]),
+                             marker = marker,
+                             color = style.color,
+                             size = style.size)
+  if not any:
+    let xData = p.data.dataTo(p.aes.x.get, float)
+    let yData = p.data.dataTo(p.aes.y.get, float)
+    # create points needed for polyLine
+    for i in 0 ..< xData.len:
+      result.add initPoint(view, (x: xData[i], y: yData[i]),
+                           marker = marker,
+                           color = style.color,
+                           size = style.size)
 
 proc createLineGobj(view: var Viewport,
                     p: GgPlot,
