@@ -98,6 +98,12 @@ iterator keys*(row: Value): string =
   for k in keys(row.fields):
     yield k
 
+proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVector[Value] =
+  ## adds all elements of `w` to `v` and returns the resulting vector
+  result = v
+  for x in w:
+    result = result.add x
+
 proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] =
 #proc `[]`(df: DataFrame, k: string): seq[Value] =
   result = df.data[k]
@@ -1023,6 +1029,57 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
             result[lhsKey] = toPersistentVector(@[x])
         # at some point `k` should have the correct length of the dataframe
         result.len = result[k].len
+
+proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
+  ## `bind_rows` combines several data frames row wise (i.e. data frames are
+  ## stacked on top of one another).
+  ## If a given column does not exist in one of the data frames, the corresponding
+  ## rows of the data frame missing it, will be filled with `VNull`.
+  result = DataFrame(len: 0)
+  #let dfSeq = @(dfs)
+  for (idVal, df) in dfs:
+    # first add `id` column
+    if id notin result:
+      result[id] = toVector(toSeq(0 ..< df.len).mapIt(% idVal))
+    else:
+      result[id] = result[id].add toVector(toSeq(0 ..< df.len).mapIt(% idVal))
+    var lastSize = 0
+    for k in keys(df):
+      echo "At id ", idVal, " for key ", k
+      if k notin result:
+        # create this new column consisting of `VNull` up to current size
+        result[k] = toVector(toSeq(0 ..< result.len)
+          .mapIt(Value(kind: VNull)))
+      # now add the current vector
+      echo result[k]
+      result[k] = result[k].add df[k]
+      echo result[k]
+      lastSize = max(result[k].len, lastSize)
+    result.len = lastSize
+  # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
+  # the first `df` has a column `k` with `N` entries, but another `M` entries are added to
+  # the `df`. Since `k` is not found in another `df`, it won't be extend in the loop above
+  for k in keys(result):
+    if result[k].len < result.len:
+      # extend this by `VNull`
+      result[k] = result[k].add toVector(toSeq(result[k].len ..< result.len)
+          .mapIt(Value(kind: VNull)))
+
+template bind_rows*(dfs: varargs[DataFrame], id: string = "id"): DataFrame =
+  ## Overload of `bind_rows` above, for automatic creation of the `id` values.
+  ## Using this proc, the different data frames will just be numbered by their
+  ## order in the `dfs` argument and the `id` column is filled with those values.
+  ## The values will always appear as strings, even though we use integer
+  ## numbering.
+  ## `bind_rows` combines several data frames row wise (i.e. data frames are
+  ## stacked on top of one another).
+  ## If a given column does not exist in one of the data frames, the corresponding
+  ## rows of the data frame missing it, will be filled with `VNull`.
+  var ids = newSeq[string]()
+  for i, df in dfs:
+    ids.add $i
+  let args = zip(ids, dfs)
+  bind_rows(args, id)
 
 ################################################################################
 ####### FORMULA
