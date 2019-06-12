@@ -88,9 +88,11 @@ proc ch2_3() =
   # NOTE: This currently still only works for `geom_point`, since we simply
   # have not implemented `aes` arguments to the other geoms. That's an easy
   # change though.
-  ggplot(mpg, aes(x = "displ", y = "hwy")) +
-    geom_point(aes(color = "blue")) +
-    ggsave("figs/2.3_11.pdf")
+  # NOTE2: currently broken again, due to change in how `geom_point` gets data
+  # But, once solved will also work for other geoms!
+  #ggplot(mpg, aes(x = "displ", y = "hwy")) +
+  #  geom_point(aes(color = "blue")) +
+  #  ggsave("figs/2.3_11.pdf")
 
   # works now
   ggplot(mpg, aes(x = "displ", y = "hwy")) +
