@@ -344,14 +344,14 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
       #    data.add Value(kind: VInt, num: x.parseInt)
       if v[0].isFloat:
         for i, x in v:
-          data[i] = Value(kind: VFloat, fnum: x.parseFloat)
+          data[i] = % x.parseFloat
       elif v[0].isBool:
         for i, x in v:
-          data[i] = Value(kind: VBool, bval: x.parseBool)
+          data[i] = % x.parseBool
       else:
         # assume string
         for i, x in v:
-          data[i] = Value(kind: VString, str: x)
+          data[i] = % x
       vec = data.toPersistentVector
     #result.data[k] = data
     result.data[k] = vec
