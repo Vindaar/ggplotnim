@@ -9,6 +9,7 @@ import seqmath
 import macros
 
 import persvector
+export persvector
 
 import ggplotnim / formula
 export formula
