@@ -40,9 +40,9 @@ proc ch2_3() =
     geom_point() +
     ggsave("figs/2.3_5.pdf")
 
-  # broken, since we don't support `geom_line` yet, nor can parse
-  # dates. See R example
-  # geom_line is easy to add. Parsing dates is easy to add, once we
+  # broken, since we cannot parse dates. `geom_line` is now supported.
+  # See R example.
+  # Parsing dates is easy to add, once we
   # decide how to handle it. Convert to time in e.g. seconds and
   # calculate ticks based that? Probably best to work with native
   # dates using `times` module? Should be able to provide `<`, `<=`
