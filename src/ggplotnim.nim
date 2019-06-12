@@ -589,7 +589,7 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
   doAssert geom.kind == gkPoint
   doAssert geom.style.isSome
   var style = geom.style.unsafeGet
-  let marker = mkCircle
+  var marker = mkCircle
   var any = false
   for scale in enumerateScales(p, geom):
     any = true
@@ -612,7 +612,7 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
         case scale.scKind
         of scShape:
           # Marker is not encoded in `ginger.Style`, hence get retrieve manually
-          marker = scale.getValue(val)
+          marker = scale.getValue(label).marker
         else:
           style = changeStyle(style, val)
         result.add initPoint(view, (x: xData[i], y: yData[i]),
