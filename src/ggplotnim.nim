@@ -35,6 +35,12 @@ type
   ScaleKind = enum
     scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize
 
+  PositionKind = enum
+    pkIdentity = "identity"
+    pkStack = "stack"
+    pkDodge = "dodge"
+    pkFill = "fill"
+
   DiscreteKind = enum
     dcDiscrete, dcContinuous
 
@@ -90,6 +96,7 @@ type
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom = object
     style: Option[Style] # if set, apply this style instead of parent's
+    position: PositionKind
     aes: Aesthetics # a geom can have its own aesthetics. Needs to be part of
                     # the `Geom`, because if we add it to `GgPlot` we lose track
                     # of which geom it corresponds to
@@ -373,14 +380,17 @@ func geom_line*(aes: Aesthetics = aes(),
 
 func geom_histogram*(binWidth = 0.0, bins = 0,
                      color: Color = grey20, # color of the bars
+                     position = "stack",
                     ): Geom =
+  let pkKind = parseEnum[PositionKind](position)
   let style = Style(lineType: ltSolid,
                     lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
                                     # between bins at size of exactly 1.0 bin width
                     color: color, # default color
                     fillColor: color)
   result = Geom(kind: gkHistogram,
-                style: some(style))
+                style: some(style),
+                position: pkKind)
 
 func geom_freqpoly*(color: Color = grey20, # color of the line
                     size: float = 1.0, # line width of the line
@@ -691,9 +701,69 @@ proc createLineGobj(view: var Viewport,
     points = points.sortedByIt(it.x)
     result.add view.initPolyLine(points, geom.style)
 
+proc addHistoRect[T](view: var Viewport, val: T, style: Style,
+                     yPos: Coord1D = c1(1.0)) =
+  ## creates a rectangle for a histogram and adds it to the viewports objects
+  if val.float > 0.0:
+    let r = view.initRect(Coord(x: c1(0.0),
+                                y: yPos), # bottom left
+                          quant(1.0, ukRelative),
+                          quant(-val.float, ukData),
+                          style = some(style))
+    view.addObj r
+
+proc addHistoRects(view: var Viewport,
+                   data: OrderedTable[string, (seq[int], Style)],
+                   yScale: ginger.Scale,
+                   position: PositionKind) =
+  ## Adds all rectangles for a histogram
+  ## The `data` table contains both the `seq[float]` data and the `Style`
+  ## that corresponds to it
+  # now get the labeled data
+  #let rawData = df.dataTo(p.aes.x.get, float)
+  ## generate the histogram
+  #var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+  # make the rectangles
+  var i = 0
+  for p in mitems(view):
+    #doAssert p.yScale.high >= hist.max.float
+    case position
+    of pkIdentity:
+      for label, (val, style) in data:
+        p.addHistoRect(val[i], style)
+    of pkStack:
+      # create one rectangle for each label, each successive starting at the
+      # top of the previous
+      var prevTop = c1(1.0)
+      for label, (val, style) in data:
+        echo "POstion is ", position, " FOR LABEL ", label
+
+        echo "starting at ", prevTop
+        echo "Current height ", Coord1D(pos: 5.0, kind: ukData,
+                                        scale: yScale, axis: akY).toRelative
+        p.addHistoRect(val[i], style, prevTop)
+        prevTop = prevTop - Coord1D(pos: yScale.high - val[i].float, kind: ukData,
+                                    scale: yScale, axis: akY)
+        echo "NEXT POS ", prevTop
+        echo ""
+    of pkDodge:
+      discard
+    of pkFill:
+      discard
+    inc i
+
+proc addHistoRects(view: var Viewport,
+                   hist: seq[int],
+                   yScale: ginger.Scale,
+                   style: Style,
+                   position: PositionKind) =
+  ## overload of the above working on a whole data frame. This just extracts the
+  ## (label / data) pairs and hands it to `addHistoRects`
+  var data = initOrderedTable[string, (seq[int], Style)]()
+  data["x"] = (hist, style)
+  view.addHistoRects(data, yScale, position)
+
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
-  #for aes in p.aes:
-  let aes = p.aes
   # before performing a calculation for the histogram viewports, get the
   # new xScale, by calling calcTickLocations with it
   # Note: we don't have to assign it to the `view` viewport, since that will
@@ -701,65 +771,156 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
 
   # generate the histogram itself
-  let rawDat = p.data.dataTo(aes.x.get, float)
   const nbins = 30
   let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
-  # TODO: if aes.colos.isSome we have to group the data we histogram first
-  # and calculate histograms for each
-
-  let (hist, _) = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
-
-  # given the histogram, we can now deduce the base yScale we need
-  let yScaleBase = (low: 0.0, high: hist.max.float)
-  # however, this is not the final one, since we still have to calculate
-  # the tick locations, which might change it again
-  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-
-  # create viewports showing the bars
-  view.yScale = newYScale
-
-  var style: Option[Style]
+  var style: Style
   if geom.style.isSome:
-    style = geom.style
+    style = geom.style.unsafeGet
   else:
     # TODO: inherit from parent somehow?
     discard
-  if geom.kind == gkHistogram:
+
+  # TODO: if aes.colos.isSome we have to group the data we histogram first
+  # and calculate histograms for each
+  case geom.kind
+  of gkHistogram:
     view.layout(nbins, 1)
-    var i = 0
-    for p in mitems(view):
-      doAssert p.yScale.high >= hist.max.float
-      let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
-      let r = p.initRect(c(0.0, yPos), # bottom left
-                         quant(1.0, ukRelative),
-                         quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
-                         style = style)
-      p.addObj r
-      inc i
   else:
     doAssert geom.kind == gkFreqPoly
-    # only single viewport will be used
-    # calculate bin centers
-    let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
-    # build data points for polyLine
-    var points = newSeq[Point](nbins)
-    for i in 0 ..< nbins:
-      points[i] = (x: binCenters[i], y: hist[i].float)
+    # we juse use the given `Viewport`
 
-    # TODO: rewrite code such that user hands style, but we convert to
-    # `Style` in geom?
-    var style: Option[Style]
-    if geom.style.isSome:
-      style = geom.style
+  var any = false
+  var yScaleBase = (low: 0.0, high: 0.0)
+  for scale in enumerateScales(p, geom):
+    any = true
+    var data: seq[Value]
+    # TODO: we do not actually make use of `data`!
+    if scale.col in p.data:
+      data = p.data.dataTo(scale.col, Value)
     else:
-      # TODO: somehow inherit something from GgPlot, maybe via themes?
-      discard
-    # have to update the scale of our viewport! `initPolyLine` depends on it
-    # However: we could change the `ginger` code to accept a seq[Coord] instead and
-    # use the `newXScale, newYScale` as the ukData scale instead!
-    view.xScale = newXScale
-    result.add view.initPolyLine(points, style)
+      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
+
+    # accumulate data before we do anything with our viewports, since depending on
+    # the `position` of the `geom`, we might need the data for each label at the
+    # same time
+    var labData = initOrderedTable[string, (seq[int], Style)]()
+    var numLabel = 0
+    for label, val in scale:
+      when type(p.data) is DataFrame:
+        let df = p.data.filter(f{scale.col == label})
+      else:
+        let df = toDf(p.data).filter(f{scale.col == label})
+      # just the regular rectangles, one behind another
+      style = changeStyle(style, val)
+      const epsilon = 1e-2
+      # for every label, we increase the `lineWidth` by `epsilon` so that the last
+      # layer completely covers the ones before it
+      # TODO: this is still not a nice solution, especially regarding top and bottom
+      # of the rectangles!
+      style.lineWidth = style.lineWidth + numLabel.float * epsilon
+      inc numLabel
+      let rawData = df.dataTo(p.aes.x.get, float)
+      # generate the histogram
+      var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+      # increase the scale if necessary
+      yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
+      labData[$label] = (hist, style)
+
+    # reverse the order of `labData`, so that the element class with highest string
+    # value is located at the bottom of the histogram (to match `ggplot2`)
+    labData.sort(
+      cmp = (
+        proc(a, b: (string, (seq[int], Style))): int =
+          result = system.cmp(a[0], b[0])
+      ),
+      order = SortOrder.Descending)
+
+    # calculate the new Y scale maximum of the plot
+    var newYMax = yScaleBase.high
+    case geom.position
+    of pkStack:
+      # for `pkStack` we must find the bin with the largest sum of
+      # label elements
+      var sums = newSeq[int](nbins)
+      for i in 0 ..< nbins:
+        var s = 0
+        for label in keys(labData):
+          s += labData[label][0][i]
+        sums[i] = s
+      newYMax = max(sums).float
+    of pkFill:
+      # TODO: `pkFill` is basically the same as `pkStack`, only that the sum of
+      # any non empty bin must add up to 1.0
+      raise newException(Exception, "Not yet implemented!")
+    else: discard
+    # with the data available, create the histogram rectangles
+    # fix the data scales on the children viewports
+    yScaleBase = (low: 0.0, high: newYMax)
+    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+    view.addHistoRects(labData, newYScale, geom.position)
+  if not any:
+    let rawData = p.data.dataTo(p.aes.x.get, float)
+    # generate the histogram
+    var (hist, _) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    # set the y scale
+    yScaleBase = (low: 0.0, high: hist.max.float)
+    # fix the data scales on the children viewports
+    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+    view.addHistoRects(hist, newYScale, style, geom.position)
+
+  # fix the data scales on the children viewports
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  view.yScale = newYScale
+  for ch in mitems(view):
+    ch.yScale = newYScale
+
+  #let (hist, _) = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
+  #
+  ## given the histogram, we can now deduce the base yScale we need
+  #let yScaleBase = (low: 0.0, high: hist.max.float)
+  ## however, this is not the final one, since we still have to calculate
+  ## the tick locations, which might change it again
+  #let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  #
+  ## create viewports showing the bars
+  #view.yScale = newYScale
+
+  #if geom.kind == gkHistogram:
+  #  view.layout(nbins, 1)
+  #  var i = 0
+  #  for p in mitems(view):
+  #    doAssert p.yScale.high >= hist.max.float
+  #    let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
+  #    let r = p.initRect(c(0.0, yPos), # bottom left
+  #                       quant(1.0, ukRelative),
+  #                       quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
+  #                       style = style)
+  #    p.addObj r
+  #    inc i
+  #else:
+  #  doAssert geom.kind == gkFreqPoly
+  #  # only single viewport will be used
+  #  # calculate bin centers
+  #  let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
+  #  # build data points for polyLine
+  #  var points = newSeq[Point](nbins)
+  #  for i in 0 ..< nbins:
+  #    points[i] = (x: binCenters[i], y: hist[i].float)
+  #
+  #  # TODO: rewrite code such that user hands style, but we convert to
+  #  # `Style` in geom?
+  #  var style: Option[Style]
+  #  if geom.style.isSome:
+  #    style = geom.style
+  #  else:
+  #    # TODO: somehow inherit something from GgPlot, maybe via themes?
+  #    discard
+  #  # have to update the scale of our viewport! `initPolyLine` depends on it
+  #  # However: we could change the `ginger` code to accept a seq[Coord] instead and
+  #  # use the `newXScale, newYScale` as the ukData scale instead!
+  #  view.xScale = newXScale
+  #  result.add view.initPolyLine(points, style)
 
 proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## performs the required conversion of the data from the data
