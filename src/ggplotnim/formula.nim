@@ -177,11 +177,13 @@ proc `%`*(v: bool): Value =
 proc `%`*(v: OrderedTable[string, Value]): Value =
   result = Value(kind: VObject, fields: v)
 
-proc `%`*[T](s: seq[T]): seq[Value] =
+proc `%`*[T: not Value](s: openArray[T]): seq[Value] =
   ## converts a `seq[T]` to a `seq[Value]`
   result = newSeq[Value](s.len)
   for i, x in s:
     result[i] = % x
+
+template `%`*(s: openArray[Value]): seq[Value] = @s
 
 func isInt(s: string): bool =
   result = s.isDigit
@@ -358,7 +360,7 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
     if result.len == 0:
       result.len = result.data[k].len
 
-proc toVector*[T: not Value](s: seq[T]): PersistentVector[Value] =
+proc toVector*[T: not Value](s: openArray[T]): PersistentVector[Value] =
   var valSeq = newSeq[Value](s.len)
   for i, x in s:
     valSeq[i] = % x
