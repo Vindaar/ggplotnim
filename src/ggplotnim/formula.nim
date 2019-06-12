@@ -671,7 +671,7 @@ macro extractFunction(fn: typed): untyped =
       "wish to use!")
 
 proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode
-proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float
+proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value
 proc evaluate*[T](node: var FormulaNode, data: T): Value
 # introduce identity `%` for value to avoid having to check whether
 # a variable is already a value in macro construction
@@ -806,7 +806,7 @@ proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Va
   var mfn = fn
   var newCol = newSeq[Value](df.len)
   for i in 0 ..< df.len:
-    newCol[i] = Value(kind: VFloat, fnum: mfn.rhs.evaluate(df, i))
+    newCol[i] = mfn.rhs.evaluate(df, i)
   result = (colName, toPersistentVector(newCol))
 
 proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
@@ -1302,24 +1302,26 @@ proc `$`*(node: FormulaNode): string =
   result = newStringOfCap(1024)
   toUgly(result, node)
 
-proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
-  echo "Node ", node
+proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
+  #echo "Node ", node
   case node.kind
   of fkVariable:
     case node.val.kind
     of VString:
       # the given node corresponds to a key of the data frame
+      # TODO: maybe extend this so that if `node.val` is ``not`` a key of the dataframe
+      # we take the literal string value instead?
       when type(data) is DataFrame:
-        result = data[node.val.str][idx].toFloat
+        result = data[node.val.str][idx]
       elif type(data) is Table[string, seq[string]]:
-        result = data[node.val.str][idx].parseFloat
+        result = % data[node.val.str][idx].parseFloat
       elif type(data) is OrderedTable[string, seq[string]]:
-        result = data[node.val.str][idx].parseFloat
+        result = % data[node.val.str][idx].parseFloat
       else:
         raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
-    of VFloat, VInt:
+    of VFloat, VInt, VBool:
       # take the literal value of the node
-      result = node.val.toFloat
+      result = node.val
     else:
       raise newException(Exception, "Node kind of " & $node.kind & " does not " &
         "make sense for evaluation!")
@@ -1333,6 +1335,16 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
       result = node.lhs.evaluate(data, idx) * node.rhs.evaluate(data, idx)
     of amDiv:
       result = node.lhs.evaluate(data, idx) / node.rhs.evaluate(data, idx)
+    # For booleans we have to wrap the result again in a `Value`, since boolean
+    # operators of `Value` will still return a `bool`
+    of amGreater:
+      result = % (node.lhs.evaluate(data, idx) > node.rhs.evaluate(data, idx))
+    of amLess:
+      result = % (node.lhs.evaluate(data, idx) < node.rhs.evaluate(data, idx))
+    of amGeq:
+      result = % (node.lhs.evaluate(data, idx) >= node.rhs.evaluate(data, idx))
+    of amLeq:
+      result = % (node.lhs.evaluate(data, idx) <= node.rhs.evaluate(data, idx))
     of amDep:
       raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
     else:
@@ -1353,13 +1365,13 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): float =
         # to the column and store the result
         doAssert node.arg.val.kind == VString
         if node.res.isSome:
-          result = node.res.unsafeGet.toFloat
+          result = node.res.unsafeGet
         else:
-          result = node.fnV(data[node.arg.val.str]).toFloat
-          node.res = some(Value(kind: VFloat, fnum: result))
+          result = node.fnV(data[node.arg.val.str])
+          node.res = some(result)
       of funcScalar:
         # just a function taking a scalar. Apply to current `idx`
-        result = node.fnS(data[node.arg.val.str][idx]).toFloat
+        result = node.fnS(data[node.arg.val.str][idx])
     else:
       raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
         " frame of this type: " & $(type(data).name) & "!")
