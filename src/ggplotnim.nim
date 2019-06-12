@@ -266,6 +266,7 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     # generate a discrete `Scale`
     res = Scale(scKind: scKind, col: scale.col, kind: dcDiscrete)
     # convert to set to filter duplicates, back to seq and sort
+    # TODO: we could also use `sequtils.deduplicate` here
     res.labelSeq = data.toHashSet.toSeq.sorted
     var valueMap = initOrderedTable[Value, ScaleValue]()
     case scKind
