@@ -353,7 +353,6 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
   result = DataFrame(len: 0)
   for k, v in t:
-    var vec = initVector[Value]()
     var data = newSeq[Value](v.len)
     # check first element of v for type
     if v.len > 0:
@@ -370,9 +369,8 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
         # assume string
         for i, x in v:
           data[i] = % x
-      vec = data.toPersistentVector
     #result.data[k] = data
-    result.data[k] = vec
+    result.data[k] = data.toPersistentVector
     if result.len == 0:
       result.len = result.data[k].len
 
