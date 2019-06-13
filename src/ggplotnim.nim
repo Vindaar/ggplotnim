@@ -103,7 +103,7 @@ type
                     # of which geom it corresponds to
     case kind: GeomKind
     of gkHistogram, gkFreqPoly:
-      bins: int # number of bins
+      numBins: int # number of bins
       binWidth: float # width of bins in terms of the data
     else:
       discard
@@ -322,13 +322,6 @@ proc addAes(p: var GgPlot, aes: Aesthetics) =
   ## an aestetics encodes information that may have to be calculated
   p.aes = fillAes(p, aes)
 
-proc ggplot*[T](data: T, aes: Aesthetics): GgPlot[T] =
-  result = GgPlot[T](data: data,
-                     numXticks: 10,
-                     numYticks: 10)
-  result.addAes aes
-  # TODO: fill others with defaults
-
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
   if s.len == 0: none[string]()
@@ -356,6 +349,13 @@ proc aes*(x: FormulaNode, color = "", fill = "", shape = "", size = ""): Aesthet
                       shape: shape.orNoneScale(scShape),
                       size: size.orNoneScale(scSize))
 
+proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
+  result = GgPlot[T](data: data,
+                     numXticks: 10,
+                     numYticks: 10)
+  result.addAes aes
+  # TODO: fill others with defaults
+
 func geom_point*(aes: Aesthetics = aes(),
                  color: Color = black,
                  size: float = 3.0): Geom =
@@ -379,7 +379,8 @@ func geom_line*(aes: Aesthetics = aes(),
                 aes: aes)
 
 
-func geom_histogram*(binWidth = 0.0, bins = 0,
+func geom_histogram*(aes: Aesthetics = aes(),
+                     binWidth = 0.0, bins = 30,
                      color: Color = grey20, # color of the bars
                      position = "stack",
                     ): Geom =
@@ -390,6 +391,9 @@ func geom_histogram*(binWidth = 0.0, bins = 0,
                     color: color, # default color
                     fillColor: color)
   result = Geom(kind: gkHistogram,
+                aes: aes,
+                numBins: bins,
+
                 style: some(style),
                 position: pkKind)
 
@@ -835,7 +839,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   view.xScale = newXScale
 
   # generate the histogram itself
-  const nbins = 30
+  let nbins = geom.numBins
   let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
   var style: Style
@@ -1028,6 +1032,7 @@ proc ggsave*(p: GgPlot, fname: string) =
     colors: seq[string]
   #for aes in p.aes:
   # determine min and max scales of aes
+
   let xdata = p.data.dataTo(p.aes.x.get, float)
   # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
   # also `string` data, after reading `xdata` not into `float`, but into `Value`.
