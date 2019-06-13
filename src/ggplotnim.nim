@@ -740,16 +740,9 @@ proc addHistoRects(view: var Viewport,
       # top of the previous
       var prevTop = c1(1.0)
       for label, (val, style) in data:
-        echo "POstion is ", position, " FOR LABEL ", label
-
-        echo "starting at ", prevTop
-        echo "Current height ", Coord1D(pos: 5.0, kind: ukData,
-                                        scale: yScale, axis: akY).toRelative
         p.addHistoRect(val[i], style, prevTop)
         prevTop = prevTop - Coord1D(pos: yScale.high - val[i].float, kind: ukData,
                                     scale: yScale, axis: akY)
-        echo "NEXT POS ", prevTop
-        echo ""
     of pkDodge:
       discard
     of pkFill:
@@ -767,12 +760,79 @@ proc addHistoRects(view: var Viewport,
   data["x"] = (hist, style)
   view.addHistoRects(data, yScale, position)
 
+proc addFreqPoly(view: var Viewport,
+                 data: OrderedTable[string, (seq[int], Style)],
+                 binWidth: float,
+                 nbins: int,
+                 position: PositionKind) =
+  # only single viewport will be used
+  # calculate bin centers
+  let binCenters = linspace(view.xScale.low + binWidth / 2.0, view.xScale.high - binWidth / 2.0, nbins)
+  # build data points for polyLine
+  case position
+  of pkIdentity:
+    for label, (val, style) in data:
+      var points = newSeq[Point](val.len)
+      for i in 0 ..< nbins:
+        points[i] = (x: binCenters[i], y: val[i].toFloat)
+      view.addObj view.initPolyLine(points, some(style))
+  of pkStack:
+    var polyTab = initOrderedTable[string, seq[seq[Point]]]()
+    for label in keys(data):
+      polyTab[label] = newSeqWith(1, newSeq[Point]())
+
+    # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
+    # each line disconnected by more than 1 empty bin
+    # This is somewhat complicated.
+    for i in 0 ..< nbins:
+      var binVal = 0
+      for label, (val, style) in data:
+        # add the current value to the current bin value
+        binVal = binVal + val[i]
+        if val[i] > 0 or # has data int it, add
+           binVal == 0 or # nothing in the bin yet, add
+           polyTab[label][^1].len == 0 or # current polyLine is empty, add
+          (polyTab[label][^1].len > 0 and i > 0 and # sanity checks
+            (val[i - 1] > 0 and val[i] == 0) # this element is empty, but last
+                                             # was not, so add to draw back to 0
+          ):
+          polyTab[label][^1].add (x: binCenters[i], y: binVal.toFloat)
+        elif polyTab[label][^1].len > 0 and i != nbins - 1 and val[i + 1] == 0:
+          # only create new seq, if has content and next element is 0
+          polyTab[label].add newSeq[Point]()
+    # now create the poly lines from the data
+    for label, (val, style) in data:
+      for line in polyTab[label]:
+        if line.len > 0:
+          view.addObj view.initPolyLine(line, some(style))
+  else:
+    doAssert false
+  echo "View has objects ", view.objects
+
+proc addFreqPoly(view: var Viewport,
+                 hist: seq[int],
+                 binWidth: float,
+                 nbins: int,
+                 style: Style,
+                 position: PositionKind) =
+  var data = initOrderedTable[string, (seq[int], Style)]()
+  data["x"] = (hist, style)
+  view.addFreqPoly(data, binWidth, nbins, position)
+
+## TODO: write a helper proc to perform the data mangling somehow that
+## takes care of `enumerateScales`, reading the data etc. Maybe also as a template which
+## we hand some fields and types we want to read and then give a block that does
+## the stuff we have to do with this? I don't know :) This way is ugly though
+
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   # before performing a calculation for the histogram viewports, get the
   # new xScale, by calling calcTickLocations with it
   # Note: we don't have to assign it to the `view` viewport, since that will
   # happen when calculation of the actual ticks will be done later on
   let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
+  # TODO: here?
+  # assign the new XScale to the view
+  view.xScale = newXScale
 
   # generate the histogram itself
   const nbins = 30
@@ -785,8 +845,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     # TODO: inherit from parent somehow?
     discard
 
-  # TODO: if aes.colos.isSome we have to group the data we histogram first
-  # and calculate histograms for each
+  # create the layout needed for the different geoms
   case geom.kind
   of gkHistogram:
     view.layout(nbins, 1)
@@ -863,7 +922,14 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     # fix the data scales on the children viewports
     yScaleBase = (low: 0.0, high: newYMax)
     let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-    view.addHistoRects(labData, newYScale, geom.position)
+    case geom.kind
+    of gkHistogram:
+      view.addHistoRects(labData, newYScale, geom.position)
+    of gkFreqPoly:
+      view.yScale = newYScale
+      view.addFreqPoly(labData, binWidth, nbins, geom.position)
+    else:
+      doAssert false
   if not any:
     let rawData = p.data.dataTo(p.aes.x.get, float)
     # generate the histogram
@@ -872,60 +938,20 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     yScaleBase = (low: 0.0, high: hist.max.float)
     # fix the data scales on the children viewports
     let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-    view.addHistoRects(hist, newYScale, style, geom.position)
+    case geom.kind
+    of gkHistogram:
+      view.addHistoRects(hist, newYScale, style, geom.position)
+    of gkFreqPoly:
+      view.yScale = newYScale
+      view.addFreqPoly(hist, binWidth, nbins, style, geom.position)
+    else:
+      doAssert false
 
   # fix the data scales on the children viewports
   let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
   view.yScale = newYScale
   for ch in mitems(view):
     ch.yScale = newYScale
-
-  #let (hist, _) = rawDat.histogram(bins = nbins, range = (newXScale.low, newXScale.high))
-  #
-  ## given the histogram, we can now deduce the base yScale we need
-  #let yScaleBase = (low: 0.0, high: hist.max.float)
-  ## however, this is not the final one, since we still have to calculate
-  ## the tick locations, which might change it again
-  #let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  #
-  ## create viewports showing the bars
-  #view.yScale = newYScale
-
-  #if geom.kind == gkHistogram:
-  #  view.layout(nbins, 1)
-  #  var i = 0
-  #  for p in mitems(view):
-  #    doAssert p.yScale.high >= hist.max.float
-  #    let yPos = 1.0 - quant(hist[i].float, ukData).toRelative(scale = some(p.yScale)).val
-  #    let r = p.initRect(c(0.0, yPos), # bottom left
-  #                       quant(1.0, ukRelative),
-  #                       quant(hist[i].float, ukData),#.toRelative(scale = some(p.yScale)),
-  #                       style = style)
-  #    p.addObj r
-  #    inc i
-  #else:
-  #  doAssert geom.kind == gkFreqPoly
-  #  # only single viewport will be used
-  #  # calculate bin centers
-  #  let binCenters = linspace(newXScale.low + binWidth / 2.0, newXScale.high - binWidth / 2.0, nbins)
-  #  # build data points for polyLine
-  #  var points = newSeq[Point](nbins)
-  #  for i in 0 ..< nbins:
-  #    points[i] = (x: binCenters[i], y: hist[i].float)
-  #
-  #  # TODO: rewrite code such that user hands style, but we convert to
-  #  # `Style` in geom?
-  #  var style: Option[Style]
-  #  if geom.style.isSome:
-  #    style = geom.style
-  #  else:
-  #    # TODO: somehow inherit something from GgPlot, maybe via themes?
-  #    discard
-  #  # have to update the scale of our viewport! `initPolyLine` depends on it
-  #  # However: we could change the `ginger` code to accept a seq[Coord] instead and
-  #  # use the `newXScale, newYScale` as the ukData scale instead!
-  #  view.xScale = newXScale
-  #  result.add view.initPolyLine(points, style)
 
 proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## performs the required conversion of the data from the data
