@@ -1,6 +1,6 @@
 import sequtils, tables, sets, algorithm, strutils
 import ginger
-import parsecsv, streams, strutils
+import parsecsv, streams, strutils, hashes
 
 import random
 
@@ -119,6 +119,45 @@ type
     numYticks: int
     facets: seq[Facet]
     geoms: seq[Geom]
+
+proc `==`*(s1, s2: Scale): bool =
+  if s1.kind == s2.kind and
+     s1.col == s2.col:
+    # the other fields ``will`` be computed to the same!
+    result = true
+  else:
+    result = false
+
+proc hash*(x: ScaleValue): Hash =
+  result = hash(x.kind.int)
+  case x.kind:
+  of scLinearData:
+    result = result !& hash(x.val)
+  of scTransformedData:
+    result = result !& hash(x.rawVal)
+    # TODO: Hash proc?
+  of scColor:
+    result = result !& hash($x.color)
+  of scFillColor:
+    result = result !& hash($x.color & "FILL")
+  of scShape:
+    result = result !& hash(x.marker)
+  of scSize:
+    result = result !& hash(x.size)
+  result = !$result
+
+proc hash*(x: Scale): Hash =
+  result = hash(x.scKind.int)
+  result = result !& hash(x.col)
+  case x.kind:
+  of dcDiscrete:
+    for k, v in x.valueMap:
+      result = result !& hash(k)
+      result = result !& hash(v)
+    result = result !& hash(x.labelSeq)
+  of dcContinuous:
+    result = result !& hash(x.dataScale)
+  result = !$result
 
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
