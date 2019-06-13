@@ -87,7 +87,7 @@ type
       # data
 
   Facet = object
-    discard
+    col: string
 
   # helper object to compose `ggsave` via `+` with `ggplot`
   Draw = object
@@ -465,6 +465,11 @@ func geom_freqpoly*(color: Color = grey20, # color of the line
 
 proc geom_tile*(): Geom =
   result = Geom(kind: gkTile)
+
+proc facet_wrap*(f: FormulaNode): Facet =
+  doAssert f.kind == fkTerm
+  doAssert f.rhs.val.kind == VString
+  result = Facet(col: f.rhs.val.str)
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
