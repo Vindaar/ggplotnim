@@ -57,26 +57,29 @@ proc ch2_3() =
     geom_histogram() +
     ggsave("figs/2.3_7.pdf")
 
+proc ch2_4() =
+  let mpg = toDf(readCsv("../data/mpg.csv"))
   # plots with different third dimension
   ggplot(mpg, aes(x = "displ", y = "hwy", color = "class")) +
     geom_point() +
-    ggsave("figs/2.3_8.pdf")
+    ggsave("figs/2.4_1.pdf")
 
   # broken, because `shape` is not yet supported yet. It's a dummy for the
   # `aes` proc, because we have not implemented enough different shapes
   # yet to support it
   #ggplot(mpg, aes(x = "displ", y = "hwy", shape = "drv")) +
   #  geom_point() +
-  #  ggsave("figs/2.3_9.pdf")
+  #  ggsave("figs/2.4_2.pdf")
 
   # `size` is still broken. Implementation is pretty easy though, we just
   # have to set the size instead of color for each data point based on
   # the continouos data scale given by the data of the given key. Should
   # probably define a range in of the size of the points e.g. 1.0 - 10.0
   # points or whatever and scale in that. Using Quantities that should be easy.
+  # works now.
   ggplot(mpg, aes(x = "displ", y = "hwy", size = "cyl")) +
     geom_point() +
-    ggsave("figs/2.3_10.pdf")
+    ggsave("figs/2.4_3.pdf")
 
   # Classifying a geom by a non existant key in the data frame now works.
   # It's currently implemented by checking whether the key exists in the
@@ -92,14 +95,22 @@ proc ch2_3() =
   # But, once solved will also work for other geoms!
   #ggplot(mpg, aes(x = "displ", y = "hwy")) +
   #  geom_point(aes(color = "blue")) +
-  #  ggsave("figs/2.3_11.pdf")
+  #  ggsave("figs/2.4_4.pdf")
 
   # works now
   ggplot(mpg, aes(x = "displ", y = "hwy")) +
     geom_point(color = parseHex("0000FF")) +
-    ggsave("figs/2.3_12.pdf")
+    ggsave("figs/2.4_5.pdf")
 
+proc ch2_5() =
+  let mpg = toDf(readCsv("../data/mpg.csv"))
 
+  ggplot(mpg, aes("displ", "hwy")) +
+    geom_point() +
+    facet_wrap(~class) +
+    ggsave("figs/ch2.5_1.pdf")
 
 when isMainModule:
-  ch2_3()
+  #ch2_3()
+  #ch2_4()
+  ch2_5()
