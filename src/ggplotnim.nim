@@ -479,7 +479,7 @@ proc createLegend(view: var Viewport,
   var header = view[startIdx]
   var label = header.initText(
     Coord(x: header.origin.x,
-          y: header.origin.y + c1(header.height.val * 3.0 * header.hView.val / header.wView.val)),
+          y: c1(0.5)),
     cat.col,
     alignKind = taLeft)
   # set to bold
