@@ -822,7 +822,8 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
       # layer completely covers the ones before it
       # TODO: this is still not a nice solution, especially regarding top and bottom
       # of the rectangles!
-      style.lineWidth = style.lineWidth + numLabel.float * epsilon
+      if geom.kind == gkHistogram:
+        style.lineWidth = style.lineWidth + numLabel.float * epsilon
       inc numLabel
       let rawData = df.dataTo(p.aes.x.get, float)
       # generate the histogram
