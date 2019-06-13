@@ -1394,7 +1394,11 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
       # TODO: maybe extend this so that if `node.val` is ``not`` a key of the dataframe
       # we take the literal string value instead?
       when type(data) is DataFrame:
-        result = data[node.val.str][idx]
+        if node.val.str in data:
+          result = data[node.val.str][idx]
+        else:
+          # if it's not a key, we use the literal
+          result = node.val
       elif type(data) is Table[string, seq[string]]:
         result = % data[node.val.str][idx].parseFloat
       elif type(data) is OrderedTable[string, seq[string]]:
