@@ -1070,7 +1070,7 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   else:
     raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
 
-proc generatePlot(view: Viewport, p: GgPlot): Viewport =
+proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
   result = view
   result.background()
@@ -1113,7 +1113,10 @@ proc generatePlot(view: Viewport, p: GgPlot): Viewport =
   of gkHistogram:
     ylabel = result.ylabel("count")
   else: discard
-  result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
+  if addLabels:
+    result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
+  else:
+    result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[grdLines])
 
 proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   # first perform faceting by creating subgroups
@@ -1128,7 +1131,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     mplt.data = df
     let viewFacet = result
     # now add dummy plt to pltSeq
-    pltSeq.add viewFacet.generatePlot(mplt)
+    pltSeq.add viewFacet.generatePlot(mplt, addLabels = false)
 
   # now create layout in `view`, the actual canvas for all plots
   let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
@@ -1184,6 +1187,16 @@ proc ggsave*(p: GgPlot, fname: string) =
 
   if p.facet.isSome:
     pltBase = pltBase.generateFacetPlots(p)
+    # TODO :clean labels up
+    let xlabel = pltBase.xlabel(p.aes.x.get)
+    var ylabel: GraphObject
+    case p.geoms[0].kind
+    of gkPoint:
+      ylabel = pltBase.ylabel(p.aes.y.get)
+    of gkHistogram:
+      ylabel = pltBase.ylabel("count")
+    else: discard
+    pltBase.addObj @[xlabel, ylabel]
   else:
     pltBase = pltBase.generatePlot(p)
   img[4] = pltBase
