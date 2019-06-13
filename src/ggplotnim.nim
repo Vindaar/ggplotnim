@@ -214,6 +214,17 @@ iterator enumerateScales(p: GgPlot, geom: Geom): Scale =
   elif paes.size.isSome:
     yield paes.size.unsafeGet
 
+iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
+  ## Overload for above iterator, which allows handing `seq[Geom]`
+  # TODO: avoid yielding `p` scales multiple times!
+  var yieldedSet = initHashSet[Scale]()
+  for g in geom:
+    for scale in enumerateScales(p, g):
+      if scale notin yieldedSet:
+        yield scale
+      else:
+        yieldedSet.incl scale
+
 proc guessType(s: seq[Value]): ValueKind =
   ## returns a ``guess`` (!) of the data type stored in `s`.
   ## We check a subset of 100 elements of the seq (or the whole if
