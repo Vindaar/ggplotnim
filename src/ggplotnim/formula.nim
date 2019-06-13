@@ -1295,16 +1295,16 @@ template `~`*(x: untyped): FormulaNode =
 template `~`*(x, y: untyped): FormulaNode =
   deconstruct(x, y, amDep)
 
-template `+`*(x, y: untyped): FormulaNode =
+template `+`*(x: FormulaNode, y: untyped): FormulaNode =
   deconstruct(x, y, amPlus)
 
-template `-`*(x, y: untyped): FormulaNode =
+template `-`*(x: FormulaNode, y: untyped): FormulaNode =
   deconstruct(x, y, amMinus)
 
-template `*`*(x, y: untyped): FormulaNode =
+template `*`*(x: FormulaNode, y: untyped): FormulaNode =
   deconstruct(x, y, amMinus)
 
-template `/`*(x, y: untyped): FormulaNode =
+template `/`*(x: FormulaNode, y: untyped): FormulaNode =
   deconstruct(x, y, amDiv)
 
 proc initVariable[T](x: T): FormulaNode =
