@@ -1021,13 +1021,21 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   for k in keys(seqTab):
     result[k] = seqTab[k].toPersistentVector
 
-proc group_by*(df: DataFrame, by: varargs[string]): DataFrame =
+proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   ## returns a grouped data frame grouped by all keys `by`
   ## A grouped data frame is a lazy affair. It only calculates the groups,
   ## but unless e.g. `summarize` is called on it, remains unchanged.
-  result = DataFrame(kind: dfGrouped)
-  result.data = df.data
-  result.len = df.len
+  ## If `df` is already a grouped data frame and `add` is `true`, the
+  ## groups given by `by` will be added as additional groups!
+  if df.kind == dfGrouped and add:
+    # just copy `df`
+    result = df
+  else:
+    # copy over the data frame into new one of kind `dfGrouped` (cannot change
+    # kind at runtime!)
+    result = DataFrame(kind: dfGrouped)
+    result.data = df.data
+    result.len = df.len
   for key in by:
     result.groupMap[key] = toSet(toSeq(result[key]))
 
