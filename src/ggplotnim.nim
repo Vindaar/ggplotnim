@@ -1020,52 +1020,42 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
   else:
     discard
 
-proc generateLegendMarkers(plt: Viewport, aes: Aesthetics,
-                           kind: ScaleKind): seq[GraphObject] =
+proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
+  ## TODO: add different objects to be shown depending on the scale and geom.
+  ## E.g. in case of `fill` fill the whole rectangle with the color. In case
+  ## of geom_line only draw a line etc.
+  ## Thus also put the rectangle drawing here.
   # TODO: rewrite this either via a template, proc or macro!
-  case kind
+  case scale.sckind
   of scColor:
-    if aes.color.isSome:
-      let scale = aes.color.unsafeGet
-      doAssert scale.scKind == scColor
-      for i in 0 ..< scale.valueMap.len:
-        let color = scale.getValue(scale.getLabelKey(i)).color
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = mkCircle,
-                             color = color) # assign same marker as above
+    for i in 0 ..< scale.valueMap.len:
+      let color = scale.getValue(scale.getLabelKey(i)).color
+      result.add initPoint(plt,
+                           (0.0, 0.0), # dummy coordinates
+                           marker = mkCircle,
+                           color = color) # assign same marker as above
   of scFillColor:
-    if aes.fill.isSome:
-      let scale = aes.fill.unsafeGet
-      doAssert scale.scKind == scFillColor
-      for i in 0 ..< scale.valueMap.len:
-        let color = scale.getValue(scale.getLabelKey(i)).color
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = mkCircle,
-                             color = color) # assign same marker as above
+    for i in 0 ..< scale.valueMap.len:
+      let color = scale.getValue(scale.getLabelKey(i)).color
+      result.add initPoint(plt,
+                           (0.0, 0.0), # dummy coordinates
+                           marker = mkCircle,
+                           color = color) # assign same marker as above
   of scShape:
-    if aes.shape.isSome:
-      let scale = aes.shape.unsafeGet
-      doAssert scale.scKind == scShape
-      for i in 0 ..< scale.valueMap.len:
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = scale.getValue(scale.getLabelKey(i)).marker)
+    for i in 0 ..< scale.valueMap.len:
+      result.add initPoint(plt,
+                           (0.0, 0.0), # dummy coordinates
+                           marker = scale.getValue(scale.getLabelKey(i)).marker)
   of scSize:
-    if aes.size.isSome:
-      let scale = aes.size.unsafeGet
-      doAssert scale.scKind == scSize
-      for i in 0 ..< scale.valueMap.len:
-        let size = scale.getValue(scale.getLabelKey(i)).size
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = mkCircle,
-                             size = size)
-
+   for i in 0 ..< scale.valueMap.len:
+     let size = scale.getValue(scale.getLabelKey(i)).size
+     result.add initPoint(plt,
+                          (0.0, 0.0), # dummy coordinates
+                          marker = mkCircle,
+                          size = size)
   else:
-    raise newException(Exception, "`createLegend` unsupported for " & $kind)
+    raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
 
 
 proc ggsave*(p: GgPlot, fname: string) =
@@ -1164,37 +1154,18 @@ proc ggsave*(p: GgPlot, fname: string) =
   img[4] = plt
 
   # draw legends
-  for aes in concat(@[p.aes], p.geoms.mapIt(it.aes)):
+  for scale in enumerateScales(p, p.geoms):
+    # handle color legend
     var lg = img[5]
-    lg.height = quant(img[4].height.val / 2.0, ukRelative) #quant(0.5, ukRelative)
-    lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
-    lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
-    var markers: seq[GraphObject]
+    let markers = lg.generateLegendMarkers(scale)
     # TODO: The following currently creates stacked legends for each Scale that
     # requires one. Need to create a `seq[Viewport]` or something to first build
     # all legends and then calculate the sizes required.
-    # TODO: rewrite with enumerate scales!
-    if aes.color.isSome:
-      # handle color legend
-      markers = lg.generateLegendMarkers(aes, scColor)
-      let color = aes.color.unsafeGet
-      lg.createLegend(color, markers)
-    if aes.fill.isSome:
-      # handle color legend
-      markers = lg.generateLegendMarkers(aes, scFillColor)
-      let fill = aes.fill.unsafeGet
-      lg.createLegend(fill, markers)
-    if aes.shape.isSome:
-      # handle shape legend
-      markers = lg.generateLegendMarkers(aes, scShape)
-      let shape = aes.shape.unsafeGet
-      lg.createLegend(shape, markers)
-    if aes.size.isSome:
-      # handle size legend
-      markers = lg.generateLegendMarkers(aes, scSize)
-      let size = aes.size.unsafeGet
-      lg.createLegend(size, markers)
-
+    # set height to number of markers + 1 centimeter
+    lg.height = quant((markers.len + 1).float, ukCentimeter)
+    lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
+    lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
+    lg.createLegend(scale, markers)
     img[5] = lg
 
   if p.title.len > 0:
