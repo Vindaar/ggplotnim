@@ -4,7 +4,8 @@ import parsecsv, streams, strutils
 
 import random
 
-import seqmath
+import math
+from seqmath import histogram, shape, linspace
 
 import macros
 
