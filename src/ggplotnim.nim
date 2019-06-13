@@ -623,6 +623,8 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
   ## calling `toSeq(df[column])`.
   ## NOTE: For now we just assume that a Table will be of kind
   ## `Table[string, seq[string]]`!
+  if df.len == 0:
+    return @[]
   when type(T) is Table or type(T) is OrderedTable:
     # well we just assume that the data is a string of numbers
     # so parse to float and then convert to out type
