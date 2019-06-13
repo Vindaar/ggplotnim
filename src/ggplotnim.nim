@@ -1208,13 +1208,12 @@ proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
 
 
 when isMainModule:
-  let mpg = readCsv("data/mpg.csv")
+  let mpg = toDf(readCsv("data/mpg.csv"))
   let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
     geom_point()
   plt.ggsave("scatter.pdf")
-  let df = toDf(mpg)
 
-  df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
+  mpg.filter(f{"class" == "suv"}) # comparison via `f{}` macro
     .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
     ) # <- note that we have to use normal UFCS to hand to `ggplot`!
     .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) +
@@ -1231,7 +1230,7 @@ when isMainModule:
 
   let val = 1000
   let key = "cty"
-  df.mutate(f{"cty_norm" ~ "cty" / mean(key) * val})
+  mpg.mutate(f{"cty_norm" ~ "cty" / mean(key) * val})
             # f{"displ_ccm" ~ "displ" * "1000.0"}, # displacement in ccm
             # unfortunately this is not yet possible. The `FormulaNode.fkVariable`
             # needs to be converted to type Value before we can do that
