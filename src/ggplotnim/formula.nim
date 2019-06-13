@@ -223,6 +223,16 @@ proc toFloat*(v: Value): float =
   of VFloat: result = v.fnum
   else: discard
 
+proc toInt*(v: Value): BiggestInt =
+  ## Converts a numeric value to an int. If the value is a float
+  ## we round and convert to int
+  doAssert v.kind in {VInt, VFloat}
+  case v.kind
+  of VInt: result = v.num
+  of VFloat: result = v.fnum.round.int
+  else: discard
+
+
 proc nearlyEqual(x, y: float, eps = 1e-10): bool =
   ## equality check for floats which tries to work around floating point
   ## errors
