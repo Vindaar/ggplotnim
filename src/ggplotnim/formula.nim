@@ -305,8 +305,7 @@ proc `<`*(v, w: Value): bool =
   if v.kind != w.kind and
      v.kind in {VFloat, VInt} and
      w.kind in {VFloat, VInt}:
-    # comparison via `nearlyEqual`
-    result = v.toFloat.nearlyEqual(w.toFloat)
+    result = v.toFloat < w.toFloat
   else:
     case v.kind
     of VString:
@@ -348,6 +347,29 @@ proc pretty*(df: DataFrame, numLines = 20): string =
 
 proc `$`*(df: DataFrame): string =
   result = df.pretty
+
+proc toUgly*(result: var string, node: FormulaNode) =
+  var comma = false
+  case node.kind:
+  of fkTerm:
+    result.add "(" & $node.op & " "
+    result.toUgly node.lhs
+    result.add " "
+    result.toUgly node.rhs
+    result.add ")"
+  of fkVariable:
+    result.add $node.val
+  of fkFunction:
+    result.add "("
+    result.add node.fnName
+    result.add " "
+    result.toUgly node.arg
+    result.add ")"
+
+proc `$`*(node: FormulaNode): string =
+  ## Converts `node` to its string representation
+  result = newStringOfCap(1024)
+  toUgly(result, node)
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
@@ -462,7 +484,6 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     of amEqual:
       result = v.toFloat.nearlyEqual(f.rhs.val.toFloat)
     of amGreater:
-      #result = v.toFloat > f.rhs.val.toFloat
       result = v > f.rhs.val
     of amLess:
       result = v < f.rhs.val
@@ -809,8 +830,6 @@ proc buildFormula(n: NimNode): NimNode =
 macro `{}`*(x, y: untyped): untyped =
   if x.repr == "f":
     result = buildFormula(y)
-
-proc `$`*(node: FormulaNode): string
 
 proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Value]) =
   ## calculates a new column based on the `fn` given
@@ -1345,29 +1364,6 @@ makeMathProc(`:>=`, amGeq)
 makeMathProc(geq, amGeq)
 makeMathProc(`:<=`, amLeq)
 makeMathProc(leq, amLeq)
-
-proc toUgly*(result: var string, node: FormulaNode) =
-  var comma = false
-  case node.kind:
-  of fkTerm:
-    result.add "(" & $node.op & " "
-    result.toUgly node.lhs
-    result.add " "
-    result.toUgly node.rhs
-    result.add ")"
-  of fkVariable:
-    result.add $node.val
-  of fkFunction:
-    result.add "("
-    result.add node.fnName
-    result.add " "
-    result.toUgly node.arg
-    result.add ")"
-
-proc `$`*(node: FormulaNode): string =
-  ## Converts `node` to its string representation
-  result = newStringOfCap(1024)
-  toUgly(result, node)
 
 proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
   #echo "Node ", node
