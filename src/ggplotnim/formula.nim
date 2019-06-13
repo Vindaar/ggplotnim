@@ -50,6 +50,8 @@ type
     amGeq = ">="
     amLeq = "<="
     amAnd = "and"
+    amOr = "or"
+    amXor = "xor"
 
   FormulaNode* = ref FormulaNodeObj
   FormulaNodeObj = object
@@ -485,7 +487,7 @@ proc toFloat*(s: string): float =
 proc isValidVal(v: Value, f: FormulaNode): bool =
   doAssert v.kind != VObject
   doAssert f.kind == fkTerm
-  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd}
+  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
   case v.kind
   of VInt, VFloat:
     case f.op
@@ -529,6 +531,10 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
       result = v <= f.rhs.val
     of amAnd:
       result = v.toBool and f.rhs.val.toBool
+    of amOr:
+      result = v.toBool or f.rhs.val.toBool
+    of amXor:
+      result = v.toBool xor f.rhs.val.toBool
     else:
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
@@ -574,7 +580,7 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
-  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd}
+  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
   # returns a proc which contains the condition given by the Formulas
@@ -1415,6 +1421,10 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
       result = % (node.lhs.evaluate(data, idx) <= node.rhs.evaluate(data, idx))
     of amAnd:
       result = % (node.lhs.evaluate(data, idx).toBool and node.rhs.evaluate(data, idx).toBool)
+    of amOr:
+      result = % (node.lhs.evaluate(data, idx).toBool or node.rhs.evaluate(data, idx).toBool)
+    of amXor:
+      result = % (node.lhs.evaluate(data, idx).toBool xor node.rhs.evaluate(data, idx).toBool)
     of amEqual:
       result = % (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
     of amDep:
