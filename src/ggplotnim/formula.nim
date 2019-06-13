@@ -49,6 +49,7 @@ type
     amLess = "<"
     amGeq = ">="
     amLeq = "<="
+    amAnd = "and"
 
   FormulaNode* = ref FormulaNodeObj
   FormulaNodeObj = object
@@ -88,6 +89,9 @@ type
       groupMap: OrderedTable[string, HashSet[Value]]
     else: discard
     #data: Table[string, seq[Value]]
+
+proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value
+proc evaluate*[T](node: var FormulaNode, data: T): Value
 
 iterator keys*(df: DataFrame): string =
   for k in keys(df.data):
@@ -232,6 +236,10 @@ proc toInt*(v: Value): BiggestInt =
   of VFloat: result = v.fnum.round.int
   else: discard
 
+proc toBool*(v: Value): bool =
+  ## Checks if the value is a bool and returns its value
+  doAssert v.kind == VBool
+  result = v.bval
 
 proc nearlyEqual(x, y: float, eps = 1e-10): bool =
   ## equality check for floats which tries to work around floating point
@@ -477,7 +485,7 @@ proc toFloat*(s: string): float =
 proc isValidVal(v: Value, f: FormulaNode): bool =
   doAssert v.kind != VObject
   doAssert f.kind == fkTerm
-  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd}
   case v.kind
   of VInt, VFloat:
     case f.op
@@ -519,6 +527,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
       result = v >= f.rhs.val
     of amLeq:
       result = v <= f.rhs.val
+    of amAnd:
+      result = v.toBool and f.rhs.val.toBool
     else:
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
@@ -564,7 +574,7 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
-  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
   # returns a proc which contains the condition given by the Formulas
@@ -577,26 +587,23 @@ func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
           break
   )
 
-func getFilteredIdx(df: DataFrame, cond: FormulaNode): seq[int] =
-  ## return indices allowed after filter
-  let key = cond.lhs.val
-  doAssert key.kind == VString
-  let pv = df[key.str]
-  result = toSeq(0 ..< df.len).filterIt(pv[it].isValidVal(cond))
+proc getFilteredIdx(df: DataFrame, cond: FormulaNode): seq[int] =
+  ## return indices allowed after filter, by applying `cond` to each index
+  ## and checking it's validity
+  result = newSeqOfCap[int](df.len)
+  var mcond = cond
+  for i in 0 ..< df.len:
+    if mcond.evaluate(df, i).toBool:
+      result.add i
 
-func getFilteredIdx(idx: seq[int], df: DataFrame, cond: FormulaNode): seq[int] =
+proc getFilteredIdx(idx: seq[int], df: DataFrame, cond: FormulaNode): seq[int] =
   ## return indices allowed after filter, starting from a given sequence
   ## of allowed indices
-  let key = cond.lhs.val
-  doAssert key.kind == VString
-  let pv = df[key.str]
-  result = idx.filterIt(pv[it].isValidVal(cond))
-
-#func getFilteredIdx(df: DataFrame, isValid: proc(v: Value): bool): seq[int] =
-#  ## return indices allowed after filter
-#  let key = cond.lhs.val
-#  let pv = df[key]
-#  result = toSeq(0 ..< df.len).filterIt(isValid(pv[it]))
+  result = newSeqOfCap[int](idx.len)
+  var mcond = cond
+  for i in idx:
+    if mcond.evaluate(df, i).toBool:
+      result.add i
 
 func filter(p: PersistentVector[Value], idx: seq[int]): PersistentVector[Value] =
   result = toPersistentVector(idx.mapIt(p[it]))
@@ -708,8 +715,6 @@ macro extractFunction(fn: typed): untyped =
       "wish to use!")
 
 proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode
-proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value
-proc evaluate*[T](node: var FormulaNode, data: T): Value
 # introduce identity `%` for value to avoid having to check whether
 # a variable is already a value in macro construction
 proc `%`(v: Value): Value = v
@@ -1408,10 +1413,12 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
       result = % (node.lhs.evaluate(data, idx) >= node.rhs.evaluate(data, idx))
     of amLeq:
       result = % (node.lhs.evaluate(data, idx) <= node.rhs.evaluate(data, idx))
+    of amAnd:
+      result = % (node.lhs.evaluate(data, idx).toBool and node.rhs.evaluate(data, idx).toBool)
+    of amEqual:
+      result = % (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
     of amDep:
       raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
-    else:
-      raise newException(Exception, "Cannot evaluate a term of kind " & $node.op & "!")
   of fkFunction:
     # for now assert that the argument to the function is just a string
     # Extend this if support for statements like `mean("x" + "y")` (whatever
