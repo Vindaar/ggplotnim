@@ -110,6 +110,12 @@ proc ch2_5() =
     facet_wrap(~ class) +
     ggsave("figs/2.5_1.pdf")
 
+  ggplot(mpg, aes("displ", "hwy")) +
+    geom_point(aes(color = "manufacturer")) +
+    facet_wrap(~ class) +
+    ggsave("figs/2.5_2.pdf")
+
+
 when isMainModule:
   ch2_3()
   ch2_4()
