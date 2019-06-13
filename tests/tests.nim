@@ -30,9 +30,9 @@ test "Testing ~ formula creation using f{} macro":
   let h = f{tup.a == tup.b}
   doAssert $h == "(== 5.5 ok)"
 
-test "Serializing ~ formula":
+test "Evaluate ~ formula":
   let mpg = readCsv("data/mpg.csv")
   let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
   # Displacement + Cylinders - City mpg. Yeah :D
   # use RHS of formula for calculation of 0 row.
-  doAssert f.rhs.evaluate(mpg, 0) == -12.2
+  doAssert f.rhs.evaluate(mpg, 0) == % -12.2
