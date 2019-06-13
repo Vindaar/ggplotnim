@@ -108,9 +108,9 @@ proc ch2_5() =
   ggplot(mpg, aes("displ", "hwy")) +
     geom_point() +
     facet_wrap(~ class) +
-    ggsave("figs/ch2.5_1.pdf")
+    ggsave("figs/2.5_1.pdf")
 
 when isMainModule:
-  #ch2_3()
-  #ch2_4()
+  ch2_3()
+  ch2_4()
   ch2_5()

@@ -119,7 +119,7 @@ type
     aes: Aesthetics
     numXticks: int
     numYticks: int
-    facet: Facet
+    facet: Option[Facet]
     geoms: seq[Geom]
 
 proc `==`*(s1, s2: Scale): bool =
@@ -559,7 +559,7 @@ proc `+`*(p: GgPlot, geom: Geom): GgPlot =
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   ## adds the given facet to the GgPlot object
   result = p
-  result.facet = facet
+  result.facet = some(facet)
 
 proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   ## adds the given facet to the GgPlot object
@@ -1068,6 +1068,72 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   else:
     raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
 
+proc generatePlot(view: Viewport, p: GgPlot): Viewport =
+  # first write all plots into dummy viewport
+  result = view
+  result.background()
+  for geom in p.geoms:
+    # for each geom, we create a child viewport of `result` covering
+    # the whole resultport, which will house the data we just created.
+    # Due to being a child, if will be drawn *after* its parent. This way things like
+    # ticks will be below the data.
+    # On the other hand this allows us to draw several geoms in on a plot and have the
+    # order of the function calls `geom_*` be preserved
+    var pChild = result.addViewport()
+
+    let data = pChild.createGobjFromGeom(p, geom)
+
+    # add the data to the child
+    pChild.addObj data
+    # add the data viewport to the view
+    result.children.add pChild
+
+    # for these types there is no y data scale attached to the image so far,
+    # thus we assign `pChild`'s data scale to it
+    # TODO: solve this more elegantly!
+
+    # potentially the creation of the graph objects have altered the scales
+    # of the viewport. We have to make sure that the parents receive an updated
+    # scale too
+    result.yScale = pChild.yScale
+
+  let
+    xticks = result.xticks(p.numXTicks)
+    yticks = result.yticks(p.numYTicks)
+    xtickLabels = result.tickLabels(xticks)
+    ytickLabels = result.tickLabels(yticks)
+    xlabel = result.xlabel(p.aes.x.get)
+    grdlines = result.initGridLines(some(xticks), some(yticks))
+  var ylabel: GraphObject
+  case p.geoms[0].kind
+  of gkPoint:
+    ylabel = result.ylabel(p.aes.y.get)
+  of gkHistogram:
+    ylabel = result.ylabel("count")
+  else: discard
+  result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
+
+proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
+  # first perform faceting by creating subgroups
+  doAssert p.facet.isSome
+  var mplt = p
+  mplt.data = p.data.group_by(p.facet.unsafeGet.columns)
+  echo mplt
+  result = view
+  var pltSeq: seq[Viewport]
+  for (pair, df) in groups(mplt.data):
+    mplt = p
+    mplt.data = df
+    let viewFacet = result
+    # now add dummy plt to pltSeq
+    pltSeq.add viewFacet.generatePlot(mplt)
+
+  # now create layout in `view`, the actual canvas for all plots
+  let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
+  result.layout(cols, rows)
+  for i, plt in pltSeq:
+    result.children[i].objects = plt.objects
+    result.children[i].children = plt.children
 
 proc ggsave*(p: GgPlot, fname: string) =
   var
@@ -1114,74 +1180,17 @@ proc ggsave*(p: GgPlot, fname: string) =
   # get viewport of plot
   var pltBase = img[4]
 
-  # first perform faceting by creating subgroups
-  var mplt = p
-  mplt.data = p.data.group_by(p.facet.columns)
-  echo mplt
-  var pltSeq: seq[Viewport]
-  for (pair, df) in groups(mplt.data):
-    mplt = p
-    mplt.data = df
-    # first write all plots into dummy viewport
-    var plt = pltBase
-
-    plt.background()
-    for geom in mplt.geoms:
-      # for each geom, we create a child viewport of `plt` covering
-      # the whole viewport, which will house the data we just created.
-      # Due to being a child, if will be drawn *after* its parent. This way things like
-      # ticks will be below the data.
-      # On the other hand this allows us to draw several geoms in on a plot and have the
-      # order of the function calls `geom_*` be preserved
-      var pChild = plt.addViewport()
-
-      let data = pChild.createGobjFromGeom(mplt, geom)
-
-      # add the data to the child
-      pChild.addObj data
-      # add the data viewport to the plt
-      plt.children.add pChild
-
-      # for these types there is no y data scale attached to the image so far,
-      # thus we assign `pChild`'s data scale to it
-      # TODO: solve this more elegantly!
-
-      # potentially the creation of the graph objects have altered the scales
-      # of the viewport. We have to make sure that the parents receive an updated
-      # scale too
-      plt.yScale = pChild.yScale
-      img.yScale = pChild.yScale
-
-    let
-      xticks = plt.xticks(mplt.numXTicks)
-      yticks = plt.yticks(mplt.numYTicks)
-      xtickLabels = plt.tickLabels(xticks)
-      ytickLabels = plt.tickLabels(yticks)
-      xlabel = plt.xlabel(mplt.aes.x.get)
-      grdlines = plt.initGridLines(some(xticks), some(yticks))
-    var ylabel: GraphObject
-    case mplt.geoms[0].kind
-    of gkPoint:
-      ylabel = plt.ylabel(mplt.aes.y.get)
-    of gkHistogram:
-      ylabel = plt.ylabel("count")
-    else: discard
-    plt.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
-
-    # now add dummy plt to pltSeq
-    pltSeq.add plt
-
-  # now create layout in `pltBase`, the actual canvas for all plots
-  let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
-  pltBase.layout(cols, rows)
-  for i, plt in pltSeq:
-    pltBase.children[i].objects = plt.objects
-    pltBase.children[i].children = plt.children
+  if p.facet.isSome:
+    pltBase = pltBase.generateFacetPlots(p)
+  else:
+    pltBase = pltBase.generatePlot(p)
   img[4] = pltBase
+  # possibly correct the yScale assigned to the root Viewport
+  img.yScale = pltBase.yScale
 
 
   # draw legends
-  for scale in enumerateScales(p, mplt.geoms):
+  for scale in enumerateScales(p, p.geoms):
     # handle color legend
     var lg = img[5]
     let markers = lg.generateLegendMarkers(scale)
