@@ -450,6 +450,7 @@ func geom_histogram*(aes: Aesthetics = aes(),
 func geom_freqpoly*(color: Color = grey20, # color of the line
                     size: float = 1.0, # line width of the line
                     lineType: LineType = ltSolid,
+                    bins = 30,
                     position = "identity",
                    ): Geom =
   let pkKind = parseEnum[PositionKind](position)
@@ -459,6 +460,7 @@ func geom_freqpoly*(color: Color = grey20, # color of the line
                     fillColor: transparent,)
   result = Geom(kind: gkFreqPoly,
                 style: some(style),
+                numBins: bins,
                 position: pkKind)
 
 proc geom_tile*(): Geom =
