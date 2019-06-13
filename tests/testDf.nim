@@ -1,14 +1,5 @@
 import ggplotnim, unittest, sequtils
 
-var mpg = toDf(readCsv("data/mpg.csv"))
-
-let mpggroup = mpg.group_by("cyl")
-
-echo mpg.summarize(f{"mean_cyl" ~ mean("cyl")},
-                   f{"mean_hwy" ~ mean("hwy")})
-echo "----"
-echo mpggroup.summarize(f{"mean_displ" ~ mean("displ")},
-                        f{"mean_hwy" ~ mean("hwy")})
 
 
 test "Testing `bind_rows`":
@@ -71,3 +62,21 @@ test "Testing `bind_rows`":
     doAssert toSeq(res["b"]) == % concat(@b, @d)
     doAssert toSeq(res["combine"]) == % concat(toSeq(0..<a.len).mapIt("one"),
                                                toSeq(0..<c.len).mapIt("two"))
+
+test "Group by":
+  var mpg = toDf(readCsv("data/mpg.csv"))
+
+  let mpggroup = mpg.group_by("cyl")
+
+  # TODO: make this to `doAssert`!
+  echo mpg.summarize(f{"mean_cyl" ~ mean("cyl")},
+                     f{"mean_hwy" ~ mean("hwy")})
+  echo "----"
+  echo mpggroup.summarize(f{"mean_displ" ~ mean("displ")},
+                          f{"mean_hwy" ~ mean("hwy")})
+
+  let mpg2groups = mpggroup.group_by("class", add = true)
+
+  for (by, df) in groups(mpg2groups):
+    echo "--------------------Subgroup by ", by, "--------------------\n"
+    echo df

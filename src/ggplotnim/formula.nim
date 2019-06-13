@@ -1039,6 +1039,36 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   for key in by:
     result.groupMap[key] = toSet(toSeq(result[key]))
 
+iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
+  ## yields the subgroups of a grouped DataFrame `df` and the `(key, Value)`
+  ## pairs that were used to create the subgroup. If `df` has more than
+  ## one grouping, a subgroup is defined by the pair of the groupings!
+  ## E.g. mpg.group_by("class", "cyl")
+  ## will yield all pairs of car ("class", "cyl")!
+  ## Note: only non empty data frames will be yielded!
+  # TODO: a maybe smarter way to generate the subgroups is to simply arrange by each
+  # grouping and then walk the data frame until
+  doAssert df.kind == dfGrouped
+  if df.groupMap.len > 1:
+    # classes to store the `values` of each group. One sequence of values for each
+    var classes = newSeq[seq[(string, Value)]]()
+    for k, classSet in df.groupMap:
+      classes.add toSeq(classSet).mapIt((k, it))
+    # calculate the cartesian product of the classes
+    let combinations = product(classes)
+    for pair in combinations:
+      var res = df
+      for (key, val) in pair:
+        res = res.filter(f{key == val})
+      # yield if this is a non empty data frame
+      if res.len > 0:
+        yield (pair, res)
+  else:
+    # if only a single group, just filtered by each class
+    for key, classes in df.groupMap:
+      for class in classes:
+        yield (@[(key, class)], df.filter(f{key == class}))
+
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
