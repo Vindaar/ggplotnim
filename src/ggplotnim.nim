@@ -1131,9 +1131,24 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   for (pair, df) in groups(mplt.data):
     mplt = p
     mplt.data = df
-    let viewFacet = result
+    var viewFacet = result
+    # add layout within `viewFacet` to accomodate the plot as well as the header
+    viewFacet.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
+                     margin = quant(0.01, ukRelative))
+    var headerView = viewFacet[0]
+    # set the background of the header
+    headerView.background()
+    # put in the text
+    let headerText = headerView.initText(c(0.5, 0.5),
+                                         pair.foldl(a & ", " & $b[0] & ": " & $b[1], ""),
+                                         alignKind = taCenter)
+    headerView.addObj headerText
+    var plotView = viewFacet[1]
     # now add dummy plt to pltSeq
-    pltSeq.add viewFacet.generatePlot(mplt, addLabels = false)
+    plotView = plotView.generatePlot(mplt, addLabels = false)
+    viewFacet[0] = headerView
+    viewFacet[1] = plotView
+    pltSeq.add viewFacet
 
   # now create layout in `view`, the actual canvas for all plots
   let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
