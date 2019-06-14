@@ -747,6 +747,8 @@ proc createLineGobj(view: var Viewport,
     else:
       data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
     for label, val in scale:
+      # TODO: instead of creating a filtered copy each label, we should rather call
+      # `arrange` once on the dataframe and then walk along the sorted axis
       when type(p.data) is DataFrame:
         let df = p.data.filter(f{scale.col == label})
       else:
@@ -1135,7 +1137,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
 
   # now create layout in `view`, the actual canvas for all plots
   let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
-  result.layout(cols, rows)
+  result.layout(cols, rows, margin = quant(0.02, ukRelative))
   for i, plt in pltSeq:
     result.children[i].objects = plt.objects
     result.children[i].children = plt.children
@@ -1257,6 +1259,7 @@ proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
 
 
 when isMainModule:
+
   let mpg = toDf(readCsv("data/mpg.csv"))
   let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
     geom_point()
@@ -1307,8 +1310,8 @@ when isMainModule:
                   size = 3.0) +
     ggsave("histoPlusFreqpoly.pdf")
 
-
-  #let pltCalc = ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
+  # we don't parse `FormulaNode` in `aes` arguments yet
+  #ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
   #  geom_point() +
   #  ggtitle("ggplotnim - or I Suck At Naming Things™") +
   #  ggsave("scatterColor.pdf")
