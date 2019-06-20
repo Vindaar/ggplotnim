@@ -1153,16 +1153,16 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
   ## If a given column does not exist in one of the data frames, the corresponding
   ## rows of the data frame missing it, will be filled with `VNull`.
   result = DataFrame(len: 0)
-  #let dfSeq = @(dfs)
+  var totLen = 0
   for (idVal, df) in dfs:
+    totLen += df.len
     # first add `id` column
-    if id notin result:
+    if id.len > 0 and id notin result:
       result[id] = toVector(toSeq(0 ..< df.len).mapIt(% idVal))
-    else:
+    elif id.len > 0:
       result[id] = result[id].add toVector(toSeq(0 ..< df.len).mapIt(% idVal))
     var lastSize = 0
     for k in keys(df):
-      echo "At id ", idVal, " for key ", k
       if k notin result:
         # create this new column consisting of `VNull` up to current size
         if result.len > 0:
@@ -1170,9 +1170,7 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
         else:
           result[k] = initVector[Value]()
       # now add the current vector
-      echo result[k]
       result[k] = result[k].add df[k]
-      echo result[k]
       lastSize = max(result[k].len, lastSize)
     result.len = lastSize
   # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
@@ -1183,8 +1181,9 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
       # extend this by `VNull`
       result[k] = result[k].add toVector(toSeq(result[k].len ..< result.len)
           .mapIt(Value(kind: VNull)))
+  doAssert totLen == result.len
 
-template bind_rows*(dfs: varargs[DataFrame], id: string = "id"): DataFrame =
+template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
   ## Overload of `bind_rows` above, for automatic creation of the `id` values.
   ## Using this proc, the different data frames will just be numbered by their
   ## order in the `dfs` argument and the `id` column is filled with those values.
