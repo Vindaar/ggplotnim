@@ -155,6 +155,10 @@ proc contains*(df: DataFrame, key: string): bool =
   ## a column in the `DataFrame`
   result = df.data.hasKey(key)
 
+proc contains*(v: Value, key: string): bool =
+  doAssert v.kind == VObject
+  result = v.fields.hasKey(key)
+
 proc `$`*(v: Value): string =
   ## converts the given value to its value as a string
   case v.kind
@@ -167,8 +171,10 @@ proc `$`*(v: Value): string =
   of VString:
     result = v.str
   of VObject:
+    result.add "{"
     for k, x in v.fields:
       result.add (&"{k} : {x}")
+    result.add "}"
   of VNull:
     result = "null"
 
@@ -211,6 +217,10 @@ proc `%`*(v: bool): Value =
 
 proc `%`*(v: OrderedTable[string, Value]): Value =
   result = Value(kind: VObject, fields: v)
+
+proc newVObject*(): Value =
+  result = Value(kind: VObject)
+  result.fields = initOrderedTable[string, Value]()
 
 proc `%`*[T: not Value](s: openArray[T]): seq[Value] =
   ## converts a `seq[T]` to a `seq[Value]`
@@ -349,6 +359,14 @@ proc `<`*(v, w: Value): bool =
       result = v.fnum < w.fnum
     of VBool:
       result = v.bval < v.bval
+    of VObject:
+      # checks if objects have the same field, and if so whether the
+      # fields of `v` are smaller than those of `w`
+      result = true
+      for k in keys(v):
+        if k notin w:
+          return false
+        result = result and v[k] < w[k]
     else:
       raise newException(Exception, "Comparison `<` does not make sense for " &
         "Value kind " & $v.kind & "!")
