@@ -1165,8 +1165,10 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
       echo "At id ", idVal, " for key ", k
       if k notin result:
         # create this new column consisting of `VNull` up to current size
-        result[k] = toVector(toSeq(0 ..< result.len)
-          .mapIt(Value(kind: VNull)))
+        if result.len > 0:
+          result[k] = toVector(toSeq(0 ..< result.len).mapIt(Value(kind: VNull)))
+        else:
+          result[k] = initVector[Value]()
       # now add the current vector
       echo result[k]
       result[k] = result[k].add df[k]
