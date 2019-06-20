@@ -99,6 +99,20 @@ iterator keys*(df: DataFrame): string =
   for k in keys(df.data):
     yield k
 
+proc getKeys*[T](tab: OrderedTable[string, T]): seq[string] =
+  ## returns the keys of the table as a seq
+  for k in keys(tab):
+    result.add k
+
+proc getKeys*(df: DataFrame): seq[string] =
+  ## returns the keys of a data frame as a seq
+  for k in keys(df):
+    result.add k
+
+iterator mpairs*(df: var DataFrame): (string, var PersistentVector[Value]) =
+  for k, mval in mpairs(df.data):
+    yield (k, mval)
+
 iterator keys*(row: Value): string =
   doAssert row.kind == VObject
   for k in keys(row.fields):
@@ -1012,16 +1026,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     j = 0
   let
     # for some reason we can't do toSeq(keys(df1S)) anymore...
-    keys1 = block:
-      var tmp: seq[string]
-      for k in keys(df1S):
-        tmp.add k
-      tmp.toSet
-    keys2 = block:
-      var tmp: seq[string]
-      for k in keys(df2S):
-        tmp.add k
-      tmp.toSet
+    keys1 = getKeys(df1S).toSet
+    keys2 = getKeys(df2S).toSet
     allKeys = keys1 + keys2
   var row = Value(kind: VObject)
   var seqTab = initOrderedTable[string, seq[Value]]()
