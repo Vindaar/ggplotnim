@@ -106,9 +106,15 @@ iterator keys*(row: Value): string =
 
 proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVector[Value] =
   ## adds all elements of `w` to `v` and returns the resulting vector
-  result = v
-  for x in w:
-    result = result.add x
+  if v.len > 100 or w.len > 100:
+    # go the seq conversion route
+    var res = toSeq(v)
+    res.add toSeq(w)
+    result = toPersistentVector(res)
+  else:
+    result = v
+    for x in w:
+      result = result.add x
 
 proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] =
 #proc `[]`(df: DataFrame, k: string): seq[Value] =
