@@ -120,6 +120,16 @@ proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] =
 #proc `[]`(df: DataFrame, k: string): seq[Value] =
   result = df.data[k]
 
+proc `[]`*(df: DataFrame, k: string, idx: int): Value =
+  ## returns the element at index `idx` in column `k` directly, without
+  ## returning the whole vector first
+  result = df.data[k][idx]
+
+proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] =
+  ## returns the element at index `idx` in column `k` directly, without
+  ## returning the whole vector first
+  result = df.data[k][slice.a .. slice.b]
+
 proc `[]=`*(df: var DataFrame, k: string, vec: PersistentVector[Value]) =
 #proc `[]=`(df: var DataFrame, k: string, vec: seq[Value]) =
   df.data[k] = vec
@@ -132,6 +142,13 @@ proc `[]`*(v: Value, key: string): Value =
 proc `[]=`*(v: var Value, key: string, val: Value) =
   doAssert v.kind == VObject
   v.fields[key] = val
+
+proc `[]`*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
+  ## returns the vertical slice of the data frame given by `rowSlice`.
+  result = DataFrame(len: 0)
+  for k in keys(df):
+    result[k] = toPersistentVector(df[k, rowSlice])
+  result.len = rowSlice.b - rowSlice.a
 
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
