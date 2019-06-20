@@ -1126,28 +1126,57 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
   ## E.g. mpg.group_by("class", "cyl")
   ## will yield all pairs of car ("class", "cyl")!
   ## Note: only non empty data frames will be yielded!
-  # TODO: a maybe smarter way to generate the subgroups is to simply arrange by each
-  # grouping and then walk the data frame until
   doAssert df.kind == dfGrouped
-  if df.groupMap.len > 1:
-    # classes to store the `values` of each group. One sequence of values for each
-    var classes = newSeq[seq[(string, Value)]]()
-    for k, classSet in df.groupMap:
-      classes.add toSeq(classSet).mapIt((k, it))
-    # calculate the cartesian product of the classes
-    let combinations = product(classes)
-    for pair in combinations:
-      var res = df
-      for (key, val) in pair:
-        res = res.filter(f{key == val})
-      # yield if this is a non empty data frame
-      if res.len > 0:
-        yield (pair, res)
-  else:
-    # if only a single group, just filtered by each class
-    for key, classes in df.groupMap:
-      for class in classes:
-        yield (@[(key, class)], df.filter(f{key == class}))
+  # sort by keys
+  let keys = getKeys(df.groupMap)
+  # arrange by all keys in ascending order
+  let dfArranged = df.arrange(keys)
+  # having the data frame in a sorted order, walk it and return each combination
+  var
+    currentKeys: seq[(string, Value)]
+    lastKeys: seq[(string, Value)]
+    startIdx, stopIdx: int # indices which indicate from where to where a subgroup is located
+  for i in 0 ..< dfArranged.len:
+    currentKeys = keys.mapIt((it, dfArranged[it, i]))
+    if currentKeys == lastKeys:
+      # continue accumulating
+      discard
+    elif i > 0:
+      # found the end of a subgroup
+      stopIdx = i - 1
+      # return subgroup of startIdx .. stopIdx
+      yield (currentKeys, dfArranged[startIdx .. stopIdx])
+      # set new start and stop idx
+      startIdx = i + 1
+    else:
+      # should only happen for i == 0
+      doAssert i == 0
+    lastKeys = currentKeys
+
+  when false:
+    # Old implementation based on `filter`. `filter` has to scan the whole data frame once for
+    # each `pair`. This is fine for few pairs, but if we have a lot and the data frame is large
+    # this is very inefficient. The above just scans the data frame only twice. Once to sort it
+    # according to the keys and then to extract the sub data frame
+    if df.groupMap.len > 1:
+      # classes to store the `values` of each group. One sequence of values for each
+      var classes = newSeq[seq[(string, Value)]]()
+      for k, classSet in df.groupMap:
+        classes.add toSeq(classSet).mapIt((k, it))
+      # calculate the cartesian product of the classes
+      let combinations = product(classes)
+      for pair in combinations:
+        var res = df
+        for (key, val) in pair:
+          res = res.filter(f{key == val})
+        # yield if this is a non empty data frame
+        if res.len > 0:
+          yield (pair, res)
+    else:
+      # if only a single group, just filtered by each class
+      for key, classes in df.groupMap:
+        for class in classes:
+          yield (@[(key, class)], df.filter(f{key == class}))
 
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
