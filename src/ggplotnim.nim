@@ -161,6 +161,53 @@ proc hash*(x: Scale): Hash =
     result = result !& hash(x.dataScale)
   result = !$result
 
+macro typeName(x: typed): untyped =
+  let str = x.getTypeInst.repr
+  result = quote do:
+    `str`
+
+proc `$`*(f: Facet): string =
+  result = "(columns: "
+  for i, x in f.columns:
+    if i == f.columns.len - 1:
+      result.add x & ")"
+    else:
+      result.add x & ", "
+
+proc `$`*(aes: Aesthetics): string =
+  result = "("
+  if aes.x.isSome:
+    result.add "x: " & $aes.x.unsafeGet
+  if aes.y.isSome:
+    result.add "y: " & $aes.y.unsafeGet
+  if aes.size.isSome:
+    result.add "size: " & $aes.size.unsafeGet
+  if aes.shape.isSome:
+    result.add "shape: " & $aes.shape.unsafeGet
+  if aes.color.isSome:
+    result.add "color: " & $aes.color.unsafeGet
+  if aes.fill.isSome:
+    result.add "fill: " & $aes.fill.unsafeGet
+  result.add ")"
+
+proc `$`*(g: Geom): string =
+  result = "(kind: " & $g.kind & ","
+  result.add "aes: " & $g.aes
+  result.add ")"
+
+proc `$`*[T](p: GgPlot[T]): string =
+  result = "(data: " & typeName(p.data)
+  result.add ", title: " & $p.title
+  result.add ", subtitle: " & $p.subtitle
+  result.add ", aes: " & $p.aes
+  result.add ", numXTicks " & $p.numXTicks
+  result.add ", numYTicks " & $p.numXTicks
+  result.add ", facet: " & $p.facet
+  result.add ", geoms: "
+  for g in p.geoms:
+    result.add $g
+  result.add ")"
+
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
   result = s.valueMap[label]
