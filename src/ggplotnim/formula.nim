@@ -989,21 +989,54 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.data.del(fn.rhs.val.str)
 
-proc arrange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
+proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
+  ## Given a dataframe `df` and column keys `keys`, returns a `seq[Value]`
+  ## where each `Value` is a `VObject` containing a single row, with
+  ## (key, value) pairs.
+  #var data: seq[PersistentVector[Value]]
+  ## first get the data
+  #for k in keys:
+  #  data.add df[k]
+  # now build the rows
+  result = newSeq[Value](result.len)
+  for i in 0 ..< result.len:
+    result[i] = newVObject()
+    for k in keys:
+      result[i][k] = df[k, i]
+
+proc arrangeSortImpl(toSort: var seq[(int, Value)], order: SortOrder) =
+  ## sorts the given `(index, Value)` pair according to the `Value`
+  toSort.sort(
+      cmp = (
+        proc(x, y: (int, Value)): int =
+          result = system.cmp(x[1], y[1])
+      ),
+      order = order
+    )
+
+proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): DataFrame =
   ## sorts the data frame in ascending / descending `order` by key `by`
-  let col = toSeq(df[by])
-  let idx = toSeq(0 .. col.high)
-  var idxCol = zip(idx, col)
-  idxCol.sort(
-    cmp = (
-      proc(x, y: (int, Value)): int =
-        result = system.cmp(x[1], y[1])
-    ),
-    order = order
-  )
+  # now sort by cols in ascending order of each col, i.e. ties will be broken
+  # in ascending order of the columns
+  var idxCol: seq[(int, Value)]
+  if by.len == 1:
+    let col = toSeq(df[by[0]])
+    let idx = toSeq(0 .. col.high)
+    idxCol = zip(idx, col)
+    idxCol.arrangeSortImpl(order)
+  else:
+    # in case of having multiple strings to sort by, first create a sequence of all
+    # rows (only containig the columns to be sorted)
+    let colRows = getColsAsRows(df, by)
+    let idx = toSeq(0 .. colRows.high)
+    idxCol = zip(idx, colRows)
+    idxCol.arrangeSortImpl(order)
   result.len = df.len
   for k in keys(df):
     result[k] = idxCol.mapIt(df[k][it[0]]).toPersistentVector
+
+proc arrange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
+  result = df.arrange(@[by], order)
 
 proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   ## returns a data frame joined by the given key `by` in such a way as to only keep
