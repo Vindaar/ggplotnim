@@ -162,7 +162,8 @@ proc `[]`*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
   result = DataFrame(len: 0)
   for k in keys(df):
     result[k] = toPersistentVector(df[k, rowSlice])
-  result.len = rowSlice.b - rowSlice.a
+  # add 1, because it's an ``inclusive`` slice!
+  result.len = (rowSlice.b - rowSlice.a) + 1
 
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
