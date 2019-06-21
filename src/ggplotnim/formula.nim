@@ -506,7 +506,7 @@ macro toTab*(s: untyped): untyped =
       `result`
       `data`
   #echo result.treerepr
-  echo result.repr
+  #echo result.repr
 
 template seqsToDf*(s: varargs[untyped]): untyped =
   ## converts an arbitrary number of sequences to a `DataFrame` or any
@@ -783,7 +783,6 @@ proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode
 # a variable is already a value in macro construction
 proc `%`(v: Value): Value = v
 proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
-  echo "HAAA ", n.treeRepr
   var val: NimNode
   case n.kind
   of nnkNilLit:
@@ -791,7 +790,6 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     # ~ x
     val = newLit("")
   of nnkIdent:
-    echo "IDENT ! ", n.treeRepr
     when identIsVar:
       # identifier corresopnds to variable in local scope, take it
       val = n
@@ -805,7 +803,7 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     val = n
   of nnkDotExpr:
     # probably field access of some object
-    echo n.treeRepr
+    # echo n.treeRepr
     val = n
   else:
     error("Unsupported kind to construct variable " & $n.kind)
@@ -890,9 +888,6 @@ proc buildFormula(n: NimNode): NimNode =
     parseEnum[ArithmeticKind](`opid`)
   let lhs = handleSide(node[1])
   let rhs = handleSide(node[2])
-  echo "lhs ", lhs.treeRepr
-  echo "rhs ", rhs.treeRepr
-  echo "mn ", n.treeRepr
   result = quote do:
     FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
 
