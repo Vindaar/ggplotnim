@@ -95,6 +95,8 @@ type
 proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value
 proc evaluate*[T](node: var FormulaNode, data: T): Value
 
+func `high`*(df: DataFrame): int = df.len - 1
+
 iterator keys*(df: DataFrame): string =
   for k in keys(df.data):
     yield k
