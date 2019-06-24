@@ -1143,7 +1143,7 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
       # found the end of a subgroup or we're at the end of the DataFrame
       stopIdx = i - 1
       # return subgroup of startIdx .. stopIdx
-      yield (currentKeys, dfArranged[startIdx .. stopIdx])
+      yield (lastKeys, dfArranged[startIdx .. stopIdx])
       # set new start and stop idx
       startIdx = i + 1
     else:
@@ -1152,7 +1152,6 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
     lastKeys = currentKeys
   # finally yield the last subgroup or the whole group, in case we only
   # have a single key
-  echo "Yielding from ", startIdx, " to " , dfArranged.high
   yield (currentKeys, dfArranged[startIdx .. dfArranged.high])
 
   when false:
