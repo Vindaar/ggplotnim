@@ -538,6 +538,9 @@ proc toSeq(v: PersistentVector[Value]): seq[Value] =
 proc toSeq(df: DataFrame, key: string): seq[Value] =
   result = df[key].toSeq
 
+proc vToSeq*(v: PersistentVector[Value]): seq[Value] = toSeq(v)
+proc vToSeq*(df: DataFrame, key: string): seq[Value] = toSeq(df, key)
+
 proc toFloat*(s: string): float =
   # TODO: replace by `toFloat(v: Value)`!
   result = s.parseFloat
