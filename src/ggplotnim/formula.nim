@@ -1149,7 +1149,7 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
       # return subgroup of startIdx .. stopIdx
       yield (lastKeys, dfArranged[startIdx .. stopIdx])
       # set new start and stop idx
-      startIdx = i + 1
+      startIdx = i
     else:
       # should only happen for i == 0
       doAssert i == 0
