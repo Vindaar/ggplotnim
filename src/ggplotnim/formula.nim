@@ -532,10 +532,10 @@ iterator pairs*(df: DataFrame): (int, Value) =
       res[k] = df[k][i]
     yield (i, res)
 
-proc toSeq*(v: PersistentVector[Value]): seq[Value] =
+proc toSeq(v: PersistentVector[Value]): seq[Value] =
   result = v[0 ..< v.len]
 
-proc toSeq*(df: DataFrame, key: string): seq[Value] =
+proc toSeq(df: DataFrame, key: string): seq[Value] =
   result = df[key].toSeq
 
 proc toFloat*(s: string): float =
@@ -1057,6 +1057,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     j = 0
   let
     # for some reason we can't do toSeq(keys(df1S)) anymore...
+    # This is due to https://github.com/nim-lang/Nim/issues/7322. `toSeq` isn't exported for now.
     keys1 = getKeys(df1S).toSet
     keys2 = getKeys(df2S).toSet
     allKeys = keys1 + keys2
