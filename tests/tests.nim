@@ -35,4 +35,4 @@ test "Evaluate ~ formula":
   let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
   # Displacement + Cylinders - City mpg. Yeah :D
   # use RHS of formula for calculation of 0 row.
-  doAssert f.rhs.evaluate(mpg, 0) == % -12.2
+  doAssert f.rhs.evaluate(mpg, 0) == %~ -12.2

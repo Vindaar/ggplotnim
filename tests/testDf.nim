@@ -16,9 +16,9 @@ test "Testing `bind_rows`":
     let res = bind_rows([df, df2])
     echo "Resulting df "
     echo res
-    doAssert toSeq(res["a"]) == % concat(@a, @c)
-    doAssert toSeq(res["b"]) == % concat(@b, @d)
-    doAssert toSeq(res["id"]) == % concat(toSeq(0..<a.len).mapIt("0"),
+    doAssert toSeq(res["a"]) == %~ concat(@a, @c)
+    doAssert toSeq(res["b"]) == %~ concat(@b, @d)
+    doAssert toSeq(res["id"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
                                           toSeq(0..<c.len).mapIt("1"))
 
   block:
@@ -30,11 +30,11 @@ test "Testing `bind_rows`":
     echo "Resulting df "
     echo res
     echo res["a"]
-    echo toVector(% concat(@a, @c))
-    doAssert toSeq(res["a"]) == % concat(@a, @c)
-    doAssert toSeq(res["b"]) == % concat(% b, toSeq(0 .. 3).mapIt(Value(kind: VNull)))
-    doAssert toSeq(res["d"]) == % concat(toSeq(0 .. 2).mapIt(Value(kind: VNull)), % d)
-    doAssert toSeq(res["id"]) == % concat(toSeq(0..<a.len).mapIt("0"),
+    echo toVector(%~ concat(@a, @c))
+    doAssert toSeq(res["a"]) == %~ concat(@a, @c)
+    doAssert toSeq(res["b"]) == %~ concat(%~ b, toSeq(0 .. 3).mapIt(Value(kind: VNull)))
+    doAssert toSeq(res["d"]) == %~ concat(toSeq(0 .. 2).mapIt(Value(kind: VNull)), %~ d)
+    doAssert toSeq(res["id"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
                                           toSeq(0..<c.len).mapIt("1"))
 
   block:
@@ -45,9 +45,9 @@ test "Testing `bind_rows`":
     let res = bind_rows([df, df2], id = "combine")
     echo "Resulting df "
     echo res
-    doAssert toSeq(res["a"]) == % concat(@a, @c)
-    doAssert toSeq(res["b"]) == % concat(@b, @d)
-    doAssert toSeq(res["combine"]) == % concat(toSeq(0..<a.len).mapIt("0"),
+    doAssert toSeq(res["a"]) == %~ concat(@a, @c)
+    doAssert toSeq(res["b"]) == %~ concat(@b, @d)
+    doAssert toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
                                                toSeq(0..<c.len).mapIt("1"))
 
   block:
@@ -58,9 +58,9 @@ test "Testing `bind_rows`":
     let res = bind_rows([("one", df), ("two", df2)], id = "combine")
     echo "Resulting df "
     echo res
-    doAssert toSeq(res["a"]) == % concat(@a, @c)
-    doAssert toSeq(res["b"]) == % concat(@b, @d)
-    doAssert toSeq(res["combine"]) == % concat(toSeq(0..<a.len).mapIt("one"),
+    doAssert toSeq(res["a"]) == %~ concat(@a, @c)
+    doAssert toSeq(res["b"]) == %~ concat(@b, @d)
+    doAssert toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("one"),
                                                toSeq(0..<c.len).mapIt("two"))
 
 test "Group by":

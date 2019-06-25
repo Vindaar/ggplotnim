@@ -213,39 +213,39 @@ proc hash*(x: Value): Hash =
     result = 0
   result = !$result
 
-proc `%`*(c: char): Value =
+proc `%~`*(c: char): Value =
   ## we convert a `char` to a `string`!
   result = Value(kind: VString, str: $c)
 
-proc `%`*(v: string): Value =
+proc `%~`*(v: string): Value =
   result = Value(kind: VString, str: v)
 
-proc `%`*(v: SomeFloat): Value =
+proc `%~`*(v: SomeFloat): Value =
   result = Value(kind: VFloat, fnum: v.float)
 
-proc `%`*(v: SomeInteger): Value =
+proc `%~`*(v: SomeInteger): Value =
   result = Value(kind: VInt, num: v.int)
 
-proc `%`*(v: bool): Value =
+proc `%~`*(v: bool): Value =
   result = Value(kind: VBool, bval: v)
 
-#proc `%`*(v: Table[string, Value]): Value =
+#proc `%~`*(v: Table[string, Value]): Value =
 #  result = Value(kind: VObject, fields: v.toOrderedTable)
 
-proc `%`*(v: OrderedTable[string, Value]): Value =
+proc `%~`*(v: OrderedTable[string, Value]): Value =
   result = Value(kind: VObject, fields: v)
 
 proc newVObject*(): Value =
   result = Value(kind: VObject)
   result.fields = initOrderedTable[string, Value]()
 
-proc `%`*[T: not Value](s: openArray[T]): seq[Value] =
+proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
   ## converts a `seq[T]` to a `seq[Value]`
   result = newSeq[Value](s.len)
   for i, x in s:
-    result[i] = % x
+    result[i] = %~ x
 
-template `%`*(s: openArray[Value]): seq[Value] = @s
+template `%~`*(s: openArray[Value]): seq[Value] = @s
 
 func isInt(s: string): bool =
   result = s.isDigit
@@ -451,14 +451,14 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
       #    data.add Value(kind: VInt, num: x.parseInt)
       if v[0].isFloat:
         for i, x in v:
-          data[i] = % x.parseFloat
+          data[i] = %~ x.parseFloat
       elif v[0].isBool:
         for i, x in v:
-          data[i] = % x.parseBool
+          data[i] = %~ x.parseBool
       else:
         # assume string
         for i, x in v:
-          data[i] = % x
+          data[i] = %~ x
     #result.data[k] = data
     result.data[k] = data.toPersistentVector
     if result.len == 0:
@@ -467,7 +467,7 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
 proc toVector*[T: not Value](s: openArray[T]): PersistentVector[Value] =
   var valSeq = newSeq[Value](s.len)
   for i, x in s:
-    valSeq[i] = % x
+    valSeq[i] = %~ x
   result = valSeq.toPersistentVector
 
 proc toVector*(s: seq[Value]): PersistentVector[Value] =
@@ -779,9 +779,9 @@ macro extractFunction(fn: typed): untyped =
       "wish to use!")
 
 proc createFormula[T](name: string, fn: T, arg: FormulaNode): FormulaNode
-# introduce identity `%` for value to avoid having to check whether
+# introduce identity `%~` for value to avoid having to check whether
 # a variable is already a value in macro construction
-proc `%`(v: Value): Value = v
+proc `%~`(v: Value): Value = v
 proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
   var val: NimNode
   case n.kind
@@ -808,7 +808,7 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
   else:
     error("Unsupported kind to construct variable " & $n.kind)
   result = quote do:
-    FormulaNode(kind: fkVariable, val: % `val`)
+    FormulaNode(kind: fkVariable, val: %~ `val`)
 
 proc constructFunction*(n: NimNode): NimNode =
   let fname = n[0].strVal
@@ -1227,9 +1227,9 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
     totLen += df.len
     # first add `id` column
     if id.len > 0 and id notin result:
-      result[id] = toVector(toSeq(0 ..< df.len).mapIt(% idVal))
+      result[id] = toVector(toSeq(0 ..< df.len).mapIt(%~ idVal))
     elif id.len > 0:
-      result[id] = result[id].add toVector(toSeq(0 ..< df.len).mapIt(% idVal))
+      result[id] = result[id].add toVector(toSeq(0 ..< df.len).mapIt(%~ idVal))
     var lastSize = 0
     for k in keys(df):
       if k notin result:
@@ -1486,7 +1486,7 @@ template `/`*(x: FormulaNode, y: untyped): FormulaNode =
 
 proc initVariable[T](x: T): FormulaNode =
   result = FormulaNode(kind: fkVariable,
-                       val: % x)
+                       val: %~ x)
 
 template makeMathProc(operator, opKind: untyped): untyped =
   #proc `operator`*(x, y: string): FormulaNode =
@@ -1541,9 +1541,9 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
           # if it's not a key, we use the literal
           result = node.val
       elif type(data) is Table[string, seq[string]]:
-        result = % data[node.val.str][idx].parseFloat
+        result = %~ data[node.val.str][idx].parseFloat
       elif type(data) is OrderedTable[string, seq[string]]:
-        result = % data[node.val.str][idx].parseFloat
+        result = %~ data[node.val.str][idx].parseFloat
       else:
         raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
     of VFloat, VInt, VBool:
@@ -1565,21 +1565,21 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
     # For booleans we have to wrap the result again in a `Value`, since boolean
     # operators of `Value` will still return a `bool`
     of amGreater:
-      result = % (node.lhs.evaluate(data, idx) > node.rhs.evaluate(data, idx))
+      result = %~ (node.lhs.evaluate(data, idx) > node.rhs.evaluate(data, idx))
     of amLess:
-      result = % (node.lhs.evaluate(data, idx) < node.rhs.evaluate(data, idx))
+      result = %~ (node.lhs.evaluate(data, idx) < node.rhs.evaluate(data, idx))
     of amGeq:
-      result = % (node.lhs.evaluate(data, idx) >= node.rhs.evaluate(data, idx))
+      result = %~ (node.lhs.evaluate(data, idx) >= node.rhs.evaluate(data, idx))
     of amLeq:
-      result = % (node.lhs.evaluate(data, idx) <= node.rhs.evaluate(data, idx))
+      result = %~ (node.lhs.evaluate(data, idx) <= node.rhs.evaluate(data, idx))
     of amAnd:
-      result = % (node.lhs.evaluate(data, idx).toBool and node.rhs.evaluate(data, idx).toBool)
+      result = %~ (node.lhs.evaluate(data, idx).toBool and node.rhs.evaluate(data, idx).toBool)
     of amOr:
-      result = % (node.lhs.evaluate(data, idx).toBool or node.rhs.evaluate(data, idx).toBool)
+      result = %~ (node.lhs.evaluate(data, idx).toBool or node.rhs.evaluate(data, idx).toBool)
     of amXor:
-      result = % (node.lhs.evaluate(data, idx).toBool xor node.rhs.evaluate(data, idx).toBool)
+      result = %~ (node.lhs.evaluate(data, idx).toBool xor node.rhs.evaluate(data, idx).toBool)
     of amEqual:
-      result = % (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
+      result = %~ (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
     of amDep:
       raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
   of fkFunction:
