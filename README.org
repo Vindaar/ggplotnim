@@ -40,10 +40,10 @@ The cairo wrapper:
 nimble install cairo
 #+END_SRC
 
-And a branch of =chroma=, for which I haven't created a PR yet, which
-adds HCL support (to calculate the ggplot2 colors). I still need to
-port the RGB->HCL conversion, which I didn't need yet:
-https://github.com/Vindaar/chroma/tree/addHclSpace
+And a branch of =chroma= for HCL support (to calculate the ggplot2
+colors). Once the PR is merged, the latest version of chroma will be
+fine:
+https://github.com/treeform/chroma/pull/4
 
 With these the code should hopefully compile just fine.
 
