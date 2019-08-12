@@ -293,6 +293,20 @@ proc toBool*(v: Value): bool =
   doAssert v.kind == VBool
   result = v.bval
 
+proc toStr*(v: Value): string =
+  ## Returns the value `v` as a string. If the value is of kind `VString`,
+  ## no conversion is required.
+  ## This however will fail, if the input is of type
+  ## - VNull
+  ## - VObject
+  ## if you want string representations of those value types, use `$`
+  case v.kind
+  of VInt, VFloat, VBool: result = $v
+  of VString: result = v.str
+  else:
+    raise newException(ValueError, "Will not convert a Value of kind " &
+      $v.kind & " to string! Use `$` for that!")
+
 proc nearlyEqual(x, y: float, eps = 1e-10): bool =
   ## equality check for floats which tries to work around floating point
   ## errors
