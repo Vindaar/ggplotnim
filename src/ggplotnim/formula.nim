@@ -737,6 +737,8 @@ template liftScalarStringProc(name: untyped): untyped =
 
 liftVectorFloatProc(mean)
 liftScalarFloatProc(abs)
+liftVectorFloatProc(min)
+liftVectorFloatProc(max)
 liftScalarFloatProc(ln)
 
 template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
