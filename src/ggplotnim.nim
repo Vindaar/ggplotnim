@@ -442,7 +442,11 @@ proc aes*(x = "", y = "", color = "", fill = "", shape = "", size = ""): Aesthet
                       size: size.orNoneScale(scSize))
 
 proc aes*(x: FormulaNode, color = "", fill = "", shape = "", size = ""): Aesthetics =
-  result = Aesthetics(x: none[string](), y: none[string](),
+  # extract x and y from FormulaNode
+  doAssert x.kind == fkTerm, "Formula must be a term!"
+  doAssert x.lhs.kind == fkVariable, "LHS must be a variable!"
+  doAssert x.rhs.kind == fkVariable, "RHS must be a variable!"
+  result = Aesthetics(x: some(x.lhs.val.toStr), y: some(x.rhs.val.toStr),
                       color: color.orNoneScale(scColor),
                       fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
