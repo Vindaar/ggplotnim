@@ -307,43 +307,6 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
-proc nearlyEqual(x, y: float, eps = 1e-10): bool =
-  ## equality check for floats which tries to work around floating point
-  ## errors
-  ## Taken from: https://floating-point-gui.de/errors/comparison/
-  let absX = abs(x)
-  let absY = abs(y)
-  let diff = abs(x - y)
-  if x == y:
-    # shortcut, handles infinities
-    result = true
-  elif x == 0 or
-       y == 0 or
-       diff < minimumPositiveValue(system.float):
-    # a or b is zero or both are extremely close to it
-    # relative error is less meaningful here
-    result =  diff < (eps * minimumPositiveValue(system.float))
-  else:
-    # use relative error
-    result = diff / min((absX + absY), maximumPositiveValue(system.float)) < eps
-
-template makeMath(op: untyped): untyped =
-  proc `op`*(v, w: Value): Value =
-    ## Adds two Values together, if they are addeable.
-    ## These operations only work for `VInt` and `VFloat`. `VInt` is converted
-    ## to floats for the calculation. The result is always a `VFloat`!
-    if v.kind in {VFloat, VInt} and
-       w.kind in {VFloat, VInt}:
-      result = Value(kind: VFloat, fnum: `op`(v.toFloat, w.toFloat))
-    else:
-      raise newException(Exception, "Math operation does not make sense for " &
-        "Value kind " & $v.kind & "!")
-
-makeMath(`+`)
-makeMath(`-`)
-makeMath(`*`)
-makeMath(`/`)
-
 proc `==`*(v, w: Value): bool =
   ## checks whether the values are equal
   if v.kind != w.kind:
@@ -408,6 +371,23 @@ proc `<=`*(v, w: Value): bool =
     result = true
   elif v < w:
     result = true
+
+template makeMath(op: untyped): untyped =
+  proc `op`*(v, w: Value): Value =
+    ## Adds two Values together, if they are addeable.
+    ## These operations only work for `VInt` and `VFloat`. `VInt` is converted
+    ## to floats for the calculation. The result is always a `VFloat`!
+    if v.kind in {VFloat, VInt} and
+       w.kind in {VFloat, VInt}:
+      result = Value(kind: VFloat, fnum: `op`(v.toFloat, w.toFloat))
+    else:
+      raise newException(Exception, "Math operation does not make sense for " &
+        "Value kind " & $v.kind & "!")
+
+makeMath(`+`)
+makeMath(`-`)
+makeMath(`*`)
+makeMath(`/`)
 
 proc pretty*(df: DataFrame, numLines = 20): string =
   ## converts the first `numLines` to a table
@@ -558,6 +538,26 @@ proc vToSeq*(df: DataFrame, key: string): seq[Value] = toSeq(df, key)
 proc toFloat*(s: string): float =
   # TODO: replace by `toFloat(v: Value)`!
   result = s.parseFloat
+
+proc nearlyEqual(x, y: float, eps = 1e-10): bool =
+  ## equality check for floats which tries to work around floating point
+  ## errors
+  ## Taken from: https://floating-point-gui.de/errors/comparison/
+  let absX = abs(x)
+  let absY = abs(y)
+  let diff = abs(x - y)
+  if x == y:
+    # shortcut, handles infinities
+    result = true
+  elif x == 0 or
+       y == 0 or
+       diff < minimumPositiveValue(system.float):
+    # a or b is zero or both are extremely close to it
+    # relative error is less meaningful here
+    result =  diff < (eps * minimumPositiveValue(system.float))
+  else:
+    # use relative error
+    result = diff / min((absX + absY), maximumPositiveValue(system.float)) < eps
 
 proc isValidVal(v: Value, f: FormulaNode): bool =
   doAssert v.kind != VObject
