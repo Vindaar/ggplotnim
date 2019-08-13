@@ -360,7 +360,11 @@ proc `<`*(v, w: Value): bool =
       for k in keys(v):
         if k notin w:
           return false
-        result = result and v[k] < w[k]
+        if v[k] < w[k]:
+          return true
+        elif v[k] > w[k]:
+          return false
+        # else v[k] is equal to w[k], continue
     else:
       raise newException(Exception, "Comparison `<` does not make sense for " &
         "Value kind " & $v.kind & "!")
