@@ -390,12 +390,14 @@ makeMath(`*`)
 makeMath(`/`)
 
 proc pretty*(df: DataFrame, numLines = 20): string =
-  ## converts the first `numLines` to a table
+  ## converts the first `numLines` to a table.
+  ## If the `numLines` argument is negative, will print all rows of the
+  ## datafra.e
   var maxLen = 0
   for k in keys(df):
     maxLen = max(k.len, maxLen)
   let alignBy = maxLen + 4
-  let num = min(df.len, numLines)
+  let num = if numLines > 0: min(df.len, numLines) else: df.len
   # write header
   result.add align("Idx", alignBy)
   for k in keys(df):
