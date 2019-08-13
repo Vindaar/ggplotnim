@@ -1016,12 +1016,8 @@ proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
   ## Given a dataframe `df` and column keys `keys`, returns a `seq[Value]`
   ## where each `Value` is a `VObject` containing a single row, with
   ## (key, value) pairs.
-  #var data: seq[PersistentVector[Value]]
-  ## first get the data
-  #for k in keys:
-  #  data.add df[k]
   # now build the rows
-  result = newSeq[Value](result.len)
+  result = newSeq[Value](df.len)
   for i in 0 ..< result.len:
     result[i] = newVObject()
     for k in keys:
