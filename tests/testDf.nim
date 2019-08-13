@@ -117,3 +117,12 @@ suite "Data frame tests":
     check subGroupCount <= product.len
     # which is the case for current grouping and the mpg dataset:
     check subGroupCount == 19
+
+
+    let cylFiltered = mpg.filter(f{"cyl" == 4})
+    check cylFiltered.len == 81
+    let cylDrvFiltered = cylFiltered.filter(f{"drv" == "4"})
+    check cylDrvFiltered.len == 21
+
+    echo cylDrvFiltered
+    #echo mpg.filter(f{"class" == "suv"})

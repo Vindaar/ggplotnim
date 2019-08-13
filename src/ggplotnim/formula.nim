@@ -308,9 +308,13 @@ proc toStr*(v: Value): string =
       $v.kind & " to string! Use `$` for that!")
 
 proc `==`*(v, w: Value): bool =
-  ## checks whether the values are equal
-  if v.kind != w.kind:
-    result = false
+  ## checks whether the values are equal.
+  ## Note: if both values are numbers of different kind (`VInt` and `VFloat`) the
+  ## values are both compared as floats!
+  if v.kind != w.kind and
+     v.kind in {VInt, VFloat} and
+     w.kind in {VInt, VFloat}:
+    result = v.toFloat == w.toFloat
   else:
     case v.kind
     of VString:
