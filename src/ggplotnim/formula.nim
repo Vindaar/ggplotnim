@@ -400,6 +400,7 @@ proc pretty*(df: DataFrame, numLines = 20): string =
   var maxLen = 0
   for k in keys(df):
     maxLen = max(k.len, maxLen)
+  echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
   let alignBy = maxLen + 4
   let num = if numLines > 0: min(df.len, numLines) else: df.len
   # write header
