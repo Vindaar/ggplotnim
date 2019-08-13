@@ -265,14 +265,12 @@ iterator enumerateScales(p: GgPlot, geom: Geom): Scale =
 
 iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
   ## Overload for above iterator, which allows handing `seq[Geom]`
-  # TODO: avoid yielding `p` scales multiple times!
   var yieldedSet = initHashSet[Scale]()
   for g in geom:
     for scale in enumerateScales(p, g):
       if scale notin yieldedSet:
-        yield scale
-      else:
         yieldedSet.incl scale
+        yield scale
 
 proc guessType(s: seq[Value]): ValueKind =
   ## returns a ``guess`` (!) of the data type stored in `s`.
@@ -938,7 +936,6 @@ proc addFreqPoly(view: var Viewport,
           view.addObj view.initPolyLine(line, some(style))
   else:
     doAssert false
-  echo "View has objects ", view.objects
 
 proc addFreqPoly(view: var Viewport,
                  hist: seq[int],
