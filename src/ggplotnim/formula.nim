@@ -315,6 +315,8 @@ proc `==`*(v, w: Value): bool =
      v.kind in {VInt, VFloat} and
      w.kind in {VInt, VFloat}:
     result = v.toFloat == w.toFloat
+  elif v.kind != w.kind:
+    result = false
   else:
     case v.kind
     of VString:
