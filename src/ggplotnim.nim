@@ -358,6 +358,21 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
   col: string,
   outType: typedesc[U]): seq[U]
 
+proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
+  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
+  ## x, y aesthetics from the two.
+  ## The aesthetic of a geom overwrites the aesthetic of the plot!
+  ## Afte this is determined, reads the data and convert to `outType`
+  var
+    x: string
+    y: string
+  # prefer geom x, y over plot x, y
+  if geom.aes.x.isSome: x = geom.aes.x.get
+  else: x = p.aes.x.get
+  if geom.aes.y.isSome: y = geom.aes.y.get
+  else: y = p.aes.y.get
+  result = (x: p.data.dataTo(x, outType), y: p.data.dataTo(y, outType))
+
 proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
                scKind: static ScaleKind): Option[Scale] =
   ## fills the `Scale` of `scKind` kind of the `aes`
@@ -757,8 +772,7 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
       else:
         let df = toDf(p.data).filter(f{scale.col == label})
       # now get the labeled data
-      let xData = df.dataTo(p.aes.x.get, float)
-      let yData = df.dataTo(p.aes.y.get, float)
+      let (xData, yData) = readXYcols(p, geom, float)
       # create all data points
       for i in 0 ..< xData.len:
         case scale.scKind
@@ -772,8 +786,7 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
                              color = style.color,
                              size = style.size)
   if not any:
-    let xData = p.data.dataTo(p.aes.x.get, float)
-    let yData = p.data.dataTo(p.aes.y.get, float)
+    let (xData, yData) = readXYcols(p, geom, float)
     # create points needed for polyLine
     for i in 0 ..< xData.len:
       result.add initPoint(view, (x: xData[i], y: yData[i]),
@@ -805,8 +818,7 @@ proc createLineGobj(view: var Viewport,
       else:
         let df = toDf(p.data).filter(f{scale.col == label})
       # now get the labeled data
-      let xData = df.dataTo(p.aes.x.get, float)
-      let yData = df.dataTo(p.aes.y.get, float)
+      let (xData, yData) = readXYcols(p, geom, float)
       # create points needed for polyLine
       var points = newSeq[Point](xData.len)
       for i in 0 ..< xData.len:
@@ -815,8 +827,7 @@ proc createLineGobj(view: var Viewport,
       points = points.sortedByIt(it.x)
       result.add view.initPolyLine(points, some(style))
   if not any:
-    let xData = p.data.dataTo(p.aes.x.get, float)
-    let yData = p.data.dataTo(p.aes.y.get, float)
+    let (xData, yData) = readXYcols(p, geom, float)
     # create points needed for polyLine
     var points = newSeq[Point](xData.len)
     for i in 0 ..< xData.len:

@@ -1,7 +1,10 @@
 import unittest
-import ggplotnim
+# we include ggplotnim so that we can test non exported procs
+include ../src/ggplotnim
 
 import tables, sets
+import sequtils
+import math
 
 suite "Value":
   let
@@ -97,3 +100,52 @@ suite "Formula":
     # Displacement + Cylinders - City mpg. Yeah :D
     # use RHS of formula for calculation of 0 row.
     check f.rhs.evaluate(mpg, 0) == %~ -12.2
+
+suite "Geom":
+  test "application of aes, style works":
+    # Write test which tests that the application of things like an
+    # aesthetic and a style, e.g. color, line size etc, is properly
+    # applied for all geoms!
+    # Take a look at the style check in the first GgPlot test
+    discard
+
+suite "GgPlot":
+  test "x,y aesthetics of geom picked over GgPlot":
+    ## tests that the x, y aesthetics are picked from the present `geom`
+    ## if x, y are defined, instead of the `GgPlot` object.
+    let x = toSeq(0 .. 10).mapIt(it.float)
+    let y1 = x.mapIt(cos(it))
+    let y2 = x.mapIt(sin(it))
+    let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
+
+    let gplt = ggplot(df, aes(x ~ cos)) +
+      geom_line() + # line for cos
+      geom_line(aes(x ~ sin), # line for sin
+                color = color(0.0, 0.0))
+    # geoms[0].x and y won't be set, since the aes from ggplot is used
+    check (not gplt.geoms[0].aes.x.isSome)
+    check (not gplt.geoms[0].aes.y.isSome)
+    check gplt.geoms[1].aes.x.isSome
+    check gplt.geoms[1].aes.y.isSome
+    check gplt.aes.x.get == "x"
+    check gplt.aes.y.get == "cos"
+    check gplt.geoms[1].aes.x.get == "x"
+    check gplt.geoms[1].aes.y.get == "sin"
+
+    # bonus check
+    check gplt.geoms[1].style.isSome
+    let style = gplt.geoms[1].style.get
+    check style.color == color(0.0, 0.0)
+    check style.lineWidth == 1.0
+    check style.lineType == ltSolid
+    check style.fillColor == transparent
+
+    # we cannot guarantee in a test whether the order is preserved in the code other
+    # than calling the proc, which handles the ordering
+    let (x1v, y1v) = readXYcols(gplt, gplt.geoms[0], float)
+    let (x2v, y2v) = readXYcols(gplt, gplt.geoms[1], float)
+
+    check x1v == x
+    check x2v == x
+    check y1v == y1
+    check y2v == y2
