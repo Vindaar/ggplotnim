@@ -916,6 +916,10 @@ macro `{}`*(x, y: untyped): untyped =
   if x.repr == "f":
     result = buildFormula(y)
 
+proc unique*(v: PersistentVector[Value]): seq[Value] =
+  ## returns a seq of all unique values in `v`
+  result = v.vToSeq.deduplicate
+
 proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Value]) =
   ## calculates a new column based on the `fn` given
   doAssert fn.lhs.kind == fkVariable, " was " & $fn
