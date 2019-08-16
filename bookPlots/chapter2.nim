@@ -93,9 +93,12 @@ proc ch2_4() =
   # change though.
   # NOTE2: currently broken again, due to change in how `geom_point` gets data
   # But, once solved will also work for other geoms!
-  #ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  #  geom_point(aes(color = "blue")) +
-  #  ggsave("figs/2.4_4.pdf")
+  # NOTE3: geom_point is fixed again, also added `aes` to all geom procs.
+  # Should work for all geoms now
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point(aes(color = "blue")) +
+    # geom_line(aes(color = "blue")) + # also works
+    ggsave("figs/2.4_4.pdf")
 
   # works now
   ggplot(mpg, aes(x = "displ", y = "hwy")) +
