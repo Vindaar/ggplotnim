@@ -1169,7 +1169,7 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     grdlines = result.initGridLines(some(xticks), some(yticks))
   var ylabel: GraphObject
   case p.geoms[0].kind
-  of gkPoint:
+  of gkPoint, gkLine:
     ylabel = result.ylabel(p.aes.y.get)
   of gkHistogram:
     ylabel = result.ylabel("count")
