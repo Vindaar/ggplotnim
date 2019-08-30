@@ -47,6 +47,17 @@ https://github.com/treeform/chroma/pull/4
 
 With these the code should hopefully compile just fine.
 
+** Currently working features
+
+Geoms:
+- =geom_point=
+- =geom_line=
+- =geom_histogram=
+- =geom_freqpoly=
+
+Facets:
+- =facet_wrap=
+
 ** Data frame
 
 The library implements a naive data frame, which provides the "5
