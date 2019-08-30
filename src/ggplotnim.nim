@@ -1244,7 +1244,12 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     result.children[i].objects = plt.objects
     result.children[i].children = plt.children
 
-proc ggsave*(p: GgPlot, fname: string) =
+proc ggcreate*(p: GgPlot): Viewport =
+  ## applies all calculations to the `GgPlot` object required to draw
+  ## the plot with cairo and returns the ginger.Viewport, which
+  ## only has to be drawn.
+  ## This proc is useful to investigate the Viewport that will actually
+  ## be drawn.
   var
     xScale: ginger.Scale
     yScale: ginger.Scale
@@ -1335,7 +1340,17 @@ proc ggsave*(p: GgPlot, fname: string) =
                                    font = some(font))
     titleView.addObj title
     img[1] = titleView
-  img.draw(fname)
+  result = img
+
+proc ggdraw*(view: Viewport, fname: string) =
+  ## draws the given viewport and stores it in `fname`.
+  ## It assumes that the `view` was created from a `GgPlot` object with
+  ## `ggcreate`
+  view.draw(fname)
+
+proc ggsave*(p: GgPlot, fname: string) =
+  let plt = p.ggcreate()
+  plt.ggdraw(fname)
 
 proc ggsave*(fname: string): Draw = Draw(fname: fname)
 
