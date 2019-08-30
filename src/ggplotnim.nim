@@ -513,7 +513,8 @@ func geom_histogram*(aes: Aesthetics = aes(),
                 style: some(style),
                 position: pkKind)
 
-func geom_freqpoly*(color: Color = grey20, # color of the line
+func geom_freqpoly*(aes: Aesthetics = aes(),
+                    color: Color = grey20, # color of the line
                     size: float = 1.0, # line width of the line
                     lineType: LineType = ltSolid,
                     bins = 30,
@@ -525,6 +526,7 @@ func geom_freqpoly*(color: Color = grey20, # color of the line
                     color: color,
                     fillColor: transparent,)
   result = Geom(kind: gkFreqPoly,
+                aes: aes,
                 style: some(style),
                 numBins: bins,
                 position: pkKind)
@@ -565,11 +567,11 @@ proc createLegend(view: var Viewport,
                       lineWidth: 1.0,
                       color: color(1.0, 1.0, 1.0),
                       fillColor: grey92)
-    var rect = ch.initRect(c(0.0, 0.0),
+    let rect = ch.initRect(c(0.0, 0.0),
                            quant(ch.height.val * viewRatio, ukRelative),
                            quant(1.0, ukRelative),
-                           style = some(style))
-    rect.name = "markerRectangle"
+                           style = some(style),
+                           name = "markerRectangle")
     # add marker ontop of rect
     # TODO: the markers given must contain all information already, that is:
     # - marker kind
@@ -581,7 +583,8 @@ proc createLegend(view: var Viewport,
                                    y: c1(0.5)),
                              marker = markers[j].ptMarker,
                              size = markers[j].ptSize,
-                             color = markers[j].ptColor)
+                             color = markers[j].ptColor,
+                             name = "markerPoint")
     var labelText = ""
     case cat.scKind
     of scColor, scFillColor, scShape, scSize:
@@ -595,7 +598,8 @@ proc createLegend(view: var Viewport,
            c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
         y: c1(0.5)),
       labelText,
-      alignKind = taLeft
+      alignKind = taLeft,
+      name = "markerText"
     )
     ch.addObj [rect, point, label]
     view[i] = ch
@@ -606,7 +610,8 @@ proc createLegend(view: var Viewport,
     Coord(x: header.origin.x,
           y: c1(0.5)),
     cat.col,
-    alignKind = taLeft)
+    alignKind = taLeft,
+    name = "legendHeader")
   # set to bold
   label.txtFont.bold = true
   header.addObj label
@@ -664,6 +669,15 @@ proc plotLayoutWithLegend(view: var Viewport) =
               rowheights = @[quant(1.25, ukCentimeter),
                              quant(0.0, ukRelative),
                              quant(2.0, ukCentimeter)])
+  view[0].name = "topLeft"
+  view[1].name = "title"
+  view[2].name = "topRight"
+  view[3].name = "yLabel"
+  view[4].name = "plot"
+  view[5].name = "legend"
+  view[6].name = "bottomLeft"
+  view[7].name = "xLabel"
+  view[8].name = "bottomRight"
 
 proc plotLayoutWithoutLegend(view: var Viewport) =
   ## creates a layout for a plot in the current viewport without a legend
@@ -675,6 +689,15 @@ proc plotLayoutWithoutLegend(view: var Viewport) =
               rowheights = @[quant(1.0, ukCentimeter),
                              quant(0.0, ukRelative),
                              quant(2.0, ukCentimeter)])
+  view[0].name = "topLeft"
+  view[1].name = "title"
+  view[2].name = "topRight"
+  view[3].name = "yLabel"
+  view[4].name = "plot"
+  view[5].name = "noLegend"
+  view[6].name = "bottomLeft"
+  view[7].name = "xLabel"
+  view[8].name = "bottomRight"
 
 proc dataTo[T: Table | OrderedTable | DataFrame; U](
   df: T,
@@ -1142,7 +1165,7 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     # ticks will be below the data.
     # On the other hand this allows us to draw several geoms in on a plot and have the
     # order of the function calls `geom_*` be preserved
-    var pChild = result.addViewport()
+    var pChild = result.addViewport(name = "data")
 
     let data = pChild.createGobjFromGeom(p, geom)
 
@@ -1198,15 +1221,20 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     # set the background of the header
     headerView.background()
     # put in the text
+    let text = pair.foldl(a & ", " & $b[0] & ": " & $b[1], "")
     let headerText = headerView.initText(c(0.5, 0.5),
-                                         pair.foldl(a & ", " & $b[0] & ": " & $b[1], ""),
-                                         alignKind = taCenter)
+                                         text,
+                                         alignKind = taCenter,
+                                         name = "facetHeaderText")
     headerView.addObj headerText
+    headerView.name = "facetHeader"
     var plotView = viewFacet[1]
     # now add dummy plt to pltSeq
     plotView = plotView.generatePlot(mplt, addLabels = false)
+    plotView.name = "facetPlot"
     viewFacet[0] = headerView
     viewFacet[1] = plotView
+    viewFacet.name = "facet_" & text
     pltSeq.add viewFacet
 
   # now create layout in `view`, the actual canvas for all plots
@@ -1246,7 +1274,8 @@ proc ggsave*(p: GgPlot, fname: string) =
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
-                         yScale = some(yScale))
+                         yScale = some(yScale),
+                         name = "root")
 
   # NOTE: the question if ``not`` whether a `PLOT` requires a legend
   # but rather whether an `AESTHETIC` with an attached `SCALE` requires
