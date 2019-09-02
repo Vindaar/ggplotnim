@@ -1178,6 +1178,12 @@ proc ggsave*(fname: string): Draw = Draw(fname: fname)
 proc `+`*(p: GgPlot, d: Draw) =
   p.ggsave(d.fname)
 
+proc ggvega*(): VegaDraw = VegaDraw()
+
+from json import nil
+proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
+  p.toVegaLite()
+
 proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
   ## values, where idx 0 corresponds to the first data value
