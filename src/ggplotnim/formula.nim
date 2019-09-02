@@ -120,6 +120,13 @@ iterator keys*(row: Value): string =
   for k in keys(row.fields):
     yield k
 
+iterator pairs*(row: Value): tuple[key: string, val: Value] =
+  ## Iterator for the elements of `row`. `row` has to be a JObject
+  ## representing a row of a `DataFrame`
+  assert row.kind == VObject
+  for key, val in pairs(row.fields):
+    yield (key, val)
+
 proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVector[Value] =
   ## adds all elements of `w` to `v` and returns the resulting vector
   if v.len > 100 or w.len > 100:
