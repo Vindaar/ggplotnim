@@ -271,8 +271,8 @@ To share plots and data online (and possibly add support for
 interactive features) is much easier in such a way.
 
 For now only a proof of concept is implemented in
-=vega_utils.nim=. That is only =geom_point= with the ~"x"~, ~"y"~,
-~"color"~ scale set on the main aesthetic are supported. Generalizing
+=vega_utils.nim=. That is only =geom_point= with the ="x"=, ="y"=,
+="color"= scale set on the main aesthetic are supported. Generalizing
 this is mostly a tediuos process, since the =GgPlot= object fields
 etc. have to be mapped to the appropriate Vega-Lite JSON nodes.
 
