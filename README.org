@@ -261,3 +261,54 @@ ggplot(mpg, aes("hwy")) +
 #+END_SRC
 
 [[file:media/histoPlusFreqpoly.png]]
+
+** *Experimental* Vega-Lite backend
+
+From the beginning one of my goals for this library was to provide not
+only a Cairo backend, but also to support [[https://vega.github.io/vega-lite/][Vega-Lite]] (or possibly Vega)
+as a backend. 
+To share plots and data online (and possibly add support for
+interactive features) is much easier in such a way.
+
+For now only a proof of concept is implemented in
+=vega_utils.nim=. That is only =geom_point= with the ~"x"~, ~"y"~,
+~"color"~ scale set on the main aesthetic are supported. Generalizing
+this is mostly a tediuos process, since the =GgPlot= object fields
+etc. have to be mapped to the appropriate Vega-Lite JSON nodes.
+
+A simple example:
+#+BEGIN_SRC nim
+let vegaJson = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+  geom_point() +
+  ggtitle("ggplotnim - or I Suck At Naming Things") +
+  ggvega()
+show(vegaJson)
+#+END_SRC
+creates the equivalent plot from above using Vega-Lite. Note that it
+still uses the Vega-Lite default theming.
+
+It generates the following Vega-Lite JSON:
+#+BEGIN_SRC 
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+  "description" : "Vega-lite plot created by ggplotnim",
+  "width" : 640,
+  "height" : 480,
+  "title": "ggplotnim - or I Suck At Naming Things",
+  "data": {"values" : [{"displ": 1.8, "cty": 18.0, "class": "compact"},
+                       {"displ": 1.8, "cty": 21.0, "class": "compact"},
+                       {"displ": 2.0, "cty": 20.0, "class": "compact"},
+                       ... ]
+]},
+  "mark": "point",
+  "encoding": {
+    "x": {"field": "displ", "type": "quantitative"},
+    "y": {"field": "cty", "type": "quantitative"},
+    "color": {"field": "class", "type": "nominal"}
+   }
+}
+#+END_SRC
+
+And results in the following Vega-Lite plot:
+
+[[file:media/vega_backend_example.png]]
