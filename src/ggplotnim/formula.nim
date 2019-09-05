@@ -731,11 +731,11 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
     result[k] = df[k].filter(filterIdx)
   result.len = filterIdx.len
 
-template liftVectorFloatProc(name: untyped): untyped =
+template liftVectorFloatProc*(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
 
-template liftVectorIntProc(name: untyped): untyped =
+template liftVectorIntProc*(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
 
@@ -743,11 +743,11 @@ template liftVectorStringProc(name: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): Value =
     result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toInt)))
 
-template liftScalarFloatProc(name: untyped): untyped =
+template liftScalarFloatProc*(name: untyped): untyped =
   proc `name`*(v: Value): Value =
     result = Value(kind: VFloat, fnum: `name`(v.toFloat))
 
-template liftScalarIntProc(name: untyped): untyped =
+template liftScalarIntProc*(name: untyped): untyped =
   proc `name`*(v: Value): Value =
     result = Value(kind: VInt, num: `name`(v.toInt))
 
