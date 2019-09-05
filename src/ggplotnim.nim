@@ -978,11 +978,6 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # the correct scale.
   # TODO: we need a more stable solution to allow us easier updating of the
   # scale, e.g. via `xlim` etc. We can certainly use `ginger.updateScale`
-  let
-    xticks = result.xticks(p.numXTicks)
-    yticks = result.yticks(p.numYTicks)
-    xtickLabels = result.tickLabels(xticks)
-    ytickLabels = result.tickLabels(yticks)
   for geom in p.geoms:
     # for each geom, we create a child viewport of `result` covering
     # the whole resultport, which will house the data we just created.
@@ -1007,6 +1002,12 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     # of the viewport. We have to make sure that the parents receive an updated
     # scale too
     result.yScale = pChild.yScale
+
+  let
+    xticks = result.xticks(p.numXTicks)
+    xtickLabels = result.tickLabels(xticks)
+    yticks = result.yticks(p.numYTicks)
+    ytickLabels = result.tickLabels(yticks)
 
   let
     xlabel = result.xlabel(p.aes.x.get)
