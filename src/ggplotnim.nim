@@ -973,11 +973,6 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
   result = view
   result.background()
-  # It's important we calculate the x/y ticks ``before`` analyzing the
-  # geoms so that all child viewports of `view` and created objects have
-  # the correct scale.
-  # TODO: we need a more stable solution to allow us easier updating of the
-  # scale, e.g. via `xlim` etc. We can certainly use `ginger.updateScale`
   for geom in p.geoms:
     # for each geom, we create a child viewport of `result` covering
     # the whole resultport, which will house the data we just created.
