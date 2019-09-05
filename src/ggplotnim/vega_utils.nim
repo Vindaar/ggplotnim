@@ -11,8 +11,10 @@ const vegaLiteTmpl = """
 let mapping = { "title" : "title" }.toTable
 let geom_mapping = { "point" : "point" }.toTable
 
-template toVegaField(f: untyped): string =
-  mapping[astToStr(f)]
+template toVegaField(f: string): string =
+  # TODO: for some reason having `f` untyped and  using `astToStr`
+  # on `f` does not work if `ggplot_types` is imported?!
+  mapping[f]
 
 proc mapGeomKind(gk: GeomKind): string =
   result = geom_mapping[($gk).replace("gk", "").toLowerAscii]
@@ -56,7 +58,7 @@ proc toVegaLite*(p: GgPlot): JsonNode =
   ## converts a `GgPlot` object to a vega-lite conform JsonNode
   # start with the template
   result = parseJson(vegaLiteTmpl)
-  result[toVegaField(title)] = % p.title
+  result[toVegaField("title")] = % p.title
   result["mark"] = % mapGeomKind(p.geoms[0].kind)
   result["width"] = % 640#p.wImg
   result["height"] = % 480#p.wHeight
