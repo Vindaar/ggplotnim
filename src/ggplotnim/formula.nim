@@ -1290,7 +1290,7 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
       # extend this by `VNull`
       result[k] = result[k].add toVector(toSeq(result[k].len ..< result.len)
           .mapIt(Value(kind: VNull)))
-  doAssert totLen == result.len
+  doAssert totLen == result.len, " totLen was: " & $totLen & " and result.len " & $result.len
 
 template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
   ## Overload of `bind_rows` above, for automatic creation of the `id` values.
