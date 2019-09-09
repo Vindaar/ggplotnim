@@ -602,42 +602,35 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
   doAssert geom.style.isSome
   var style = geom.style.unsafeGet
   var marker = mkCircle
-  var any = false
+
+  # first collect all scales we have to consider for this geom
+  var scales: seq[Scale]
   for scale in enumerateScales(p, geom):
-    any = true
-    var data: seq[Value]
-    # TODO: we do not actually make use of `data`!
-    if scale.col in p.data:
-      data = p.data.dataTo(scale.col, Value)
-    else:
-      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
-    for label, val in scale:
-      when type(p.data) is DataFrame:
-        let df = p.data.filter(f{scale.col == label})
-      else:
-        let df = toDf(p.data).filter(f{scale.col == label})
-      # now get the labeled data
-      let (xData, yData) = readXYcols(p, geom, float)
-      # create all data points
-      for i in 0 ..< xData.len:
-        case scale.scKind
+    scales.add scale
+
+  # then walk data frame and extracting correct style for each
+  let (xCol, yCol) = getXYCols(p, geom)
+  var lStyle: Style
+  for i in 0 ..< p.data.len:
+    lStyle = style
+    for s in scales:
+      # walk all scales and build the correct style
+      case s.kind
+      of dcDiscrete:
+        let val = s.getValue(p.data[s.col][i])
+        case val.kind
         of scShape:
           # Marker is not encoded in `ginger.Style`, hence get retrieve manually
-          marker = scale.getValue(label).marker
+          marker = val.marker
         else:
-          style = changeStyle(style, val)
-        result.add initPoint(view, (x: xData[i], y: yData[i]),
-                             marker = marker,
-                             color = style.color,
-                             size = style.size)
-  if not any:
-    let (xData, yData) = readXYcols(p, geom, float)
-    # create points needed for polyLine
-    for i in 0 ..< xData.len:
-      result.add initPoint(view, (x: xData[i], y: yData[i]),
-                           marker = marker,
-                           color = style.color,
-                           size = style.size)
+          lStyle = changeStyle(lStyle, val)
+      else:
+        # TODO: implement continuous!
+        discard
+    result.add initPoint(view, (x: p.data[xCol][i].toFloat, y: p.data[yCol][i].toFloat),
+                         marker = marker,
+                         color = lStyle.color,
+                         size = lStyle.size)
 
 proc createLineGobj(view: var Viewport,
                     p: GgPlot,
