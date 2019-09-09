@@ -101,6 +101,10 @@ suite "Formula":
     # use RHS of formula for calculation of 0 row.
     check f.rhs.evaluate(mpg, 0) == %~ -12.2
 
+  test "Formula, literal on RHS":
+    let f = f{"from" ~ 0}
+    check $f == "(~ from 0)"
+
 suite "Geom":
   test "application of aes, style works":
     # Write test which tests that the application of things like an
