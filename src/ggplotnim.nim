@@ -173,11 +173,10 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
   col: string,
   outType: typedesc[U]): seq[U]
 
-proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
+proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
   ## x, y aesthetics from the two.
-  ## The aesthetic of a geom overwrites the aesthetic of the plot!
-  ## Afte this is determined, reads the data and convert to `outType`
+  ## This proc returns the correct column keys respecting the precedence
   var
     x: string
     y: string
@@ -186,6 +185,14 @@ proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outTy
   else: x = p.aes.x.get
   if geom.aes.y.isSome: y = geom.aes.y.get
   else: y = p.aes.y.get
+  result = (x: x, y: y)
+
+proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
+  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
+  ## x, y aesthetics from the two.
+  ## The aesthetic of a geom overwrites the aesthetic of the plot!
+  ## Afte this is determined, reads the data and convert to `outType`
+  let (x, y) = getXYCols(p, geom)
   result = (x: p.data.dataTo(x, outType), y: p.data.dataTo(y, outType))
 
 proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
