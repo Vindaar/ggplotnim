@@ -1279,9 +1279,12 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
         else:
           result[k] = initVector[Value]()
       # now add the current vector
-      result[k] = result[k].add df[k]
+      if k != id:
+        # TODO: write a test for multiple bind_rows calls in a row!
+        result[k] = result[k].add df[k]
       lastSize = max(result[k].len, lastSize)
     result.len = lastSize
+
   # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
   # the first `df` has a column `k` with `N` entries, but another `M` entries are added to
   # the `df`. Since `k` is not found in another `df`, it won't be extend in the loop above
