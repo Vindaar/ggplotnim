@@ -114,6 +114,8 @@ proc isDiscreteData(s: seq[Value]): bool =
   ##   if cardinality of set > 50: continuous, else discrete
   ## - if bool: discrete
   let guessedT = s.guessType
+  # TODO: Improve error messages in the case of guessedT == VNull
+  # or change handling of that case
   case guessedT
   of VString:
     result = true
