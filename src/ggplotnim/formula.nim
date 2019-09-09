@@ -193,7 +193,7 @@ proc `$`*(v: Value): string =
   of VBool:
     result = $v.bval
   of VString:
-    result = v.str
+    result = "\"" & v.str & "\""
   of VObject:
     result.add "{"
     for k, x in v.fields:
