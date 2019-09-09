@@ -237,6 +237,9 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     else:
       raise newException(Exception, "`fillScale` not implemented for " & $scKind)
     res.valueMap = valueMap
+  else:
+    echo "WARNING: scale is continuous! Scales not supported yet"
+
   result = some(res)
 
 proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
