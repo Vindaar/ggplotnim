@@ -804,14 +804,14 @@ macro extractFunction(fn: typed): untyped =
     if isValidFunc(fn):
       # if a valid function, return it
       result = fn
-  of nnkClosedSymChoice:
+  of nnkClosedSymChoice, nnkOpenSymChoice:
     # if a generic, check if there exists a valid choice
     for ch in fn:
       if isValidFunc(ch):
         result = ch
         return result
   else:
-    error("Invalid node kind " & $fn.kind)
+    error("Invalid node kind " & $fn.kind & " is " & fn.treeRepr)
   if result.kind == nnkEmpty:
     error("Could not find an appropriate function of `VectorValuedKind` or " &
       "`ScalarValuedKind`! Make sure to lift the `" & $fn.repr & "` proc you " &
