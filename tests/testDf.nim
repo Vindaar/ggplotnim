@@ -122,7 +122,7 @@ suite "Data frame tests":
     let cylFiltered = mpg.filter(f{"cyl" == 4})
     check cylFiltered.len == 81
     let cylDrvFiltered = cylFiltered.filter(f{"drv" == "4"})
-    check cylDrvFiltered.len == 21
+    check cylDrvFiltered.len == 23
 
     echo cylDrvFiltered
     #echo mpg.filter(f{"class" == "suv"})
