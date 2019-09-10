@@ -185,14 +185,18 @@ proc contains*(v: Value, key: string): bool =
 
 func isNumber(s: string): bool =
   ## returns true, if `s` is a number according to our rules:
+  ## - starts with {0..9}
+  ## - ends with {0..9}
   ## - may contain a single `.`
   ## - may contain a single `e`, `E`
-  ## - else may only contain [0..9]
+  ## - else may only contain {0..9}
   ## It is only used to decide whether the stringifaction of `s`
   ## will be surrounded by `"`.
   let normStr = s.normalize
   if count(s, '.') > 1 or count(s, 'e') > 1 or count(s, 'E') > 1 or
-     (count(s, 'e') > 0 and count(s, 'E') > 0):
+     (count(s, 'e') > 0 and count(s, 'E') > 0) or
+     s[0] notin {'0'..'9'} or
+     s[^1] notin {'0'..'9'}:
     result = false
   else:
     result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_'})
@@ -207,10 +211,11 @@ proc `$`*(v: Value): string =
   of VBool:
     result = $v.bval
   of VString:
-    if v.str.isNumber:
-      result = "\"" & v.str & "\""
+    let vstr = v.str
+    if vstr.len == 0 or vstr.isNumber:
+      result = "\"" & vstr & "\""
     else:
-      result = v.str
+      result = vstr
   of VObject:
     result.add "{"
     for k, x in v.fields:
