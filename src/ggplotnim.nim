@@ -1,6 +1,6 @@
 import sequtils, tables, sets, algorithm, strutils
 import ginger except Scale
-import parsecsv, streams, strutils, hashes
+import parsecsv, streams, strutils, hashes, sugar
 
 import random
 
@@ -595,14 +595,10 @@ proc changeStyle(s: Style, scVal: ScaleValue): Style =
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
 
-proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
-  ## creates the GraphObjects for a `gkPoint` geom
-  ## TODO: we could unify the code in the `create*Gobj` procs, by
-  ## - making all procs in ginger take a `Style`
-  ## - just build the style in the same way we do here (in a separate proc)
-  ##   and create the `GraphObject`
-  doAssert geom.kind == gkPoint
-  doAssert geom.style.isSome
+iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
+  ## iterates all scales relevant for `p` and `geom` and yields the
+  ## `MarkerKind` and the `Style` required for ``each datapoint`` as well
+  ## as the current index.
   var style = geom.style.unsafeGet
   var marker = mkCircle
 
@@ -612,7 +608,6 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
     scales.add scale
 
   # then walk data frame and extracting correct style for each
-  let (xCol, yCol) = getXYCols(p, geom)
   var lStyle: Style
   var val: ScaleValue
   for i in 0 ..< p.data.len:
@@ -635,10 +630,30 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
       else:
         # TODO: implement continuous!
         discard
+    yield (i, (marker, lStyle))
+
+
+iterator markerStyles(p: GgPlot, geom: Geom): (MarkerKind, Style) =
+  ## iterates all scales relevant for `p` and `geom` and yields the
+  ## `MarkerKind` and the `Style` required for ``each datapoint``.
+  for _, markerStyle in markerStyles(p, geom):
+    yield markerStyle
+
+proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+  ## creates the GraphObjects for a `gkPoint` geom
+  ## TODO: we could unify the code in the `create*Gobj` procs, by
+  ## - making all procs in ginger take a `Style`
+  ## - just build the style in the same way we do here (in a separate proc)
+  ##   and create the `GraphObject`
+  doAssert geom.kind == gkPoint
+  doAssert geom.style.isSome
+  # then walk data frame and extracting correct style for each
+  let (xCol, yCol) = getXYCols(p, geom)
+  for i, (marker, style) in markerStylePairs(p, geom):
     result.add initPoint(view, (x: p.data[xCol][i].toFloat, y: p.data[yCol][i].toFloat),
                          marker = marker,
-                         color = lStyle.color,
-                         size = lStyle.size)
+                         color = style.color,
+                         size = style.size)
 
 proc createLineGobj(view: var Viewport,
                     p: GgPlot,
@@ -646,41 +661,22 @@ proc createLineGobj(view: var Viewport,
   ## creates the `goPolyLine` objects for the given geom
   doAssert geom.kind == gkLine
   doAssert geom.style.isSome
-  var style = geom.style.unsafeGet
-  var any = false
-  for scale in enumerateScales(p, geom):
-    any = true
-    var data: seq[Value]
-    # TODO: we do not actually make use of `data`!
-    if scale.col in p.data:
-      data = p.data.dataTo(scale.col, Value)
+  # for line gobj we have to be a little more careful, because we draw the whole line
+  # in one go. Thus collect marker styles and corresponding indices first
+  var msMap = initTable[(MarkerKind, Style), seq[int]]()
+  for i, (marker, style) in markerStylePairs(p, geom):
+    if (marker, style) notin msMap:
+      msMap[(marker, style)] = @[i]
     else:
-      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
-    for label, val in scale:
-      # TODO: instead of creating a filtered copy each label, we should rather call
-      # `arrange` once on the dataframe and then walk along the sorted axis
-      when type(p.data) is DataFrame:
-        let df = p.data.filter(f{scale.col == label})
-      else:
-        let df = toDf(p.data).filter(f{scale.col == label})
-      # now get the labeled data
-      let (xData, yData) = readXYcols(p, geom, float)
-      # create points needed for polyLine
-      var points = newSeq[Point](xData.len)
-      for i in 0 ..< xData.len:
-        points[i] = (x: xData[i], y: yData[i])
-      style = changeStyle(style, val)
-      points = points.sortedByIt(it.x)
-      result.add view.initPolyLine(points, some(style))
-  if not any:
-    let (xData, yData) = readXYcols(p, geom, float)
-    # create points needed for polyLine
-    var points = newSeq[Point](xData.len)
-    for i in 0 ..< xData.len:
-      points[i] = (x: xData[i], y: yData[i])
-    # sort the points to that the lines are not connected arbitrarily
-    points = points.sortedByIt(it.x)
-    result.add view.initPolyLine(points, geom.style)
+      msMap[(marker, style)].add i
+  # and then read all idx for each marker kind, sort them and draw the line
+  let (xCol, yCol) = getXYCols(p, geom)
+  for markerStyle, pointIdxs in pairs(msMap):
+    var points = newSeq[Point](pointIdxs.len)
+    for i, idx in pointIdxs:
+      points[i] = (x: p.data[xCol][idx].toFloat, y: p.data[yCol][idx].toFloat)
+    points.sort((x, y: Point) => cmp(x.x, y.x))
+    result.add view.initPolyLine(points, some(markerStyle[1]))
 
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0)) =
