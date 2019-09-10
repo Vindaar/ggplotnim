@@ -64,6 +64,20 @@ suite "Value":
     expect(ValueError):
       discard v6.toStr
 
+  test "String conversion":
+    let n1 = %~ "1.1"
+    let n2 = %~ "1.3e5"
+    let n3 = %~ "aba"
+    let n4 = %~ "1..1"
+    let n5 = %~ "1.123"
+    let n6 = %~ "1.5e5E5"
+    check $n1 == "\"1.1\""
+    check $n2 == "\"1.3e5\""
+    check $n3 == "aba"
+    check $n4 == "1..1"
+    check $n5 == "\"1.123\""
+    check $n6 == "1.5e5E5"
+
 suite "Formula":
   test "Testing ~ formula creation":
     let f = x ~ y
@@ -80,7 +94,7 @@ suite "Formula":
     check $g == "(~ n (+ m (* (* a b) d)))"
     check $g2 == "(~ n (+ (- (+ m a) b) d))"
     check $g3 == "(~ n (+ m (/ (* a b) d)))"
-    check $single == "(~  x)"  # NOTE: 2 spaces, since LHS is empty
+    check $single == "(~ \"\" x)" # LHS is empty string value
     check $gg1 == "(~ hwy (- (+ displ cyl) cty))"
     check $gg2 == "(~ hwy (- (+ displ cyl) cty))"
 
