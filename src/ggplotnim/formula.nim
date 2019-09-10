@@ -1161,6 +1161,23 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   for k in keys(seqTab):
     result[k] = seqTab[k].toPersistentVector
 
+proc setDiff*(df1, df2: DataFrame): DataFrame =
+  ## returns a `DataFrame` with all elements in `df1` that are not found in
+  ## `df2`
+  ## NOTE: Currently simple implementation based on `HashSet`. Iterates
+  ## both dataframes once to generate sets, calcualtes intersection and returns
+  ## difference as new `DataFrame`
+  ## Considers whole rows for comparison. The result is potentially unsorted!
+  template dfToSet(df: DataFrame): untyped =
+    var rowSet = HashSet[Value]()
+    for row in df:
+      rowSet.incl row
+    rowSet
+  let diff = dfToSet(df1) - dfToSet(df2)
+  for row in diff:
+    result.add row
+  result.len = diff.card
+
 proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   ## returns a grouped data frame grouped by all keys `by`
   ## A grouped data frame is a lazy affair. It only calculates the groups,
