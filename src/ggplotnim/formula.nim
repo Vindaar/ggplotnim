@@ -183,6 +183,20 @@ proc contains*(v: Value, key: string): bool =
   doAssert v.kind == VObject
   result = v.fields.hasKey(key)
 
+func isNumber(s: string): bool =
+  ## returns true, if `s` is a number according to our rules:
+  ## - may contain a single `.`
+  ## - may contain a single `e`, `E`
+  ## - else may only contain [0..9]
+  ## It is only used to decide whether the stringifaction of `s`
+  ## will be surrounded by `"`.
+  let normStr = s.normalize
+  if count(s, '.') > 1 or count(s, 'e') > 1 or count(s, 'E') > 1 or
+     (count(s, 'e') > 0 and count(s, 'E') > 0):
+    result = false
+  else:
+    result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_'})
+
 proc `$`*(v: Value): string =
   ## converts the given value to its value as a string
   case v.kind
@@ -193,7 +207,10 @@ proc `$`*(v: Value): string =
   of VBool:
     result = $v.bval
   of VString:
-    result = "\"" & v.str & "\""
+    if v.str.isNumber:
+      result = "\"" & v.str & "\""
+    else:
+      result = v.str
   of VObject:
     result.add "{"
     for k, x in v.fields:
