@@ -262,6 +262,19 @@ ggplot(mpg, aes("hwy")) +
 
 [[file:media/histoPlusFreqpoly.png]]
 
+*** Facet wrap of manufacturer
+
+Although still somewhat ugly, because the scaling is off, facet
+wrapping is working in principle:
+#+BEGIN_SRC nim
+ggplot(mpg, aes("displ", "hwy")) +
+  geom_point(aes(color = "manufacturer")) +
+  facet_wrap(~ class) +
+  ggsave("facet_wrap_manufacturer.pdf")
+#+END_SRC
+
+[[file:media/facet_wrap_manufacturer.png]]
+
 ** *Experimental* Vega-Lite backend
 
 From the beginning one of my goals for this library was to provide not
