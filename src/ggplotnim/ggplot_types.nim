@@ -3,7 +3,6 @@ import chroma
 import formula
 import ginger
 
-
 type
   Aesthetics* = object
     # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
@@ -117,6 +116,16 @@ proc `==`*(s1, s2: Scale): bool =
     result = true
   else:
     result = false
+
+# Workaround. For some reason `hash` for `Style` isn't found if defined in
+# ginger..
+proc hash*(s: Style): Hash =
+  result = hash($s.color)
+  result = result !& hash(s.size)
+  result = result !& hash(s.lineType)
+  result = result !& hash(s.lineWidth)
+  result = result !& hash($s.fillColor)
+  result = !$result
 
 proc hash*(x: ScaleValue): Hash =
   result = hash(x.kind.int)
