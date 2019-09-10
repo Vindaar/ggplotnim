@@ -614,13 +614,18 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
   # then walk data frame and extracting correct style for each
   let (xCol, yCol) = getXYCols(p, geom)
   var lStyle: Style
+  var val: ScaleValue
   for i in 0 ..< p.data.len:
     lStyle = style
     for s in scales:
       # walk all scales and build the correct style
       case s.kind
       of dcDiscrete:
-        let val = s.getValue(p.data[s.col][i])
+        if s.col notin p.data:
+          # constant value
+          val = s.getValue(%~ s.col)
+        else:
+          val = s.getValue(p.data[s.col][i])
         case val.kind
         of scShape:
           # Marker is not encoded in `ginger.Style`, hence get retrieve manually
