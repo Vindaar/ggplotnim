@@ -1043,7 +1043,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     # set the background of the header
     headerView.background()
     # put in the text
-    let text = pair.foldl(a & ", " & $b[0] & ": " & $b[1], "")
+    let text = pair.mapIt($it[0] & ": " & $it[1]).join(", ")
     let headerText = headerView.initText(c(0.5, 0.5),
                                          text,
                                          alignKind = taCenter,
