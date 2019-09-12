@@ -178,14 +178,14 @@ proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   ## x, y aesthetics from the two.
   ## This proc returns the correct column keys respecting the precedence
   var
-    x: string
-    y: string
+    x: Scale
+    y: Scale
   # prefer geom x, y over plot x, y
   if geom.aes.x.isSome: x = geom.aes.x.get
   else: x = p.aes.x.get
   if geom.aes.y.isSome: y = geom.aes.y.get
   else: y = p.aes.y.get
-  result = (x: x, y: y)
+  result = (x: x.col, y: y.col)
 
 proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
@@ -266,16 +266,23 @@ proc orNone(s: string): Option[string] =
   if s.len == 0: none[string]()
   else: some(s)
 
-proc orNoneScale(s: string, scKind: static ScaleKind): Option[Scale] =
+proc orNoneScale(s: string, scKind: static ScaleKind, axKind = akX): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
   if s.len > 0:
-    result = some(Scale(scKind: scKind, col: s))
+    case scKind
+    of scLinearData:
+      result = some(Scale(scKind: scLinearData, col: s, axKind: axKind))
+    of scTransformedData:
+      result = some(Scale(scKind: scTransformedData, col: s, axKind: axKind))
+    else:
+      result = some(Scale(scKind: scKind, col: s))
   else:
     result = none[Scale]()
 
 proc aes*(x = "", y = "", color = "", fill = "", shape = "", size = ""): Aesthetics =
-  result = Aesthetics(x: x.orNone, y: y.orNone,
+  result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
+                      y: y.orNoneScale(scLinearData, akY),
                       color: color.orNoneScale(scColor),
                       fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
@@ -286,7 +293,12 @@ proc aes*(x: FormulaNode, color = "", fill = "", shape = "", size = ""): Aesthet
   doAssert x.kind == fkTerm, "Formula must be a term!"
   doAssert x.lhs.kind == fkVariable, "LHS must be a variable!"
   doAssert x.rhs.kind == fkVariable, "RHS must be a variable!"
-  result = Aesthetics(x: some(x.lhs.val.toStr), y: some(x.rhs.val.toStr),
+  result = Aesthetics(x: some(Scale(col: x.lhs.val.toStr,
+                                    scKind: scLinearData,
+                                    axKind: akX)),
+                      y: some(Scale(col: x.rhs.val.toStr,
+                                    scKind: scLinearData,
+                                    axKind: akY)),
                       color: color.orNoneScale(scColor),
                       fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
@@ -367,6 +379,24 @@ proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
     doAssert f.kind == fkTerm
     doAssert f.rhs.val.kind == VString
     result.columns.add f.rhs.val.str
+
+proc scale_x_log10*(): Scale =
+  ## sets the X scale of the plot to a log10 scale
+  result = Scale(col: "", # will be filled when added to GgPlot obj
+                 scKind: scTransformedData,
+                 axKind: akX,
+                 kind: dcContinuous,
+                 trans: proc(v: Value): Value =
+                          result = %~ log10(v.toFloat))
+
+proc scale_y_log10*(): Scale =
+  ## sets the Y scale of the plot to a log10 scale
+  result = Scale(col: "", # will be filled when added to GgPlot obj
+                 scKind: scTransformedData,
+                 axKind: akY,
+                 kind: dcContinuous,
+                 trans: proc(v: Value): Value =
+                          result = %~ log10(v.toFloat))
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
@@ -457,11 +487,6 @@ proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   result = p
   result.facet = some(facet)
 
-proc `+`*(p: GgPlot, scale: Scale): GgPlot =
-  ## adds the given facet to the GgPlot object
-  result = p
-  result.scales.add scale
-
 proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
   ## adds the given aesthetics to the GgPlot object
   result = p
@@ -472,6 +497,44 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
   result = p
   result.title = titleTup[0]
   result.subtitle = titleTup[1]
+
+proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
+  ## applies the given `scale` to the `aes` by returning a modified
+  ## `aes`
+  var mscale = scale
+  result = aes
+  case mscale.scKind
+  of scLinearData, scTransformedData:
+    # potentially `scale` has no `column` asigned yet, read from
+    # `axKind` from the given `aes`. If `aes` has no `x`/`y` scale,
+    # `mscale` will remain unchanged
+    case scale.axKind
+    of akX:
+      if aes.x.isSome:
+        mscale.col = aes.x.get.col
+      result.x = some(mscale)
+    of akY:
+      if aes.y.isSome:
+        mscale.col = aes.y.get.col
+      result.y = some(mscale)
+  of scFillColor, scColor: result.color = some(mscale)
+  of scSize: result.size = some(mscale)
+  of scShape: result.shape = some(mscale)
+
+proc `+`*(p: GgPlot, scale: Scale): GgPlot =
+  ## adds the given Scale to the GgPlot object.
+  ## Overwrites
+  result = p
+  # Adding a scale requires to update the Scale of all existing
+  # Aesthetics. Both of the plot and of its geoms. ggplot2 does the
+  # inverse too. Adding a scale before another geom, still applies this
+  # scale transformation to that geom...
+  # scale_x_log10*() + geom_point(aes(x = "cty")) is considered the same as
+  # geom_point(aes(x = "cty")) + scale_x_log10()
+  # first apply to GgPlot aes:
+  result.aes = applyScale(result.aes, scale)
+  for p in mitems(result.geoms):
+    p.aes = applyScale(p.aes, scale)
 
 proc requiresLegend(p: GgPlot): bool =
   ## returns true if the plot requires a legend to be drawn
@@ -856,7 +919,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
       if geom.kind == gkHistogram:
         style.lineWidth = style.lineWidth + numLabel.float * epsilon
       inc numLabel
-      let rawData = df.dataTo(p.aes.x.get, float)
+      let rawData = df.dataTo(p.aes.x.get.col, float)
       # generate the histogram
       var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
       # increase the scale if necessary
@@ -903,7 +966,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     else:
       doAssert false
   if not any:
-    let rawData = p.data.dataTo(p.aes.x.get, float)
+    let rawData = p.data.dataTo(p.aes.x.get.col, float)
     # generate the histogram
     var (hist, _) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
     # set the y scale
@@ -1011,12 +1074,12 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     ytickLabels = result.tickLabels(yticks)
 
   let
-    xlabel = result.xlabel(p.aes.x.get)
+    xlabel = result.xlabel(p.aes.x.get.col)
     grdlines = result.initGridLines(some(xticks), some(yticks))
   var ylabel: GraphObject
   case p.geoms[0].kind
   of gkPoint, gkLine:
-    ylabel = result.ylabel(p.aes.y.get)
+    ylabel = result.ylabel(p.aes.y.get.col)
   of gkHistogram:
     ylabel = result.ylabel("count")
   else: discard
@@ -1080,7 +1143,7 @@ proc ggcreate*(p: GgPlot): Viewport =
     colors: seq[string]
 
   # TODO: this probably doesn't have to happen here!
-  let xdata = p.data.dataTo(p.aes.x.get, float)
+  let xdata = p.data.dataTo(p.aes.x.get.col, float)
   # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
   # also `string` data, after reading `xdata` not into `float`, but into `Value`.
   # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
@@ -1095,7 +1158,7 @@ proc ggcreate*(p: GgPlot): Viewport =
     minY: float
     maxY: float
   if p.aes.y.isSome:
-    let ydata = p.data.dataTo(p.aes.y.get, float)
+    let ydata = p.data.dataTo(p.aes.y.get.col, float)
     minY = ydata.min
     maxY = ydata.max
     yScale = (low: minY, high: maxY)
@@ -1121,11 +1184,11 @@ proc ggcreate*(p: GgPlot): Viewport =
   if p.facet.isSome:
     pltBase = pltBase.generateFacetPlots(p)
     # TODO :clean labels up
-    let xlabel = pltBase.xlabel(p.aes.x.get)
+    let xlabel = pltBase.xlabel(p.aes.x.get.col)
     var ylabel: GraphObject
     case p.geoms[0].kind
     of gkPoint:
-      ylabel = pltBase.ylabel(p.aes.y.get)
+      ylabel = pltBase.ylabel(p.aes.y.get.col)
     of gkHistogram:
       ylabel = pltBase.ylabel("count")
     else: discard

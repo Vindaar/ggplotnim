@@ -7,8 +7,8 @@ type
   Aesthetics* = object
     # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
     # possibly `scTranformedData`.
-    x*: Option[string]
-    y*: Option[string]
+    x*: Option[Scale]
+    y*: Option[Scale]
     # Replace these by e.g. `color: Option[Scale]` and have `Scale` be variant
     # type that stores its kind `kind: scColor` and `key: string`.
     fill*: Option[Scale] # classify by fill color
@@ -33,11 +33,10 @@ type
     of scLinearData:
       # just stores a data value
       val*: Value
+    # TODO: overhaul this
     of scTransformedData:
       # data under some transformation. E.g. log, tanh, ...
       rawVal*: Value
-      # where `trans` is our assigned transformation function
-      trans*: proc(v: Value): Value
     of scFillColor, scColor:
       # stores a color
       color*: Color
@@ -48,6 +47,10 @@ type
       # a size of something, e.g. a marker
       size*: float
 
+  #BelongsToAxis = enum
+  #  btTrue, # for Scales, which belong to an axis, e.g. continuous x, y
+  #  btFalse # for Scales that do not directly belong to an axis, e.g. color Scale
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -56,7 +59,16 @@ type
   Scale* = object
     # the column which this scale corresponds to
     col*: string
-    scKind*: ScaleKind
+    case scKind*: ScaleKind
+    of scLinearData, scTransformedData:
+      # which axis does it belong to?
+      axKind*: AxisKind
+      # where `trans` is our assigned transformation function, which is applied
+      # to all values associated with this scale
+      # For scLinearData the transformation proc is just the identity (or
+      # not defined) and will never be called
+      trans*: proc(v: Value): Value
+    else: discard
     case kind*: DiscreteKind
     of dcDiscrete:
       # For discrete data this is a good solution. How about continuous data?
@@ -66,8 +78,6 @@ type
     of dcContinuous:
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
-      # with this we can calculate on the fly the required values given the
-      # data
 
   Facet* = object
     columns*: seq[string]
