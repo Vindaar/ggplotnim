@@ -163,10 +163,14 @@ suite "GgPlot":
     check (not gplt.geoms[0].aes.y.isSome)
     check gplt.geoms[1].aes.x.isSome
     check gplt.geoms[1].aes.y.isSome
-    check gplt.aes.x.get == "x"
-    check gplt.aes.y.get == "cos"
-    check gplt.geoms[1].aes.x.get == "x"
-    check gplt.geoms[1].aes.y.get == "sin"
+    check gplt.aes.x.get.scKind == scLinearData
+    check gplt.aes.y.get.scKind == scLinearData
+    check gplt.aes.x.get.col == "x"
+    check gplt.aes.y.get.col == "cos"
+    check gplt.geoms[1].aes.x.get.scKind == scLinearData
+    check gplt.geoms[1].aes.y.get.scKind == scLinearData
+    check gplt.geoms[1].aes.x.get.col == "x"
+    check gplt.geoms[1].aes.y.get.col == "sin"
 
     # bonus check
     check gplt.geoms[1].style.isSome
@@ -185,3 +189,57 @@ suite "GgPlot":
     check x2v == x
     check y1v == y1
     check y2v == y2
+
+  test "Application of log scale works as expected":
+    let x = toSeq(0 .. 10).mapIt(it.float)
+    let y1 = x.mapIt(cos(it))
+    let y2 = x.mapIt(sin(it))
+    let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
+    block:
+      let plt = ggplot(df, aes("x", "cos")) +
+        geom_line() +
+        scale_x_log10()
+      check plt.aes.x.isSome
+      check plt.aes.y.isSome
+      check plt.aes.x.get.col == "x"
+      check plt.aes.y.get.col == "cos"
+      check plt.aes.x.get.axKind == akX
+      check plt.aes.y.get.axKind == akY
+      check plt.aes.x.get.scKind == scTransformedData
+      check plt.aes.y.get.scKind == scLinearData
+
+    # check also applied to another geom added before
+    block:
+      let plt = ggplot(df, aes("x", "cos")) +
+        geom_line(aes(y = "sin")) +
+        scale_y_log10()
+      check plt.aes.x.isSome
+      check plt.aes.y.isSome
+      check plt.aes.x.get.col == "x"
+      check plt.aes.y.get.col == "cos"
+      check plt.aes.x.get.axKind == akX
+      check plt.aes.y.get.axKind == akY
+      check plt.aes.x.get.scKind == scLinearData
+      check plt.aes.y.get.scKind == scTransformedData
+      check plt.geoms[0].aes.y.get.col == "sin"
+      check plt.geoms[0].aes.y.get.axKind == akY
+      check plt.geoms[0].aes.y.get.scKind == scTransformedData
+
+    # check that it is ``not`` applied to a geom that is added ``after``
+    # the call to `scale_*` (this is in contrast to `ggplot2` where the
+    # order does not matter
+    block:
+      let plt = ggplot(df, aes("x", "cos")) +
+        scale_x_log10() +
+        geom_line(aes(y = "sin"))
+      check plt.aes.x.isSome
+      check plt.aes.y.isSome
+      check plt.aes.x.get.col == "x"
+      check plt.aes.y.get.col == "cos"
+      check plt.aes.x.get.axKind == akX
+      check plt.aes.y.get.axKind == akY
+      check plt.aes.x.get.scKind == scTransformedData
+      check plt.aes.y.get.scKind == scLinearData
+      check plt.geoms[0].aes.y.get.col == "sin"
+      check plt.geoms[0].aes.y.get.axKind == akY
+      check plt.geoms[0].aes.y.get.scKind == scLinearData
