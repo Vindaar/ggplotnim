@@ -1249,27 +1249,36 @@ from json import nil
 proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
   p.toVegaLite()
 
-proc readCsv*(fname: string): OrderedTable[string, seq[string]] =
+proc readCsv*(fname: string,
+              sep = ',',
+              header = "#",
+              skipLines = 0): OrderedTable[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
   ## values, where idx 0 corresponds to the first data value
+  ## The `header` field can be used to designate the symbol used to
+  ## differentiate the `header`. By default `#`.
   var s = newFileStream(fname, fmRead)
   if s == nil:
     quit("cannot open the file" & fname)
 
-  var x: CsvParser
-  open(x, s, fname)
+  var parser: CsvParser
+  open(parser, s, fname, separator = sep, skipInitialSpace = true)
   var isHeader = true
-  x.readHeaderRow()
+  parser.readHeaderRow()
   result = initOrderedTable[string, seq[string]]()
-  for col in items(x.headers):
+  # filter out the header, delimiter, if any
+  parser.headers.keepItIf(it != header)
+  for col in items(parser.headers):
     result[col.strip] = @[]
-  while readRow(x):
-    for col in items(x.headers):
-      result[col.strip].add x.rowEntry(col).strip
-
+  var lnCount = 0
+  while readRow(parser):
+    if lnCount < skipLines:
+      inc lnCount
+      continue
+    for col in items(parser.headers):
+      result[col.strip].add parser.rowEntry(col).strip
 
 when isMainModule:
-
   let mpg = toDf(readCsv("data/mpg.csv"))
   let plt = ggplot(mpg, aes(x = "displ", y = "hwy")) +
     geom_point()

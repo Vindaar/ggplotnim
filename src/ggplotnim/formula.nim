@@ -484,25 +484,35 @@ proc `$`*(node: FormulaNode): string =
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
+  ## TODO: currently does not allow to parse bool!
   result = DataFrame(len: 0)
   for k, v in t:
     var data = newSeq[Value](v.len)
     # check first element of v for type
     if v.len > 0:
-      #if v[0].isInt:
-      #  for x in v:
-      #    data.add Value(kind: VInt, num: x.parseInt)
-      if v[0].isFloat:
-        for i, x in v:
-          data[i] = %~ x.parseFloat
-      elif v[0].isBool:
-        for i, x in v:
-          data[i] = %~ x.parseBool
-      else:
-        # assume string
-        for i, x in v:
+      # NOTE: This is rather ugly. We just try by guessing. If we fail,
+      # go with the next broader class
+      var maybeNumber = v[0].isNumber
+      var maybeInt = v[0].allCharsInSet({'0'..'9','_'})
+      for i, x in v:
+        if maybeNumber and maybeInt:
+          try:
+            data[i] = %~ x.parseInt
+          except ValueError:
+            maybeInt = false
+            try:
+              data[i] = %~ x.parseFloat
+            except ValueError:
+              maybeNumber = false
+              data[i] = %~ x
+        elif maybeNumber:
+          try:
+            data[i] = %~ x.parseFloat
+          except ValueError:
+            maybeNumber = false
+            data[i] = %~ x
+        else:
           data[i] = %~ x
-    #result.data[k] = data
     result.data[k] = data.toPersistentVector
     if result.len == 0:
       result.len = result.data[k].len
