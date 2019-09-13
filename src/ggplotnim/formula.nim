@@ -818,12 +818,13 @@ liftScalarFloatProc(abs)
 liftVectorFloatProc(min)
 liftVectorFloatProc(max)
 liftScalarFloatProc(ln)
+liftScalarFloatProc(log10)
 
 template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): `outType` =
     result = v[0 ..< v.len].mapIt(`name`(it.toFloat))
 
-liftVectorProcToPersVec(ln, seq[float])
+# liftVectorProcToPersVec(ln, seq[float])
 
 #template liftProcToString(name: untyped, outType: untyped): untyped =
 #  proc `name`(df: DataFrame, x: string): `outType` =
