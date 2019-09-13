@@ -343,14 +343,33 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
+proc almostEqual(a, b: float, epsilon = 1e-8): bool =
+  # taken from
+  # https://floating-point-gui.de/errors/comparison/
+  let
+    absA = abs(a)
+    absB = abs(b)
+    diff = abs(a - b)
+  if a == b: # shortcut, handles infinities
+    result = true
+  elif a == 0 or b == 0 or (absA + absB) < minimumPositiveValue(float64):
+    # a or b is zero or both are extremely close to it
+    # relative error is less meaningful here
+    result = diff < (epsilon * minimumPositiveValue(float64))
+  else:
+    # use relative error
+    result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
+
 proc `==`*(v, w: Value): bool =
   ## checks whether the values are equal.
   ## Note: if both values are numbers of different kind (`VInt` and `VFloat`) the
   ## values are both compared as floats!
+  ## The float comparison happens with a floating point comparison with relatively
+  ## large epsilon (1-e8).
   if v.kind != w.kind and
      v.kind in {VInt, VFloat} and
      w.kind in {VInt, VFloat}:
-    result = v.toFloat == w.toFloat
+    result = almostEqual(v.toFloat, w.toFloat)
   elif v.kind != w.kind:
     result = false
   else:
@@ -360,7 +379,7 @@ proc `==`*(v, w: Value): bool =
     of VInt:
       result = v.num == w.num
     of VFloat:
-      result = v.fnum == w.fnum
+      result = almostEqual(v.fnum, w.fnum)
     of VBool:
       result = v.bval == w.bval
     of VObject:
