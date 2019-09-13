@@ -95,6 +95,7 @@ type
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom* = object
+    data*: Option[DataFrame] # optionally a geom may have its own data frame
     style*: Option[Style] # if set, apply this style instead of parent's
     position*: PositionKind
     aes*: Aesthetics # a geom can have its own aesthetics. Needs to be part of

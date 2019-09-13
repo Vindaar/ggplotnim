@@ -216,6 +216,7 @@ proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outTy
 proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
                scKind: static ScaleKind): Option[Scale] =
   ## fills the `Scale` of `scKind` kind of the `aes`
+  ## TODO: make aware of Geom.data optional field!
   if not scaleOpt.isSome:
     return none[Scale]()
   let scale = scaleOpt.unsafeGet
@@ -330,9 +331,12 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
   # TODO: fill others with defaults
 
 func geom_point*(aes: Aesthetics = aes(),
+                 data = DataFrame(),
                  color: Color = black,
                  size: float = 3.0): Geom =
-  result = Geom(kind: gkPoint,
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  result = Geom(data: dfOpt,
+                kind: gkPoint,
                 style: some(Style(color: color,
                                   size: size)),
                 aes: aes)
@@ -341,10 +345,13 @@ func geom_bar(): Geom =
   result = Geom(kind: gkBar)
 
 func geom_line*(aes: Aesthetics = aes(),
+                data = DataFrame(),
                 color: Color = grey20,
                 size: float = 1.0,
                 lineType: LineType = ltSolid): Geom =
-  result = Geom(kind: gkLine,
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  result = Geom(data: dfOpt,
+                kind: gkLine,
                 style: some(Style(color: color,
                                   lineWidth: size,
                                   lineType: lineType,
@@ -699,17 +706,18 @@ iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
   # then walk data frame and extracting correct style for each
   var lStyle: Style
   var val: ScaleValue
-  for i in 0 ..< p.data.len:
+  let df = if geom.data.isSome: geom.data.get else: p.data
+  for i in 0 ..< df.len:
     lStyle = style
     for s in scales:
       # walk all scales and build the correct style
       case s.kind
       of dcDiscrete:
-        if s.col notin p.data:
+        if s.col notin df:
           # constant value
           val = s.getValue(%~ s.col)
         else:
-          val = s.getValue(p.data[s.col][i])
+          val = s.getValue(df[s.col][i])
         case val.kind
         of scShape:
           # Marker is not encoded in `ginger.Style`, hence get retrieve manually
