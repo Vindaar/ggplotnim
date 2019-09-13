@@ -3,7 +3,7 @@ import unittest
 include ../src/ggplotnim
 
 import tables, sets
-import sequtils
+import sequtils, seqmath
 import math
 
 suite "Value":
@@ -203,7 +203,7 @@ suite "GgPlot":
     check y2v == y2
 
   test "Application of log scale works as expected":
-    let x = toSeq(0 .. 10).mapIt(it.float)
+    let x = linspace(0.0, 10.0, 500)
     let y1 = x.mapIt(cos(it))
     let y2 = x.mapIt(sin(it))
     let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
@@ -224,6 +224,7 @@ suite "GgPlot":
     block:
       let plt = ggplot(df, aes("x", "cos")) +
         geom_line(aes(y = "sin")) +
+        geom_point(aes(y = "sin")) +
         scale_y_log10()
       check plt.aes.x.isSome
       check plt.aes.y.isSome
@@ -236,7 +237,7 @@ suite "GgPlot":
       check plt.geoms[0].aes.y.get.col == "sin"
       check plt.geoms[0].aes.y.get.axKind == akY
       check plt.geoms[0].aes.y.get.scKind == scTransformedData
-
+      plt.ggsave("sin_log.pdf")
     # check that it is ``not`` applied to a geom that is added ``after``
     # the call to `scale_*` (this is in contrast to `ggplot2` where the
     # order does not matter
