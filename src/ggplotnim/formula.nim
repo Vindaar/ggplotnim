@@ -286,10 +286,6 @@ template `%~`*(s: openArray[Value]): seq[Value] = @s
 func isInt(s: string): bool =
   result = s.isDigit
 
-func isFloat(s: string): bool =
-  ## TODO: float may also be written as exponential!
-  result = s.replace(".", "").isDigit
-
 func isDigit(v: Value): bool =
   ## checks whether the string contained in `Value` is purely made from digits
   doAssert v.kind == VString
