@@ -80,6 +80,12 @@ suite "Value":
     let n13 = %~ "e1"
     let n14 = %~ "E1"
     let n15 = %~ ".1"
+    # and some actually valid floats
+    let n16 = %~ "6.084E+01"
+    let n17 = %~ "1.676E+01"
+    let n18 = %~ "6.863E+00"
+    let n19 = %~ "2.007E+00"
+    let n20 = %~ "9.329E-01"
     check $n1 == "\"1.1\""
     check $n2 == "\"1.3e5\""
     check $n3 == "aba"
@@ -95,6 +101,12 @@ suite "Value":
     check $n13 == "e1"
     check $n14 == "E1"
     check $n15 == ".1"
+    check $n16 == "\"6.084E+01\""
+    check $n17 == "\"1.676E+01\""
+    check $n18 == "\"6.863E+00\""
+    check $n19 == "\"2.007E+00\""
+    check $n20 == "\"9.329E-01\""
+
 
 suite "Formula":
   test "Testing ~ formula creation":
