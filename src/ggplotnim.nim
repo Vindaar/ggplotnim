@@ -23,6 +23,9 @@ export sets
 import chroma
 export chroma
 
+type
+  TrafoProc = proc(v: Value): Value
+
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
   result = s.valueMap[label]
@@ -171,7 +174,8 @@ proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
 proc dataTo[T: Table | OrderedTable | DataFrame; U](
   df: T,
   col: string,
-  outType: typedesc[U]): seq[U]
+  outType: typedesc[U],
+  trans: TrafoProc = nil): seq[U]
 
 proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
@@ -186,6 +190,20 @@ proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   if geom.aes.y.isSome: y = geom.aes.y.get
   else: y = p.aes.y.get
   result = (x: x.col, y: y.col)
+
+proc getXYAes(p: GgPlot, geom: Geom): tuple[x, y: Aesthetics] =
+  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
+  ## x, y aesthetics from the two.
+  var
+    x: Aesthetics
+    y: Aesthetics
+  # prefer geom x, y over plot x, y
+  if geom.aes.x.isSome: x = geom.aes
+  else: x = p.aes
+  if geom.aes.y.isSome: y = geom.aes
+  else: y = p.aes
+  result = (x: x, y: y)
+
 
 proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
@@ -589,10 +607,12 @@ proc plotLayoutWithoutLegend(view: var Viewport) =
   view[7].name = "xLabel"
   view[8].name = "bottomRight"
 
+
 proc dataTo[T: Table | OrderedTable | DataFrame; U](
   df: T,
   col: string,
-  outType: typedesc[U]): seq[U] =
+  outType: typedesc[U],
+  trans: TrafoProc = nil): seq[U] =
   ## reads the column `col` from the Table / DataFrame and converts
   ## it to `outType`, returns it as a `seq[outType]`
   ## NOTE: This proc may also be used as a means to extract a column from
@@ -617,9 +637,15 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
     when outType is SomeNumber:
       case dkind
       of VInt:
-        result = df[col].toSeq.mapIt(it.num.outType)
+        if not trans.isNil:
+          result = df[col].toSeq.mapIt(it.trans.toInt.outType)
+        else:
+          result = df[col].toSeq.mapIt(it.num.outType)
       of VFloat:
-        result = df[col].toSeq.mapIt(it.fnum.outType)
+        if not trans.isNil:
+          result = df[col].toSeq.mapIt(it.trans.fnum.outType)
+        else:
+          result = df[col].toSeq.mapIt(it.fnum.outType)
       else: discard
     elif outType is string:
       case dkind
@@ -702,6 +728,23 @@ iterator markerStyles(p: GgPlot, geom: Geom): (MarkerKind, Style) =
   for _, markerStyle in markerStyles(p, geom):
     yield markerStyle
 
+proc readScaleAwareData(p: GgPlot, geom: Geom): (seq[float], seq[float]) =
+  ## TODO: not quite done yet. Only supports float etc.
+  let (xAes, yAes) = getXYAes(p, geom)
+  template getData(scale: untyped): untyped =
+    let df = if geom.data.isSome: geom.data.get else: p.data
+    var data: seq[float]
+    case scale.scKind
+    of scLinearData:
+      data = df.dataTo(scale.col, float)
+    of scTransformedData:
+      data = df.dataTo(scale.col, float, scale.trans)
+    else: discard
+    data
+  let xdata = getData(xAes.x.get)
+  let ydata = getData(yAes.y.get)
+  result = (xData, yData)
+
 proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## creates the GraphObjects for a `gkPoint` geom
   ## TODO: we could unify the code in the `create*Gobj` procs, by
@@ -711,9 +754,9 @@ proc createPointGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject
   doAssert geom.kind == gkPoint
   doAssert geom.style.isSome
   # then walk data frame and extracting correct style for each
-  let (xCol, yCol) = getXYCols(p, geom)
+  let (xdata, ydata) = readScaleAwareData(p, geom)
   for i, (marker, style) in markerStylePairs(p, geom):
-    result.add initPoint(view, (x: p.data[xCol][i].toFloat, y: p.data[yCol][i].toFloat),
+    result.add initPoint(view, (x: xdata[i], y: ydata[i]),
                          marker = marker,
                          color = style.color,
                          size = style.size)
@@ -733,11 +776,12 @@ proc createLineGobj(view: var Viewport,
     else:
       msMap[(marker, style)].add i
   # and then read all idx for each marker kind, sort them and draw the line
-  let (xCol, yCol) = getXYCols(p, geom)
+  let (xData, yData) = readScaleAwareData(p, geom)
+  # TODO: in case of float, handle non connected points!
   for markerStyle, pointIdxs in pairs(msMap):
     var points = newSeq[Point](pointIdxs.len)
     for i, idx in pointIdxs:
-      points[i] = (x: p.data[xCol][idx].toFloat, y: p.data[yCol][idx].toFloat)
+      points[i] = (x: xData[i], y: yData[i])
     points.sort((x, y: Point) => cmp(x.x, y.x))
     result.add view.initPolyLine(points, some(markerStyle[1]))
 
@@ -1038,6 +1082,96 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   else:
     raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
 
+proc almostEqual(a, b: float, eps = 1e-5): bool =
+  # rough float conversion
+  # get order of magnitude. If both are almost the same, compare
+  # them by the product of one value * epsilon
+  let order = a
+  result = abs(a - b) < (order * eps)
+
+# TODO: move this, remove one of the two (instead calc from the other)
+# TODO2: use almostEqual from `formula` instead of this one here!!!
+proc smallestPow(x: float): float =
+  doAssert x > 0.0
+  result = 1.0
+  if x < 1.0:
+    while result > x and not result.almostEqual(x):
+      result /= 10.0
+  else:
+    while result < x and not result.almostEqual(x):
+      result *= 10.0
+    result /= 10.0
+
+proc largestPow(x: float): float =
+  doAssert x > 0.0
+  result = 1.0
+  if x < 1.0:
+    while result > x and not result.almostEqual(x):
+      result /= 10.0
+    result *= 10.0
+  else:
+    while result < x and not result.almostEqual(x):
+      result *= 10.0
+
+proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
+  let numTicks = 10 * (log10(maxv) - log10(minv)).round.int
+  var
+    labs = newSeq[string]()
+    labPos = newSeq[float]()
+  for i in 0 ..< numTicks div 10:
+    let base = (minv * pow(10, i.float))
+    let test = linspace(base, 9 * base, 9)
+    labs.add $base
+    labs.add toSeq(0 ..< 8).mapIt("")
+    labPos.add test.mapIt(it.log10)
+  labs.add $maxv
+  labPos.add log10(maxv)
+  result = (labs, labPos)
+
+proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObject] =
+  var scale: Option[Scale]
+  var numTicks: int
+  case axKind
+  of akX:
+    scale = p.aes.x
+    numTicks = p.numXTicks
+  of akY:
+    scale = p.aes.y
+    numTicks = p.numYTicks
+  if scale.isSome:
+    let sc = scale.get
+    case sc.scKind
+    of scLinearData:
+      let ticks = view.initTicks(axKind, numTicks)
+      let tickLabs = view.tickLabels(ticks)
+      view.addObj concat(ticks, tickLabs)
+      result = ticks
+    of scTransformedData:
+      # for now assume log10 scale
+      let minVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
+      let maxVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
+      let (labs, labelpos) = tickposlog(minVal, maxVal)
+      var tickLocs: seq[Coord1D]
+      case axKind
+      of akX:
+        tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                          kind: ukData,
+                                          scale: view.xScale,
+                                          axis: akX))
+        view.xScale = (low: log10(minVal), high: log10(maxVal))
+      of akY:
+        tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                          kind: ukData,
+                                          scale: view.yScale,
+                                          axis: akY))
+        view.yScale = (low: log10(minVal), high: log10(maxVal))
+
+
+      let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
+      view.addObj concat(tickObjs, labObjs)
+      result = tickObjs
+    else: discard
+
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
   result = view
@@ -1067,15 +1201,16 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     # scale too
     result.yScale = pChild.yScale
 
-  let
-    xticks = result.xticks(p.numXTicks)
-    xtickLabels = result.tickLabels(xticks)
-    yticks = result.yticks(p.numYTicks)
-    ytickLabels = result.tickLabels(yticks)
+  var xticks = result.handleTicks(p, akX)
+  var yticks = result.handleTicks(p, akY)
+  # TODO: make it such that we don't have to do that here!
+  result.updateDataScale()
 
+  result.updateDataScale(xticks)
+  result.updateDataScale(yticks)
+  let grdLines = result.initGridLines(some(xticks), some(yticks))
   let
     xlabel = result.xlabel(p.aes.x.get.col)
-    grdlines = result.initGridLines(some(xticks), some(yticks))
   var ylabel: GraphObject
   case p.geoms[0].kind
   of gkPoint, gkLine:
@@ -1084,9 +1219,9 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
     ylabel = result.ylabel("count")
   else: discard
   if addLabels:
-    result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[xlabel, ylabel, grdLines])
+    result.addObj @[xlabel, ylabel, grdLines]
   else:
-    result.addObj concat(xticks, yticks, xtickLabels, ytickLabels, @[grdLines])
+    result.addObj @[grdLines]
 
 proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   # first perform faceting by creating subgroups
