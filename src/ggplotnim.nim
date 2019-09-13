@@ -537,11 +537,11 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
     of akX:
       if aes.x.isSome:
         mscale.col = aes.x.get.col
-      result.x = some(mscale)
+        result.x = some(mscale)
     of akY:
       if aes.y.isSome:
         mscale.col = aes.y.get.col
-      result.y = some(mscale)
+        result.y = some(mscale)
   of scFillColor, scColor: result.color = some(mscale)
   of scSize: result.size = some(mscale)
   of scShape: result.shape = some(mscale)
