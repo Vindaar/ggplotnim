@@ -104,21 +104,21 @@ suite "Data frame tests":
 
     echo "----"
     let sum_grouped = mpggroup.summarize(f{"mean_displ" ~ mean("displ")},
-                            f{"mean_hwy" ~ mean("hwy")})
+                                         f{"mean_hwy" ~ mean("hwy")})
+      .arrange("cyl")
     check sum_grouped.len == 4
     check sum_grouped["cyl"][0].toInt == 4
-    check sum_grouped["cyl"][1].toInt == 6
-    check sum_grouped["cyl"][2].toInt == 8
-    check sum_grouped["cyl"][3].toInt == 5
+    check sum_grouped["cyl"][1].toInt == 5
+    check sum_grouped["cyl"][2].toInt == 6
+    check sum_grouped["cyl"][3].toInt == 8
     check almostEqual(sum_grouped["mean_displ"][0].toFloat, 2.14568)
-    check almostEqual(sum_grouped["mean_displ"][1].toFloat, 3.40886)
-    check almostEqual(sum_grouped["mean_displ"][2].toFloat, 5.13286)
-    check almostEqual(sum_grouped["mean_displ"][3].toFloat,     2.5)
+    check almostEqual(sum_grouped["mean_displ"][1].toFloat, 2.5)
+    check almostEqual(sum_grouped["mean_displ"][2].toFloat, 3.40886)
+    check almostEqual(sum_grouped["mean_displ"][3].toFloat, 5.13286)
     check almostEqual(sum_grouped["mean_hwy"][0].toFloat, 28.8025)
-    check almostEqual(sum_grouped["mean_hwy"][1].toFloat, 22.8228)
-    check almostEqual(sum_grouped["mean_hwy"][2].toFloat, 17.6286)
-    check almostEqual(sum_grouped["mean_hwy"][3].toFloat,   28.75)
-
+    check almostEqual(sum_grouped["mean_hwy"][1].toFloat, 28.75)
+    check almostEqual(sum_grouped["mean_hwy"][2].toFloat, 22.8228)
+    check almostEqual(sum_grouped["mean_hwy"][3].toFloat, 17.6286)
     let mpg2groups = mpggroup.group_by("class", add = true)
     let classes = mpg["class"].unique
     let cyls = mpg["cyl"].unique
