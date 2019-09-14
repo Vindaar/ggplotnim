@@ -1,9 +1,30 @@
 import ggplotnim, unittest, sequtils
-
 import algorithm
 
-
 suite "Data frame tests":
+  test "Creation of DFs from seqs":
+    let a = [1, 2, 3]
+    let b = [3, 4, 5]
+    let c = [4, 5, 6]
+    let d = [8, 9, 10]
+    # creation directly from a,b,c,d
+    block:
+      let df = seqsToDf(a, b, c, d)
+      check "a" in df
+      check "b" in df
+      check "c" in df
+      check "d" in df
+    # creation via key / value pairs
+    block:
+      let df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c,
+                          "four" : d})
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "four" in df
+
   test "Testing `bind_rows`":
     let a = [1, 2, 3]
     let b = [3, 4, 5]
