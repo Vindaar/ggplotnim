@@ -549,7 +549,15 @@ proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
   for k, v in t:
     result[k] = v.toVector
 
-macro toTab*(s: untyped): untyped =
+macro toTab*(args: varargs[untyped]): untyped =
+  expectKind(args, nnkArglist)
+  var s = args
+  if args.len == 1 and args[0].kind == nnkTableConstr:
+    # has to be tableConstr or simple ident
+    s = args[0]
+  elif args.len == 1 and args[0].kind notin {nnkIdent, nnkSym}:
+    error("If only single argument it has to be an ident or symbol, " &
+      "but " & $args[0].repr & " is of kind: " & $args[0].kind)
   let data = ident"columns"
   result = newStmtList()
   result.add quote do:
