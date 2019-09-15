@@ -598,7 +598,7 @@ proc plotLayoutWithoutLegend(view: var Viewport) =
   ## creates a layout for a plot in the current viewport without a legend
   ## Main plot viewport will be:
   ## idx = 4
-  view.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
+  view.layout(3, 3, colwidths = @[quant(2.5, ukCentimeter),
                                   quant(0.0, ukRelative),
                                   quant(1.0, ukCentimeter)],
               rowheights = @[quant(1.0, ukCentimeter),
