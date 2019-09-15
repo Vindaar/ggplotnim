@@ -1174,11 +1174,49 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
                                           axis: akY))
         view.yScale = (low: log10(minVal), high: log10(maxVal))
 
-
       let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
       view.addObj concat(tickObjs, labObjs)
       result = tickObjs
     else: discard
+
+template argMaxIt(s, arg: untyped): untyped =
+  ## `s` has to have a `pairs` iterator
+  # TODO: move elsehere
+  block:
+    var
+      maxVal = 0
+      maxId = 0
+    for i, it {.inject.} in s:
+      if maxVal < arg:
+        maxId = i
+        maxVal = arg
+    maxId
+
+proc handleLabels(view: var Viewport, p: GgPlot) =
+  ## potentially moves the label positions and enlarges the areas (not yet)
+  ## for the y label / tick label column or x row.
+  # essentially check whether
+  # TODO: clean this up!
+  let labs = view.objects.filterIt(it.name == "ytickLabel")
+  let labNames = labs.mapIt(it.txtText)
+  let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
+  let font = labs[0].txtFont
+  var margin = Coord1D(pos: 1.1, kind: ukStrWidth,
+                       text: labNames[labLens], font: font)
+  #if quant(margin.toPoints.pos, ukPoint).toCentimeter.val < 1.0:
+  #  margin = Coord1D(pos: 1.0, kind: ukCentimeter)
+
+  var ylabel: GraphObject
+  case p.geoms[0].kind
+  of gkPoint, gkLine:
+    ylabel = view.ylabel(p.aes.y.get.col,
+                         margin = margin)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
+                           #margin = 1.7)
+  of gkHistogram:
+    ylabel = view.ylabel("count")
+  else: discard
+  let xlabel = view.xlabel(p.aes.x.get.col)
+  view.addObj @[xlabel, ylabel]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
@@ -1217,19 +1255,13 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   result.updateDataScale(xticks)
   result.updateDataScale(yticks)
   let grdLines = result.initGridLines(some(xticks), some(yticks))
-  let
-    xlabel = result.xlabel(p.aes.x.get.col)
-  var ylabel: GraphObject
-  case p.geoms[0].kind
-  of gkPoint, gkLine:
-    ylabel = result.ylabel(p.aes.y.get.col)
-  of gkHistogram:
-    ylabel = result.ylabel("count")
-  else: discard
+
+  # given the just created plot and tick labels, have to check
+  # whether we should enlarge the column / row for the y / x label and
+  # move the label
   if addLabels:
-    result.addObj @[xlabel, ylabel, grdLines]
-  else:
-    result.addObj @[grdLines]
+    result.handleLabels(p)
+  result.addObj @[grdLines]
 
 proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   # first perform faceting by creating subgroups
@@ -1326,7 +1358,10 @@ proc ggcreate*(p: GgPlot): Viewport =
 
   if p.facet.isSome:
     pltBase = pltBase.generateFacetPlots(p)
-    # TODO :clean labels up
+    # TODO :clean labels up, combine with handleLabels!
+    # Have to consider what should happen for that though.
+    # Need flag to disable auto subtraction, because we don't have space or
+    # rather if done needs to be done on all subplots?
     let xlabel = pltBase.xlabel(p.aes.x.get.col)
     var ylabel: GraphObject
     case p.geoms[0].kind
@@ -1339,6 +1374,7 @@ proc ggcreate*(p: GgPlot): Viewport =
   else:
     pltBase = pltBase.generatePlot(p)
   img[4] = pltBase
+
   # possibly correct the yScale assigned to the root Viewport
   img.yScale = pltBase.yScale
 
