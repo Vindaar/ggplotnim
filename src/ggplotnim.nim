@@ -1119,13 +1119,6 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   else:
     raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
 
-proc almostEqual(a, b: float, eps = 1e-5): bool =
-  # rough float conversion
-  # get order of magnitude. If both are almost the same, compare
-  # them by the product of one value * epsilon
-  let order = a
-  result = abs(a - b) < (order * eps)
-
 # TODO: move this, remove one of the two (instead calc from the other)
 # TODO2: use almostEqual from `formula` instead of this one here!!!
 proc smallestPow(x: float): float =

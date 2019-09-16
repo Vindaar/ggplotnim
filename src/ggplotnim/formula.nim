@@ -339,7 +339,7 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
-proc almostEqual(a, b: float, epsilon = 1e-8): bool =
+proc almostEqual*(a, b: float, epsilon = 1e-8): bool =
   # taken from
   # https://floating-point-gui.de/errors/comparison/
   let
