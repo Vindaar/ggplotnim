@@ -1232,38 +1232,47 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
     ylabel: GraphObject
     xlabTxt = ""
     ylabTxt = ""
+    xMargin: Coord1D
     yMargin: Coord1D
   #if p.theme.xlabelMargin.isSome:
   #  marginVal = p.theme.xlabelMargin.get
   xlabTxt = if p.theme.xlabel.isSome: p.theme.xlabel.get else: p.aes.x.get.col
-  template getMargin(marginVar, themeField, name: untyped): untyped =
+  template getMargin(marginVar, themeField, name, axKind: untyped): untyped =
     if not themeField.isSome:
       let labs = view.objects.filterIt(it.name == name)#"ytickLabel")
-      echo "LABS ", labs
-      echo view.objects
-
       let labNames = labs.mapIt(it.txtText)
       let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
       let font = labs[0].txtFont
-      marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
-                          text: labNames[labLens], font: font)
+      case axKind
+      of akX:
+        marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
+                            text: labNames[labLens], font: font)
+      of akY:
+        marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
+                            text: labNames[labLens], font: font)
+  template createLabel(label, labproc, labTxt, themeField, marginVal: untyped): untyped =
+    if themeField.isSome:
+      label = labproc(view,
+                      labTxt,
+                      margin = get(themeField),
+                      isCustomMargin = true)
+    else:
+      label = labproc(view,
+                      labTxt,
+                      margin = marginVal)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
 
+  getMargin(xMargin, p.theme.xlabelMargin, "xtickLabel", akX)
+  getMargin(yMargin, p.theme.ylabelMargin, "ytickLabel", akY)
   case p.geoms[0].kind
   of gkPoint, gkLine:
-    getMargin(yMargin, p.theme.ylabelMargin, "ytickLabel")
     ylabTxt = if p.theme.ylabel.isSome: p.theme.ylabel.get else: p.aes.y.get.col
   of gkHistogram:
-    ylabel = view.ylabel("count", margin = yMargin)
+    ylabTxt = "count"
+    #ylabel = view.ylabel("count", margin = yMargin)
   else: discard
+  createLabel(yLabel, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
+  createLabel(xLabel, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
 
-  if p.theme.ylabelMargin.isSome:
-    ylabel = view.ylabel(ylabTxt,
-                         margin = p.theme.ylabelMargin.get)
-  else:
-    ylabel = view.ylabel(ylabTxt,
-                         margin = yMargin)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
-
-  xlabel = view.xlabel(xlabTxt)
   view.addObj @[xlabel, ylabel]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
