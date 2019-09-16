@@ -1200,6 +1200,14 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
       view.addObj concat(tickObjs, labObjs)
       result = tickObjs
     else: discard
+  else:
+    # this should mean the main geom is histogram like?
+    doAssert axKind == akY, "we can have akX without scale now?"
+    # in this case don't read into anything and just call ticks / labels
+    let ticks = view.initTicks(axKind, numTicks)
+    let tickLabs = view.tickLabels(ticks)
+    view.addObj concat(ticks, tickLabs)
+    result = ticks
 
 template argMaxIt(s, arg: untyped): untyped =
   ## `s` has to have a `pairs` iterator
