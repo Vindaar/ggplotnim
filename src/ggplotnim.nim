@@ -607,7 +607,7 @@ proc plotLayoutWithLegend(view: var Viewport) =
   ## for a legend. Important indices of the created viewports:
   ## - main plot: idx = 4
   ## - legend: idx = 5
-  view.layout(3, 3, colwidths = @[quant(2.0, ukCentimeter),
+  view.layout(3, 3, colwidths = @[quant(2.5, ukCentimeter),
                                   quant(0.0, ukRelative),
                                   quant(5.0, ukCentimeter)],
               rowheights = @[quant(1.25, ukCentimeter),
