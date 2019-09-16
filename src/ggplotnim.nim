@@ -499,6 +499,30 @@ proc createLegend(view: var Viewport,
   header.addObj label
   view[startIdx] = header
 
+proc xlab*(label = "", margin = NaN): Theme =
+  if label.len > 0:
+    result.xlabel = some(label)
+  if classify(margin) != fcNaN:
+    result.xlabelMargin = some(margin)
+
+proc ylab*(label = "", margin = NaN): Theme =
+  if label.len > 0:
+    result.ylabel = some(label)
+  if classify(margin) != fcNaN:
+    result.ylabelMargin = some(margin)
+
+proc applyTheme(pltTheme: var Theme, theme: Theme) =
+  ## applies all elements of `theme`, which are `Some` to
+  ## the same fields of `pltTheme`
+  if theme.xlabelMargin.isSome:
+    pltTheme.xlabelMargin = theme.xlabelMargin
+  if theme.ylabelMargin.isSome:
+    pltTheme.ylabelMargin = theme.ylabelMargin
+  if theme.xlabel.isSome:
+    pltTheme.xlabel = theme.xlabel
+  if theme.ylabel.isSome:
+    pltTheme.ylabel = theme.ylabel
+
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
@@ -522,6 +546,11 @@ proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
   result = p
   result.title = titleTup[0]
   result.subtitle = titleTup[1]
+
+proc `+`*(p: GgPlot, theme: Theme): GgPlot =
+  ## adds the given theme (or theme element) to the GgPlot object
+  result = p
+  applyTheme(result.theme, theme)
 
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
@@ -1197,25 +1226,39 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
   ## for the y label / tick label column or x row.
   # essentially check whether
   # TODO: clean this up!
-  let labs = view.objects.filterIt(it.name == "ytickLabel")
-  let labNames = labs.mapIt(it.txtText)
-  let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
-  let font = labs[0].txtFont
-  var margin = Coord1D(pos: 1.1, kind: ukStrWidth,
-                       text: labNames[labLens], font: font)
-  #if quant(margin.toPoints.pos, ukPoint).toCentimeter.val < 1.0:
-  #  margin = Coord1D(pos: 1.0, kind: ukCentimeter)
+  var
+    xlabel: GraphObject
+    ylabel: GraphObject
+    xlabTxt = ""
+    ylabTxt = ""
+    yMargin: Coord1D
+  #if p.theme.xlabelMargin.isSome:
+  #  marginVal = p.theme.xlabelMargin.get
+  xlabTxt = if p.theme.xlabel.isSome: p.theme.xlabel.get else: p.aes.x.get.col
 
-  var ylabel: GraphObject
+  if not p.theme.ylabelMargin.isSome:
+    let labs = view.objects.filterIt(it.name == "ytickLabel")
+    let labNames = labs.mapIt(it.txtText)
+    let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
+    let font = labs[0].txtFont
+    yMargin = Coord1D(pos: 1.1, kind: ukStrWidth,
+                      text: labNames[labLens], font: font)
+
   case p.geoms[0].kind
   of gkPoint, gkLine:
-    ylabel = view.ylabel(p.aes.y.get.col,
-                         margin = margin)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
-                           #margin = 1.7)
+    ylabTxt = if p.theme.ylabel.isSome: p.theme.ylabel.get else: p.aes.y.get.col
   of gkHistogram:
-    ylabel = view.ylabel("count")
+    ylabel = view.ylabel("count", margin = yMargin)
   else: discard
-  let xlabel = view.xlabel(p.aes.x.get.col)
+
+  if p.theme.ylabelMargin.isSome:
+    ylabel = view.ylabel(ylabTxt,
+                         margin = p.theme.ylabelMargin.get)
+  else:
+    ylabel = view.ylabel(ylabTxt,
+                         margin = yMargin)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
+
+  xlabel = view.xlabel(xlabTxt)
   view.addObj @[xlabel, ylabel]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =

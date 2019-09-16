@@ -108,6 +108,14 @@ type
     else:
       discard
 
+  # what might become a theming object
+  Theme* = object
+    xlabel*: Option[string]
+    xlabelMargin*: Option[float]
+    ylabel*: Option[string]
+    ylabelMargin*: Option[float]
+
+
   GgPlot*[T] = object
     data*: T
     title*: string
@@ -119,6 +127,7 @@ type
     numYticks*: int
     facet*: Option[Facet]
     geoms*: seq[Geom]
+    theme*: Theme
 
 proc `==`*(s1, s2: Scale): bool =
   if s1.kind == s2.kind and
