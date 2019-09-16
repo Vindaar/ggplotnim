@@ -1317,6 +1317,8 @@ proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # whether we should enlarge the column / row for the y / x label and
   # move the label
   if addLabels:
+    # TODO: why do we add labels to child 4 and not directly into the viewport we
+    # use to provide space for it, i.e. 3?
     result.handleLabels(p)
   result.addObj @[grdLines]
 
