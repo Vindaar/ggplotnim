@@ -1235,17 +1235,21 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
   #if p.theme.xlabelMargin.isSome:
   #  marginVal = p.theme.xlabelMargin.get
   xlabTxt = if p.theme.xlabel.isSome: p.theme.xlabel.get else: p.aes.x.get.col
+  template getMargin(marginVar, themeField, name: untyped): untyped =
+    if not themeField.isSome:
+      let labs = view.objects.filterIt(it.name == name)#"ytickLabel")
+      echo "LABS ", labs
+      echo view.objects
 
-  if not p.theme.ylabelMargin.isSome:
-    let labs = view.objects.filterIt(it.name == "ytickLabel")
-    let labNames = labs.mapIt(it.txtText)
-    let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
-    let font = labs[0].txtFont
-    yMargin = Coord1D(pos: 1.1, kind: ukStrWidth,
-                      text: labNames[labLens], font: font)
+      let labNames = labs.mapIt(it.txtText)
+      let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
+      let font = labs[0].txtFont
+      marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
+                          text: labNames[labLens], font: font)
 
   case p.geoms[0].kind
   of gkPoint, gkLine:
+    getMargin(yMargin, p.theme.ylabelMargin, "ytickLabel")
     ylabTxt = if p.theme.ylabel.isSome: p.theme.ylabel.get else: p.aes.y.get.col
   of gkHistogram:
     ylabel = view.ylabel("count", margin = yMargin)
