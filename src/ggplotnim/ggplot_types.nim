@@ -59,6 +59,7 @@ type
   Scale* = object
     # the column which this scale corresponds to
     col*: string
+    vKind*: ValueKind # the value kind of the data of `col`
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
