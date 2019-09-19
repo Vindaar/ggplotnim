@@ -30,13 +30,13 @@ type
 
   ScaleValue* = object
     case kind*: ScaleKind
-    of scLinearData:
+    of scLinearData, scTransformedData:
       # just stores a data value
       val*: Value
     # TODO: overhaul this
-    of scTransformedData:
+    #of scTransformedData:
       # data under some transformation. E.g. log, tanh, ...
-      rawVal*: Value
+      #rawVal*: Value
     of scFillColor, scColor:
       # stores a color
       color*: Color
@@ -150,10 +150,10 @@ proc hash*(s: Style): Hash =
 proc hash*(x: ScaleValue): Hash =
   result = hash(x.kind.int)
   case x.kind:
-  of scLinearData:
+  of scLinearData, scTransformedData:
     result = result !& hash(x.val)
-  of scTransformedData:
-    result = result !& hash(x.rawVal)
+  #of scTransformedData:
+    #result = result !& hash(x.rawVal)
     # TODO: Hash proc?
   of scColor:
     result = result !& hash($x.color)
