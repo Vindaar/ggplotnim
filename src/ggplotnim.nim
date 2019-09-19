@@ -90,17 +90,25 @@ iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
         yieldedSet.incl scale
         yield scale
 
-proc guessType(s: seq[Value]): ValueKind =
+proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
+  ## draws `num` random sample indices with the seed `42` from the given `s`
+  var r = initRand(seed) # for now just set a local state
+  let idxNum = min(num - 1, sHigh)
+  result = toSeq(0 .. idxNum).mapIt(r.rand(sHigh))
+
+proc guessType(s: seq[Value], drawSamples: static bool = true): ValueKind =
   ## returns a ``guess`` (!) of the data type stored in `s`.
   ## We check a subset of 100 elements of the seq (or the whole if
   ## < 100 elements) and see if they match a single ValueKind.
   ## If they do match, return it, else return `VNull`
-  var r = initRand(299792458) # for now just set a local state
-  let idxNum = min(99, s.high)
-  let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
+  when drawSamples:
+    let indices = drawSampleIdx(s.high)
+  else:
+    # else we take all values as our indices
+    let indices = toSeq(0 .. s.high)
   result = VNull
   var resultSet = false
-  for i in randIdx:
+  for i in indices:
     if not resultSet:
       result = s[i].kind
       resultSet = true
@@ -108,7 +116,7 @@ proc guessType(s: seq[Value]): ValueKind =
       if result != s[i].kind:
         return VNull
 
-proc isDiscreteData(s: seq[Value]): bool =
+proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
   ## returns an ``estimate`` (!) of whether the given sequence of
   ## data is most likely discrete or continuous. First determine
   ## most probable type, then check for discreteness
@@ -116,28 +124,42 @@ proc isDiscreteData(s: seq[Value]): bool =
   ## - if float / int: generate set of first 100 elements, check
   ##   if cardinality of set > 50: continuous, else discrete
   ## - if bool: discrete
-  let guessedT = s.guessType
+  let guessedT = s.guessType(drawSamples = drawSamples)
   # TODO: Improve error messages in the case of guessedT == VNull
   # or change handling of that case
   case guessedT
-  of VString:
-    result = true
   of VFloat, VInt:
     # same approach as in `guessType`
-    var r = initRand(42) # for now just set a local state
-    let idxNum = min(99, s.high)
-    let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
-    let elements = randIdx.mapIt(s[it]).toHashSet
-    if elements.card > (idxNum.float / 2.0).round.int:
+    when drawSamples:
+      let indices = drawSampleIdx(s.high)
+    else:
+      let indices = toSeq(0 .. s.high)
+    let elements = indices.mapIt(s[it]).toHashSet
+    if elements.card > (indices.len.float / 5.0).round.int:
       result = false
     else:
       result = true
+  of VString:
+    # while the "discreteness" condition above might not always be satisfied for
+    # strings, how would we represent string data on continuous scales?
+    result = true
   of VBool:
     result = true
   of VNull:
-    result = false
+    raise newException(ValueError, "Either `guessType` failed to determine the type " &
+      "due to multiple base types in the column or the data is really `VNull`")
+    #result = false
   of VObject:
      raise newException(Exception, "A VObject can neither be discrete nor continuous!")
+
+proc discreteAndType(df: DataFrame, col: string):
+    tuple[isDiscrete: bool, vKind: ValueKind] =
+  ## deteremines both the `ValueKind` of the given column as well whether that
+  ## data is discrete.
+  let indices = drawSampleIdx(df.high)
+  let data = indices.mapIt(df[col][it])
+  result = (isDiscrete: isDiscreteData(data, drawSamples = false),
+            vKind: guessType(data, drawSamples = false))
 
 proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
   let isDiscrete = refVals.isDiscreteData
