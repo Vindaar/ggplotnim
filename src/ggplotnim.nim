@@ -422,7 +422,7 @@ proc scale_x_log10*(): Scale =
   result = Scale(col: "", # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akX,
-                 kind: dcContinuous,
+                 dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
 
@@ -431,7 +431,7 @@ proc scale_y_log10*(): Scale =
   result = Scale(col: "", # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akY,
-                 kind: dcContinuous,
+                 dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
 
@@ -443,7 +443,7 @@ proc createLegend(view: var Viewport,
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
-  case cat.kind
+  case cat.dcKind
   of dcDiscrete:
     view.layout(1, rows = cat.valueMap.len + 1)
   of dcContinuous:
@@ -752,7 +752,7 @@ iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
     lStyle = style
     for s in scales:
       # walk all scales and build the correct style
-      case s.kind
+      case s.dcKind
       of dcDiscrete:
         if s.col notin df:
           # constant value

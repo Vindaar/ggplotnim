@@ -69,7 +69,7 @@ type
       # not defined) and will never be called
       trans*: proc(v: Value): Value
     else: discard
-    case kind*: DiscreteKind
+    case dcKind*: DiscreteKind
     of dcDiscrete:
       # For discrete data this is a good solution. How about continuous data?
       valueMap*: OrderedTable[Value, ScaleValue]
@@ -130,7 +130,7 @@ type
     theme*: Theme
 
 proc `==`*(s1, s2: Scale): bool =
-  if s1.kind == s2.kind and
+  if s1.dcKind == s2.dcKind and
      s1.col == s2.col:
     # the other fields ``will`` be computed to the same!
     result = true
@@ -168,7 +168,7 @@ proc hash*(x: ScaleValue): Hash =
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)
   result = result !& hash(x.col)
-  case x.kind:
+  case x.dcKind:
   of dcDiscrete:
     for k, v in x.valueMap:
       result = result !& hash(k)
