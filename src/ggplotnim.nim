@@ -23,6 +23,8 @@ export sets
 import chroma
 export chroma
 
+import ggplotnim / colormaps / viridisRaw
+
 type
   TrafoProc = proc(v: Value): Value
 
@@ -292,8 +294,55 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       echo "Value map is ", valueMap
     res.valueMap = valueMap
   else:
-    echo "WARNING: scale is continuous! Scales not supported yet"
-
+    res = Scale(scKind: scKind, vKind: vKind, col: scale.col, dcKind: dcContinuous,
+                dataScale: (low: data.min.toFloat, high: data.max.toFloat))
+    case scKind
+    of scLinearData:
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = data.mapIt(ScaleValue(kind: scLinearData, val: it))
+      )
+    of scTransformedData:
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = data.mapIt(
+            ScaleValue(kind: scTransformedData,
+                       val: scale.trans(it)))
+      )
+    of scColor, scFillColor:
+      # devise colormap mapping
+      # for now just take viridis as default
+      # map all values to values between 0-255 and get the correct idx of viridis map
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = newSeq[ScaleValue](data.len)
+          for i in 0 .. data.high:
+            let colorIdx = ((data[i].toFloat - res.dataScale.low) /
+                            (res.dataScale.high - res.dataScale.low)).round.int
+            let cVal = ViridisRaw[colorIdx]
+            var scVal = if scKind == scColor:
+                          ScaleValue(kind: scColor)
+                        else:
+                          ScaleValue(kind: scFillColor)
+            scVal.color = color(cVal[0], cVal[1], cVal[2])
+            result[i] = scVal
+      )
+    of scSize:
+      const minSize = 2.0
+      const maxSize = 7.0
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = newSeq[ScaleValue](data.len)
+          for i in 0 .. data.high:
+            let size = (data[i].toFloat - minSize) /
+                       (maxSize - minSize)
+            result[i] = ScaleValue(kind: scSize,
+                                   size: size)
+      )
+    of scShape:
+      raise newException(ValueError, "Shape not supported for continuous " &
+        "variables!")
+    #echo "WARNING: scale is continuous! Scales not supported yet"
   result = some(res)
 
 proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =

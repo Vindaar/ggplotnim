@@ -79,6 +79,11 @@ type
     of dcContinuous:
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
+      # and the closure to read the correct data, which takes care of mapping
+      # the data to the correct `ScaleKind`. For linear data it's just the data
+      # itself. For `transformedData` it applies the transformation. For color etc.
+      # the
+      mapData*: proc(): seq[ScaleValue]
 
   Facet* = object
     columns*: seq[string]
