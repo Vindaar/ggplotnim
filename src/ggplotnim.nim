@@ -243,19 +243,22 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     return none[Scale]()
   let scale = scaleOpt.unsafeGet
 
-  var res = Scale(scKind: scKind, col: scale.col)
   # get the data column we scale by
   var data: seq[Value]
+  var
+    isDiscrete: bool
+    vKind: ValueKind
   if scale.col in p.data:
     data = p.data.dataTo(scale.col, Value)
+    (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
   else:
     data = @[Value(kind: VString, str: scale.col)]
-
-  let isDiscrete = data.isDiscreteData
+    isDiscrete = true
+    vKind = VString
+  var res: Scale
   if isDiscrete:
-    echo "GENERATING FOR: ", scale.col
     # generate a discrete `Scale`
-    res = Scale(scKind: scKind, col: scale.col, kind: dcDiscrete)
+    res = Scale(scKind: scKind, vKind: vKind, col: scale.col, dcKind: dcDiscrete)
     # convert to set to filter duplicates, back to seq and sort
     # TODO: we could also use `sequtils.deduplicate` here
     res.labelSeq = data.toHashSet.toSeq.sorted
@@ -1412,22 +1415,27 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     result.children[i].objects = plt.objects
     result.children[i].children = plt.children
 
-proc setInitialScale(p: GgPlot, scale: Option[Scale]): ginger.Scale =
+proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
   # TODO:  alternative could be using `isDiscrete`?
-  if scale.isSome:
+  if scaleOpt.isSome:
     # TODO: this is expensive for large columns!
-    let maxIdx = min(100, p.data.len)
-    echo maxIdx
-    let dtype = guessType(p.data[scale.get.col][0 ..< maxIdx])
-    case dtype
-    of VFloat, VInt:
-      let data = p.data.dataTo(scale.get.col, float)
-      let minx = data.min
-      result = (low: data.min, high: data.max)
-    of VString:
-      # simply use equivalent of relative coordinates to space the categories
+    let scale = scaleOpt.unsafeGet
+    let (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
+    if not isDiscrete:
+      result = scale.dataScale
+    else:
       result = (low: 0.0, high: 1.0)
-    else: doAssert false, "unsupported!"
+    #  case vKind
+    #  of VFloat, VInt:
+    #    let data = p.data.dataTo(scale.col, float)
+    #    let minx = data.min
+    #    result = (low: data.min, high: data.max)
+    #  of VString:
+    #    # simply use equivalent of relative coordinates to space the categories
+    #    result = (low: 0.0, high: 1.0)
+    #  else: doAssert false, "unsupported!"
+    #else:
+    #  discard
 
 proc ggcreate*(p: GgPlot): Viewport =
   ## applies all calculations to the `GgPlot` object required to draw
