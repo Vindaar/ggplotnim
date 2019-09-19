@@ -231,6 +231,7 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
 
   let isDiscrete = data.isDiscreteData
   if isDiscrete:
+    echo "GENERATING FOR: ", scale.col
     # generate a discrete `Scale`
     res = Scale(scKind: scKind, col: scale.col, kind: dcDiscrete)
     # convert to set to filter duplicates, back to seq and sort
@@ -254,7 +255,16 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       for i, k in res.labelSeq:
         valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
     else:
-      raise newException(Exception, "`fillScale` not implemented for " & $scKind)
+      let dfgrouped = p.data.group_by(by = scale.col)
+      for keys, subDf in groups(dfgrouped):
+        doAssert keys.len == 1
+        doAssert keys[0][0] == scale.col
+        valueMap[keys[0][1]] = ScaleValue(kind: scLinearData, val: %~ subDf.len)
+      #for i, k in res.labelSeq:
+      #  # TODO: don't filter here?! Inefficient, since we
+      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
+      #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
+      echo "Value map is ", valueMap
     res.valueMap = valueMap
   else:
     echo "WARNING: scale is continuous! Scales not supported yet"
@@ -269,6 +279,8 @@ proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
   # - shape: raise exception not possible
   # - size: bin the data and use bins as fixed sizes
   result = aes
+  result.x = aes.x.fillScale(p, scLinearData) # TODO: add more data
+  result.y = aes.y.fillScale(p, scLinearData) # TODO: add more data
   result.color = aes.color.fillScale(p, scColor)
   result.fill = aes.fill.fillScale(p, scFillColor)
   # not implemented yet:
@@ -857,6 +869,7 @@ proc addHistoRects(view: var Viewport,
       # top of the previous
       var prevTop = c1(1.0)
       for label, (val, style) in data:
+        echo "Lab ", label, " for val ", val
         p.addHistoRect(val[i], style, prevTop)
         prevTop = prevTop - Coord1D(pos: yScale.high - val[i].float, kind: ukData,
                                     scale: yScale, axis: akY)
@@ -1047,9 +1060,22 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     else:
       doAssert false
   if not any:
-    let rawData = p.data.dataTo(p.aes.x.get.col, float)
-    # generate the histogram
-    var (hist, _) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    let maxIdx = min(100, p.data.len)
+    let dtype = guessType(p.data[p.aes.x.get.col][0 ..< maxIdx])
+    var hist: seq[int]
+    var bins: seq[float]
+    case dtype
+    of VFloat, VInt:
+      let rawData = p.data.dataTo(p.aes.x.get.col, float)
+      # generate the histogram
+      echo "RW A ", rawData
+      (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    of VString:
+      # instead get count of each element
+      for k, v in pairs(p.aes.x.get):
+        hist.add v.val.toInt.int
+      echo "HIST ", hist
+    else: doAssert false, "not implemented"
     # set the y scale
     yScaleBase = (low: 0.0, high: hist.max.float)
     # fix the data scales on the children viewports
@@ -1364,38 +1390,54 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     result.children[i].objects = plt.objects
     result.children[i].children = plt.children
 
+proc setInitialScale(p: GgPlot, scale: Option[Scale]): ginger.Scale =
+  # TODO:  alternative could be using `isDiscrete`?
+  if scale.isSome:
+    # TODO: this is expensive for large columns!
+    let maxIdx = min(100, p.data.len)
+    echo maxIdx
+    let dtype = guessType(p.data[scale.get.col][0 ..< maxIdx])
+    case dtype
+    of VFloat, VInt:
+      let data = p.data.dataTo(scale.get.col, float)
+      let minx = data.min
+      result = (low: data.min, high: data.max)
+    of VString:
+      # simply use equivalent of relative coordinates to space the categories
+      result = (low: 0.0, high: 1.0)
+    else: doAssert false, "unsupported!"
+
 proc ggcreate*(p: GgPlot): Viewport =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns the ginger.Viewport, which
   ## only has to be drawn.
   ## This proc is useful to investigate the Viewport that will actually
   ## be drawn.
-  var
-    xScale: ginger.Scale
-    yScale: ginger.Scale
-    colorsCat: OrderedTable[string, Color]
-    colors: seq[string]
+
+  #template setScale(ax: untyped): Scale =
 
   # TODO: this probably doesn't have to happen here!
-  let xdata = p.data.dataTo(p.aes.x.get.col, float)
+  let (xAes, yAes) = getXYAes(p, p.geoms[0])
+  let xScale = setInitialScale(p, xAes.x)
+  let yScale = setInitialScale(p, yAes.y)
   # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
   # also `string` data, after reading `xdata` not into `float`, but into `Value`.
   # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
   # gives us `VFloat` values, instead of `VString` with floats as string
   # For a `DataFrame` this should work, but for a `Table` it won't (as it's
   # `seq[string]` internally).
-  let
-    minX = xdata.min
-    maxX = xdata.max
-  xScale = (low: minX, high: maxX)
-  var
-    minY: float
-    maxY: float
-  if p.aes.y.isSome:
-    let ydata = p.data.dataTo(p.aes.y.get.col, float)
-    minY = ydata.min
-    maxY = ydata.max
-    yScale = (low: minY, high: maxY)
+  #let
+  #  minX = xdata.min
+  #  maxX = xdata.max
+  #xScale = (low: minX, high: maxX)
+  #var
+  #  minY: float
+  #  maxY: float
+  #if yAes.y.isSome: #p.aes.y.isSome:
+  #  let ydata = p.data.dataTo(p.aes.y.get.col, float)
+  #  minY = ydata.min
+  #  maxY = ydata.max
+  #  yScale = (low: minY, high: maxY)
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
