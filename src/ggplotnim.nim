@@ -1195,6 +1195,53 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   for ch in mitems(view):
     ch.yScale = newYScale
 
+proc createBarGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+  ## creates the GraphObjects required for a bar plot
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if not isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      "contains continuous data. Did you want to call geom_histogram?")
+  let numElements = xScale.labelSeq.len
+  var style: Style
+  if geom.style.isSome:
+    style = geom.style.unsafeGet
+  else:
+    # TODO: inherit from parent somehow?
+    #doAssert false
+    discard
+
+  #of VFloat, VInt:
+  #  doAssert false, "not implemented"
+  let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
+  view.layout(numElements + 2, 1,
+              colwidths = concat(@[quant(0.2, ukCentimeter)],
+                                 indWidths,
+                                 @[quant(0.2, ukCentimeter)]))
+  let toIgnore = toSet([0, numElements + 1])
+  var yScaleBase: ginger.Scale
+  case vKind
+  of VFloat, VInt, VString:
+    # instead get count of each element
+    var maxVal = 0
+    var hist: seq[int]
+    for k, v in pairs(xScale):
+      let val = v.val.toInt.int
+      hist.add val
+      if val > maxVal:
+        maxVal = val
+    yScaleBase = (low: 0.0, high: maxVal.float)
+    view.addHistoRects(hist, yScaleBase, style, geom.position,
+                       width = 0.8, ignorePortIdxs = toIgnore)
+  else:
+    doAssert false, "not implemented"
+  # fix child viewport yscales
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  view.yScale = newYScale
+  for ch in mitems(view):
+    ch.yScale = newYScale
+
 proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
@@ -1205,6 +1252,8 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
     result = view.createHistFreqPolyGobj(p, geom)
   of gkLine:
     result = view.createLineGobj(p, geom)
+  of gkBar:
+    result = view.createBarGobj(p, geom)
   else:
     discard
 
