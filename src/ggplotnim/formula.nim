@@ -84,6 +84,15 @@ type
   DataFrame* = object
     len*: int
     data*: OrderedTable[string, PersistentVector[Value]]
+    # TODO: we could possibly add the following two fields to a dataframe
+    # They're easy to determine when first creating a dataframe from either
+    # a file or seqs. Scales help us when calling `setInitialScale` for instane,
+    # so that we don't have to walk all of the data again in order to determine
+    # min and max. Same goes for the value kind. The only downside is when working
+    # with dataframes using dplyr-like procs we have to be careful to keep these
+    # up to data!
+    # `colScales: OrderedTable[string, ginger.Scale]`
+    # `colVkinds: OrderedTable[string, ValueKind]`
     case kind: DataFrameKind
     of dfGrouped:
       # a grouped data frame stores the keys of the groups and maps them to

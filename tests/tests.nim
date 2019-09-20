@@ -158,6 +158,15 @@ suite "Geom":
     discard
 
 suite "GgPlot":
+  test "histogram with discrete scale fails":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    expect(ValueError):
+      ggplot(mpg, aes("class")) + geom_histogram() + ggsave("fails.pdf")
+
+  test "Bar plot with string based scale":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    ggplot(mpg, aes("class")) + geom_bar() + ggsave("bartest.pdf")
+
   test "x,y aesthetics of geom picked over GgPlot":
     ## tests that the x, y aesthetics are picked from the present `geom`
     ## if x, y are defined, instead of the `GgPlot` object.

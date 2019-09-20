@@ -30,13 +30,13 @@ type
 
   ScaleValue* = object
     case kind*: ScaleKind
-    of scLinearData:
+    of scLinearData, scTransformedData:
       # just stores a data value
       val*: Value
     # TODO: overhaul this
-    of scTransformedData:
+    #of scTransformedData:
       # data under some transformation. E.g. log, tanh, ...
-      rawVal*: Value
+      #rawVal*: Value
     of scFillColor, scColor:
       # stores a color
       color*: Color
@@ -59,6 +59,7 @@ type
   Scale* = object
     # the column which this scale corresponds to
     col*: string
+    vKind*: ValueKind # the value kind of the data of `col`
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
@@ -69,7 +70,7 @@ type
       # not defined) and will never be called
       trans*: proc(v: Value): Value
     else: discard
-    case kind*: DiscreteKind
+    case dcKind*: DiscreteKind
     of dcDiscrete:
       # For discrete data this is a good solution. How about continuous data?
       valueMap*: OrderedTable[Value, ScaleValue]
@@ -78,6 +79,11 @@ type
     of dcContinuous:
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
+      # and the closure to read the correct data, which takes care of mapping
+      # the data to the correct `ScaleKind`. For linear data it's just the data
+      # itself. For `transformedData` it applies the transformation. For color etc.
+      # the
+      mapData*: proc(): seq[ScaleValue]
 
   Facet* = object
     columns*: seq[string]
@@ -130,7 +136,7 @@ type
     theme*: Theme
 
 proc `==`*(s1, s2: Scale): bool =
-  if s1.kind == s2.kind and
+  if s1.dcKind == s2.dcKind and
      s1.col == s2.col:
     # the other fields ``will`` be computed to the same!
     result = true
@@ -150,10 +156,10 @@ proc hash*(s: Style): Hash =
 proc hash*(x: ScaleValue): Hash =
   result = hash(x.kind.int)
   case x.kind:
-  of scLinearData:
+  of scLinearData, scTransformedData:
     result = result !& hash(x.val)
-  of scTransformedData:
-    result = result !& hash(x.rawVal)
+  #of scTransformedData:
+    #result = result !& hash(x.rawVal)
     # TODO: Hash proc?
   of scColor:
     result = result !& hash($x.color)
@@ -168,7 +174,7 @@ proc hash*(x: ScaleValue): Hash =
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)
   result = result !& hash(x.col)
-  case x.kind:
+  case x.dcKind:
   of dcDiscrete:
     for k, v in x.valueMap:
       result = result !& hash(k)

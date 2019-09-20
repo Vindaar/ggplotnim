@@ -54,6 +54,8 @@ Geoms:
 - =geom_line=
 - =geom_histogram=
 - =geom_freqpoly=
+- =geom_bar= (layout still broken, see
+  https://github.com/Vindaar/ggplotnim/issues/10 for more infos)
 
 Facets:
 - =facet_wrap=

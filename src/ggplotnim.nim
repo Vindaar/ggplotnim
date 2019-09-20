@@ -23,6 +23,8 @@ export sets
 import chroma
 export chroma
 
+import ggplotnim / colormaps / viridisRaw
+
 type
   TrafoProc = proc(v: Value): Value
 
@@ -90,17 +92,25 @@ iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
         yieldedSet.incl scale
         yield scale
 
-proc guessType(s: seq[Value]): ValueKind =
+proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
+  ## draws `num` random sample indices with the seed `42` from the given `s`
+  var r = initRand(seed) # for now just set a local state
+  let idxNum = min(num - 1, sHigh)
+  result = toSeq(0 .. idxNum).mapIt(r.rand(sHigh))
+
+proc guessType(s: seq[Value], drawSamples: static bool = true): ValueKind =
   ## returns a ``guess`` (!) of the data type stored in `s`.
   ## We check a subset of 100 elements of the seq (or the whole if
   ## < 100 elements) and see if they match a single ValueKind.
   ## If they do match, return it, else return `VNull`
-  var r = initRand(299792458) # for now just set a local state
-  let idxNum = min(99, s.high)
-  let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
+  when drawSamples:
+    let indices = drawSampleIdx(s.high)
+  else:
+    # else we take all values as our indices
+    let indices = toSeq(0 .. s.high)
   result = VNull
   var resultSet = false
-  for i in randIdx:
+  for i in indices:
     if not resultSet:
       result = s[i].kind
       resultSet = true
@@ -108,7 +118,7 @@ proc guessType(s: seq[Value]): ValueKind =
       if result != s[i].kind:
         return VNull
 
-proc isDiscreteData(s: seq[Value]): bool =
+proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
   ## returns an ``estimate`` (!) of whether the given sequence of
   ## data is most likely discrete or continuous. First determine
   ## most probable type, then check for discreteness
@@ -116,28 +126,42 @@ proc isDiscreteData(s: seq[Value]): bool =
   ## - if float / int: generate set of first 100 elements, check
   ##   if cardinality of set > 50: continuous, else discrete
   ## - if bool: discrete
-  let guessedT = s.guessType
+  let guessedT = s.guessType(drawSamples = drawSamples)
   # TODO: Improve error messages in the case of guessedT == VNull
   # or change handling of that case
   case guessedT
-  of VString:
-    result = true
   of VFloat, VInt:
     # same approach as in `guessType`
-    var r = initRand(42) # for now just set a local state
-    let idxNum = min(99, s.high)
-    let randIdx = toSeq(0 .. idxNum).mapIt(r.rand(s.high))
-    let elements = randIdx.mapIt(s[it]).toHashSet
-    if elements.card > (idxNum.float / 2.0).round.int:
+    when drawSamples:
+      let indices = drawSampleIdx(s.high)
+    else:
+      let indices = toSeq(0 .. s.high)
+    let elements = indices.mapIt(s[it]).toHashSet
+    if elements.card > (indices.len.float / 8.0).round.int:
       result = false
     else:
       result = true
+  of VString:
+    # while the "discreteness" condition above might not always be satisfied for
+    # strings, how would we represent string data on continuous scales?
+    result = true
   of VBool:
     result = true
   of VNull:
-    result = false
+    raise newException(ValueError, "Either `guessType` failed to determine the type " &
+      "due to multiple base types in the column or the data is really `VNull`")
+    #result = false
   of VObject:
      raise newException(Exception, "A VObject can neither be discrete nor continuous!")
+
+proc discreteAndType(df: DataFrame, col: string):
+    tuple[isDiscrete: bool, vKind: ValueKind] =
+  ## deteremines both the `ValueKind` of the given column as well whether that
+  ## data is discrete.
+  let indices = drawSampleIdx(df.high)
+  let data = indices.mapIt(df[col][it])
+  result = (isDiscrete: isDiscreteData(data, drawSamples = false),
+            vKind: guessType(data, drawSamples = false))
 
 proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
   let isDiscrete = refVals.isDiscreteData
@@ -191,19 +215,19 @@ proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   else: y = p.aes.y.get
   result = (x: x.col, y: y.col)
 
+proc getAes(p:GgPlot, geom: Geom, axKind: AxisKind): Aesthetics =
+  case axKind
+  of akX:
+    if geom.aes.x.isSome: result = geom.aes
+    else: result = p.aes
+  of akY:
+    if geom.aes.y.isSome: result = geom.aes
+    else: result = p.aes
+
 proc getXYAes(p: GgPlot, geom: Geom): tuple[x, y: Aesthetics] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
   ## x, y aesthetics from the two.
-  var
-    x: Aesthetics
-    y: Aesthetics
-  # prefer geom x, y over plot x, y
-  if geom.aes.x.isSome: x = geom.aes
-  else: x = p.aes
-  if geom.aes.y.isSome: y = geom.aes
-  else: y = p.aes
-  result = (x: x, y: y)
-
+  result = (x: getAes(p, geom, akX), y: getAes(p, geom, akY))
 
 proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
@@ -221,18 +245,22 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     return none[Scale]()
   let scale = scaleOpt.unsafeGet
 
-  var res = Scale(scKind: scKind, col: scale.col)
   # get the data column we scale by
   var data: seq[Value]
+  var
+    isDiscrete: bool
+    vKind: ValueKind
   if scale.col in p.data:
     data = p.data.dataTo(scale.col, Value)
+    (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
   else:
     data = @[Value(kind: VString, str: scale.col)]
-
-  let isDiscrete = data.isDiscreteData
+    isDiscrete = true
+    vKind = VString
+  var res: Scale
   if isDiscrete:
     # generate a discrete `Scale`
-    res = Scale(scKind: scKind, col: scale.col, kind: dcDiscrete)
+    res = Scale(scKind: scKind, vKind: vKind, col: scale.col, dcKind: dcDiscrete)
     # convert to set to filter duplicates, back to seq and sort
     # TODO: we could also use `sequtils.deduplicate` here
     res.labelSeq = data.toHashSet.toSeq.sorted
@@ -253,12 +281,81 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       let stepSize = (maxSize - minSize) / numSizes.float
       for i, k in res.labelSeq:
         valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
-    else:
-      raise newException(Exception, "`fillScale` not implemented for " & $scKind)
+    of scLinearData, scTransformedData:
+      doAssert scale.scKind in {scLinearData, scTransformedData}
+      res.axKind = scale.axKind
+      if scKind == scTransformedData:
+        res.trans = scale.trans
+      # TODO: make this the result of some proc we call. Maybe add a Formula
+      # field, which is evaluated here, so that we apply arbitrary functions,
+      # instead of just counting, which is conveniently done via grouping
+      let dfgrouped = p.data.group_by(by = scale.col)
+      for keys, subDf in groups(dfgrouped):
+        doAssert keys.len == 1
+        doAssert keys[0][0] == scale.col
+        valueMap[keys[0][1]] = ScaleValue(kind: scLinearData, val: %~ subDf.len)
+      #for i, k in res.labelSeq:
+      #  # TODO: don't filter here?! Inefficient, since we
+      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
+      #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
+      echo "Value map is ", valueMap
+    of scShape:
+      raise newException(ValueError, "Shape support not yet implemented for " &
+        "discrete scales!")
     res.valueMap = valueMap
   else:
-    echo "WARNING: scale is continuous! Scales not supported yet"
-
+    res = Scale(scKind: scKind, vKind: vKind, col: scale.col, dcKind: dcContinuous,
+                dataScale: (low: data.min.toFloat, high: data.max.toFloat))
+    case scKind
+    of scLinearData:
+      res.axKind = scale.axKind
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = data.mapIt(ScaleValue(kind: scLinearData, val: it))
+      )
+    of scTransformedData:
+      res.axKind = scale.axKind
+      res.trans = scale.trans
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = data.mapIt(
+            ScaleValue(kind: scTransformedData,
+                       val: scale.trans(it)))
+      )
+    of scColor, scFillColor:
+      # devise colormap mapping
+      # for now just take viridis as default
+      # map all values to values between 0-255 and get the correct idx of viridis map
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = newSeq[ScaleValue](data.len)
+          for i in 0 .. data.high:
+            let colorIdx = ((data[i].toFloat - res.dataScale.low) /
+                            (res.dataScale.high - res.dataScale.low)).round.int
+            let cVal = ViridisRaw[colorIdx]
+            var scVal = if scKind == scColor:
+                          ScaleValue(kind: scColor)
+                        else:
+                          ScaleValue(kind: scFillColor)
+            scVal.color = color(cVal[0], cVal[1], cVal[2])
+            result[i] = scVal
+      )
+    of scSize:
+      const minSize = 2.0
+      const maxSize = 7.0
+      res.mapData = (
+        proc(): seq[ScaleValue] =
+          result = newSeq[ScaleValue](data.len)
+          for i in 0 .. data.high:
+            let size = (data[i].toFloat - minSize) /
+                       (maxSize - minSize)
+            result[i] = ScaleValue(kind: scSize,
+                                   size: size)
+      )
+    of scShape:
+      raise newException(ValueError, "Shape not supported for continuous " &
+        "variables!")
+    #echo "WARNING: scale is continuous! Scales not supported yet"
   result = some(res)
 
 proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
@@ -269,6 +366,8 @@ proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
   # - shape: raise exception not possible
   # - size: bin the data and use bins as fixed sizes
   result = aes
+  result.x = aes.x.fillScale(p, scLinearData) # TODO: add more data
+  result.y = aes.y.fillScale(p, scLinearData) # TODO: add more data
   result.color = aes.color.fillScale(p, scColor)
   result.fill = aes.fill.fillScale(p, scFillColor)
   # not implemented yet:
@@ -341,8 +440,20 @@ func geom_point*(aes: Aesthetics = aes(),
                                   size: size)),
                 aes: aes)
 
-func geom_bar(): Geom =
-  result = Geom(kind: gkBar)
+func geom_bar*(aes: Aesthetics = aes(),
+               color: Color = grey20, # color of the bars
+               position = "stack",
+              ): Geom =
+  let pkKind = parseEnum[PositionKind](position)
+  let style = Style(lineType: ltSolid,
+                    lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
+                                    # between bins at size of exactly 1.0 bin width
+                    color: color, # default color
+                    fillColor: color)
+  result = Geom(kind: gkBar,
+                aes: aes,
+                style: some(style),
+                position: pkKind)
 
 func geom_line*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -373,7 +484,6 @@ func geom_histogram*(aes: Aesthetics = aes(),
   result = Geom(kind: gkHistogram,
                 aes: aes,
                 numBins: bins,
-
                 style: some(style),
                 position: pkKind)
 
@@ -410,7 +520,7 @@ proc scale_x_log10*(): Scale =
   result = Scale(col: "", # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akX,
-                 kind: dcContinuous,
+                 dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
 
@@ -419,7 +529,7 @@ proc scale_y_log10*(): Scale =
   result = Scale(col: "", # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akY,
-                 kind: dcContinuous,
+                 dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
 
@@ -431,7 +541,7 @@ proc createLegend(view: var Viewport,
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
-  case cat.kind
+  case cat.dcKind
   of dcDiscrete:
     view.layout(1, rows = cat.valueMap.len + 1)
   of dcContinuous:
@@ -740,7 +850,7 @@ iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
     lStyle = style
     for s in scales:
       # walk all scales and build the correct style
-      case s.kind
+      case s.dcKind
       of dcDiscrete:
         if s.col notin df:
           # constant value
@@ -823,12 +933,13 @@ proc createLineGobj(view: var Viewport,
     result.add view.initPolyLine(points, some(markerStyle[1]))
 
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
-                     yPos: Coord1D = c1(1.0)) =
+                     yPos: Coord1D = c1(1.0),
+                     width = 1.0 ) =
   ## creates a rectangle for a histogram and adds it to the viewports objects
   if val.float > 0.0:
     let r = view.initRect(Coord(x: c1(0.0),
                                 y: yPos), # bottom left
-                          quant(1.0, ukRelative),
+                          quant(width, ukRelative),
                           quant(-val.float, ukData),
                           style = some(style))
     view.addObj r
@@ -836,46 +947,58 @@ proc addHistoRect[T](view: var Viewport, val: T, style: Style,
 proc addHistoRects(view: var Viewport,
                    data: OrderedTable[string, (seq[int], Style)],
                    yScale: ginger.Scale,
-                   position: PositionKind) =
+                   position: PositionKind,
+                   width = 1.0,
+                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## Adds all rectangles for a histogram
   ## The `data` table contains both the `seq[float]` data and the `Style`
   ## that corresponds to it
+  ## If `ignorePortIdxs` contains values, we will skip the children viewports
+  ## corresponding to these indices
   # now get the labeled data
   #let rawData = df.dataTo(p.aes.x.get, float)
   ## generate the histogram
   #var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
   # make the rectangles
   var i = 0
+  var idx = 0
+  #TODO: clean up here!!!
   for p in mitems(view):
     #doAssert p.yScale.high >= hist.max.float
+    if i in ignorePortIdxs:
+      inc i
+      continue
     case position
     of pkIdentity:
       for label, (val, style) in data:
-        p.addHistoRect(val[i], style)
+        p.addHistoRect(val[idx], style, width = width)
     of pkStack:
       # create one rectangle for each label, each successive starting at the
       # top of the previous
       var prevTop = c1(1.0)
       for label, (val, style) in data:
-        p.addHistoRect(val[i], style, prevTop)
-        prevTop = prevTop - Coord1D(pos: yScale.high - val[i].float, kind: ukData,
+        p.addHistoRect(val[idx], style, prevTop, width = width)
+        prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].float, kind: ukData,
                                     scale: yScale, axis: akY)
     of pkDodge:
       discard
     of pkFill:
       discard
     inc i
+    inc idx
 
 proc addHistoRects(view: var Viewport,
                    hist: seq[int],
                    yScale: ginger.Scale,
                    style: Style,
-                   position: PositionKind) =
+                   position: PositionKind,
+                   width = 1.0,
+                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## overload of the above working on a whole data frame. This just extracts the
   ## (label / data) pairs and hands it to `addHistoRects`
   var data = initOrderedTable[string, (seq[int], Style)]()
   data["x"] = (hist, style)
-  view.addHistoRects(data, yScale, position)
+  view.addHistoRects(data, yScale, position, width = width, ignorePortIdxs = ignorePortIdxs)
 
 proc addFreqPoly(view: var Viewport,
                  data: OrderedTable[string, (seq[int], Style)],
@@ -945,6 +1068,13 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   # new xScale, by calling calcTickLocations with it
   # Note: we don't have to assign it to the `view` viewport, since that will
   # happen when calculation of the actual ticks will be done later on
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      " contains discrete data. Did you want to call geom_bar?")
+
   let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
   # TODO: here?
   # assign the new XScale to the view
@@ -1047,9 +1177,17 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     else:
       doAssert false
   if not any:
-    let rawData = p.data.dataTo(p.aes.x.get.col, float)
-    # generate the histogram
-    var (hist, _) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    var hist: seq[int]
+    var bins: seq[float]
+    case vKind
+    of VFloat, VInt:
+      let xSc = p.aes.x.get
+      let rawData = p.data.dataTo(xSc.col, float)
+      doAssert xSc.dcKind == dcContinuous
+      doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
+      # generate the histogram
+      (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
     # set the y scale
     yScaleBase = (low: 0.0, high: hist.max.float)
     # fix the data scales on the children viewports
@@ -1069,6 +1207,53 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   for ch in mitems(view):
     ch.yScale = newYScale
 
+proc createBarGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
+  ## creates the GraphObjects required for a bar plot
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if not isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      "contains continuous data. Did you want to call geom_histogram?")
+  let numElements = xScale.labelSeq.len
+  var style: Style
+  if geom.style.isSome:
+    style = geom.style.unsafeGet
+  else:
+    # TODO: inherit from parent somehow?
+    #doAssert false
+    discard
+
+  #of VFloat, VInt:
+  #  doAssert false, "not implemented"
+  let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
+  view.layout(numElements + 2, 1,
+              colwidths = concat(@[quant(0.2, ukCentimeter)],
+                                 indWidths,
+                                 @[quant(0.2, ukCentimeter)]))
+  let toIgnore = toSet([0, numElements + 1])
+  var yScaleBase: ginger.Scale
+  case vKind
+  of VFloat, VInt, VString:
+    # instead get count of each element
+    var maxVal = 0
+    var hist: seq[int]
+    for k, v in pairs(xScale):
+      let val = v.val.toInt.int
+      hist.add val
+      if val > maxVal:
+        maxVal = val
+    yScaleBase = (low: 0.0, high: maxVal.float)
+    view.addHistoRects(hist, yScaleBase, style, geom.position,
+                       width = 0.8, ignorePortIdxs = toIgnore)
+  else:
+    doAssert false, "not implemented"
+  # fix child viewport yscales
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  view.yScale = newYScale
+  for ch in mitems(view):
+    ch.yScale = newYScale
+
 proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
@@ -1079,6 +1264,8 @@ proc createGobjFromGeom(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObj
     result = view.createHistFreqPolyGobj(p, geom)
   of gkLine:
     result = view.createLineGobj(p, geom)
+  of gkBar:
+    result = view.createBarGobj(p, geom)
   else:
     discard
 
@@ -1158,6 +1345,61 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   labPos.add log10(maxv)
   result = (labs, labPos)
 
+proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+                           scale: Scale, numTicks: int): seq[GraphObject] =
+  case scale.scKind
+  of scLinearData:
+    let ticks = view.initTicks(axKind, numTicks)
+    let tickLabs = view.tickLabels(ticks)
+    view.addObj concat(ticks, tickLabs)
+    result = ticks
+  of scTransformedData:
+    # for now assume log10 scale
+    let minVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
+    let maxVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
+    let (labs, labelpos) = tickposlog(minVal, maxVal)
+    var tickLocs: seq[Coord1D]
+    case axKind
+    of akX:
+      tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                        kind: ukData,
+                                        scale: view.xScale,
+                                        axis: akX))
+      view.xScale = (low: log10(minVal), high: log10(maxVal))
+    of akY:
+      tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                        kind: ukData,
+                                        scale: view.yScale,
+                                        axis: akY))
+      view.yScale = (low: log10(minVal), high: log10(maxVal))
+
+    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
+    view.addObj concat(tickObjs, labObjs)
+    result = tickObjs
+  else: discard
+
+proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+                         scale: Scale): seq[GraphObject] =
+  # create custom tick labels based on the possible labels
+  # and assign tick locations based on ginger.Scale for
+  # linear/trafo kinds and evenly spaced based on string?
+  # start with even for all
+  let numTicks = scale.labelSeq.len
+  var tickLabels: seq[string]
+  var tickLocs: seq[Coord1D]
+  let gScale = if scale.axKind == akX: view.xScale else: view.yScale
+
+  for i in 0 ..< numTicks:
+    tickLabels.add $scale.labelSeq[i]
+    let pos = i.float / (numTicks - 1).float
+    tickLocs.add Coord1D(pos: pos,
+                         kind: ukData,
+                         scale: gScale,
+                         axis: axKind)
+  let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind)
+  view.addObj concat(tickObjs, labObjs)
+  result = tickObjs
+
 proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObject] =
   var scale: Option[Scale]
   var numTicks: int
@@ -1170,36 +1412,11 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
     numTicks = p.numYTicks
   if scale.isSome:
     let sc = scale.get
-    case sc.scKind
-    of scLinearData:
-      let ticks = view.initTicks(axKind, numTicks)
-      let tickLabs = view.tickLabels(ticks)
-      view.addObj concat(ticks, tickLabs)
-      result = ticks
-    of scTransformedData:
-      # for now assume log10 scale
-      let minVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
-      let maxVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
-      let (labs, labelpos) = tickposlog(minVal, maxVal)
-      var tickLocs: seq[Coord1D]
-      case axKind
-      of akX:
-        tickLocs = labelpos.mapIt(Coord1D(pos: it,
-                                          kind: ukData,
-                                          scale: view.xScale,
-                                          axis: akX))
-        view.xScale = (low: log10(minVal), high: log10(maxVal))
-      of akY:
-        tickLocs = labelpos.mapIt(Coord1D(pos: it,
-                                          kind: ukData,
-                                          scale: view.yScale,
-                                          axis: akY))
-        view.yScale = (low: log10(minVal), high: log10(maxVal))
-
-      let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
-      view.addObj concat(tickObjs, labObjs)
-      result = tickObjs
-    else: discard
+    case sc.dcKind
+    of dcDiscrete:
+      result = view.handleDiscreteTicks(p, axKind, sc)
+    of dcContinuous:
+      result = view.handleContinuousTicks(p, axKind, sc, numTicks)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
@@ -1228,8 +1445,8 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
   # essentially check whether
   # TODO: clean this up!
   var
-    xlabel: GraphObject
-    ylabel: GraphObject
+    xLabObj: GraphObject
+    yLabObj: GraphObject
     xlabTxt = ""
     ylabTxt = ""
     xMargin: Coord1D
@@ -1270,10 +1487,10 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
     ylabTxt = "count"
     #ylabel = view.ylabel("count", margin = yMargin)
   else: discard
-  createLabel(yLabel, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
-  createLabel(xLabel, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
+  createLabel(yLabObj, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
+  createLabel(xLabObj, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
 
-  view.addObj @[xlabel, ylabel]
+  view.addObj @[xLabObj, yLabObj]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
@@ -1364,38 +1581,59 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     result.children[i].objects = plt.objects
     result.children[i].children = plt.children
 
+proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
+  # TODO:  alternative could be using `isDiscrete`?
+  if scaleOpt.isSome:
+    # TODO: this is expensive for large columns!
+    let scale = scaleOpt.unsafeGet
+    let (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
+    if not isDiscrete:
+      result = scale.dataScale
+    else:
+      result = (low: 0.0, high: 1.0)
+    #  case vKind
+    #  of VFloat, VInt:
+    #    let data = p.data.dataTo(scale.col, float)
+    #    let minx = data.min
+    #    result = (low: data.min, high: data.max)
+    #  of VString:
+    #    # simply use equivalent of relative coordinates to space the categories
+    #    result = (low: 0.0, high: 1.0)
+    #  else: doAssert false, "unsupported!"
+    #else:
+    #  discard
+
 proc ggcreate*(p: GgPlot): Viewport =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns the ginger.Viewport, which
   ## only has to be drawn.
   ## This proc is useful to investigate the Viewport that will actually
   ## be drawn.
-  var
-    xScale: ginger.Scale
-    yScale: ginger.Scale
-    colorsCat: OrderedTable[string, Color]
-    colors: seq[string]
+
+  #template setScale(ax: untyped): Scale =
 
   # TODO: this probably doesn't have to happen here!
-  let xdata = p.data.dataTo(p.aes.x.get.col, float)
+  let (xAes, yAes) = getXYAes(p, p.geoms[0])
+  let xScale = setInitialScale(p, xAes.x)
+  let yScale = setInitialScale(p, yAes.y)
   # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
   # also `string` data, after reading `xdata` not into `float`, but into `Value`.
   # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
   # gives us `VFloat` values, instead of `VString` with floats as string
   # For a `DataFrame` this should work, but for a `Table` it won't (as it's
   # `seq[string]` internally).
-  let
-    minX = xdata.min
-    maxX = xdata.max
-  xScale = (low: minX, high: maxX)
-  var
-    minY: float
-    maxY: float
-  if p.aes.y.isSome:
-    let ydata = p.data.dataTo(p.aes.y.get.col, float)
-    minY = ydata.min
-    maxY = ydata.max
-    yScale = (low: minY, high: maxY)
+  #let
+  #  minX = xdata.min
+  #  maxX = xdata.max
+  #xScale = (low: minX, high: maxX)
+  #var
+  #  minY: float
+  #  maxY: float
+  #if yAes.y.isSome: #p.aes.y.isSome:
+  #  let ydata = p.data.dataTo(p.aes.y.get.col, float)
+  #  minY = ydata.min
+  #  maxY = ydata.max
+  #  yScale = (low: minY, high: maxY)
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
