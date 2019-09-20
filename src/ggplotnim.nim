@@ -137,7 +137,7 @@ proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
     else:
       let indices = toSeq(0 .. s.high)
     let elements = indices.mapIt(s[it]).toHashSet
-    if elements.card > (indices.len.float / 5.0).round.int:
+    if elements.card > (indices.len.float / 8.0).round.int:
       result = false
     else:
       result = true
