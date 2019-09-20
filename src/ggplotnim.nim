@@ -1056,6 +1056,13 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   # new xScale, by calling calcTickLocations with it
   # Note: we don't have to assign it to the `view` viewport, since that will
   # happen when calculation of the actual ticks will be done later on
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      " contains discrete data. Did you want to call geom_bar?")
+
   let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
   # TODO: here?
   # assign the new XScale to the view
@@ -1158,22 +1165,17 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     else:
       doAssert false
   if not any:
-    let maxIdx = min(100, p.data.len)
-    let dtype = guessType(p.data[p.aes.x.get.col][0 ..< maxIdx])
     var hist: seq[int]
     var bins: seq[float]
-    case dtype
+    case vKind
     of VFloat, VInt:
-      let rawData = p.data.dataTo(p.aes.x.get.col, float)
+      let xSc = p.aes.x.get
+      let rawData = p.data.dataTo(xSc.col, float)
+      doAssert xSc.dcKind == dcContinuous
+      doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
       # generate the histogram
-      echo "RW A ", rawData
       (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
-    of VString:
-      # instead get count of each element
-      for k, v in pairs(p.aes.x.get):
-        hist.add v.val.toInt.int
-      echo "HIST ", hist
-    else: doAssert false, "not implemented"
+    else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
     # set the y scale
     yScaleBase = (low: 0.0, high: hist.max.float)
     # fix the data scales on the children viewports
