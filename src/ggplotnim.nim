@@ -281,7 +281,14 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       let stepSize = (maxSize - minSize) / numSizes.float
       for i, k in res.labelSeq:
         valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
-    else:
+    of scLinearData, scTransformedData:
+      doAssert scale.scKind in {scLinearData, scTransformedData}
+      res.axKind = scale.axKind
+      if scKind == scTransformedData:
+        res.trans = scale.trans
+      # TODO: make this the result of some proc we call. Maybe add a Formula
+      # field, which is evaluated here, so that we apply arbitrary functions,
+      # instead of just counting, which is conveniently done via grouping
       let dfgrouped = p.data.group_by(by = scale.col)
       for keys, subDf in groups(dfgrouped):
         doAssert keys.len == 1
@@ -292,17 +299,23 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
       #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
       echo "Value map is ", valueMap
+    of scShape:
+      raise newException(ValueError, "Shape support not yet implemented for " &
+        "discrete scales!")
     res.valueMap = valueMap
   else:
     res = Scale(scKind: scKind, vKind: vKind, col: scale.col, dcKind: dcContinuous,
                 dataScale: (low: data.min.toFloat, high: data.max.toFloat))
     case scKind
     of scLinearData:
+      res.axKind = scale.axKind
       res.mapData = (
         proc(): seq[ScaleValue] =
           result = data.mapIt(ScaleValue(kind: scLinearData, val: it))
       )
     of scTransformedData:
+      res.axKind = scale.axKind
+      res.trans = scale.trans
       res.mapData = (
         proc(): seq[ScaleValue] =
           result = data.mapIt(
