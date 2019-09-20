@@ -472,7 +472,6 @@ func geom_histogram*(aes: Aesthetics = aes(),
   result = Geom(kind: gkHistogram,
                 aes: aes,
                 numBins: bins,
-
                 style: some(style),
                 position: pkKind)
 
@@ -922,12 +921,13 @@ proc createLineGobj(view: var Viewport,
     result.add view.initPolyLine(points, some(markerStyle[1]))
 
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
-                     yPos: Coord1D = c1(1.0)) =
+                     yPos: Coord1D = c1(1.0),
+                     width = 1.0 ) =
   ## creates a rectangle for a histogram and adds it to the viewports objects
   if val.float > 0.0:
     let r = view.initRect(Coord(x: c1(0.0),
                                 y: yPos), # bottom left
-                          quant(1.0, ukRelative),
+                          quant(width, ukRelative),
                           quant(-val.float, ukData),
                           style = some(style))
     view.addObj r
@@ -935,47 +935,58 @@ proc addHistoRect[T](view: var Viewport, val: T, style: Style,
 proc addHistoRects(view: var Viewport,
                    data: OrderedTable[string, (seq[int], Style)],
                    yScale: ginger.Scale,
-                   position: PositionKind) =
+                   position: PositionKind,
+                   width = 1.0,
+                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## Adds all rectangles for a histogram
   ## The `data` table contains both the `seq[float]` data and the `Style`
   ## that corresponds to it
+  ## If `ignorePortIdxs` contains values, we will skip the children viewports
+  ## corresponding to these indices
   # now get the labeled data
   #let rawData = df.dataTo(p.aes.x.get, float)
   ## generate the histogram
   #var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
   # make the rectangles
   var i = 0
+  var idx = 0
+  #TODO: clean up here!!!
   for p in mitems(view):
     #doAssert p.yScale.high >= hist.max.float
+    if i in ignorePortIdxs:
+      inc i
+      continue
     case position
     of pkIdentity:
       for label, (val, style) in data:
-        p.addHistoRect(val[i], style)
+        p.addHistoRect(val[idx], style, width = width)
     of pkStack:
       # create one rectangle for each label, each successive starting at the
       # top of the previous
       var prevTop = c1(1.0)
       for label, (val, style) in data:
-        echo "Lab ", label, " for val ", val
-        p.addHistoRect(val[i], style, prevTop)
-        prevTop = prevTop - Coord1D(pos: yScale.high - val[i].float, kind: ukData,
+        p.addHistoRect(val[idx], style, prevTop, width = width)
+        prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].float, kind: ukData,
                                     scale: yScale, axis: akY)
     of pkDodge:
       discard
     of pkFill:
       discard
     inc i
+    inc idx
 
 proc addHistoRects(view: var Viewport,
                    hist: seq[int],
                    yScale: ginger.Scale,
                    style: Style,
-                   position: PositionKind) =
+                   position: PositionKind,
+                   width = 1.0,
+                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## overload of the above working on a whole data frame. This just extracts the
   ## (label / data) pairs and hands it to `addHistoRects`
   var data = initOrderedTable[string, (seq[int], Style)]()
   data["x"] = (hist, style)
-  view.addHistoRects(data, yScale, position)
+  view.addHistoRects(data, yScale, position, width = width, ignorePortIdxs = ignorePortIdxs)
 
 proc addFreqPoly(view: var Viewport,
                  data: OrderedTable[string, (seq[int], Style)],
