@@ -440,8 +440,20 @@ func geom_point*(aes: Aesthetics = aes(),
                                   size: size)),
                 aes: aes)
 
-func geom_bar(): Geom =
-  result = Geom(kind: gkBar)
+func geom_bar*(aes: Aesthetics = aes(),
+               color: Color = grey20, # color of the bars
+               position = "stack",
+              ): Geom =
+  let pkKind = parseEnum[PositionKind](position)
+  let style = Style(lineType: ltSolid,
+                    lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
+                                    # between bins at size of exactly 1.0 bin width
+                    color: color, # default color
+                    fillColor: color)
+  result = Geom(kind: gkBar,
+                aes: aes,
+                style: some(style),
+                position: pkKind)
 
 func geom_line*(aes: Aesthetics = aes(),
                 data = DataFrame(),
