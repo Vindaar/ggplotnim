@@ -1258,6 +1258,61 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   labPos.add log10(maxv)
   result = (labs, labPos)
 
+proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+                           scale: Scale, numTicks: int): seq[GraphObject] =
+  case scale.scKind
+  of scLinearData:
+    let ticks = view.initTicks(axKind, numTicks)
+    let tickLabs = view.tickLabels(ticks)
+    view.addObj concat(ticks, tickLabs)
+    result = ticks
+  of scTransformedData:
+    # for now assume log10 scale
+    let minVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
+    let maxVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
+    let (labs, labelpos) = tickposlog(minVal, maxVal)
+    var tickLocs: seq[Coord1D]
+    case axKind
+    of akX:
+      tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                        kind: ukData,
+                                        scale: view.xScale,
+                                        axis: akX))
+      view.xScale = (low: log10(minVal), high: log10(maxVal))
+    of akY:
+      tickLocs = labelpos.mapIt(Coord1D(pos: it,
+                                        kind: ukData,
+                                        scale: view.yScale,
+                                        axis: akY))
+      view.yScale = (low: log10(minVal), high: log10(maxVal))
+
+    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
+    view.addObj concat(tickObjs, labObjs)
+    result = tickObjs
+  else: discard
+
+proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+                         scale: Scale): seq[GraphObject] =
+  # create custom tick labels based on the possible labels
+  # and assign tick locations based on ginger.Scale for
+  # linear/trafo kinds and evenly spaced based on string?
+  # start with even for all
+  let numTicks = scale.labelSeq.len
+  var tickLabels: seq[string]
+  var tickLocs: seq[Coord1D]
+  let gScale = if scale.axKind == akX: view.xScale else: view.yScale
+
+  for i in 0 ..< numTicks:
+    tickLabels.add $scale.labelSeq[i]
+    let pos = i.float / (numTicks - 1).float
+    tickLocs.add Coord1D(pos: pos,
+                         kind: ukData,
+                         scale: gScale,
+                         axis: axKind)
+  let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind)
+  view.addObj concat(tickObjs, labObjs)
+  result = tickObjs
+
 proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObject] =
   var scale: Option[Scale]
   var numTicks: int
@@ -1270,36 +1325,11 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
     numTicks = p.numYTicks
   if scale.isSome:
     let sc = scale.get
-    case sc.scKind
-    of scLinearData:
-      let ticks = view.initTicks(axKind, numTicks)
-      let tickLabs = view.tickLabels(ticks)
-      view.addObj concat(ticks, tickLabs)
-      result = ticks
-    of scTransformedData:
-      # for now assume log10 scale
-      let minVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
-      let maxVal = p.data[sc.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
-      let (labs, labelpos) = tickposlog(minVal, maxVal)
-      var tickLocs: seq[Coord1D]
-      case axKind
-      of akX:
-        tickLocs = labelpos.mapIt(Coord1D(pos: it,
-                                          kind: ukData,
-                                          scale: view.xScale,
-                                          axis: akX))
-        view.xScale = (low: log10(minVal), high: log10(maxVal))
-      of akY:
-        tickLocs = labelpos.mapIt(Coord1D(pos: it,
-                                          kind: ukData,
-                                          scale: view.yScale,
-                                          axis: akY))
-        view.yScale = (low: log10(minVal), high: log10(maxVal))
-
-      let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
-      view.addObj concat(tickObjs, labObjs)
-      result = tickObjs
-    else: discard
+    case sc.dcKind
+    of dcDiscrete:
+      result = view.handleDiscreteTicks(p, axKind, sc)
+    of dcContinuous:
+      result = view.handleContinuousTicks(p, axKind, sc, numTicks)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
