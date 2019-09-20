@@ -1328,8 +1328,8 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
   # essentially check whether
   # TODO: clean this up!
   var
-    xlabel: GraphObject
-    ylabel: GraphObject
+    xLabObj: GraphObject
+    yLabObj: GraphObject
     xlabTxt = ""
     ylabTxt = ""
     xMargin: Coord1D
@@ -1370,10 +1370,10 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
     ylabTxt = "count"
     #ylabel = view.ylabel("count", margin = yMargin)
   else: discard
-  createLabel(yLabel, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
-  createLabel(xLabel, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
+  createLabel(yLabObj, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
+  createLabel(xLabObj, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
 
-  view.addObj @[xlabel, ylabel]
+  view.addObj @[xLabObj, yLabObj]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
