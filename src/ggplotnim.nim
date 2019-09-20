@@ -215,19 +215,19 @@ proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
   else: y = p.aes.y.get
   result = (x: x.col, y: y.col)
 
+proc getAes(p:GgPlot, geom: Geom, axKind: AxisKind): Aesthetics =
+  case axKind
+  of akX:
+    if geom.aes.x.isSome: result = geom.aes
+    else: result = p.aes
+  of akY:
+    if geom.aes.y.isSome: result = geom.aes
+    else: result = p.aes
+
 proc getXYAes(p: GgPlot, geom: Geom): tuple[x, y: Aesthetics] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
   ## x, y aesthetics from the two.
-  var
-    x: Aesthetics
-    y: Aesthetics
-  # prefer geom x, y over plot x, y
-  if geom.aes.x.isSome: x = geom.aes
-  else: x = p.aes
-  if geom.aes.y.isSome: y = geom.aes
-  else: y = p.aes
-  result = (x: x, y: y)
-
+  result = (x: getAes(p, geom, akX), y: getAes(p, geom, akY))
 
 proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
   ## given both a `Geom` and a `GgPlot` object we need to choose the correct
