@@ -535,19 +535,11 @@ proc scale_y_log10*(): Scale =
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
-proc createLegend(view: var Viewport,
-                  cat: Scale,
-                  markers: seq[GraphObject]) =
-  ## creates a full legend within the given viewport based on the categories
-  ## in `cat` with a headline `title` showing data points of `markers`
+proc genDiscreteLegend(view: var Viewport,
+                       cat: Scale,
+                       markers: seq[GraphObject]) =
   let startIdx = view.len
-  case cat.dcKind
-  of dcDiscrete:
-    view.layout(1, rows = cat.valueMap.len + 1)
-  of dcContinuous:
-    # for now 5 sizes...
-    view.layout(1, rows = 5 + 1)
-
+  view.layout(1, rows = cat.valueMap.len + 1)
   # iterate only over added children, skip first, because we actual legend first
   var j = 0
   for i in startIdx + 1 ..< view.len:
@@ -596,18 +588,43 @@ proc createLegend(view: var Viewport,
     ch.addObj [rect, point, label]
     view[i] = ch
     inc j
+
+proc genContinuousLegend(view: var Viewport,
+                         cat: Scale,
+                         markers: seq[GraphObject]) =
+  case cat.scKind
+  of scSize:
+    view.layout(1, rows = 5 + 1)
+  else:
+    discard
+
+proc createLegend(view: var Viewport,
+                  cat: Scale,
+                  markers: seq[GraphObject]) =
+  ## creates a full legend within the given viewport based on the categories
+  ## in `cat` with a headline `title` showing data points of `markers`
+  let startIdx = view.len
+  echo cat.dcKind
+  case cat.dcKind
+  of dcDiscrete:
+    view.genDiscreteLegend(cat, markers)
+  of dcContinuous:
+    # for now 5 sizes...
+    view.genContinuousLegend(cat, markers)
+
   # get the first viewport for the header
-  var header = view[startIdx]
-  var label = header.initText(
-    Coord(x: header.origin.x,
-          y: c1(0.5)),
-    cat.col,
-    alignKind = taLeft,
-    name = "legendHeader")
-  # set to bold
-  label.txtFont.bold = true
-  header.addObj label
-  view[startIdx] = header
+  if startIdx > 0:
+    var header = view[startIdx]
+    var label = header.initText(
+      Coord(x: header.origin.x,
+            y: c1(0.5)),
+      cat.col,
+      alignKind = taLeft,
+      name = "legendHeader")
+    # set to bold
+    label.txtFont.bold = true
+    header.addObj label
+    view[startIdx] = header
 
 proc xlab*(label = "", margin = NaN): Theme =
   if label.len > 0:
@@ -1278,12 +1295,17 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   # TODO: rewrite this either via a template, proc or macro!
   case scale.sckind
   of scColor:
-    for i in 0 ..< scale.valueMap.len:
-      let color = scale.getValue(scale.getLabelKey(i)).color
-      result.add initPoint(plt,
-                           (0.0, 0.0), # dummy coordinates
-                           marker = mkCircle,
-                           color = color) # assign same marker as above
+    case scale.dcKind
+    of dcDiscrete:
+      for i in 0 ..< scale.valueMap.len:
+        let color = scale.getValue(scale.getLabelKey(i)).color
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = mkCircle,
+                             color = color) # assign same marker as above
+    of dcContinuous:
+      # TODO: replace by a creation of a colormap display
+      discard
   of scFillColor:
     for i in 0 ..< scale.valueMap.len:
       let color = scale.getValue(scale.getLabelKey(i)).color
