@@ -891,8 +891,14 @@ iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
         else:
           lStyle = changeStyle(lStyle, val)
       else:
-        # TODO: implement continuous!
-        discard
+        # get the `i`-th element from the data
+        val = s.mapData(@[i])[0]
+        case val.kind
+        of scShape:
+          # Marker is not encoded in `ginger.Style`, hence get retrieve manually
+          marker = val.marker
+        else:
+          lStyle = changeStyle(lStyle, val)
     yield (i, (marker, lStyle))
 
 
