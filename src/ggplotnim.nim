@@ -886,7 +886,7 @@ iterator markerStylePairs(p: GgPlot, geom: Geom): (int, (MarkerKind, Style)) =
           val = s.getValue(df[s.col][i])
         case val.kind
         of scShape:
-          # Marker is not encoded in `ginger.Style`, hence get retrieve manually
+          # Marker is not encoded in `ginger.Style`, hence retrieve manually
           marker = val.marker
         else:
           lStyle = changeStyle(lStyle, val)
