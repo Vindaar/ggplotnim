@@ -83,7 +83,7 @@ type
       # the data to the correct `ScaleKind`. For linear data it's just the data
       # itself. For `transformedData` it applies the transformation. For color etc.
       # the
-      mapData*: proc(): seq[ScaleValue]
+      mapData*: proc(idxs: seq[int] = @[]): seq[ScaleValue]
 
   Facet* = object
     columns*: seq[string]

@@ -298,7 +298,6 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       #  # TODO: don't filter here?! Inefficient, since we
       #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
       #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
-      echo "Value map is ", valueMap
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
         "discrete scales!")
@@ -310,28 +309,37 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     of scLinearData:
       res.axKind = scale.axKind
       res.mapData = (
-        proc(): seq[ScaleValue] =
-          result = data.mapIt(ScaleValue(kind: scLinearData, val: it))
+        proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
+          var idxs: seq[int]
+          if idxsIn.len == 0: idxs = toSeq(0 .. data.high)
+          else: idxs = idxsIn
+          result = idxs.mapIt(ScaleValue(kind: scLinearData, val: data[it]))
       )
     of scTransformedData:
       res.axKind = scale.axKind
       res.trans = scale.trans
       res.mapData = (
-        proc(): seq[ScaleValue] =
-          result = data.mapIt(
-            ScaleValue(kind: scTransformedData,
-                       val: scale.trans(it)))
+        proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
+          var idxs: seq[int]
+          if idxsIn.len == 0: idxs = toSeq(0 .. data.high)
+          else: idxs = idxsIn
+          result = idxs.mapIt(ScaleValue(kind: scTransformedData,
+                                         val: scale.trans(data[it])))
       )
     of scColor, scFillColor:
       # devise colormap mapping
       # for now just take viridis as default
       # map all values to values between 0-255 and get the correct idx of viridis map
       res.mapData = (
-        proc(): seq[ScaleValue] =
-          result = newSeq[ScaleValue](data.len)
-          for i in 0 .. data.high:
-            let colorIdx = ((data[i].toFloat - res.dataScale.low) /
-                            (res.dataScale.high - res.dataScale.low)).round.int
+        proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
+          var idxs: seq[int]
+          if idxsIn.len == 0: idxs = toSeq(0 .. data.high)
+          else: idxs = idxsIn
+          result = newSeq[ScaleValue](idxs.len)
+          for i, idx in idxs:
+            var colorIdx = (255.0 * ((data[idx].toFloat - res.dataScale.low) /
+                                     (res.dataScale.high - res.dataScale.low))).round.int
+            colorIdx = min(255, colorIdx)
             let cVal = ViridisRaw[colorIdx]
             var scVal = if scKind == scColor:
                           ScaleValue(kind: scColor)
@@ -344,10 +352,13 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       const minSize = 2.0
       const maxSize = 7.0
       res.mapData = (
-        proc(): seq[ScaleValue] =
-          result = newSeq[ScaleValue](data.len)
-          for i in 0 .. data.high:
-            let size = (data[i].toFloat - minSize) /
+        proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
+          var idxs: seq[int]
+          if idxsIn.len == 0: idxs = toSeq(0 .. data.high)
+          else: idxs = idxsIn
+          result = newSeq[ScaleValue](idxs.len)
+          for i, idx in idxs:
+            let size = (data[idx].toFloat - minSize) /
                        (maxSize - minSize)
             result[i] = ScaleValue(kind: scSize,
                                    size: size)
@@ -604,7 +615,6 @@ proc createLegend(view: var Viewport,
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
-  echo cat.dcKind
   case cat.dcKind
   of dcDiscrete:
     view.genDiscreteLegend(cat, markers)
