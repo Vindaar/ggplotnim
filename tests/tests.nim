@@ -166,12 +166,16 @@ suite "GgPlot":
   test "Bar plot with string based scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
     ggplot(mpg, aes("class")) + geom_bar() + ggsave("bartest.pdf")
+    # TODO: write an actual test here
 
   test "Plot with continuous color scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
     ggplot(mpg, aes("displ", "hwy", color = "cty")) +
       geom_point() +
       ggsave("cont_color.pdf")
+    # TODO: write an actual test here
+    # NOTE: at least this works now! :) Only have to implement a legend for
+    # colormaps and then we could add more colormaps.
 
   test "x,y aesthetics of geom picked over GgPlot":
     ## tests that the x, y aesthetics are picked from the present `geom`
