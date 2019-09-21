@@ -167,6 +167,12 @@ suite "GgPlot":
     let mpg = toDf(readCsv("data/mpg.csv"))
     ggplot(mpg, aes("class")) + geom_bar() + ggsave("bartest.pdf")
 
+  test "Plot with continuous color scale":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    ggplot(mpg, aes("displ", "hwy", color = "cty")) +
+      geom_point() +
+      ggsave("cont_color.pdf")
+
   test "x,y aesthetics of geom picked over GgPlot":
     ## tests that the x, y aesthetics are picked from the present `geom`
     ## if x, y are defined, instead of the `GgPlot` object.
