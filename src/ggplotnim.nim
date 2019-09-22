@@ -1027,9 +1027,13 @@ proc createLineGobj(view: var Viewport,
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0),
                      width = 1.0 ) =
-  ## creates a rectangle for a histogram and adds it to the viewports objects
+  ## creates a rectangle for a histogram and adds it to the viewports object
+  # TODO: replace width argument by float range, so we
+  # only allow values [0.0..1.0]
   if val.float > 0.0:
-    let r = view.initRect(Coord(x: c1(0.0),
+    # calc left side of bar based on width, since we wa t the bar to be centered
+    let left = (1.0 - width) / 2.0
+    let r = view.initRect(Coord(x: c1(left),
                                 y: yPos), # bottom left
                           quant(width, ukRelative),
                           quant(-val.float, ukData),
