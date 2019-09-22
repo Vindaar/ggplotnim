@@ -1517,9 +1517,19 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   var tickLocs: seq[Coord1D]
   let gScale = if scale.axKind == akX: view.xScale else: view.yScale
 
+  # TODO: check if we should use w/hImg here, distinguish the axes
+  let discrMarginOpt = p.theme.discreteScaleMargin
+  var discrMargin = 0.0
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(view.wView)).val
+  doassert view.wview != view.wimg
+  let barViewWidth = (1.0 - 2 * discrMargin) / numTicks.float
+  let centerPos = barViewWidth / 2.0
   for i in 0 ..< numTicks:
     tickLabels.add $scale.labelSeq[i]
-    let pos = i.float / (numTicks - 1).float
+    # in case of a discrete scale we have categories, which are evenly spaced.
+    # taking into account the margin of the plot, calculate center of all categories
+    let pos = discrMargin + i.float * barViewWidth + centerPos
     tickLocs.add Coord1D(pos: pos,
                          kind: ukData,
                          scale: gScale,
