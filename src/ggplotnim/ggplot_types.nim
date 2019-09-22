@@ -130,6 +130,7 @@ type
     ylabel*: Option[string]
     ylabelMargin*: Option[float]
     legendPosition*: Option[Coord]
+    discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
 
   GgPlot*[T] = object
     data*: T

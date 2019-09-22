@@ -442,6 +442,9 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
                      numYticks: 10)
   result.addAes aes
   # TODO: fill others with defaults
+  # add default theme
+  result.theme = Theme(discreteScaleMargin: some(quant(0.2,
+                                                  ukCentimeter)))
 
 func geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
@@ -1322,11 +1325,15 @@ proc createBarGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] 
 
   #of VFloat, VInt:
   #  doAssert false, "not implemented"
+  let discrMarginOpt = p.theme.discreteScaleMargin
+  var discrMargin = quant(0.0, ukRelative)
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet
   let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
   view.layout(numElements + 2, 1,
-              colwidths = concat(@[quant(0.2, ukCentimeter)],
+              colwidths = concat(@[discrMargin],
                                  indWidths,
-                                 @[quant(0.2, ukCentimeter)]))
+                                 @[discrMargin]))
   let toIgnore = toSet([0, numElements + 1])
   var yScaleBase: ginger.Scale
   case vKind
