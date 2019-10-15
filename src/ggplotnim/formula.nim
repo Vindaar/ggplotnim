@@ -979,28 +979,33 @@ proc recurseFind(n: NimNode, cond: NimNode): NimNode =
         result = found
 
 proc buildFormula(n: NimNode): NimNode =
-  expectKind(n, nnkInfix)
+  ## Builds the formula given by `f{}`
+  ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
+  ## created.
+  case n.kind
+  of nnkInfix:
+    let tilde = recurseFind(n,
+                            cond = ident"~")
+    var node = n
+    if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
+      # only reorder the tree, if it does contain a tilde and the
+      # tree is not already ordered (i.e. nnkInfix at top with tilde as
+      # LHS)
+      let replaced = reorderRawTilde(n, tilde)
+      let full = nnkInfix.newTree(tilde[0],
+                                  tilde[1],
+                                  replaced)
+      node = full
 
-  let tilde = recurseFind(n,
-                          cond = ident"~")
-  var node = n
-  if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
-    # only reorder the tree, if it does contain a tilde and the
-    # tree is not already ordered (i.e. nnkInfix at top with tilde as
-    # LHS)
-    let replaced = reorderRawTilde(n, tilde)
-    let full = nnkInfix.newTree(tilde[0],
-                                tilde[1],
-                                replaced)
-    node = full
-
-  let opid = node[0].strVal
-  let op = quote do:
-    parseEnum[ArithmeticKind](`opid`)
-  let lhs = handleSide(node[1])
-  let rhs = handleSide(node[2])
-  result = quote do:
-    FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
+    let opid = node[0].strVal
+    let op = quote do:
+      parseEnum[ArithmeticKind](`opid`)
+    let lhs = handleSide(node[1])
+    let rhs = handleSide(node[2])
+    result = quote do:
+      FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
+  else:
+    result = handleSide(n)
 
 macro `{}`*(x, y: untyped): untyped =
   if x.repr == "f":

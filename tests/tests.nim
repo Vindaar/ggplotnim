@@ -149,6 +149,20 @@ suite "Formula":
     let f = f{"from" ~ 0}
     check $f == "(~ from 0)"
 
+  test "Test formula creation of type `fkVariable`":
+    let f1 = f{"Test"}
+    let f2 = f{1.1}
+    let f3 = f{4}
+    let f4 = f{true}
+    check f1.kind == fkVariable
+    check f2.kind == fkVariable
+    check f3.kind == fkVariable
+    check f4.kind == fkVariable
+    check $f1 == "Test"
+    check $f2 == "1.1"
+    check $f3 == "4"
+    check $f4 == "true"
+
 suite "Geom":
   test "application of aes, style works":
     # Write test which tests that the application of things like an
