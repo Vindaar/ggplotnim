@@ -302,7 +302,7 @@ suite "GgPlot":
     let yLab = plt.children[4].objects.filterIt(it.name == "yLabel")
     template checkLabel(lab, labName, text, posTup, rot): untyped =
       check lab.name == labName
-      check lab.kind == goText
+      check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
       check lab.txtPos.x.toRelative.pos.almostEqual(posTup.x.toRelative.pos)
@@ -339,7 +339,7 @@ suite "GgPlot":
     let yLab = view.objects.filterIt(it.name == "yLabel")
     template checkLabel(lab, labName, text, rot): untyped =
       check lab.name == labName
-      check lab.kind == goText
+      check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
       check lab.rotate == rot
