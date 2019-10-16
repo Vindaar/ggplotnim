@@ -127,7 +127,7 @@ type
     xlabelMargin*: Option[float]
     ylabel*: Option[string]
     ylabelMargin*: Option[float]
-
+    legendPosition*: Option[Coord]
 
   GgPlot*[T] = object
     data*: T

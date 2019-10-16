@@ -682,6 +682,12 @@ proc createLegend(view: var Viewport,
     header.addObj label
     view[startIdx] = header
 
+proc legendPosition*(x = 0.0, y = 0.0): Theme =
+  ## puts the legend at position `(x, y)` in relative coordinates of
+  ## the plot viewport in range (0.0 .. 1.0)
+  result = Theme(legendPosition: some(Coord(x: c1(x),
+                                            y: c1(y))))
+
 proc xlab*(label = "", margin = NaN): Theme =
   if label.len > 0:
     result.xlabel = some(label)
@@ -705,6 +711,8 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
     pltTheme.xlabel = theme.xlabel
   if theme.ylabel.isSome:
     pltTheme.ylabel = theme.ylabel
+  if theme.legendPosition.isSome:
+    pltTheme.legendPosition = theme.legendPosition
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
@@ -1750,6 +1758,10 @@ proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
     #  discard
 
 proc ggcreate*(p: GgPlot): Viewport =
+proc customPosition(t: Theme): bool =
+  ## returns true if `legendPosition` is set and thus legend sits at custom pos
+  result = t.legendPosition.isSome
+
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns the ginger.Viewport, which
   ## only has to be drawn.
@@ -1832,8 +1844,13 @@ proc ggcreate*(p: GgPlot): Viewport =
     # all legends and then calculate the sizes required.
     # set height to number of markers + 1 centimeter
     lg.height = quant((markers.len + 1).float, ukCentimeter)
-    lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
-    lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
+    if customPosition(p.theme):
+      let pos = p.theme.legendPosition.get
+      lg.origin.x = pos.x
+      lg.origin.y = pos.y
+    else:
+      lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
+      lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
     lg.createLegend(scale, markers)
     img[5] = lg
 
