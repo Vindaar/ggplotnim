@@ -237,7 +237,7 @@ proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outTy
   let (x, y) = getXYCols(p, geom)
   result = (x: p.data.dataTo(x, outType), y: p.data.dataTo(y, outType))
 
-proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
+proc fillScale(scaleOpt: Option[Scale], df: DataFrame,
                scKind: static ScaleKind): Option[Scale] =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
@@ -250,9 +250,9 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
   var
     isDiscrete: bool
     vKind: ValueKind
-  if scale.col in p.data:
-    data = p.data.dataTo(scale.col, Value)
-    (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
+  if scale.col in df:
+    data = df.dataTo(scale.col, Value)
+    (isDiscrete, vKind) = discreteAndType(df, scale.col)
   else:
     data = @[Value(kind: VString, str: scale.col)]
     isDiscrete = true
@@ -289,14 +289,14 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       # TODO: make this the result of some proc we call. Maybe add a Formula
       # field, which is evaluated here, so that we apply arbitrary functions,
       # instead of just counting, which is conveniently done via grouping
-      let dfgrouped = p.data.group_by(by = scale.col)
+      let dfgrouped = df.group_by(by = scale.col)
       for keys, subDf in groups(dfgrouped):
         doAssert keys.len == 1
         doAssert keys[0][0] == scale.col
         valueMap[keys[0][1]] = ScaleValue(kind: scLinearData, val: %~ subDf.len)
       #for i, k in res.labelSeq:
       #  # TODO: don't filter here?! Inefficient, since we
-      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
+      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ df.filter(f{scale.col == k}).len)
       #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
@@ -369,7 +369,7 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     #echo "WARNING: scale is continuous! Scales not supported yet"
   result = some(res)
 
-proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
+proc fillAes(df: DataFrame, aes: Aesthetics): Aesthetics =
   # TODO: we must estimate whether the given column is "continuous like" or
   # "discrete like"
   # If continuous like in case of
@@ -377,18 +377,18 @@ proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
   # - shape: raise exception not possible
   # - size: bin the data and use bins as fixed sizes
   result = aes
-  result.x = aes.x.fillScale(p, scLinearData) # TODO: add more data
-  result.y = aes.y.fillScale(p, scLinearData) # TODO: add more data
-  result.color = aes.color.fillScale(p, scColor)
-  result.fill = aes.fill.fillScale(p, scFillColor)
+  result.x = aes.x.fillScale(df, scLinearData) # TODO: add more data
+  result.y = aes.y.fillScale(df, scLinearData) # TODO: add more data
+  result.color = aes.color.fillScale(df, scColor)
+  result.fill = aes.fill.fillScale(df, scFillColor)
   # not implemented yet:
-  #result.shape = aes.shape.fillScale(p, scShape)
-  result.size = aes.size.fillScale(p, scSize)
+  #result.shape = aes.shape.fillScale(df, scShape)
+  result.size = aes.size.fillScale(df, scSize)
 
 proc addAes(p: var GgPlot, aes: Aesthetics) =
   ## adds the aesthetics to the plot. This is non trivial, because
   ## an aestetics encodes information that may have to be calculated
-  p.aes = fillAes(p, aes)
+  p.aes = fillAes(p.data, aes)
 
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
@@ -665,7 +665,10 @@ proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   result = p
   # fill the aesthetics of the geom
   var mgeom = geom
-  mgeom.aes = fillAes(p, geom.aes)
+  if geom.data.isSome:
+    mgeom.aes = fillAes(geom.data.unsafeGet, geom.aes)
+  else:
+    mgeom.aes = fillAes(p.data, geom.aes)
   result.geoms.add mgeom
 
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
