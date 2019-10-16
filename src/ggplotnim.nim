@@ -257,6 +257,9 @@ proc fillScale(scaleOpt: Option[Scale], df: DataFrame,
     data = @[Value(kind: VString, str: scale.col)]
     isDiscrete = true
     vKind = VString
+  if vKind == VNull:
+    echo "WARNING: Unexpected data type VNull of column: ", scale.col, "!"
+    return none[Scale]()
   var res: Scale
   if isDiscrete:
     # generate a discrete `Scale`
