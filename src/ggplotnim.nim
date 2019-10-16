@@ -961,7 +961,7 @@ proc createLineGobj(view: var Viewport,
   for markerStyle, pointIdxs in pairs(msMap):
     var points = newSeq[Point](pointIdxs.len)
     for i, idx in pointIdxs:
-      points[i] = (x: xData[i], y: yData[i])
+      points[i] = (x: xData[idx], y: yData[idx])
     points.sort((x, y: Point) => cmp(x.x, y.x))
     result.add view.initPolyLine(points, some(markerStyle[1]))
 
