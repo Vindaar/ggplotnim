@@ -159,7 +159,7 @@ proc `[]`*(df: DataFrame, k: string, idx: int): Value =
   result = df.data[k][idx]
 
 proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] =
-  ## returns the element at index `idx` in column `k` directly, without
+  ## returns the elements in `slice` in column `k` directly, without
   ## returning the whole vector first
   result = df.data[k][slice.a .. slice.b]
 
@@ -176,13 +176,18 @@ proc `[]=`*(v: var Value, key: string, val: Value) =
   doAssert v.kind == VObject
   v.fields[key] = val
 
-proc `[]`*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
+template `^^`(df, i: untyped): untyped =
+  (when i is BackwardsIndex: df.len - int(i) else: int(i))
+
+proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
   ## returns the vertical slice of the data frame given by `rowSlice`.
   result = DataFrame(len: 0)
+  let a = (df ^^ rowSlice.a)
+  let b = (df ^^ rowSlice.b)
   for k in keys(df):
-    result[k] = toPersistentVector(df[k, rowSlice])
+    result[k] = toPersistentVector(df[k, a .. b])
   # add 1, because it's an ``inclusive`` slice!
-  result.len = (rowSlice.b - rowSlice.a) + 1
+  result.len = (b - a) + 1
 
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
