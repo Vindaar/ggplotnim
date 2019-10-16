@@ -668,7 +668,7 @@ proc createLegend(view: var Viewport,
     view.genContinuousLegend(cat, markers)
 
   # get the first viewport for the header
-  if startIdx > 0:
+  if startIdx < view.len:
     var header = view[startIdx]
     var label = header.initText(
       Coord(x: header.origin.x,
