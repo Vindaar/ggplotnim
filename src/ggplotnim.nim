@@ -1759,19 +1759,16 @@ proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
     #else:
     #  discard
 
-proc ggcreate*(p: GgPlot): Viewport =
 proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
   result = t.legendPosition.isSome
 
+proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): Viewport =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns the ginger.Viewport, which
   ## only has to be drawn.
   ## This proc is useful to investigate the Viewport that will actually
   ## be drawn.
-
-  #template setScale(ax: untyped): Scale =
-
   # TODO: this probably doesn't have to happen here!
   let (xAes, yAes) = getXYAes(p, p.geoms[0])
   let xScale = setInitialScale(p, xAes.x)
@@ -1780,7 +1777,9 @@ proc customPosition(t: Theme): bool =
   # create the plot
   var img = initViewport(xScale = some(xScale),
                          yScale = some(yScale),
-                         name = "root")
+                         name = "root",
+                         wImg = width,
+                         hImg = height)
 
   # NOTE: the question if ``not`` whether a `PLOT` requires a legend
   # but rather whether an `AESTHETIC` with an attached `SCALE` requires
@@ -1858,14 +1857,22 @@ proc ggdraw*(view: Viewport, fname: string) =
   ## `ggcreate`
   view.draw(fname)
 
-proc ggsave*(p: GgPlot, fname: string) =
-  let plt = p.ggcreate()
+proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
+  let plt = p.ggcreate(width = width, height = height)
   plt.ggdraw(fname)
 
-proc ggsave*(fname: string): Draw = Draw(fname: fname)
+proc ggsave*(fname: string, width = 640.0, height = 480.0): Draw =
+  Draw(fname: fname,
+       width: some(width),
+       height: some(height))
 
 proc `+`*(p: GgPlot, d: Draw) =
-  p.ggsave(d.fname)
+  if d.width.isSome and d.height.isSome:
+    p.ggsave(d.fname,
+             width = d.width.get,
+             height = d.height.get)
+  else:
+    p.ggsave(d.fname)
 
 proc ggvega*(): VegaDraw = VegaDraw()
 
