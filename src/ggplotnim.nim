@@ -1776,24 +1776,6 @@ proc customPosition(t: Theme): bool =
   let (xAes, yAes) = getXYAes(p, p.geoms[0])
   let xScale = setInitialScale(p, xAes.x)
   let yScale = setInitialScale(p, yAes.y)
-  # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
-  # also `string` data, after reading `xdata` not into `float`, but into `Value`.
-  # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
-  # gives us `VFloat` values, instead of `VString` with floats as string
-  # For a `DataFrame` this should work, but for a `Table` it won't (as it's
-  # `seq[string]` internally).
-  #let
-  #  minX = xdata.min
-  #  maxX = xdata.max
-  #xScale = (low: minX, high: maxX)
-  #var
-  #  minY: float
-  #  maxY: float
-  #if yAes.y.isSome: #p.aes.y.isSome:
-  #  let ydata = p.data.dataTo(p.aes.y.get.col, float)
-  #  minY = ydata.min
-  #  maxY = ydata.max
-  #  yScale = (low: minY, high: maxY)
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
