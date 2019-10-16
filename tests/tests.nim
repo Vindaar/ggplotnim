@@ -107,6 +107,14 @@ suite "Value":
     check $n19 == "\"2.007E+00\""
     check $n20 == "\"9.329E-01\""
 
+  test "Math with Values":
+    check (v1 * v2).kind == VFloat
+    check (v1 + v1).kind == VFloat
+    check (v1 + v1) == %~ 2
+    check (v1 * v1).kind == VFloat
+    check almostEqual((v1 * v2).toFloat, 1.5)
+    check almostEqual((v1 / v2).toFloat, 2.0 / 3.0)
+    check v1 * v6 == Value(kind: VNull)
 
 suite "Formula":
   test "Testing ~ formula creation":

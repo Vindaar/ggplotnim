@@ -456,6 +456,8 @@ template makeMath(op: untyped): untyped =
     if v.kind in {VFloat, VInt} and
        w.kind in {VFloat, VInt}:
       result = Value(kind: VFloat, fnum: `op`(v.toFloat, w.toFloat))
+    elif v.kind == VNull or w.kind == VNull:
+      result = Value(kind: VNull)
     else:
       raise newException(Exception, "Math operation does not make sense for " &
         "Value kind " & $v.kind & "!")
