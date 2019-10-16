@@ -107,6 +107,14 @@ suite "Value":
     check $n19 == "\"2.007E+00\""
     check $n20 == "\"9.329E-01\""
 
+  test "Math with Values":
+    check (v1 * v2).kind == VFloat
+    check (v1 + v1).kind == VFloat
+    check (v1 + v1) == %~ 2
+    check (v1 * v1).kind == VFloat
+    check almostEqual((v1 * v2).toFloat, 1.5)
+    check almostEqual((v1 / v2).toFloat, 2.0 / 3.0)
+    check v1 * v6 == Value(kind: VNull)
 
 suite "Formula":
   test "Testing ~ formula creation":
@@ -302,7 +310,7 @@ suite "GgPlot":
     let yLab = plt.children[4].objects.filterIt(it.name == "yLabel")
     template checkLabel(lab, labName, text, posTup, rot): untyped =
       check lab.name == labName
-      check lab.kind == goText
+      check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
       check lab.txtPos.x.toRelative.pos.almostEqual(posTup.x.toRelative.pos)
@@ -339,7 +347,7 @@ suite "GgPlot":
     let yLab = view.objects.filterIt(it.name == "yLabel")
     template checkLabel(lab, labName, text, rot): untyped =
       check lab.name == labName
-      check lab.kind == goText
+      check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
       check lab.rotate == rot

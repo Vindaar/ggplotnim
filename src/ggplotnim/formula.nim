@@ -45,6 +45,7 @@ type
     amDiv = "/"
     amDep = "~"
     amEqual = "=="
+    amUnequal = "!="
     amGreater = ">"
     amLess = "<"
     amGeq = ">="
@@ -158,7 +159,7 @@ proc `[]`*(df: DataFrame, k: string, idx: int): Value =
   result = df.data[k][idx]
 
 proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] =
-  ## returns the element at index `idx` in column `k` directly, without
+  ## returns the elements in `slice` in column `k` directly, without
   ## returning the whole vector first
   result = df.data[k][slice.a .. slice.b]
 
@@ -175,13 +176,18 @@ proc `[]=`*(v: var Value, key: string, val: Value) =
   doAssert v.kind == VObject
   v.fields[key] = val
 
-proc `[]`*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
+template `^^`(df, i: untyped): untyped =
+  (when i is BackwardsIndex: df.len - int(i) else: int(i))
+
+proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
   ## returns the vertical slice of the data frame given by `rowSlice`.
   result = DataFrame(len: 0)
+  let a = (df ^^ rowSlice.a)
+  let b = (df ^^ rowSlice.b)
   for k in keys(df):
-    result[k] = toPersistentVector(df[k, rowSlice])
+    result[k] = toPersistentVector(df[k, a .. b])
   # add 1, because it's an ``inclusive`` slice!
-  result.len = (rowSlice.b - rowSlice.a) + 1
+  result.len = (b - a) + 1
 
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
@@ -450,6 +456,8 @@ template makeMath(op: untyped): untyped =
     if v.kind in {VFloat, VInt} and
        w.kind in {VFloat, VInt}:
       result = Value(kind: VFloat, fnum: `op`(v.toFloat, w.toFloat))
+    elif v.kind == VNull or w.kind == VNull:
+      result = Value(kind: VNull)
     else:
       raise newException(Exception, "Math operation does not make sense for " &
         "Value kind " & $v.kind & "!")
@@ -659,6 +667,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v.toFloat.nearlyEqual(f.rhs.val.toFloat)
+    of amUnequal:
+      result = not v.toFloat.nearlyEqual(f.rhs.val.toFloat)
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -675,6 +685,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v == f.rhs.val
+    of amUnequal:
+      result = v != f.rhs.val
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -687,6 +699,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v == f.rhs.val
+    of amUnequal:
+      result = v != f.rhs.val
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -711,7 +725,7 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
 proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert v.kind == VObject
   doAssert f.kind == fkTerm
-  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  doAssert f.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq}
   let lhsKey = f.lhs.val
   doAssert f.lhs.val.kind == VString
   result = v[lhsKey.str].isValidVal(f)
@@ -746,7 +760,7 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
-  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
+  doAssert c.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
   # returns a proc which contains the condition given by the Formulas
@@ -930,25 +944,6 @@ proc constructFunction*(n: NimNode): NimNode =
     let fnArg = extractFunction(`fn`)
     createFormula(`fname`, fnArg, `arg`)
 
-proc buildFormula(n: NimNode): NimNode
-proc handleSide(n: NimNode): NimNode =
-  case n.kind
-  of nnkInfix:
-    result = buildFormula(n)
-  of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
-    result = constructVariable(n)
-  of nnkIdent:
-    # should correspond to a known identifier in the calling scope
-    result = constructVariable(n)
-  of nnkCall:
-    result = constructFunction(n)
-  of nnkPar:
-    result = buildFormula(n[0]) #constructFunction(n[0])
-  of nnkDotExpr:
-    result = constructVariable(n)
-  else:
-    raise newException(Exception, "Not implemented! " & $n.kind)
-
 proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   ## a helper proc to reorder an nnkInfix tree according to the
   ## `~` contained in it, so that `~` is at the top tree.
@@ -978,34 +973,53 @@ proc recurseFind(n: NimNode, cond: NimNode): NimNode =
       if found.kind != nnkNilLIt:
         result = found
 
+proc buildFormula(n: NimNode): NimNode
+proc handleInfix(n: NimNode): NimNode =
+  ## Builds the formula given by `f{}`
+  ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
+  ## created.
+  expectKind(n, nnkInfix)
+  let tilde = recurseFind(n,
+                          cond = ident"~")
+  var node = n
+  if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
+    # only reorder the tree, if it does contain a tilde and the
+    # tree is not already ordered (i.e. nnkInfix at top with tilde as
+    # LHS)
+    let replaced = reorderRawTilde(n, tilde)
+    let full = nnkInfix.newTree(tilde[0],
+                                tilde[1],
+                                replaced)
+    node = full
+
+  let opid = node[0].strVal
+  let op = quote do:
+    parseEnum[ArithmeticKind](`opid`)
+  let lhs = buildFormula(node[1])
+  let rhs = buildFormula(node[2])
+  result = quote do:
+    FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
+
 proc buildFormula(n: NimNode): NimNode =
   ## Builds the formula given by `f{}`
   ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
   ## created.
   case n.kind
   of nnkInfix:
-    let tilde = recurseFind(n,
-                            cond = ident"~")
-    var node = n
-    if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
-      # only reorder the tree, if it does contain a tilde and the
-      # tree is not already ordered (i.e. nnkInfix at top with tilde as
-      # LHS)
-      let replaced = reorderRawTilde(n, tilde)
-      let full = nnkInfix.newTree(tilde[0],
-                                  tilde[1],
-                                  replaced)
-      node = full
-
-    let opid = node[0].strVal
-    let op = quote do:
-      parseEnum[ArithmeticKind](`opid`)
-    let lhs = handleSide(node[1])
-    let rhs = handleSide(node[2])
-    result = quote do:
-      FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
+    result = handleInfix(n)
+  of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
+    result = constructVariable(n)
+  of nnkIdent:
+    # should correspond to a known identifier in the calling scope
+    result = constructVariable(n)
+  of nnkCall:
+    result = constructFunction(n)
+  of nnkPar:
+    result = buildFormula(n[0]) #constructFunction(n[0])
+  of nnkDotExpr:
+    result = constructVariable(n)
   else:
-    result = handleSide(n)
+    raise newException(Exception, "Not implemented! " & $n.kind)
 
 macro `{}`*(x, y: untyped): untyped =
   if x.repr == "f":
@@ -1405,6 +1419,14 @@ template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
   let args = zip(ids, dfs)
   bind_rows(args, id)
 
+proc head*(df: DataFrame, num: int): DataFrame =
+  ## returns the head of the DataFrame. `num` elements
+  result = df[0 ..< num]
+
+proc tail*(df: DataFrame, num: int): DataFrame =
+  ## returns the tail of the DataFrame. `num` elements
+  result = df[^num .. df.high]
+
 ################################################################################
 ####### FORMULA
 ################################################################################
@@ -1717,6 +1739,8 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
       result = %~ (node.lhs.evaluate(data, idx).toBool xor node.rhs.evaluate(data, idx).toBool)
     of amEqual:
       result = %~ (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
+    of amUnequal:
+      result = %~ (node.lhs.evaluate(data, idx) != node.rhs.evaluate(data, idx))
     of amDep:
       raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
   of fkFunction:

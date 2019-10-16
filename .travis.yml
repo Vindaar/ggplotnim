@@ -1,0 +1,47 @@
+sudo: required
+
+os:
+  - linux
+
+language: c
+dist: xenial
+
+matrix:
+  include:
+    # Build and test against the master (stable) and devel branches of Nim
+    # Build and test using both gcc and clang
+    - os: linux
+      env: CHANNEL=stable
+      compiler: gcc
+
+    - os: linux
+      env: CHANNEL=devel
+      compiler: gcc
+
+cache:
+  directories:
+    - "$HOME/.nimble"
+    - "$HOME/.choosenim"
+
+addons:
+  apt:
+     packages:
+       - libcairo2
+       - libcairo2-dev
+
+install:
+  - curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+  - sh init.sh -y
+  - export PATH=$HOME/.nimble/bin:$PATH
+  - nimble refresh -y
+  - git clone https://github.com/Vindaar/chroma
+  - pushd chroma
+  - git fetch origin
+  - git checkout -t origin/addMoreSpaces
+  - nimble develop -y
+  - popd
+  - choosenim $CHANNEL
+
+script:
+  - nimble install -y
+  - nimble -y test

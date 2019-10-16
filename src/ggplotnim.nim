@@ -237,7 +237,7 @@ proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outTy
   let (x, y) = getXYCols(p, geom)
   result = (x: p.data.dataTo(x, outType), y: p.data.dataTo(y, outType))
 
-proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
+proc fillScale(scaleOpt: Option[Scale], df: DataFrame,
                scKind: static ScaleKind): Option[Scale] =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
@@ -250,13 +250,16 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
   var
     isDiscrete: bool
     vKind: ValueKind
-  if scale.col in p.data:
-    data = p.data.dataTo(scale.col, Value)
-    (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
+  if scale.col in df:
+    data = df.dataTo(scale.col, Value)
+    (isDiscrete, vKind) = discreteAndType(df, scale.col)
   else:
     data = @[Value(kind: VString, str: scale.col)]
     isDiscrete = true
     vKind = VString
+  if vKind == VNull:
+    echo "WARNING: Unexpected data type VNull of column: ", scale.col, "!"
+    return none[Scale]()
   var res: Scale
   if isDiscrete:
     # generate a discrete `Scale`
@@ -289,14 +292,14 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
       # TODO: make this the result of some proc we call. Maybe add a Formula
       # field, which is evaluated here, so that we apply arbitrary functions,
       # instead of just counting, which is conveniently done via grouping
-      let dfgrouped = p.data.group_by(by = scale.col)
+      let dfgrouped = df.group_by(by = scale.col)
       for keys, subDf in groups(dfgrouped):
         doAssert keys.len == 1
         doAssert keys[0][0] == scale.col
         valueMap[keys[0][1]] = ScaleValue(kind: scLinearData, val: %~ subDf.len)
       #for i, k in res.labelSeq:
       #  # TODO: don't filter here?! Inefficient, since we
-      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ p.data.filter(f{scale.col == k}).len)
+      #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ df.filter(f{scale.col == k}).len)
       #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
@@ -369,7 +372,7 @@ proc fillScale(scaleOpt: Option[Scale], p: GgPlot,
     #echo "WARNING: scale is continuous! Scales not supported yet"
   result = some(res)
 
-proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
+proc fillAes(df: DataFrame, aes: Aesthetics): Aesthetics =
   # TODO: we must estimate whether the given column is "continuous like" or
   # "discrete like"
   # If continuous like in case of
@@ -377,18 +380,18 @@ proc fillAes(p: GgPlot, aes: Aesthetics): Aesthetics =
   # - shape: raise exception not possible
   # - size: bin the data and use bins as fixed sizes
   result = aes
-  result.x = aes.x.fillScale(p, scLinearData) # TODO: add more data
-  result.y = aes.y.fillScale(p, scLinearData) # TODO: add more data
-  result.color = aes.color.fillScale(p, scColor)
-  result.fill = aes.fill.fillScale(p, scFillColor)
+  result.x = aes.x.fillScale(df, scLinearData) # TODO: add more data
+  result.y = aes.y.fillScale(df, scLinearData) # TODO: add more data
+  result.color = aes.color.fillScale(df, scColor)
+  result.fill = aes.fill.fillScale(df, scFillColor)
   # not implemented yet:
-  #result.shape = aes.shape.fillScale(p, scShape)
-  result.size = aes.size.fillScale(p, scSize)
+  #result.shape = aes.shape.fillScale(df, scShape)
+  result.size = aes.size.fillScale(df, scSize)
 
 proc addAes(p: var GgPlot, aes: Aesthetics) =
   ## adds the aesthetics to the plot. This is non trivial, because
   ## an aestetics encodes information that may have to be calculated
-  p.aes = fillAes(p, aes)
+  p.aes = fillAes(p.data, aes)
 
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
@@ -480,7 +483,6 @@ func geom_line*(aes: Aesthetics = aes(),
                                   fillColor: transparent)),
                 aes: aes)
 
-
 func geom_histogram*(aes: Aesthetics = aes(),
                      binWidth = 0.0, bins = 30,
                      color: Color = grey20, # color of the bars
@@ -544,6 +546,48 @@ proc scale_y_log10*(): Scale =
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
 
+func sec_axis*(trans: FormulaNode = nil, name: string = ""): SecondaryAxis =
+  ## convenience proc to create a `SecondaryAxis`
+  var fn: Option[FormulaNode]
+  if not trans.isNil:
+    fn = some(trans)
+  result = SecondaryAxis(trans: fn,
+                         name: name)
+
+proc scale_x_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis()): Scale =
+  ## creates a continuous x axis with a possible secondary axis.
+  # NOTE: See note for y axis below
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akX
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akX,
+                 dcKind: dcContinuous,
+                 secondaryAxis: secAxisOpt)
+
+proc scale_y_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis()): Scale =
+  ## creates a continuous y axis with a possible secondary axis.
+  # NOTE: so far this only allows to set the name (read label) of the
+  # axis. Also the possible transformation for the secondary axis
+  # is ignored!
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akY
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akY,
+                 dcKind: dcContinuous,
+                 secondaryAxis: secAxisOpt)
+
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
 proc genDiscreteLegend(view: var Viewport,
@@ -593,6 +637,7 @@ proc genDiscreteLegend(view: var Viewport,
            c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
         y: c1(0.5)),
       labelText,
+      textKind = goText,
       alignKind = taLeft,
       name = "markerText"
     )
@@ -623,18 +668,25 @@ proc createLegend(view: var Viewport,
     view.genContinuousLegend(cat, markers)
 
   # get the first viewport for the header
-  if startIdx > 0:
+  if startIdx < view.len:
     var header = view[startIdx]
     var label = header.initText(
       Coord(x: header.origin.x,
             y: c1(0.5)),
       cat.col,
+      textKind = goText,
       alignKind = taLeft,
       name = "legendHeader")
     # set to bold
     label.txtFont.bold = true
     header.addObj label
     view[startIdx] = header
+
+proc legendPosition*(x = 0.0, y = 0.0): Theme =
+  ## puts the legend at position `(x, y)` in relative coordinates of
+  ## the plot viewport in range (0.0 .. 1.0)
+  result = Theme(legendPosition: some(Coord(x: c1(x),
+                                            y: c1(y))))
 
 proc xlab*(label = "", margin = NaN): Theme =
   if label.len > 0:
@@ -659,13 +711,18 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
     pltTheme.xlabel = theme.xlabel
   if theme.ylabel.isSome:
     pltTheme.ylabel = theme.ylabel
+  if theme.legendPosition.isSome:
+    pltTheme.legendPosition = theme.legendPosition
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
   # fill the aesthetics of the geom
   var mgeom = geom
-  mgeom.aes = fillAes(p, geom.aes)
+  if geom.data.isSome:
+    mgeom.aes = fillAes(geom.data.unsafeGet, geom.aes)
+  else:
+    mgeom.aes = fillAes(p.data, geom.aes)
   result.geoms.add mgeom
 
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
@@ -702,10 +759,12 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
     case scale.axKind
     of akX:
       if aes.x.isSome:
+        mscale.dataScale = aes.x.get.dataScale
         mscale.col = aes.x.get.col
         result.x = some(mscale)
     of akY:
       if aes.y.isSome:
+        mscale.dataScale = aes.y.get.dataScale
         mscale.col = aes.y.get.col
         result.y = some(mscale)
   of scFillColor, scColor: result.color = some(mscale)
@@ -961,7 +1020,7 @@ proc createLineGobj(view: var Viewport,
   for markerStyle, pointIdxs in pairs(msMap):
     var points = newSeq[Point](pointIdxs.len)
     for i, idx in pointIdxs:
-      points[i] = (x: xData[i], y: yData[i])
+      points[i] = (x: xData[idx], y: yData[idx])
     points.sort((x, y: Point) => cmp(x.x, y.x))
     result.add view.initPolyLine(points, some(markerStyle[1]))
 
@@ -1383,12 +1442,29 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   labPos.add log10(maxv)
   result = (labs, labPos)
 
+func getSecondaryAxis(p: GgPlot, axKind: AxisKind): SecondaryAxis =
+  case axKind
+  of akX:
+    result = p.aes.x.get.secondaryAxis.get
+  of akY:
+    result = p.aes.y.get.secondaryAxis.get
+
+func hasSecondary(p: GgPlot, axKind: AxisKind): bool =
+  case axKind
+  of akX:
+    if p.aes.x.isSome and p.aes.x.get.secondaryAxis.isSome:
+      result = true
+  of akY:
+    if p.aes.y.isSome and p.aes.y.get.secondaryAxis.isSome:
+      result = true
+
 proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                           scale: Scale, numTicks: int): seq[GraphObject] =
+                           scale: Scale, numTicks: int,
+                           isSecondary = false): seq[GraphObject] =
   case scale.scKind
   of scLinearData:
-    let ticks = view.initTicks(axKind, numTicks)
-    let tickLabs = view.tickLabels(ticks)
+    let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary)
+    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary)
     view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
@@ -1411,17 +1487,20 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                                         axis: akY))
       view.yScale = (low: log10(minVal), high: log10(maxVal))
 
-    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
+    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary)
     view.addObj concat(tickObjs, labObjs)
     result = tickObjs
   else: discard
 
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                         scale: Scale): seq[GraphObject] =
+                         scale: Scale,
+                         isSecondary = false): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
   # start with even for all
+  if isSecondary:
+    raise newException(Exception, "Secondary axis for discrete axis not yet implemented!")
   let numTicks = scale.labelSeq.len
   var tickLabels: seq[string]
   var tickLocs: seq[Coord1D]
@@ -1453,8 +1532,14 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
     case sc.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, sc)
+      if hasSecondary(p, axKind):
+        let secAxis = p.getSecondaryAxis(axKind)
+        result.add view.handleDiscreteTicks(p, axKind, sc, isSecondary = true)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, sc, numTicks)
+      if hasSecondary(p, axKind):
+        let secAxis = p.getSecondaryAxis(axKind)
+        result.add view.handleContinuousTicks(p, axKind, sc, numTicks, isSecondary = true)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
@@ -1477,21 +1562,44 @@ template argMaxIt(s, arg: untyped): untyped =
         maxVal = arg
     maxId
 
+func labelName(p: GgPlot, axKind: AxisKind): string =
+  ## extracts the correct label for the given axis.
+  ## First checks whether the theme sets a name, then checks the name of the
+  ## x / y `Scale` and finally defaults to the column name.
+  doAssert p.aes.x.isSome, "x scale should exist?"
+  case axKind
+  of akX:
+    if p.theme.xlabel.isSome:
+      result = p.theme.xlabel.get
+    elif p.aes.x.get.name.len > 0:
+      result = p.aes.x.get.name
+    else:
+      result = p.aes.x.get.col
+  of akY:
+    if p.theme.ylabel.isSome:
+      result = p.theme.ylabel.get
+    elif p.aes.y.isSome and p.aes.y.get.name.len > 0:
+      result = p.aes.y.get.name
+    elif p.aes.y.isSome:
+      result = p.aes.y.get.col
+    else:
+      result = "count"
+
 proc handleLabels(view: var Viewport, p: GgPlot) =
   ## potentially moves the label positions and enlarges the areas (not yet)
+  ## potentially moves the label positions and enlarges the areas (not yet)
   ## for the y label / tick label column or x row.
-  # essentially check whether
   # TODO: clean this up!
   var
     xLabObj: GraphObject
     yLabObj: GraphObject
-    xlabTxt = ""
-    ylabTxt = ""
     xMargin: Coord1D
     yMargin: Coord1D
+  let
+    xlabTxt = labelName(p, akX)
+    ylabTxt = labelName(p, akY)
   #if p.theme.xlabelMargin.isSome:
   #  marginVal = p.theme.xlabelMargin.get
-  xlabTxt = if p.theme.xlabel.isSome: p.theme.xlabel.get else: p.aes.x.get.col
   template getMargin(marginVar, themeField, name, axKind: untyped): untyped =
     if not themeField.isSome:
       let labs = view.objects.filterIt(it.name == name)#"ytickLabel")
@@ -1505,30 +1613,39 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
       of akY:
         marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
                             text: labNames[labLens], font: font)
-  template createLabel(label, labproc, labTxt, themeField, marginVal: untyped): untyped =
+  template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
+                       isSecond = false): untyped =
     if themeField.isSome:
       label = labproc(view,
                       labTxt,
                       margin = get(themeField),
-                      isCustomMargin = true)
+                      isCustomMargin = true,
+                      isSecondary = isSecond)
     else:
       label = labproc(view,
                       labTxt,
-                      margin = marginVal)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
+                      margin = marginVal,
+                      isSecondary = isSecond)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
 
   getMargin(xMargin, p.theme.xlabelMargin, "xtickLabel", akX)
   getMargin(yMargin, p.theme.ylabelMargin, "ytickLabel", akY)
-  case p.geoms[0].kind
-  of gkPoint, gkLine:
-    ylabTxt = if p.theme.ylabel.isSome: p.theme.ylabel.get else: p.aes.y.get.col
-  of gkHistogram:
-    ylabTxt = "count"
-    #ylabel = view.ylabel("count", margin = yMargin)
-  else: discard
   createLabel(yLabObj, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
   createLabel(xLabObj, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
 
   view.addObj @[xLabObj, yLabObj]
+
+  if hasSecondary(p, akX):
+    let secAxis = p.getSecondaryAxis(akX)
+    var labSec: GraphObject
+    createLabel(labSec, xlabel, secAxis.name, p.theme.yLabelMargin, 0.0,#xMargin,
+                true)
+    view.addObj @[labSec]
+  if hasSecondary(p, akY):
+    let secAxis = p.getSecondaryAxis(akY)
+    var labSec: GraphObject
+    createLabel(labSec, ylabel, secAxis.name, p.theme.yLabelMargin, 0.0,#yMargin,
+                true)
+    view.addObj @[labSec]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
@@ -1599,6 +1716,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     let text = pair.mapIt($it[0] & ": " & $it[1]).join(", ")
     let headerText = headerView.initText(c(0.5, 0.5),
                                          text,
+                                         textKind = goText,
                                          alignKind = taCenter,
                                          name = "facetHeaderText")
     headerView.addObj headerText
@@ -1641,42 +1759,27 @@ proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
     #else:
     #  discard
 
-proc ggcreate*(p: GgPlot): Viewport =
+proc customPosition(t: Theme): bool =
+  ## returns true if `legendPosition` is set and thus legend sits at custom pos
+  result = t.legendPosition.isSome
+
+proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): Viewport =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns the ginger.Viewport, which
   ## only has to be drawn.
   ## This proc is useful to investigate the Viewport that will actually
   ## be drawn.
-
-  #template setScale(ax: untyped): Scale =
-
   # TODO: this probably doesn't have to happen here!
   let (xAes, yAes) = getXYAes(p, p.geoms[0])
   let xScale = setInitialScale(p, xAes.x)
   let yScale = setInitialScale(p, yAes.y)
-  # TODO: Check if `xdata.isDiscreteData` and handle discrete cases (possibly
-  # also `string` data, after reading `xdata` not into `float`, but into `Value`.
-  # TODO2: For latter we must make sure that reading `xdata` as `Value` actually
-  # gives us `VFloat` values, instead of `VString` with floats as string
-  # For a `DataFrame` this should work, but for a `Table` it won't (as it's
-  # `seq[string]` internally).
-  #let
-  #  minX = xdata.min
-  #  maxX = xdata.max
-  #xScale = (low: minX, high: maxX)
-  #var
-  #  minY: float
-  #  maxY: float
-  #if yAes.y.isSome: #p.aes.y.isSome:
-  #  let ydata = p.data.dataTo(p.aes.y.get.col, float)
-  #  minY = ydata.min
-  #  maxY = ydata.max
-  #  yScale = (low: minY, high: maxY)
 
   # create the plot
   var img = initViewport(xScale = some(xScale),
                          yScale = some(yScale),
-                         name = "root")
+                         name = "root",
+                         wImg = width,
+                         hImg = height)
 
   # NOTE: the question if ``not`` whether a `PLOT` requires a legend
   # but rather whether an `AESTHETIC` with an attached `SCALE` requires
@@ -1724,8 +1827,13 @@ proc ggcreate*(p: GgPlot): Viewport =
     # all legends and then calculate the sizes required.
     # set height to number of markers + 1 centimeter
     lg.height = quant((markers.len + 1).float, ukCentimeter)
-    lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
-    lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
+    if customPosition(p.theme):
+      let pos = p.theme.legendPosition.get
+      lg.origin.x = pos.x
+      lg.origin.y = pos.y
+    else:
+      lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
+      lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
     lg.createLegend(scale, markers)
     img[5] = lg
 
@@ -1736,7 +1844,8 @@ proc ggcreate*(p: GgPlot): Viewport =
                     color: black)
     let title = titleView.initText(c(0.0, 0.5),
                                    p.title,
-                                   taLeft,
+                                   textKind = goText,
+                                   alignKind = taLeft,
                                    font = some(font))
     titleView.addObj title
     img[1] = titleView
@@ -1748,14 +1857,22 @@ proc ggdraw*(view: Viewport, fname: string) =
   ## `ggcreate`
   view.draw(fname)
 
-proc ggsave*(p: GgPlot, fname: string) =
-  let plt = p.ggcreate()
+proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
+  let plt = p.ggcreate(width = width, height = height)
   plt.ggdraw(fname)
 
-proc ggsave*(fname: string): Draw = Draw(fname: fname)
+proc ggsave*(fname: string, width = 640.0, height = 480.0): Draw =
+  Draw(fname: fname,
+       width: some(width),
+       height: some(height))
 
 proc `+`*(p: GgPlot, d: Draw) =
-  p.ggsave(d.fname)
+  if d.width.isSome and d.height.isSome:
+    p.ggsave(d.fname,
+             width = d.width.get,
+             height = d.height.get)
+  else:
+    p.ggsave(d.fname)
 
 proc ggvega*(): VegaDraw = VegaDraw()
 
