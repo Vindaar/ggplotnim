@@ -596,6 +596,7 @@ proc genDiscreteLegend(view: var Viewport,
            c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
         y: c1(0.5)),
       labelText,
+      textKind = goText,
       alignKind = taLeft,
       name = "markerText"
     )
@@ -632,6 +633,7 @@ proc createLegend(view: var Viewport,
       Coord(x: header.origin.x,
             y: c1(0.5)),
       cat.col,
+      textKind = goText,
       alignKind = taLeft,
       name = "legendHeader")
     # set to bold
@@ -1605,6 +1607,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
     let text = pair.mapIt($it[0] & ": " & $it[1]).join(", ")
     let headerText = headerView.initText(c(0.5, 0.5),
                                          text,
+                                         textKind = goText,
                                          alignKind = taCenter,
                                          name = "facetHeaderText")
     headerView.addObj headerText
@@ -1742,7 +1745,8 @@ proc ggcreate*(p: GgPlot): Viewport =
                     color: black)
     let title = titleView.initText(c(0.0, 0.5),
                                    p.title,
-                                   taLeft,
+                                   textKind = goText,
+                                   alignKind = taLeft,
                                    font = some(font))
     titleView.addObj title
     img[1] = titleView
