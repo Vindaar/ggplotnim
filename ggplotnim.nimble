@@ -19,3 +19,4 @@ requires "persvector#head"
 task test, "Run tests":
   exec "nim c -r tests/testDF.nim"
   exec "nim c -r tests/tests.nim"
+  exec "nim c -r tests/test_issue2.nim"
