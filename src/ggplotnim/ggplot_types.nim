@@ -51,6 +51,11 @@ type
   #  btTrue, # for Scales, which belong to an axis, e.g. continuous x, y
   #  btFalse # for Scales that do not directly belong to an axis, e.g. color Scale
 
+  SecondaryAxis* = object
+    trans*: Option[FormulaNode] # possible transformation of the first axis to arrive at second
+    name*: string
+    axKind*: AxisKind
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -59,6 +64,7 @@ type
   Scale* = object
     # the column which this scale corresponds to
     col*: string
+    name*: string
     vKind*: ValueKind # the value kind of the data of `col`
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
@@ -69,6 +75,7 @@ type
       # For scLinearData the transformation proc is just the identity (or
       # not defined) and will never be called
       trans*: proc(v: Value): Value
+      secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:

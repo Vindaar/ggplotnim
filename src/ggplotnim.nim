@@ -483,7 +483,6 @@ func geom_line*(aes: Aesthetics = aes(),
                                   fillColor: transparent)),
                 aes: aes)
 
-
 func geom_histogram*(aes: Aesthetics = aes(),
                      binWidth = 0.0, bins = 30,
                      color: Color = grey20, # color of the bars
@@ -546,6 +545,48 @@ proc scale_y_log10*(): Scale =
                  dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
                           result = %~ log10(v.toFloat))
+
+func sec_axis*(trans: FormulaNode = nil, name: string = ""): SecondaryAxis =
+  ## convenience proc to create a `SecondaryAxis`
+  var fn: Option[FormulaNode]
+  if not trans.isNil:
+    fn = some(trans)
+  result = SecondaryAxis(trans: fn,
+                         name: name)
+
+proc scale_x_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis()): Scale =
+  ## creates a continuous x axis with a possible secondary axis.
+  # NOTE: See note for y axis below
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akX
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akX,
+                 dcKind: dcContinuous,
+                 secondaryAxis: secAxisOpt)
+
+proc scale_y_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis()): Scale =
+  ## creates a continuous y axis with a possible secondary axis.
+  # NOTE: so far this only allows to set the name (read label) of the
+  # axis. Also the possible transformation for the secondary axis
+  # is ignored!
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akY
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akY,
+                 dcKind: dcContinuous,
+                 secondaryAxis: secAxisOpt)
 
 proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
 
@@ -1391,12 +1432,29 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   labPos.add log10(maxv)
   result = (labs, labPos)
 
+func getSecondaryAxis(p: GgPlot, axKind: AxisKind): SecondaryAxis =
+  case axKind
+  of akX:
+    result = p.aes.x.get.secondaryAxis.get
+  of akY:
+    result = p.aes.y.get.secondaryAxis.get
+
+func hasSecondary(p: GgPlot, axKind: AxisKind): bool =
+  case axKind
+  of akX:
+    if p.aes.x.isSome and p.aes.x.get.secondaryAxis.isSome:
+      result = true
+  of akY:
+    if p.aes.y.isSome and p.aes.y.get.secondaryAxis.isSome:
+      result = true
+
 proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                           scale: Scale, numTicks: int): seq[GraphObject] =
+                           scale: Scale, numTicks: int,
+                           isSecondary = false): seq[GraphObject] =
   case scale.scKind
   of scLinearData:
-    let ticks = view.initTicks(axKind, numTicks)
-    let tickLabs = view.tickLabels(ticks)
+    let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary)
+    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary)
     view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
@@ -1419,17 +1477,20 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                                         axis: akY))
       view.yScale = (low: log10(minVal), high: log10(maxVal))
 
-    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind)
+    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary)
     view.addObj concat(tickObjs, labObjs)
     result = tickObjs
   else: discard
 
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                         scale: Scale): seq[GraphObject] =
+                         scale: Scale,
+                         isSecondary = false): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
   # start with even for all
+  if isSecondary:
+    raise newException(Exception, "Secondary axis for discrete axis not yet implemented!")
   let numTicks = scale.labelSeq.len
   var tickLabels: seq[string]
   var tickLocs: seq[Coord1D]
@@ -1461,8 +1522,14 @@ proc handleTicks(view: var Viewport, p: GgPlot, axKind: AxisKind): seq[GraphObje
     case sc.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, sc)
+      if hasSecondary(p, axKind):
+        let secAxis = p.getSecondaryAxis(axKind)
+        result.add view.handleDiscreteTicks(p, axKind, sc, isSecondary = true)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, sc, numTicks)
+      if hasSecondary(p, axKind):
+        let secAxis = p.getSecondaryAxis(axKind)
+        result.add view.handleContinuousTicks(p, axKind, sc, numTicks, isSecondary = true)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
@@ -1485,21 +1552,44 @@ template argMaxIt(s, arg: untyped): untyped =
         maxVal = arg
     maxId
 
+func labelName(p: GgPlot, axKind: AxisKind): string =
+  ## extracts the correct label for the given axis.
+  ## First checks whether the theme sets a name, then checks the name of the
+  ## x / y `Scale` and finally defaults to the column name.
+  doAssert p.aes.x.isSome, "x scale should exist?"
+  case axKind
+  of akX:
+    if p.theme.xlabel.isSome:
+      result = p.theme.xlabel.get
+    elif p.aes.x.get.name.len > 0:
+      result = p.aes.x.get.name
+    else:
+      result = p.aes.x.get.col
+  of akY:
+    if p.theme.ylabel.isSome:
+      result = p.theme.ylabel.get
+    elif p.aes.y.isSome and p.aes.y.get.name.len > 0:
+      result = p.aes.y.get.name
+    elif p.aes.y.isSome:
+      result = p.aes.y.get.col
+    else:
+      result = "count"
+
 proc handleLabels(view: var Viewport, p: GgPlot) =
   ## potentially moves the label positions and enlarges the areas (not yet)
+  ## potentially moves the label positions and enlarges the areas (not yet)
   ## for the y label / tick label column or x row.
-  # essentially check whether
   # TODO: clean this up!
   var
     xLabObj: GraphObject
     yLabObj: GraphObject
-    xlabTxt = ""
-    ylabTxt = ""
     xMargin: Coord1D
     yMargin: Coord1D
+  let
+    xlabTxt = labelName(p, akX)
+    ylabTxt = labelName(p, akY)
   #if p.theme.xlabelMargin.isSome:
   #  marginVal = p.theme.xlabelMargin.get
-  xlabTxt = if p.theme.xlabel.isSome: p.theme.xlabel.get else: p.aes.x.get.col
   template getMargin(marginVar, themeField, name, axKind: untyped): untyped =
     if not themeField.isSome:
       let labs = view.objects.filterIt(it.name == name)#"ytickLabel")
@@ -1513,30 +1603,39 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
       of akY:
         marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
                             text: labNames[labLens], font: font)
-  template createLabel(label, labproc, labTxt, themeField, marginVal: untyped): untyped =
+  template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
+                       isSecond = false): untyped =
     if themeField.isSome:
       label = labproc(view,
                       labTxt,
                       margin = get(themeField),
-                      isCustomMargin = true)
+                      isCustomMargin = true,
+                      isSecondary = isSecond)
     else:
       label = labproc(view,
                       labTxt,
-                      margin = marginVal)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
+                      margin = marginVal,
+                      isSecondary = isSecond)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
 
   getMargin(xMargin, p.theme.xlabelMargin, "xtickLabel", akX)
   getMargin(yMargin, p.theme.ylabelMargin, "ytickLabel", akY)
-  case p.geoms[0].kind
-  of gkPoint, gkLine:
-    ylabTxt = if p.theme.ylabel.isSome: p.theme.ylabel.get else: p.aes.y.get.col
-  of gkHistogram:
-    ylabTxt = "count"
-    #ylabel = view.ylabel("count", margin = yMargin)
-  else: discard
   createLabel(yLabObj, ylabel, yLabTxt, p.theme.yLabelMargin, yMargin)
   createLabel(xLabObj, xlabel, xLabTxt, p.theme.xLabelMargin, xMargin)
 
   view.addObj @[xLabObj, yLabObj]
+
+  if hasSecondary(p, akX):
+    let secAxis = p.getSecondaryAxis(akX)
+    var labSec: GraphObject
+    createLabel(labSec, xlabel, secAxis.name, p.theme.yLabelMargin, 0.0,#xMargin,
+                true)
+    view.addObj @[labSec]
+  if hasSecondary(p, akY):
+    let secAxis = p.getSecondaryAxis(akY)
+    var labSec: GraphObject
+    createLabel(labSec, ylabel, secAxis.name, p.theme.yLabelMargin, 0.0,#yMargin,
+                true)
+    view.addObj @[labSec]
 
 proc generatePlot(view: Viewport, p: GgPlot, addLabels = true): Viewport =
   # first write all plots into dummy viewport
