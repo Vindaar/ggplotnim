@@ -1419,6 +1419,14 @@ template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
   let args = zip(ids, dfs)
   bind_rows(args, id)
 
+proc head*(df: DataFrame, num: int): DataFrame =
+  ## returns the head of the DataFrame. `num` elements
+  result = df[0 ..< num]
+
+proc tail*(df: DataFrame, num: int): DataFrame =
+  ## returns the tail of the DataFrame. `num` elements
+  result = df[^num .. df.high]
+
 ################################################################################
 ####### FORMULA
 ################################################################################
