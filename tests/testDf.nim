@@ -147,3 +147,9 @@ suite "Data frame tests":
 
     echo cylDrvFiltered
     #echo mpg.filter(f{"class" == "suv"})
+
+  test "Unequal":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+
+    let mpgNoSuv = mpg.filter(f{"class" != "suv"})
+    check (%~ "suv") notin mpgNoSuv["class"].unique

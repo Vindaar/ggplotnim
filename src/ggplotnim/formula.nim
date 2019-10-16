@@ -45,6 +45,7 @@ type
     amDiv = "/"
     amDep = "~"
     amEqual = "=="
+    amUnequal = "!="
     amGreater = ">"
     amLess = "<"
     amGeq = ">="
@@ -659,6 +660,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v.toFloat.nearlyEqual(f.rhs.val.toFloat)
+    of amUnequal:
+      result = not v.toFloat.nearlyEqual(f.rhs.val.toFloat)
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -675,6 +678,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v == f.rhs.val
+    of amUnequal:
+      result = v != f.rhs.val
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -687,6 +692,8 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
     case f.op
     of amEqual:
       result = v == f.rhs.val
+    of amUnequal:
+      result = v != f.rhs.val
     of amGreater:
       result = v > f.rhs.val
     of amLess:
@@ -711,7 +718,7 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
 proc isValidRow(v: Value, f: FormulaNode): bool =
   doAssert v.kind == VObject
   doAssert f.kind == fkTerm
-  doAssert f.op in {amEqual, amGreater, amLess, amGeq, amLeq}
+  doAssert f.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq}
   let lhsKey = f.lhs.val
   doAssert f.lhs.val.kind == VString
   result = v[lhsKey.str].isValidVal(f)
@@ -746,7 +753,7 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
-  doAssert c.op in {amEqual, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
+  doAssert c.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
   # returns a proc which contains the condition given by the Formulas
@@ -1717,6 +1724,8 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
       result = %~ (node.lhs.evaluate(data, idx).toBool xor node.rhs.evaluate(data, idx).toBool)
     of amEqual:
       result = %~ (node.lhs.evaluate(data, idx) == node.rhs.evaluate(data, idx))
+    of amUnequal:
+      result = %~ (node.lhs.evaluate(data, idx) != node.rhs.evaluate(data, idx))
     of amDep:
       raise newException(Exception, "Cannot evaluate a term still containing a dependency!")
   of fkFunction:
