@@ -1611,8 +1611,10 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
         marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
                             text: labNames[labLens], font: font)
       of akY:
-        marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
-                            text: labNames[labLens], font: font)
+        marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
+                            text: labNames[labLens], font: font) +
+                    Coord1D(pos: 0.3, kind: ukCentimeter)
+
   template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
                        isSecond = false): untyped =
     if themeField.isSome:
