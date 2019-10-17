@@ -1435,7 +1435,7 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   for i in 0 ..< numTicks div 10:
     let base = (minv * pow(10, i.float))
     let test = linspace(base, 9 * base, 9)
-    labs.add $base
+    labs.add formatTickValue(base)
     labs.add toSeq(0 ..< 8).mapIt("")
     labPos.add test.mapIt(it.log10)
   labs.add $maxv
