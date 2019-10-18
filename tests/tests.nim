@@ -324,7 +324,7 @@ suite "GgPlot":
                      y: Coord1D(pos: 423.0944881889764, kind: ukPoint, length: some((val: 480.0, unit: ukPoint)))),
                none[float]())
     checkLabel(yLab[0], "yLabel", "exp",
-               Coord(x: Coord1D(pos: -45.02637795275591, kind: ukPoint, length: some((val: 640.0, unit: ukPoint))),
+               Coord(x: Coord1D(pos: -0.07931594488188977, kind: ukRelative),
                      y: Coord1D(pos: 0.5, kind: ukRelative)),
                some(-90.0))
     check yLab[0].txtPos.x.toPoints.pos != quant(1.0, ukCentimeter).toPoints.val
