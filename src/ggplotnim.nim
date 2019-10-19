@@ -1435,7 +1435,7 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   for i in 0 ..< numTicks div 10:
     let base = (minv * pow(10, i.float))
     let test = linspace(base, 9 * base, 9)
-    labs.add $base
+    labs.add formatTickValue(base)
     labs.add toSeq(0 ..< 8).mapIt("")
     labPos.add test.mapIt(it.log10)
   labs.add $maxv
@@ -1611,8 +1611,10 @@ proc handleLabels(view: var Viewport, p: GgPlot) =
         marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
                             text: labNames[labLens], font: font)
       of akY:
-        marginVar = Coord1D(pos: 1.1, kind: ukStrWidth,
-                            text: labNames[labLens], font: font)
+        marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
+                            text: labNames[labLens], font: font) +
+                    Coord1D(pos: 0.3, kind: ukCentimeter)
+
   template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
                        isSecond = false): untyped =
     if themeField.isSome:
