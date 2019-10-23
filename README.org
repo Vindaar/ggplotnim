@@ -54,11 +54,17 @@ Geoms:
 - =geom_line=
 - =geom_histogram=
 - =geom_freqpoly=
-- =geom_bar= (layout still broken, see
-  https://github.com/Vindaar/ggplotnim/issues/10 for more infos)
+- =geom_bar= 
 
 Facets:
 - =facet_wrap=
+
+Scales:
+- size (both for discrete and continuous data)
+- color (both for discrete and continuous data)
+Shape as a scale is not properly implemented, simply because ginger
+only provides 2 (circle, cross) different marker shapes so far. Feel free to
+[[https://github.com/Vindaar/ginger/blob/master/src/ginger.nim#L2267-L2292][add more]]!
 
 ** Data frame
 
@@ -159,9 +165,15 @@ let g = f{"cty_by_2ln_hwy" ~ "cty" / (ln("hwy") * 2)}
 ** Examples
 
 The following are just the first plots I reproduced. The =mpg= dataset
-being used has to be read via the =readCsv= proc (or your own, but it
-has to be a =Table[string, seq[string]]= for now for lack of a proper
-dataframe). The file is located in [[file:data/mpg.csv]] part of the repository.
+being used has to be read via the =readCsv= proc and be converted to a
+dataframe via =toDf=. The file is located in [[file:data/mpg.csv]] part of
+the repository. So the header of all examples below is simply:
+#+BEGIN_SRC nim
+import ggplotnim
+
+let mpg = toDf(readCsv("data/mpg.csv"))
+#+END_SRC
+where it is assumed the current working directory is the =ggplotnim= dir.
 
 *** Scatter of displ ~ hwy
 
@@ -169,7 +181,8 @@ Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a
 dataframe. 
 #+BEGIN_SRC nim
 ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point() + ggsave("scatter.pdf")
+  geom_point() + 
+  ggsave("scatter.pdf")
 #+END_SRC
 Note: if the =ggsave= call is omitted, the return value will be a
 =GgPlot= object, which can either be inspected or modified or called
@@ -277,6 +290,18 @@ ggplot(mpg, aes("displ", "hwy")) +
 
 [[file:media/facet_wrap_manufacturer.png]]
 
+*** Simple bar plot
+
+A simple bar plot of a variable with discrete data (typically a column
+of strings, bools or a small subset of ints).
+#+BEGIN_SRC nim
+ggplot(mpg, aes(x = "class")) +
+  geom_bar() +
+  ggsave("bar_example.pdf")
+#+END_SRC
+
+[[file:media/bar_example.png]]
+
 ** *Experimental* Vega-Lite backend
 
 From the beginning one of my goals for this library was to provide not
@@ -327,3 +352,23 @@ It generates the following Vega-Lite JSON:
 And results in the following Vega-Lite plot:
 
 [[file:media/vega_backend_example.png]]
+
+Or if you want to look at the interactive version in your browser, see
+here:
+
+[[https://vega.github.io/editor/#/url/vega-lite/N4KABGBEAkDODGALApgWwIaQFxUQFzwAdYsB6UgN2QHN0A6agSz0QFcAjOxge1IRQyUa6ALQAbZskoAWOgCtY3AHaQANOCgATZAgBOjQnh4qckAGrDxksITHc8YeLuTo8yTWHYBPMNWq37JUZUNQ1IIzwxZGwoPwC8INQwETBuXTAASTAAZVZ4AGswAEEHADl0VEYlajAAFUQq6lhQiEgMXXyYyEJuKrwWqAB3Rk0WGIA2aQAGdVaURmp8GOkADhmw5CV4bk1GmNAIVoAPfcgAM0ZkMU0u3dhbNSg8L0Jo0wBHVnQlCNdGKkgAF9ZodIF5ThcrjdTPBno9wi83lBPt9fkYAcCNK1tnZdBDLtcuvAxOhYM1VE9EV0lNxKkp0GIgRpMa1NK5MDgDqCKAzWDoYgBtLGHYCQO4PHAARjoKwpkFh4KlsqgxNJzRhtMI6FhQJBhzAovFjKlMrlCpiACZJWaSWSiZrtf0WfqDWLGPdjWALWa4TgLTMVbb1SqHTrnfrDe6JV6fYqvdbA2r7agtWG9SK3R7LaaVb6wJLxjakxqU47dcKIJGs36c-K85LlfKg8nU0705XM9GAMx0BN1uMNot2kut8su11GmLSxvmpVD4Py0NtisTqOe6exqeFxPDkOltMrqvR725uP++ctsvhjOTv2bqUATgvI6v7dX1a9tdn+YArM+96O14dren4zvWADs-6Lvuy7jkeno9n236SpBO4LtsMFji68ExIh96-lBGGAW+OE1mBA5-mhXSVJosCMAAXtEQHvt2vb4ShUE0XRjFYRGnaerIJ79lunEjNxTEkfxMQ-nQXbsdIUGwKwFC8Tea7SbJ7FIc2phKSpzGkWAMlyaeU4KVRunKapwHqTgMmocJUomU2xZQHp1ksZ626OfmQmqrukDuQZUl2XQDnId5-kLhasAuG4eLBSB9nsZRLkBTFcXIAlkkgeMdB+fWkU6VAGWuFlHmGXlBUUVBpXxRVIVgOF9apVFXR1eViW2UZmmmVK5lpQuQU5d1xlaYpVldR+yV9fm2muYFk0jR+eWtfWA1tZZ+nLcedAbfWT4WVAXEMRJh6NRae34RafnFW0YmnQ1IF4bNg5HfdtGPVNrFrQOM53SdPHfQhdCRRBomfUDO2epd+1-aJQQ8iowO4ex4UA1U-zfE93U9s5EUI1jyPQ7hvU+QWhNIzjH542jlPYyjOC0696MLXSRPU6x+P1vNAXs1TjNgD25FTq1GOIwzJNM1+LX08T53PTLA5FWzmMC1LYBwyJ7385LCu42FKVQYQjAFKwhCcyDzUDhtd0m2bFuCz2h3k-jdum-k5uW6TLvIbbC3257jsa7I1tmcbHte4LofyRHDvezgMezb77vx4LMnVVOvMLoHUcaxn43vbnwf6zTdC+-WbsLcNpfRknrsTdttcCYbyeNwnmutw37013BjUF692ddL32H913yFVwFI98Ul5eF4Nw9Lc3yzj-Wt0B5HJd9yB9ffinG9pyHq8DpPOebx3u+V3HQcX8fU7rwFxe32HOD74-5-p-l8+bVAT+f5nUoh6mD-vnO+Tlr552XqFCuA4gG-w-kfMGsD26fy1oAlBoC0G+QwVAzWsce5L23t1LBkoxbV0IaPHe+CF5bQvuxU+i8m5EI-LIJBU4GG0PTvQnBzC65f1ev7d+h9cGCWoT-boCCRGg24UXSRvCW5sPAbI4R8iV6KPzBw+BKjKGjSuoPCBW8dHTT0d3GhWib5OyVlOf65D2BEVfLg4W7EbFTw4PYg8qjE50wIXYpcdDXoq1cb4zC0dpGvTIUE9xsEjF8PUaQiawTiJSLiREoabi-GhJSQkqJHcZIkMEWkxJDjPH5jCT5C0LjCk5MFtKdRFoCmLyKR4mJ64ynfgtKkxp1SNa1OupoxaTTokz26r02a9TskZJ6VYv0gSqmTNwRuMZnTLKDI7os8pDSVndNwQA+MEyQka1hs4iG4kO5HNepU6iD0oY7JMe0uBH1TmC3OeUh5gMzolMur9axJyvqHLoN8ucOtrkfJaaTbmA434LneWc9iUKunzM+XC-ZSSkVjIDGYgZ2y0XlIxeIpSqznlgPzKzSJiKwU1hfvmWZCKDm3KpRxHx2KKVC28Zi6eaky4MuWW5ChwyWFGwIUwlll8bY8JFcS+FnCj4Ms2by4V-LowzVMfivlnLox5SQjzcViqBLfzuhymyLD+HkwfmkhV6qW4kLNYw2+cSHmGs8hpEhDq1VGqVXc7VQrcmeoHDa6VIixEGrdU6rxr1+mOsMqwmR7KQ2GUBRonVlrsxYKtIRcluqU3IvesyzNNYE0Wn6TColBai0go7j2BNkopXHXLZYqtNbHl-Mccc4FkNQV5tZa9RtxaNaVuzZi3tjiyZ+yTe6kGELRZjtDXggR0741tLXvOxqL1yaXNMEOkpTiAm-JuVu6ZJLd0duTdLEWQLB11tAZOqUNKN2XtuVW9d8qzkAtbbGi147swFrxcGj9M6vkDtVX+wyAH0XLpAqBtd4HuqXV2WmplGaT2fl2dWlFxSWWQeQo2gluakOYYOmh5pnb8Nnh-QtXDn783XTIwFCj-7X3dvTXSz5DHcVMdRRh4l8TvVEoZbe59liSE8sWsBldvqp08ZDuxfjInn5BvIaJiDJr7lHpfXBt596WOpo0+2l92nVNOzfeIzdLLr35ifU2vdpnWNYYM-89T7H0PEeU3meDmK6MgfE36B5HmLpea9P6gCTmkNmbeu5xDlGu1QZzRFmdzNovheYyy9Z7S5XQQ452lLrm0u+ZAlls8MncsjIPRUxzRGkP5ctIV2LUauOusU7ohlEa41+e5QYl9fH2u8bZeIkBw6hNdb7f57jmK+slIG8oixUmd2TcgTilTMWkvEcA3dIrH4HOLYy3h66gX0vBci5dM9h7Nv7ZndKGBuF+lrePNdHzNWLorfI-diDO2ytDO22Mu7S28M2dc19rbB3ftnn+6dzzR2KYnfK4D8HpL0LPeKxdpmwmcPw4-Od662H0nfYO7dwj72ceMYQ9j+j368cvtJ0TgHZ2Ss6aeVM8HFmTPLcJxe3Tzzcdtrp7c8HMmmc-YZ3Z4dcTYdXLZ8KAAusyEEi4lAXGoPsQEIBARAA][Open in vega browser]]
+
+** Known issues / limitations
+
+- customization is very limited (font size, point sizes, line widths
+  etc.). ginger provides the functionality, but it's not exposed in
+  gglpotnim atm. Extend =Theme= object for this, add args to procs
+  where applicable.
+- log10 plots force x and y range to be of orders of 10
+- facet wrap layout is quite ugly still
+- ...
+
+*** Legends
+- legend is not always centered (easy to fix)
+- plots with two legends produce overlapping legends (easy to fix)
+- plots with continuous color scale produce no legend

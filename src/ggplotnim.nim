@@ -442,6 +442,9 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
                      numYticks: 10)
   result.addAes aes
   # TODO: fill others with defaults
+  # add default theme
+  result.theme = Theme(discreteScaleMargin: some(quant(0.2,
+                                                  ukCentimeter)))
 
 func geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
@@ -1027,9 +1030,13 @@ proc createLineGobj(view: var Viewport,
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0),
                      width = 1.0 ) =
-  ## creates a rectangle for a histogram and adds it to the viewports objects
+  ## creates a rectangle for a histogram and adds it to the viewports object
+  # TODO: replace width argument by float range, so we
+  # only allow values [0.0..1.0]
   if val.float > 0.0:
-    let r = view.initRect(Coord(x: c1(0.0),
+    # calc left side of bar based on width, since we wa t the bar to be centered
+    let left = (1.0 - width) / 2.0
+    let r = view.initRect(Coord(x: c1(left),
                                 y: yPos), # bottom left
                           quant(width, ukRelative),
                           quant(-val.float, ukData),
@@ -1318,11 +1325,15 @@ proc createBarGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] 
 
   #of VFloat, VInt:
   #  doAssert false, "not implemented"
+  let discrMarginOpt = p.theme.discreteScaleMargin
+  var discrMargin = quant(0.0, ukRelative)
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet
   let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
   view.layout(numElements + 2, 1,
-              colwidths = concat(@[quant(0.2, ukCentimeter)],
+              colwidths = concat(@[discrMargin],
                                  indWidths,
-                                 @[quant(0.2, ukCentimeter)]))
+                                 @[discrMargin]))
   let toIgnore = toSet([0, numElements + 1])
   var yScaleBase: ginger.Scale
   case vKind
@@ -1506,9 +1517,20 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   var tickLocs: seq[Coord1D]
   let gScale = if scale.axKind == akX: view.xScale else: view.yScale
 
+  # TODO: check if we should use w/hImg here, distinguish the axes
+  let discrMarginOpt = p.theme.discreteScaleMargin
+  var discrMargin = 0.0
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(view.wView)).val
+  # NOTE: the following only holds if def. of `wview` changed in ginger
+  # doAssert view.wview != view.wimg
+  let barViewWidth = (1.0 - 2 * discrMargin) / numTicks.float
+  let centerPos = barViewWidth / 2.0
   for i in 0 ..< numTicks:
     tickLabels.add $scale.labelSeq[i]
-    let pos = i.float / (numTicks - 1).float
+    # in case of a discrete scale we have categories, which are evenly spaced.
+    # taking into account the margin of the plot, calculate center of all categories
+    let pos = discrMargin + i.float * barViewWidth + centerPos
     tickLocs.add Coord1D(pos: pos,
                          kind: ukData,
                          scale: gScale,
@@ -1961,6 +1983,11 @@ when isMainModule:
     geom_freqpoly(color = parseHex("FD971F"),
                   size = 3.0) +
     ggsave("histoPlusFreqpoly.pdf")
+
+  ggplot(mpg, aes(x = "class")) +
+    geom_bar() +
+    ggsave("bar_plot.pdf")
+
 
   # we don't parse `FormulaNode` in `aes` arguments yet
   #ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
