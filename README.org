@@ -352,3 +352,18 @@ It generates the following Vega-Lite JSON:
 And results in the following Vega-Lite plot:
 
 [[file:media/vega_backend_example.png]]
+
+** Known issues / limitations
+
+- customization is very limited (font size, point sizes, line widths
+  etc.). ginger provides the functionality, but it's not exposed in
+  gglpotnim atm. Extend =Theme= object for this, add args to procs
+  where applicable.
+- log10 plots force x and y range to be of orders of 10
+- facet wrap layout is quite ugly still
+- ...
+
+*** Legends
+- legend is not always centered (easy to fix)
+- plots with two legends produce overlapping legends (easy to fix)
+- plots with continuous color scale produce no legend
