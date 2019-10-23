@@ -1522,7 +1522,8 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   var discrMargin = 0.0
   if discrMarginOpt.isSome:
     discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(view.wView)).val
-  doassert view.wview != view.wimg
+  # NOTE: the following only holds if def. of `wview` changed in ginger
+  # doAssert view.wview != view.wimg
   let barViewWidth = (1.0 - 2 * discrMargin) / numTicks.float
   let centerPos = barViewWidth / 2.0
   for i in 0 ..< numTicks:
