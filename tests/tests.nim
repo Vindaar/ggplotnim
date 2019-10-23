@@ -187,8 +187,47 @@ suite "GgPlot":
 
   test "Bar plot with string based scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
-    ggplot(mpg, aes("class")) + geom_bar() + ggsave("bartest.pdf")
-    # TODO: write an actual test here
+    let plt = ggcreate(ggplot(mpg, aes("class")) + geom_bar())
+    let plotview = plt[4]
+    check plotview.name == "plot"
+    proc calcPos(classes: seq[string]): seq[float] =
+      ## given the possible classes, calculates the positions the
+      ## labels have to be placed at
+      ## NOTE: this is the same calculation happening in the `handleDisreteTicks`
+      ## proc. Thus the test here is based on the assumption that this calc over
+      ## there is correct. However, it's been checked by eye at the time of this
+      ## commit (b1a3a155587d4ee54e6581ac99f3a428eea37c1f) that it produces the
+      ## desired result.
+      let discrMargin = quant(0.2, ukCentimeter).toRelative(
+        length = some(plotview.wView)
+      ).val
+      let nclass = classes.len
+      let barViewWidth = (1.0 - 2 * discrMargin) / nclass.float
+      let centerPos = barViewWidth / 2.0
+      for i in 0 ..< nclass:
+        let pos = discrMargin + i.float * barViewWidth + centerPos
+        result.add pos
+    let classes = mpg["class"].unique.mapIt(it.toStr).sorted
+    let checkPos = calcPos(classes)
+    var
+      idxTk = 0
+      idxLab = 0
+    for obj in plotview.objects:
+      case obj.kind
+      of goTick:
+        # verify tick position
+        if obj.tkAxis == akX:
+          check obj.tkPos.x.pos == checkPos[idxTk]
+          inc idxTk
+      of goTickLabel:
+        # verify position and text
+        if obj.name == "xtickLabel":
+          check obj.txtText == classes[idxLab]
+          check obj.txtPos.x.pos == checkPos[idxLab]
+          inc idxLab
+      else: discard
+    plt.ggdraw("bartest.pdf")
+
 
   test "Plot with continuous color scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
