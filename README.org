@@ -277,6 +277,18 @@ ggplot(mpg, aes("displ", "hwy")) +
 
 [[file:media/facet_wrap_manufacturer.png]]
 
+*** Simple bar plot
+
+A simple bar plot of a variable with discrete data (typically a column
+of strings, bools or a small subset of ints).
+#+BEGIN_SRC 
+ggplot(mpg, aes(x = "class")) +
+  geom_bar() +
+  ggsave("bar_example.pdf")
+#+END_SRC
+
+[[file:media/bar_example.png]]
+
 ** *Experimental* Vega-Lite backend
 
 From the beginning one of my goals for this library was to provide not

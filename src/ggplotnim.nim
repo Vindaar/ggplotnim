@@ -1984,6 +1984,11 @@ when isMainModule:
                   size = 3.0) +
     ggsave("histoPlusFreqpoly.pdf")
 
+  ggplot(mpg, aes(x = "class")) +
+    geom_bar() +
+    ggsave("bar_plot.pdf")
+
+
   # we don't parse `FormulaNode` in `aes` arguments yet
   #ggplot(mpg, aes(year ~ (displ * hwy + cty), color = "class")) +
   #  geom_point() +
