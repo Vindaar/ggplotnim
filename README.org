@@ -54,11 +54,17 @@ Geoms:
 - =geom_line=
 - =geom_histogram=
 - =geom_freqpoly=
-- =geom_bar= (layout still broken, see
-  https://github.com/Vindaar/ggplotnim/issues/10 for more infos)
+- =geom_bar= 
 
 Facets:
 - =facet_wrap=
+
+Scales:
+- size (both for discrete and continuous data)
+- color (both for discrete and continuous data)
+Shape as a scale is not properly implemented, simply because ginger
+only provides 2 (circle, cross) different marker shapes so far. Feel free to
+[[https://github.com/Vindaar/ginger/blob/master/src/ginger.nim#L2267-L2292][add more]]!
 
 ** Data frame
 
@@ -159,9 +165,15 @@ let g = f{"cty_by_2ln_hwy" ~ "cty" / (ln("hwy") * 2)}
 ** Examples
 
 The following are just the first plots I reproduced. The =mpg= dataset
-being used has to be read via the =readCsv= proc (or your own, but it
-has to be a =Table[string, seq[string]]= for now for lack of a proper
-dataframe). The file is located in [[file:data/mpg.csv]] part of the repository.
+being used has to be read via the =readCsv= proc and be converted to a
+dataframe via =toDf=. The file is located in [[file:data/mpg.csv]] part of
+the repository. So the header of all examples below is simply:
+#+BEGIN_SRC nim
+import ggplotnim
+
+let mpg = toDf(readCsv("data/mpg.csv"))
+#+END_SRC
+where it is assumed the current working directory is the =ggplotnim= dir.
 
 *** Scatter of displ ~ hwy
 
@@ -169,7 +181,8 @@ Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a
 dataframe. 
 #+BEGIN_SRC nim
 ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point() + ggsave("scatter.pdf")
+  geom_point() + 
+  ggsave("scatter.pdf")
 #+END_SRC
 Note: if the =ggsave= call is omitted, the return value will be a
 =GgPlot= object, which can either be inspected or modified or called
