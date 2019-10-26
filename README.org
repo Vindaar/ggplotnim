@@ -5,47 +5,43 @@ This package, as the name suggests, will become a "sort of" port of
 
 It is based on the [[https://github.com/vindaar/ginger/][ginger]] package. 
 
-Currently it is in a purely prototyping state. The code as it is only
-a proof of concept for myself to see whether =ginger= is at a point
-where it's technically feasible to draw =ggplot2= like plots and to
-see how well the syntax can be ported to Nim.
+It is still in a heavy WIP state, but the features mentioned below at
+least are working. However, some specific use cases of them may be
+broken. The implementation of featuers may still change dramatically.
 
-On the plus side, thanks to Nim's macro system, even the =~= function
-syntax works already, so that one can create a plot like so:
-#+BEGIN_SRC nim
-let plt = ggplot(mpg, aes(displ ~ cty / hwy)) +
-  geom_point() 
-#+END_SRC 
-would create a plot of displacement vs the ratio of city to highway
-mpg. All identifiers appearing in the formula are taken to be strings,
-which should appear in the data frame we give to =ggplot= (currently
-it's just using =Table[string, seq[string]]=. 
+On the plus side, thanks to Nim's macro system even formula creation
+from raw identifiers is possible. See below for more details. 
 
-The formula mentioned will be stored as =(~ displ (/ cty hwy))= and a
-proc can be used to apply the mathematical functions in the correct
-order to a data frame given.
-Although at the moment the input to =aes= is not implemented, but for
-a working proof of concept, check out the tests.
+For simple examples of some of the current existing features, see
+[[Examples]] below.
 
-** Dependencies
+If you're unfamiliar with the Grammar of Graphics to create plots, one
+of the best resources is probably Hadley Wickham's book on =ggplot2=,
+for which also an online version exists at:
+https://ggplot2-book.org/
 
-For anyone brave enough to try to run this code at the moment, a few
-words on dependencies.
+In general this library tries (and will continue to do so) to stay
+mostly compliant with the =ggplot2= syntax. So searching for a
+solution in =ggplot2= should hopefully be applicable to this (unless
+the feature isn't implemented yet of course).
 
-My fork of =seqmath= is required:
-[[https://github.com/vindaar/seqmath]]
+For a more nimish approach, check out the [[file:recipes.org][recipes]], which should give
+you examples for typical use cases and things I encountered and the
+solutions I found. Please feel free to add examples to this file to
+help other people!
 
-The cairo wrapper:
+** Installation & dependencies
+
+Installation should be just a 
 #+BEGIN_SRC sh
-nimble install cairo
+nimble install ggplotnim
 #+END_SRC
+away. Maybe consider installing the =#head=, since new version
+probably won't be released after every change, due to rapid
+development still ongoing.
 
-And a branch of =chroma= for HCL support (to calculate the ggplot2
-colors). Once the PR is merged, the latest version of chroma will be
-fine:
-https://github.com/treeform/chroma/pull/4
-
-With these the code should hopefully compile just fine.
+Since this library is written from scratch there is only a single
+external dependency, which is =cairo=. 
 
 ** Currently working features
 
@@ -68,8 +64,17 @@ only provides 2 (circle, cross) different marker shapes so far. Feel free to
 
 ** Data frame
 
-The library implements a naive data frame, which provides the "5
-verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
+The library implements a naive dynamic and column based data
+frame. Each column is represented as a [[https://github.com/PMunch/nim-persistent-vector][persistent vector]] of
+=Values=. A =Value= is a variant object, similar to a =JsonNode= of
+the standard library. 
+
+*NOTE*: Due to the dynamic nature and naive implementations
+performance is not a priority. Heavy calculations should be done
+before creation of the data frame. Simple arithmetic, filtering, reducing
+etc. is the main aim. 
+
+The data frame provides the "5 verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
 - =filter=
 - =mutate=, =transmute=
 - =select=, =rename=
@@ -146,7 +151,7 @@ converted to a =Value= using =%= and stored as a =fkVariable=.
 
 Literal interger and float values are also allowed.
 
-**** Examples
+**** DF examples
 
 Using a lifted vector valued function and local variables as keys and
 integer values:
