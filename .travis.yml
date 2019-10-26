@@ -34,12 +34,6 @@ install:
   - sh init.sh -y
   - export PATH=$HOME/.nimble/bin:$PATH
   - nimble refresh -y
-  - git clone https://github.com/Vindaar/chroma
-  - pushd chroma
-  - git fetch origin
-  - git checkout -t origin/addMoreSpaces
-  - nimble develop -y
-  - popd
   - choosenim $CHANNEL
 
 script:
