@@ -760,6 +760,9 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
+  if c.op == amDep:
+    raise newException(Exception, "A formula containing `~` is not allowed for" &
+      "filter, since filter does not assign to a column. Did you accidentally add it?")
   doAssert c.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
