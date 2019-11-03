@@ -225,6 +225,7 @@ func isNumber(s: string): bool =
 
 proc `$`*(v: Value): string =
   ## converts the given value to its value as a string
+proc pretty*(v: Value, precision = 4): string =
   case v.kind
   of VInt:
     result = $v.num
@@ -245,6 +246,8 @@ proc `$`*(v: Value): string =
     result.add "}"
   of VNull:
     result = "null"
+
+template `$`*(v: Value): string = pretty(v)
 
 proc hash*(x: Value): Hash =
   case x.kind
@@ -488,8 +491,7 @@ proc pretty*(df: DataFrame, numLines = 20): string =
       result.add align($df[k][i], alignBy)
     result.add "\n"
 
-proc `$`*(df: DataFrame): string =
-  result = df.pretty
+template `$`*(df: DataFrame): string = df.pretty
 
 proc toUgly*(result: var string, node: FormulaNode) =
   var comma = false
