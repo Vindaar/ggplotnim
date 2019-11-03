@@ -223,14 +223,33 @@ func isNumber(s: string): bool =
   else:
     result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_', '-', '+'})
 
-proc `$`*(v: Value): string =
-  ## converts the given value to its value as a string
+func almostEqual*(a, b: float, epsilon = 1e-8): bool
+proc formatFloatValue(v: Value, precision: int): string =
+  ## Performs the formatting of a value of kind `VFloat` to string.
+  ## If the values are smaller < 1e-5 or > 1e5 scientific notation is
+  ## used.
+  doAssert v.kind == VFloat
+  let f = v.fnum
+  if almostEqual(abs(f), 0.0):
+    # to make sure zero is not formatted in scientific
+    result = f.formatBiggestFloat(format = ffDefault,
+                                  precision = precision)
+  elif abs(f) >= 1e5 or abs(f) <= 1e-5:
+    result = f.formatBiggestFloat(format = ffScientific,
+                                  precision = precision)
+  else:
+    result = f.formatBiggestFloat(format = ffDefault,
+                                  precision = precision)
+  result.trimZeros()
+
 proc pretty*(v: Value, precision = 4): string =
+  ## converts the given value to its value as a string. For `VFloat` the
+  ## precision can be given.
   case v.kind
   of VInt:
     result = $v.num
   of VFloat:
-    result = &"{v.fnum:g}"
+    result = formatFloatValue(v, precision = precision)
   of VBool:
     result = $v.bval
   of VString:
