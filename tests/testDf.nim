@@ -153,3 +153,16 @@ suite "Data frame tests":
 
     let mpgNoSuv = mpg.filter(f{"class" != "suv"})
     check (%~ "suv") notin mpgNoSuv["class"].unique
+
+  test "Filter - two comparisons using `and`":
+    let x = toSeq(0 .. 100)
+    let df = seqsToDf(x)
+    let dfFilter = df.filter(f{"x" >= 50 and
+                               "x" <= 75})
+    check dfFilter["x"].vToSeq == %~ toSeq(50 .. 75)
+
+  test "Filter - comparisons using function":
+    let x = toSeq(0 .. 100)
+    let df = seqsToDf(x)
+    let dfFilter = df.filter(f{"x" >= max("x") * 0.5})
+    check dfFilter["x"].vToSeq == %~ toSeq(50 .. 100)
