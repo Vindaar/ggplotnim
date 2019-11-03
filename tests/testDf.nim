@@ -1,4 +1,4 @@
-import ggplotnim, unittest, sequtils
+import ggplotnim, unittest, sequtils, math
 import algorithm
 
 suite "Data frame tests":
@@ -166,3 +166,65 @@ suite "Data frame tests":
     let df = seqsToDf(x)
     let dfFilter = df.filter(f{"x" >= max("x") * 0.5})
     check dfFilter["x"].vToSeq == %~ toSeq(50 .. 100)
+
+  test "Pretty printing of DFs":
+    var
+      # need the data as two sequences (well actually as a DataFrame, but that is
+      # created most easily from two or more sequences).
+      x: seq[float]
+      y: seq[float]
+    for i in 0 ..< 1000:
+      let pos = 2 * 3.1415 / 100.0 * i.float
+      x.add pos
+      y.add sin(pos)
+    let df = seqsToDf(x, y)
+    let defaultExp = """
+       Idx         x         y
+         0         0         0
+         1   0.06283   0.06279
+         2    0.1257    0.1253
+         3    0.1885    0.1874
+         4    0.2513    0.2487
+         5    0.3141     0.309
+         6     0.377    0.3681
+         7    0.4398    0.4258
+         8    0.5026    0.4817
+         9    0.5655    0.5358
+        10    0.6283    0.5878
+        11    0.6911    0.6374
+        12     0.754    0.6845
+        13    0.8168     0.729
+        14    0.8796    0.7705
+        15    0.9425     0.809
+        16     1.005    0.8443
+        17     1.068    0.8763
+        18     1.131    0.9048
+        19     1.194    0.9298
+"""
+    let dfStr = pretty(df, header = false)
+    check dfStr == defaultExp
+    let expPrecision12 = """
+               Idx                 x                 y
+                 0                 0                 0
+                 1           0.06283    0.062788670114
+                 2           0.12566    0.125329556644
+                 3           0.18849    0.187375853836
+                 4           0.25132    0.248682707741
+                 5           0.31415    0.309008182482
+                 6           0.37698    0.368114215006
+                 7           0.43981    0.425767554563
+                 8           0.50264    0.481740683175
+                 9           0.56547    0.535812713502
+                10            0.6283    0.587770260526
+                11           0.69113    0.637408283636
+                12           0.75396    0.684530895785
+                13           0.81679    0.728952136516
+                14           0.87962    0.770496705823
+                15           0.94245    0.809000655938
+                16           1.00528    0.844312038323
+                17           1.06811    0.876291503299
+                18           1.13094     0.90481284997
+                19           1.19377    0.929763524249
+"""
+    let dfPrecision12 = pretty(df, precision = 12, header = false)
+    check expPrecision12 == dfPrecision12
