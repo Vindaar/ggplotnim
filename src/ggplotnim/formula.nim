@@ -489,15 +489,22 @@ makeMath(`-`)
 makeMath(`*`)
 makeMath(`/`)
 
-proc pretty*(df: DataFrame, numLines = 20): string =
+proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string =
   ## converts the first `numLines` to a table.
   ## If the `numLines` argument is negative, will print all rows of the
-  ## datafra.e
-  var maxLen = 0
+  ## dataframe.
+  ## The precision argument is only relevant for `VFloat` values!
+  ## The `header` is the `Dataframe with ...` information line, which is not part
+  ## of the returned values for simplicity if the output is to be assigned to some
+  ## variable. TODO: we could change that (current way makes a test case easier...)
+  ## TODO: need to improve printing of string columns if length of elements
+  ## more than `alignBy`.
+  var maxLen = 6 # default width for a column name
   for k in keys(df):
     maxLen = max(k.len, maxLen)
-  echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
-  let alignBy = maxLen + 4
+  if header:
+    echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
+  let alignBy = max(maxLen + precision, 10)
   let num = if numLines > 0: min(df.len, numLines) else: df.len
   # write header
   result.add align("Idx", alignBy)
@@ -507,7 +514,8 @@ proc pretty*(df: DataFrame, numLines = 20): string =
   for i in 0 ..< num:
     result.add align($i, alignBy)
     for k in keys(df):
-      result.add align($df[k][i], alignBy)
+      result.add align(pretty(df[k][i], precision = precision),
+                       alignBy)
     result.add "\n"
 
 template `$`*(df: DataFrame): string = df.pretty
