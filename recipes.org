@@ -13,13 +13,91 @@ locally, just run:
 ntangle recipes.org
 #+END_SRC
 
-The document 
+The document contains two kinds of recipes. 
+1. First the "Get To The Point" (GTTP) kind of recipe. This is a
+   minimal example to produce a specific plot, without any fancy
+   options, interesting data etc.
+2. And secondly the "Tell Me A Story" (TMAS) recipes, which try to
+   explain every important step, typically introduce some interesting
+   data set which we'll investigate to finally produce a plot of a
+   certain kind. Here also alternative ways might be presented. For
+   some people maybe the more interesting read. :)
 
 ** GTTP "Get To The Point" recipes
 
 The recipes in this section present the simplest way to achieve the
 desired plot, without any superfluous talking or complicating
 examples. 
+
+*** Simple line plot
+
+Just a line plot of some data. Simple as that.
+
+Some basic imports:
+#+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
+import ggplotnim, sequtils, seqmath
+#+END_SRC
+Create some data so that we have something to plot:
+#+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
+let x = linspace(0.0, 30.0, 1000)
+let y = x.mapIt(pow(sin(it), 2.0))
+#+END_SRC
+Build a dataframe from it:
+#+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
+let df = seqsToDf(x, y)
+#+END_SRC
+and create the plot:
+#+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
+ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
+  geom_line() +
+  ggsave("rSimpleLinePlot.pdf")
+#+END_SRC
+This results in the following plot:
+[[./media/recipes/rSimpleLinePlot.png]]
+
+*** (Line) plot of specific size
+
+Creating a plot with a specific output size is very easy. We'll create
+a line plot 
+
+#+BEGIN_SRC nim :tangle recipes/rLinePlotSize.nim
+import ggplotnim, strformat, math
+
+#[
+This example shows how to create a simple line plot, which is:
+- saved as a PNG
+- with width = 720, height = 480
+- and shows a single black line for a sin
+]#
+
+const
+  width = 720
+  height = 480
+
+# let's create some data.
+var
+  # need the data as two sequences (well actually as a DataFrame, but that is
+  # created most easily from two or more sequences).
+  x: seq[float]
+  y: seq[float]
+for i in 0 ..< 1000:
+  let pos = 2 * PI / 100.0 * i.float
+  x.add pos
+  y.add sin(pos)
+# the actual
+# create a dataframe from the data. The column names will be the identifiers
+# of the given sequences, so "x", "y"
+let df = seqsToDf(x, y)
+# if one wants to use a different name, use the following:
+# let df = seqsToDf({ "myX" : x,
+#                     "myY" : y })
+# Note that in this case the args of `aes` would have to be changed of course!
+# now create the plot
+ggplot(df, aes("x", "y")) +
+  geom_line() +
+  ggsave("rSimpleLinePlot.png", width = width, height = height)
+#+END_SRC
+
 
 ** TMAS "Tell Me A Story" recipes
 
