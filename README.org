@@ -1,4 +1,5 @@
 * ggplotnim - ggplot2 in Nim
+https://travis-ci.org/Vindaar/ggplotnim.svg?branch=master
 
 This package, as the name suggests, will become a "sort of" port of
 [[https://ggplot2.tidyverse.org/][ggplot2]] for Nim. 
