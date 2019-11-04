@@ -1,0 +1,130 @@
+#+property: header-args :tangle yes
+* ggplotnim recipes
+
+All recipes here import =ggplotnim, sequtils, seqmath= (=seqmath=
+installed as a dependency of =ggplotnim=). The code shown in each
+example may leave out small details. But the full examples are always
+linked below the image.
+
+Note that this Org file is actually a "literate programming
+document", which uses [[https://github.com/OrgTangle/ntangle][ntangle]]. If you want to generate the recipes
+locally, just run:
+#+BEGIN_SRC sh :tangle no
+ntangle recipes.org
+#+END_SRC
+
+The document 
+
+** GTTP "Get To The Point" recipes
+
+The recipes in this section present the simplest way to achieve the
+desired plot, without any superfluous talking or complicating
+examples. 
+
+** TMAS "Tell Me A Story" recipes
+
+This section
+
+*** Plot a function
+
+Assuming we have some mathematical function we want to plot. While
+this library is no =gnuplot=, this is still very simple (goes on
+talking about not simple example...). Let's pretend we want to plot
+the gravitational acceleration of a point mass according to
+Newton. The analytical description would be [[./media/newton_eq.png]],
+where =r= is the radial distance, =R= the radius of Earth, =m= the
+mass of Earth and =G= the gravitational constant. It shows both the
+case inside a massive body and outside.
+
+Let's plot this for Earth in a range from Earth's center to X km!
+
+First import the stuff we need:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+import ggplotnim
+import seqmath # for linspace, pow
+import sequtils # for mapIt
+#+END_SRC 
+Now we define the func, which returns the acceleration of Earth
+depending on the radial distance =r=:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+func newtonAcceleration(r: float): float =
+  ## returns the graviational acceleration experienced by a test mass
+  ## at different distances from Earth (or inside Earth).
+  ## `r` is the radial distance given in `m`
+  const R = 6371 * 1000 # mean radius of Earth in m
+  const m_E = 5.972e24 # kg
+  const G = 6.674e-11 # m^3 kg^-1 s^-2
+  if r < R:
+    result = G * m_E * r / pow(R, 3.0)
+  else:
+    result = G * m_E / (r * r)
+#+END_SRC
+We have to define the range we actually want to look at. Let's
+consider Earth's center up to roughly the geostationary orbit at
+=~ 35,000 km=.
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+let radii = linspace(0.0, 35_000_000, 1000) # up to geostationary orbit
+# and the corresponding accelerations
+let a = radii.mapIt(newtonAcceleration(it))
+#+END_SRC
+This gives us two =seq[float]=, but we need a =DataFrame=. So we
+combine the two:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+var df = seqsToDf({ "r / m" : radii,
+                    "g(r) / m s¯²" : a})
+#+END_SRC
+which gives us a data frame with two columns. The names are, as one can
+guess, the given strings. (Note that in practice one might not want to
+use unicode superscripts etc. It's just to show that it's possible and
+allows us to have it in the y label without setting the y label
+manually).
+
+However, we might want to plot it against =km= instead of =m=, so
+let's transmute the data frame:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+df = df.transmute(f{"r / km" ~ "r / m" / 1000.0}, f{"g(r) / m s¯²"})
+#+END_SRC
+And finally create the plot of the dependency:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+ggplot(df, aes("r / km", "g(r) / m s¯²")) +
+  geom_line() +
+  ggtitle("Gravitational acceleration of Earth depending on radial distance") +
+  ggsave("rNewtonAcceleration.pdf")
+#+END_SRC
+The resulting plot is the following:
+[[./media/recipes/rNewtonAcceleration.png]]
+and shows what we expect. A linear increase in acceleration up to the
+surface and a =1/r^2= drop from there.
+At this point we might ask "Do we recover the known 9.81 m/s^2 at the
+surface?". Let's see. There's many different ways we could go on about
+this. We'll use summarize:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+let maxG = df.summarize(f{"g_max" ~ max("g(r) / m s¯²")})
+#+END_SRC
+
+An alternative way would be to access the data column directly, like
+so:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+let maxG_alt = df["g(r) / m s¯²"].vToSeq.max
+#+END_SRC
+where access via =[]= returns a =PersistentVector[Value]=. To copy the values to a
+=seq[Value]=, so that we can use procs like =max= on it, we can use
+=vToSeq= (it's not just =toSeq=, because that breaks things:
+https://github.com/nim-lang/Nim/issues/7322...)
+Let's see what we have:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+echo "Max acceleration:\n ", maxG
+#+END_SRC
+which should give roughly =9.8 m / s^2=. The deviation comes from the fact
+that we didn't actually look at the value at the surface exactly, but took a rough
+grid from =0 - 35,000 km= with =1000= points. Evaluating the proc at the radius exactly
+might give a better result:
+#+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
+echo "At surface = ", newtonAcceleration(6371000)
+#+END_SRC
+except now we see a value slightly too large (=~ 9.82=). Because now
+we'd have to include the rotation of Earth to account for the
+centripetal force...  But since this isn't a physics lesson (going
+down this rabbit hole is a lot of fun though, I promise!), we'll stop
+here!
+
