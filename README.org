@@ -26,6 +26,8 @@ mostly compliant with the =ggplot2= syntax. So searching for a
 solution in =ggplot2= should hopefully be applicable to this (unless
 the feature isn't implemented yet of course).
 
+** Recipes
+
 For a more nimish approach, check out the [[file:recipes.org][recipes]], which should give
 you examples for typical use cases and things I encountered and the
 solutions I found. Please feel free to add examples to this file to
