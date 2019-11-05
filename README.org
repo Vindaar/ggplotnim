@@ -31,6 +31,12 @@ you examples for typical use cases and things I encountered and the
 solutions I found. Please feel free to add examples to this file to
 help other people!
 
+** Documentation
+
+The documentation is found at:
+
+https://vindaar.github.io/ggplotnim
+
 ** Installation & dependencies
 
 Installation should be just a 
