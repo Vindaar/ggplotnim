@@ -81,6 +81,19 @@ extension. Supported are:
 The above generates the following plot:
 [[./media/recipes/rLinePlotSize.png]]
 
+*** Log(-log) plot
+
+*** Line + point plot (w/ different) number of elements per type
+e.g. fitting data to some points, calculating fit function as smooth
+fn, still having only N points
+
+*** Two geoms w/ same X but different Y data, one colored
+
+*** Set custom margin on a label
+
+*** Add lines in a plot to highlight something
+
+
 ** TMAS "Tell Me A Story" recipes
 
 This section
@@ -187,4 +200,24 @@ we'd have to include the rotation of Earth to account for the
 centripetal force...  But since this isn't a physics lesson (going
 down this rabbit hole is a lot of fun though, I promise!), we'll stop
 here!
+
+** Other resources
+
+
+*** BabyIAXO calculations
+While the following document was mainly written for myself, it might
+be a nice example as to how one might use =ggplotnim= to explore some
+calculation, generate a bunch of plots in a literate environment
+(almost relieving us of our desire for a [[https://github.com/Vindaar/brokenRepl][working repl...]]) etc. It
+showcases a variety of plots one might want to create. At some point
+those will be part of the recipes above...  
+
+It contains calculations (and a lot of plots) for the sensitive axion
+mass ranges achievable in the BabyIAXO experiment, a prototype for the
+[[http://iaxo.web.cern.ch/][IAXO]] experiment.
+- the original Org file (do yourself a favor and view it in emacs):
+  https://github.com/Vindaar/TimepixAnalysis/blob/refactorRawManipulation/Doc/other/axionWithGasPhase.org
+- the generated PDF:
+  https://github.com/Vindaar/TimepixAnalysis/blob/refactorRawManipulation/Doc/other/axionWithGasPhase.pdf
+
 
