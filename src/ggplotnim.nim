@@ -1,3 +1,5 @@
+## .. include:: ./docs/ggplotnim.rst
+
 import sequtils, tables, sets, algorithm, strutils
 import ginger except Scale
 import parsecsv, streams, strutils, hashes, sugar
