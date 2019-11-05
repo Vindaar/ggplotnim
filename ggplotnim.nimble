@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.3"
+version       = "0.1.4"
 author        = "Sebastian Schmidt"
 description   = "A port of ggplot2 for Nim"
 license       = "MIT"
@@ -11,7 +11,7 @@ srcDir        = "src"
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.3"
 requires "https://github.com/Vindaar/ginger >= 0.1.2"
-requires "persvector#head"
+requires "persvector >= 1.0.0"
 #requires "https://github.com/Vindaar/chroma#addMoreSpaces"
 
 task test, "Run tests":
