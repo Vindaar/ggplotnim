@@ -223,13 +223,33 @@ func isNumber(s: string): bool =
   else:
     result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_', '-', '+'})
 
-proc `$`*(v: Value): string =
-  ## converts the given value to its value as a string
+func almostEqual*(a, b: float, epsilon = 1e-8): bool
+proc formatFloatValue(v: Value, precision: int): string =
+  ## Performs the formatting of a value of kind `VFloat` to string.
+  ## If the values are smaller < 1e-5 or > 1e5 scientific notation is
+  ## used.
+  doAssert v.kind == VFloat
+  let f = v.fnum
+  if almostEqual(abs(f), 0.0):
+    # to make sure zero is not formatted in scientific
+    result = f.formatBiggestFloat(format = ffDefault,
+                                  precision = precision)
+  elif abs(f) >= 1e5 or abs(f) <= 1e-5:
+    result = f.formatBiggestFloat(format = ffScientific,
+                                  precision = precision)
+  else:
+    result = f.formatBiggestFloat(format = ffDefault,
+                                  precision = precision)
+  result.trimZeros()
+
+proc pretty*(v: Value, precision = 4): string =
+  ## converts the given value to its value as a string. For `VFloat` the
+  ## precision can be given.
   case v.kind
   of VInt:
     result = $v.num
   of VFloat:
-    result = &"{v.fnum:g}"
+    result = formatFloatValue(v, precision = precision)
   of VBool:
     result = $v.bval
   of VString:
@@ -245,6 +265,8 @@ proc `$`*(v: Value): string =
     result.add "}"
   of VNull:
     result = "null"
+
+template `$`*(v: Value): string = pretty(v)
 
 proc hash*(x: Value): Hash =
   case x.kind
@@ -354,7 +376,7 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
-proc almostEqual*(a, b: float, epsilon = 1e-8): bool =
+func almostEqual*(a, b: float, epsilon = 1e-8): bool =
   # taken from
   # https://floating-point-gui.de/errors/comparison/
   let
@@ -467,15 +489,23 @@ makeMath(`-`)
 makeMath(`*`)
 makeMath(`/`)
 
-proc pretty*(df: DataFrame, numLines = 20): string =
+proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string =
   ## converts the first `numLines` to a table.
   ## If the `numLines` argument is negative, will print all rows of the
-  ## datafra.e
-  var maxLen = 0
+  ## dataframe.
+  ## The precision argument is relevant for `VFloat` values, but can also be
+  ## (mis-) used to set the column width, e.g. to show long string columns.
+  ## The `header` is the `Dataframe with ...` information line, which is not part
+  ## of the returned values for simplicity if the output is to be assigned to some
+  ## variable. TODO: we could change that (current way makes a test case easier...)
+  ## TODO: need to improve printing of string columns if length of elements
+  ## more than `alignBy`.
+  var maxLen = 6 # default width for a column name
   for k in keys(df):
     maxLen = max(k.len, maxLen)
-  echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
-  let alignBy = maxLen + 4
+  if header:
+    echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
+  let alignBy = max(maxLen + precision, 10)
   let num = if numLines > 0: min(df.len, numLines) else: df.len
   # write header
   result.add align("Idx", alignBy)
@@ -485,11 +515,16 @@ proc pretty*(df: DataFrame, numLines = 20): string =
   for i in 0 ..< num:
     result.add align($i, alignBy)
     for k in keys(df):
-      result.add align($df[k][i], alignBy)
+      let element = pretty(df[k][i], precision = precision)
+      if element.len < alignBy - 1:
+        result.add align(element,
+                         alignBy)
+      else:
+        result.add align(element[0 ..< alignBy - 4] & "...",
+                         alignBy)
     result.add "\n"
 
-proc `$`*(df: DataFrame): string =
-  result = df.pretty
+template `$`*(df: DataFrame): string = df.pretty
 
 proc toUgly*(result: var string, node: FormulaNode) =
   var comma = false
@@ -760,6 +795,9 @@ func buildCondition(conds: varargs[FormulaNode]): FormulaNode =
 
 template checkCondition(c: FormulaNode): untyped =
   doAssert c.kind == fkTerm
+  if c.op == amDep:
+    raise newException(Exception, "A formula containing `~` is not allowed for" &
+      "filter, since filter does not assign to a column. Did you accidentally add it?")
   doAssert c.op in {amEqual, amUnequal, amGreater, amLess, amGeq, amLeq, amAnd, amOr, amXor}
 
 func buildCondProc(conds: varargs[FormulaNode]): proc(v: Value): bool =
