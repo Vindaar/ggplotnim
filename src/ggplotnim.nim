@@ -1159,11 +1159,6 @@ proc addFreqPoly(view: var Viewport,
   data["x"] = (hist, style)
   view.addFreqPoly(data, binWidth, nbins, position)
 
-## TODO: write a helper proc to perform the data mangling somehow that
-## takes care of `enumerateScales`, reading the data etc. Maybe also as a template which
-## we hand some fields and types we want to read and then give a block that does
-## the stuff we have to do with this? I don't know :) This way is ugly though
-
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   # before performing a calculation for the histogram viewports, get the
   # new xScale, by calling calcTickLocations with it

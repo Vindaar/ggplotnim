@@ -1034,12 +1034,12 @@ Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   
 <p>As another example here to showcase the usage of <tt class="docutils literal"><span class="pre">FormulaNodes</span></tt>, let's find some cars with an engine displacement of more than 5 L and which are 2 seaters (I wonder what car might show up…):</p>
 <pre class="listing"><span class="Identifier">echo</span> <span class="Identifier">df</span><span class="Operator">.</span><span class="Identifier">filter</span><span class="Punctuation">(</span><span class="Identifier">f</span><span class="Punctuation">{</span><span class="StringLit">&quot;displ&quot;</span> <span class="Operator">&gt;</span> <span class="FloatNumber">5.0</span> <span class="Keyword">and</span> <span class="StringLit">&quot;class&quot;</span> <span class="Operator">==</span> <span class="StringLit">&quot;2seater&quot;</span><span class="Punctuation">}</span><span class="Punctuation">)</span></pre><pre class="listing">
 Dataframe with 11 columns and 5 rows:
-             Idx    manufacturer           model           displ            year             cyl           trans             drv             cty             hwy              fl           class
-               0       chevrolet        corvette             5.7            1999               8      manual(m6)               r              16              26               p         2seater
-               1       chevrolet        corvette             5.7            1999               8        auto(l4)               r              15              23               p         2seater
-               2       chevrolet        corvette             6.2            2008               8      manual(m6)               r              16              26               p         2seater
-               3       chevrolet        corvette             6.2            2008               8        auto(s6)               r              15              25               p         2seater
-               4       chevrolet        corvette               7            2008               8      manual(m6)               r              15              24               p         2seater</pre><p>Surprise, surprise we found ourselves a bunch of corvettes!</p>
+Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   hwy   fl     class
+  0       chevrolet        corvette             5.7  ...    8  ...    r    16    26    p   2seater
+  1       chevrolet        corvette             5.7  ...    8  ...    r    15    23    p   2seater
+  2       chevrolet        corvette             6.2  ...    8  ...    r    16    26    p   2seater
+  3       chevrolet        corvette             6.2  ...    8  ...    r    15    25    p   2seater
+  4       chevrolet        corvette               7  ...    8  ...    r    15    24    p   2seater</pre><p>Surprise, surprise we found ourselves a bunch of corvettes!</p>
 <p>Finally, let's make use of a formula, which takes an assignment. Let's say we want to convert the city fuel economy of the cars from MPG to L/100 km as is the standard in Germany. We'll do this with <tt class="docutils literal"><span class="pre">mutate</span></tt>. <tt class="docutils literal"><span class="pre">mutate</span></tt> will add an additional column to the dataframe. (well, if only it was clear whether the <tt class="docutils literal"><span class="pre">mpg</span></tt> given are US gallon or imperial gallon?)</p>
 <pre class="listing"><span class="Keyword">let</span> <span class="Identifier">dfl100km</span> <span class="Operator">=</span> <span class="Identifier">df</span><span class="Operator">.</span><span class="Identifier">filter</span><span class="Punctuation">(</span><span class="Identifier">f</span><span class="Punctuation">{</span><span class="StringLit">&quot;displ&quot;</span> <span class="Operator">&gt;</span> <span class="FloatNumber">5.0</span> <span class="Keyword">and</span> <span class="StringLit">&quot;class&quot;</span> <span class="Operator">==</span> <span class="StringLit">&quot;2seater&quot;</span><span class="Punctuation">}</span><span class="Punctuation">)</span>
   <span class="Operator">.</span><span class="Identifier">mutate</span><span class="Punctuation">(</span><span class="Identifier">f</span><span class="Punctuation">{</span><span class="StringLit">&quot;cty / L/100km&quot;</span> <span class="Operator">~</span> <span class="DecNumber">235</span> <span class="Operator">/</span> <span class="StringLit">&quot;cty&quot;</span><span class="Punctuation">}</span><span class="Punctuation">)</span>
@@ -1055,7 +1055,7 @@ Idx     manufacturer            model            displ  ...       trans  ...  ct
 <p>I used the chaining of <tt class="docutils literal"><span class="pre">filter</span></tt> and <tt class="docutils literal"><span class="pre">mutate</span></tt> above mainly to showcase that this works reliably. However, there's no magic happening to optimize any chaining!</p>
 <p>When looking at the formula above note that as in ggplot2 the tilde ~ is used to indicate a dependency.</p>
 <p>Finally it should be mentioned that it's possible to also call procs in the usage of formulas. Two kind of procs are supported. Either a proc takes a <tt class="docutils literal"><span class="pre">seq[T]</span></tt> and returns a <tt class="docutils literal"><span class="pre">T</span></tt>, or it takes a <tt class="docutils literal"><span class="pre">T</span></tt> and returns a <tt class="docutils literal"><span class="pre">T</span></tt>. These have to be lifted to work with <tt class="docutils literal"><span class="pre">PersistentVector[Value]</span></tt>. Helper templates to lift normal procs are provided. See formula.nim and check for <tt class="docutils literal"><span class="pre">lift&lt;X&gt;&lt;Y&gt;Proc</span></tt>, where <tt class="docutils literal"><span class="pre">X</span></tt> of <tt class="docutils literal"><span class="pre">{Scalar, Vector}</span></tt> and <tt class="docutils literal"><span class="pre">Y</span></tt> of <tt class="docutils literal"><span class="pre">{Int, Float}</span></tt>. </p>
-TODO: write a helper proc to perform the data mangling somehow that takes care of <tt class="docutils literal"><span class="pre">enumerateScales</span></tt>, reading the data etc. Maybe also as a template which we hand some fields and types we want to read and then give a block that does the stuff we have to do with this? I don't know :) This way is ugly though</p>
+</p>
   <div class="section" id="6">
 <h1><a class="toc-backref" href="#6">Imports</a></h1>
 <dl class="item">
@@ -1370,7 +1370,7 @@ NOTE: for clarity use <tt class="docutils literal"><span class="pre">enumerateLa
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br/>
-        <small>Made with Nim. Generated: 2019-11-05 08:09:58 UTC</small>
+        <small>Made with Nim. Generated: 2019-11-05 11:48:42 UTC</small>
       </div>
     </div>
   </div>

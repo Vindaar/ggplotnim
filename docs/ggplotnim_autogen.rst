@@ -220,12 +220,12 @@ are 2 seaters (I wonder what car might show up…):
 .. code:: bash
 
    Dataframe with 11 columns and 5 rows:
-                Idx    manufacturer           model           displ            year             cyl           trans             drv             cty             hwy              fl           class
-                  0       chevrolet        corvette             5.7            1999               8      manual(m6)               r              16              26               p         2seater
-                  1       chevrolet        corvette             5.7            1999               8        auto(l4)               r              15              23               p         2seater
-                  2       chevrolet        corvette             6.2            2008               8      manual(m6)               r              16              26               p         2seater
-                  3       chevrolet        corvette             6.2            2008               8        auto(s6)               r              15              25               p         2seater
-                  4       chevrolet        corvette               7            2008               8      manual(m6)               r              15              24               p         2seater
+   Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   hwy   fl     class
+     0       chevrolet        corvette             5.7  ...    8  ...    r    16    26    p   2seater
+     1       chevrolet        corvette             5.7  ...    8  ...    r    15    23    p   2seater
+     2       chevrolet        corvette             6.2  ...    8  ...    r    16    26    p   2seater
+     3       chevrolet        corvette             6.2  ...    8  ...    r    15    25    p   2seater
+     4       chevrolet        corvette               7  ...    8  ...    r    15    24    p   2seater
 
 Surprise, surprise we found ourselves a bunch of corvettes!
 
