@@ -202,22 +202,27 @@ template `failed?`(cond: untyped): untyped {.used.} =
   # helper template
   debugecho "Failed? ", astToStr(cond), ": ", cond
 
-func isNumber(s: string): bool =
+func isNumber*(s: string): bool =
   ## returns true, if `s` is a number according to our rules:
   ## - starts with {0..9}
   ## - ends with {0..9}
   ## - may contain a single `.`
   ## - may contain a single `e`, `E`
+  ## - may contain one minus at beginning and/or for exponent
   ## - else may only contain {0..9}
   ## It is only used to decide whether the stringifaction of `s`
   ## will be surrounded by `"`.
+  ## NOTE: we could also just use `parseutils.parseBiggestFloat`
+  ## and check if it fails... Why did we decide on this?
   let normStr = s.normalize
   if count(s, '.') > 1 or
      count(s, 'e') > 1 or
      count(s, 'E') > 1 or
-     count(s, '-') > 1 or
+     (s[0] == '-' and count(s, '-') > 2) or
+     (s[0] == '-' and s[1] == '-') or
+     (s[0] != '-' and count(s, '-') > 1) or
      (count(s, 'e') > 0 and count(s, 'E') > 0) or
-     s[0] notin {'0'..'9'} or
+     s[0] notin {'-', '0'..'9'} or
      s[^1] notin {'0'..'9'}:
     result = false
   else:
