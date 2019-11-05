@@ -493,7 +493,8 @@ proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string
   ## converts the first `numLines` to a table.
   ## If the `numLines` argument is negative, will print all rows of the
   ## dataframe.
-  ## The precision argument is only relevant for `VFloat` values!
+  ## The precision argument is relevant for `VFloat` values, but can also be
+  ## (mis-) used to set the column width, e.g. to show long string columns.
   ## The `header` is the `Dataframe with ...` information line, which is not part
   ## of the returned values for simplicity if the output is to be assigned to some
   ## variable. TODO: we could change that (current way makes a test case easier...)
@@ -514,8 +515,13 @@ proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string
   for i in 0 ..< num:
     result.add align($i, alignBy)
     for k in keys(df):
-      result.add align(pretty(df[k][i], precision = precision),
-                       alignBy)
+      let element = pretty(df[k][i], precision = precision)
+      if element.len < alignBy - 1:
+        result.add align(element,
+                         alignBy)
+      else:
+        result.add align(element[0 ..< alignBy - 4] & "...",
+                         alignBy)
     result.add "\n"
 
 template `$`*(df: DataFrame): string = df.pretty
