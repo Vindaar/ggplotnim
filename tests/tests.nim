@@ -64,7 +64,63 @@ suite "Value":
     expect(ValueError):
       discard v6.toStr
 
+  test "Direct `isNumber` check":
+    # Note: this test checks basically whether the content of a `Value`
+    # to be echoed is recognized as a number (in which case it's engulfed
+    # by literal ``"``) or a normal string (no ``"``)
+    let n1 = "1.1"
+    let n2 = "1.3e5"
+    let n3 = "aba"
+    let n4 = "1..1"
+    let n5 = "1.123"
+    let n6 = "1.5e5E5"
+    let n7 = "e"
+    let n8 = "E"
+    let n9 = "."
+    let n10 = "1e"
+    let n11 = "1E"
+    let n12 = "1."
+    let n13 = "e1"
+    let n14 = "E1"
+    let n15 = ".1"
+    # and some actually valid floats
+    let n16 = "6.084E+01"
+    let n17 = "1.676E+01"
+    let n18 = "6.863E+00"
+    let n19 = "2.007E+00"
+    let n20 = "9.329E-01"
+    let n21 = "2.441E-04"
+    let n22 = "-2.441E-04"
+    let n23 = "--2.441"
+    check n1.isNumber
+    check n2.isNumber
+    check not n3.isNumber
+    check not n4.isNumber
+    check n5.isNumber
+    check not n6.isNumber
+    check not n7.isNumber
+    check not n8.isNumber
+    check not n9.isNumber
+    check not n10.isNumber
+    check not n11.isNumber
+    check not n12.isNumber
+    check not n13.isNumber
+    check not n14.isNumber
+    check not n15.isNumber
+    check n16.isNumber
+    check n17.isNumber
+    check n18.isNumber
+    check n19.isNumber
+    check n20.isNumber
+    check n21.isNumber
+    check n22.isNumber
+    check not n23.isNumber
+
   test "String conversion":
+    # Note: this test checks basically whether the content of a `Value`
+    # to be echoed is recognized as a number (in which case it's engulfed
+    # by literal ``"``) or a normal string (no ``"``)
+    # This uses `isNumber` internally.
     let n1 = %~ "1.1"
     let n2 = %~ "1.3e5"
     let n3 = %~ "aba"
@@ -86,6 +142,8 @@ suite "Value":
     let n18 = %~ "6.863E+00"
     let n19 = %~ "2.007E+00"
     let n20 = %~ "9.329E-01"
+    let n21 = %~ "2.441E-04"
+    let n22 = %~ "-2.441E-04"
     check $n1 == "\"1.1\""
     check $n2 == "\"1.3e5\""
     check $n3 == "aba"
@@ -106,6 +164,9 @@ suite "Value":
     check $n18 == "\"6.863E+00\""
     check $n19 == "\"2.007E+00\""
     check $n20 == "\"9.329E-01\""
+    check $n21 == "\"2.441E-04\""
+    check $n22 == "\"-2.441E-04\""
+
 
   test "Math with Values":
     check (v1 * v2).kind == VFloat
