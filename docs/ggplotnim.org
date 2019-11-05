@@ -101,28 +101,29 @@ echo df
 gives for the =mpg= dataset:
 #+BEGIN_SRC sh
 Dataframe with 11 columns and 234 rows:
-             Idx    manufacturer           model           displ            year             cyl           trans             drv             cty             hwy              fl           class
-               0            audi              a4             1.8            1999               4        auto(l5)               f              18              29               p         compact
-               1            audi              a4             1.8            1999               4      manual(m5)               f              21              29               p         compact
-               2            audi              a4               2            2008               4      manual(m6)               f              20              31               p         compact
-               3            audi              a4               2            2008               4        auto(av)               f              21              30               p         compact
-               4            audi              a4             2.8            1999               6        auto(l5)               f              16              26               p         compact
-               5            audi              a4             2.8            1999               6      manual(m5)               f              18              26               p         compact
-               6            audi              a4             3.1            2008               6        auto(av)               f              18              27               p         compact
-               7            audi      a4 quattro             1.8            1999               4      manual(m5)             "4"              18              26               p         compact
-               8            audi      a4 quattro             1.8            1999               4        auto(l5)             "4"              16              25               p         compact
-               9            audi      a4 quattro               2            2008               4      manual(m6)             "4"              20              28               p         compact
-              10            audi      a4 quattro               2            2008               4        auto(s6)             "4"              19              27               p         compact
-              11            audi      a4 quattro             2.8            1999               6        auto(l5)             "4"              15              25               p         compact
-              12            audi      a4 quattro             2.8            1999               6      manual(m5)             "4"              17              25               p         compact
-              13            audi      a4 quattro             3.1            2008               6        auto(s6)             "4"              17              25               p         compact
-              14            audi      a4 quattro             3.1            2008               6      manual(m6)             "4"              15              25               p         compact
-              15            audi      a6 quattro             2.8            1999               6        auto(l5)             "4"              15              24               p         midsize
-              16            audi      a6 quattro             3.1            2008               6        auto(s6)             "4"              17              25               p         midsize
-              17            audi      a6 quattro             4.2            2008               8        auto(s6)             "4"              16              23               p         midsize
-              18       chevrolet c1500 suburb...             5.3            2008               8        auto(l4)               r              14              20               r             suv
-              19       chevrolet c1500 suburb...             5.3            2008               8        auto(l4)               r              11              15               e             suv
+ Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   hwy   fl     class
+   0            audi              a4             1.8  ...    4  ...    f    18    29    p   compact
+   1            audi              a4             1.8  ...    4  ...    f    21    29    p   compact
+   2            audi              a4               2  ...    4  ...    f    20    31    p   compact
+   3            audi              a4               2  ...    4  ...    f    21    30    p   compact
+   4            audi              a4             2.8  ...    6  ...    f    16    26    p   compact
+   5            audi              a4             2.8  ...    6  ...    f    18    26    p   compact
+   6            audi              a4             3.1  ...    6  ...    f    18    27    p   compact
+   7            audi      a4 quattro             1.8  ...    4  ...  "4"    18    26    p   compact
+   8            audi      a4 quattro             1.8  ...    4  ...  "4"    16    25    p   compact
+   9            audi      a4 quattro               2  ...    4  ...  "4"    20    28    p   compact
+  10            audi      a4 quattro               2  ...    4  ...  "4"    19    27    p   compact
+  11            audi      a4 quattro             2.8  ...    6  ...  "4"    15    25    p   compact
+  12            audi      a4 quattro             2.8  ...    6  ...  "4"    17    25    p   compact
+  13            audi      a4 quattro             3.1  ...    6  ...  "4"    17    25    p   compact
+  14            audi      a4 quattro             3.1  ...    6  ...  "4"    15    25    p   compact
+  15            audi      a6 quattro             2.8  ...    6  ...  "4"    15    24    p   midsize
+  16            audi      a6 quattro             3.1  ...    6  ...  "4"    17    25    p   midsize
+  17            audi      a6 quattro             4.2  ...    8  ...  "4"    16    23    p   midsize
+  18       chevrolet c1500 suburb...             5.3  ...    8  ...    r    14    20    r       suv
+  19       chevrolet c1500 suburb...             5.3  ...    8  ...    r    11    15    e       suv
 #+END_SRC
+(NOTE: I shortened the output for the docs here)
 Notice how in the =drv= column the 4WD entries are echoed as "4"
 instead of just 4. That is to highlight that those values are actually
 stored as =VString=.
@@ -150,12 +151,12 @@ echo df.arrange("cty").head(5)
 results in:
 #+BEGIN_SRC sh
 Dataframe with 11 columns and 5 rows:
-             Idx    manufacturer           model           displ            year             cyl           trans             drv             cty             hwy              fl           class
-               0           dodge dakota picku...             4.7            2008               8        auto(l5)             "4"               9              12               e          pickup
-               1           dodge     durango 4wd             4.7            2008               8        auto(l5)             "4"               9              12               e             suv
-               2           dodge ram 1500 pic...             4.7            2008               8        auto(l5)             "4"               9              12               e          pickup
-               3           dodge ram 1500 pic...             4.7            2008               8      manual(m6)             "4"               9              12               e          pickup
-               4            jeep grand cherok...             4.7            2008               8        auto(l5)             "4"               9              12               e             suv
+Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   hwy  fl    class
+  0           dodge dakota picku...             4.7  ...    8  ...  "4"     9    12   e   pickup
+  1           dodge     durango 4wd             4.7  ...    8  ...  "4"     9    12   e      suv
+  2           dodge ram 1500 pic...             4.7  ...    8  ...  "4"     9    12   e   pickup
+  3           dodge ram 1500 pic...             4.7  ...    8  ...  "4"     9    12   e   pickup
+  4            jeep grand cherok...             4.7  ...    8  ...  "4"     9    12   e      suv
 #+END_SRC
 and looking at the tail instead:
 #+BEGIN_SRC nim
@@ -164,12 +165,12 @@ echo df.arrange("cty").tail(5)
 will tell us that a new beetle is the most efficient car in the dataset:
 #+BEGIN_SRC sh
 Dataframe with 11 columns and 5 rows:
-             Idx    manufacturer           model           displ            year             cyl           trans             drv             cty             hwy              fl           class
-               0           honda           civic             1.6            1999               4      manual(m5)               f              28              33               r      subcompact
-               1          toyota         corolla             1.8            2008               4      manual(m5)               f              28              37               r         compact
-               2      volkswagen      new beetle             1.9            1999               4        auto(l4)               f              29              41               d      subcompact
-               3      volkswagen           jetta             1.9            1999               4      manual(m5)               f              33              44               d         compact
-               4      volkswagen      new beetle             1.9            1999               4      manual(m5)               f              35              44               d      subcompact
+Idx    manufacturer           model           displ  ...  cyl  ...  drv   cty   hwy   fl        class
+  0           honda           civic             1.6  ...    4  ...    f    28    33    r   subcompact
+  1          toyota         corolla             1.8  ...    4  ...    f    28    37    r      compact
+  2      volkswagen      new beetle             1.9  ...    4  ...    f    29    41    d   subcompact
+  3      volkswagen           jetta             1.9  ...    4  ...    f    33    44    d      compact
+  4      volkswagen      new beetle             1.9  ...    4  ...    f    35    44    d   subcompact
 #+END_SRC
 (=arrange= also takes an order argument, using the stdlib's
 =SortOrder= enum).
