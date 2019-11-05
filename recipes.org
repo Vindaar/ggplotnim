@@ -1,10 +1,9 @@
 #+property: header-args :tangle yes
 * ggplotnim recipes
 
-All recipes here import =ggplotnim, sequtils, seqmath= (=seqmath=
-installed as a dependency of =ggplotnim=). The code shown in each
-example may leave out small details. But the full examples are always
-linked below the image.
+This document contains recipes to create specific kinds of plots. It's
+aimed mainly at people who are new the grammar of graphics. It can
+also be seen as the equivalent of a plot gallery.
 
 Note that this Org file is actually a "literate programming
 document", which uses [[https://github.com/OrgTangle/ntangle][ntangle]]. If you want to generate the recipes
@@ -12,6 +11,7 @@ locally, just run:
 #+BEGIN_SRC sh :tangle no
 ntangle recipes.org
 #+END_SRC
+Note that the [[https://github.com/Vindaar/ggplotnim/tree/master/recipes][recipes]] directory of the repo already contains these files.
 
 The document contains two kinds of recipes. 
 1. First the "Get To The Point" (GTTP) kind of recipe. This is a
@@ -81,22 +81,24 @@ extension. Supported are:
 The above generates the following plot:
 [[./media/recipes/rLinePlotSize.png]]
 
-*** Log(-log) plot
+*** TODO Log(-log) plot
 
-*** Line + point plot (w/ different) number of elements per type
+*** TODO Line + point plot (w/ different) number of elements per type
 e.g. fitting data to some points, calculating fit function as smooth
 fn, still having only N points
 
-*** Two geoms w/ same X but different Y data, one colored
+*** TODO Two geoms w/ same X but different Y data, one colored
 
-*** Set custom margin on a label
+*** TODO Set custom margin on a label
 
-*** Add lines in a plot to highlight something
+*** TODO Add lines in a plot to highlight something
 
 
 ** TMAS "Tell Me A Story" recipes
 
-This section
+This section goes for a more cohesive, explanatory and hopefully more
+fun introduction to different kinds of plots. Also possible
+alternatives might be discussed.
 
 *** Plot a function
 
@@ -104,7 +106,10 @@ Assuming we have some mathematical function we want to plot. While
 this library is no =gnuplot=, this is still very simple (goes on
 talking about not simple example...). Let's pretend we want to plot
 the gravitational acceleration of a point mass according to
-Newton. The analytical description would be [[./media/newton_eq.png]],
+Newton. The analytical description would be
+
+ [[./media/newton_eq.png]],
+
 where =r= is the radial distance, =R= the radius of Earth, =m= the
 mass of Earth and =G= the gravitational constant. It shows both the
 case inside a massive body and outside.
@@ -157,6 +162,10 @@ let's transmute the data frame:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
 df = df.transmute(f{"r / km" ~ "r / m" / 1000.0}, f{"g(r) / m s¯²"})
 #+END_SRC
+The =transmute= function takes a variable number of elements. Only
+those columns that appear here (on the LHS of the ~) will be part of
+the resulting data frame.
+
 And finally create the plot of the dependency:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
 ggplot(df, aes("r / km", "g(r) / m s¯²")) +
@@ -210,7 +219,8 @@ be a nice example as to how one might use =ggplotnim= to explore some
 calculation, generate a bunch of plots in a literate environment
 (almost relieving us of our desire for a [[https://github.com/Vindaar/brokenRepl][working repl...]]) etc. It
 showcases a variety of plots one might want to create. At some point
-those will be part of the recipes above...  
+those will be part of the recipes above... In fact the plots found in
+the document below correspond to the TODO items in the GTTP section.
 
 It contains calculations (and a lot of plots) for the sensitive axion
 mass ranges achievable in the BabyIAXO experiment, a prototype for the
