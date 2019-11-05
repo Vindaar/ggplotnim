@@ -1720,7 +1720,6 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   doAssert p.facet.isSome
   var mplt = p
   mplt.data = p.data.group_by(p.facet.unsafeGet.columns)
-  echo mplt
   result = view
   var pltSeq: seq[Viewport]
   for (pair, df) in groups(mplt.data):
