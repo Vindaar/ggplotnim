@@ -25,6 +25,12 @@ type
     pkDodge = "dodge"
     pkFill = "fill"
 
+  StatKind* = enum
+    stIdentity = "identity"
+    stCount = "count"
+    stBin = "bin"
+    # and more to be added...
+
   DiscreteKind* = enum
     dcDiscrete, dcContinuous
 
@@ -116,6 +122,7 @@ type
     aes*: Aesthetics # a geom can have its own aesthetics. Needs to be part of
                     # the `Geom`, because if we add it to `GgPlot` we lose track
                     # of which geom it corresponds to
+    statKind*: StatKind
     case kind*: GeomKind
     of gkHistogram, gkFreqPoly:
       numBins*: int # number of bins
