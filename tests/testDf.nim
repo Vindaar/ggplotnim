@@ -191,6 +191,68 @@ suite "Data frame tests":
     check "yFloat" in dfTrans
     check "x" in dfTrans
     check dfTrans["yFloat"].vToSeq == %~ yFloat
+
+  test "Gather - 2 columns":
+    let x = toSeq(0 ..< 100)
+    let y1 = x.mapIt(sin(it.float))
+    let y2 = x.mapIt(sin(it.float - PI / 2.0) - 0.5)
+    let yComb = concat(y1, y2)
+    let df = seqsToDf(x, y1, y2)
+    check df.len == 100
+    let dfLong = df.gather(["y1", "y2"], key = "from", value = "y")
+    check dfLong.len == 200
+    check dfLong["from"].unique == %~ @["y1", "y2"]
+    check dfLong["y"].vToSeq == %~ yComb
+    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
+    let dfY2FromLong = dfLong.filter(f{"from" == "y2"})
+    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+    check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
+    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+    check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
+
+  test "Gather - 3 columns":
+    ## check that it works for 3 columns too
+    let x = toSeq(0 ..< 100)
+    let y1 = x.mapIt(sin(it.float))
+    let y2 = x.mapIt(sin(it.float - PI / 2.0) - 0.5)
+    let y3 = x.mapIt(cos(it.float - PI / 2.0) - 0.5)
+    let yComb = concat(y1, y2, y3)
+    let df = seqsToDf(x, y1, y2, y3)
+    check df.len == 100
+    let dfLong = df.gather(["y1", "y2", "y3"], key = "from", value = "y")
+    check dfLong.len == 300
+    check dfLong["from"].unique == %~ @["y1", "y2", "y3"]
+    check dfLong["y"].vToSeq == %~ yComb
+    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
+    let dfY2FromLong = dfLong.filter(f{"from" == "y2"})
+    let dfY3FromLong = dfLong.filter(f{"from" == "y3"})
+    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+    check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
+    check dfY3FromLong["y"].vToSeq == df["y3"].vToSeq
+    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+    check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
+    check dfY3FromLong["x"].vToSeq == df["x"].vToSeq
+
+  test "Gather - string and float column":
+    ## while it may be questionable to combine string and float columns in general
+    ## it should still work
+    let x = toSeq(0 ..< 100)
+    let y1 = x.mapIt(sin(it.float))
+    let yStr = x.mapIt($it)
+    let yComb = concat(%~ y1, %~ yStr)
+    let df = seqsToDf(x, y1, yStr)
+    check df.len == 100
+    let dfLong = df.gather(["y1", "yStr"], key = "from", value = "y")
+    check dfLong.len == 200
+    check dfLong["from"].unique == %~ @["y1", "yStr"]
+    check dfLong["y"].vToSeq == yComb
+    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
+    let dfYSTRFromLong = dfLong.filter(f{"from" == "yStr"})
+    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+    check dfYSTRFromLong["y"].vToSeq == df["yStr"].vToSeq
+    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+    check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
+
   test "Pretty printing of DFs":
     var
       # need the data as two sequences (well actually as a DataFrame, but that is
