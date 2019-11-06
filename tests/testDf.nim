@@ -1,4 +1,4 @@
-import ggplotnim, unittest, sequtils, math
+import ggplotnim, unittest, sequtils, math, strutils
 import algorithm
 
 suite "Data frame tests":
@@ -167,6 +167,30 @@ suite "Data frame tests":
     let dfFilter = df.filter(f{"x" >= max("x") * 0.5})
     check dfFilter["x"].vToSeq == %~ toSeq(50 .. 100)
 
+  test "Transmute - float arithmetic":
+    let x = toSeq(0 ..< 100)
+    let y = x.mapIt(sin(it.float))
+    let y2 = x.mapIt(pow(sin(it.float), 2.0))
+    let df = seqsToDf(x, y)
+    check df.len == 100
+    let dfTrans = df.transmute(f{"x"}, f{"y2" ~ "y" * "y"})
+    check "y" notin dfTrans
+    check "y2" in dfTrans
+    check "x" in dfTrans
+    check dfTrans["y2"].vToSeq == %~ y2
+
+  test "Transmute - parse floats in dataframe from string column":
+    let x = toSeq(0 ..< 100)
+    let y = x.mapIt($sin(it.float))
+    let yFloat = x.mapIt(sin(it.float))
+    let df = seqsToDf(x, y)
+    check df.len == 100
+    liftScalarStringProc(parseFloat, toExport = false)
+    let dfTrans = df.transmute(f{"x"}, f{"yFloat" ~ parseFloat("y")})
+    check "y" notin dfTrans
+    check "yFloat" in dfTrans
+    check "x" in dfTrans
+    check dfTrans["yFloat"].vToSeq == %~ yFloat
   test "Pretty printing of DFs":
     var
       # need the data as two sequences (well actually as a DataFrame, but that is
