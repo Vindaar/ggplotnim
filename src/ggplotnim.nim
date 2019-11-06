@@ -656,8 +656,10 @@ proc geom_point*(aes: Aesthetics = aes(),
 proc geom_bar*(aes: Aesthetics = aes(),
                color: Color = grey20, # color of the bars
                position = "stack",
+               stat = "count"
               ): Geom =
   let pkKind = parseEnum[PositionKind](position)
+  let stKind = parseEnum[StatKind](stat)
   let style = Style(lineType: ltSolid,
                     lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
                                     # between bins at size of exactly 1.0 bin width
@@ -668,7 +670,8 @@ proc geom_bar*(aes: Aesthetics = aes(),
                 kind: gkBar,
                 aes: aes.fillIds({gid}),
                 style: some(style),
-                position: pkKind)
+                position: pkKind,
+                statKind: stKind)
 
 proc geom_line*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -714,8 +717,10 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     lineType: LineType = ltSolid,
                     bins = 30,
                     position = "identity",
+                    stat = "bin"
                    ): Geom =
   let pkKind = parseEnum[PositionKind](position)
+  let stKind = parseEnum[StatKind](stat)
   let style = Style(lineType: lineType,
                     lineWidth: size,
                     color: color,
@@ -726,7 +731,8 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 aes: aes.fillIds({gid}),
                 style: some(style),
                 numBins: bins,
-                position: pkKind)
+                position: pkKind,
+                statKind: stKind)
 
 proc geom_tile*(aes: Aesthetics = aes()): Geom =
   let gid = incId()
