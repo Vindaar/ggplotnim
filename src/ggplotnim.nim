@@ -1162,6 +1162,15 @@ proc addFreqPoly(view: var Viewport,
   data["x"] = (hist, style)
   view.addFreqPoly(data, binWidth, nbins, position)
 
+proc tryGetStyle(geom: Geom): Style =
+  ## returns the style of `geom` if available. If not should probably
+  ## use a default (which it doesn't atm)
+  if geom.style.isSome:
+    result = geom.style.unsafeGet
+  else:
+    # TODO: inherit from parent somehow?
+    discard
+
 proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] =
   # before performing a calculation for the histogram viewports, get the
   # new xScale, by calling calcTickLocations with it
@@ -1183,12 +1192,8 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   let nbins = geom.numBins
   let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
-  var style: Style
-  if geom.style.isSome:
-    style = geom.style.unsafeGet
-  else:
-    # TODO: inherit from parent somehow?
-    discard
+  # get mutable style
+  var style = tryGetStyle(geom)
 
   # create the layout needed for the different geoms
   case geom.kind
@@ -1315,13 +1320,8 @@ proc createBarGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[GraphObject] 
     raise newException(ValueError, "The selected column " & $xScale.col &
       "contains continuous data. Did you want to call geom_histogram?")
   let numElements = xScale.labelSeq.len
-  var style: Style
-  if geom.style.isSome:
-    style = geom.style.unsafeGet
-  else:
-    # TODO: inherit from parent somehow?
-    #doAssert false
-    discard
+  # get mutable style
+  var style = tryGetStyle(geom)
 
   #of VFloat, VInt:
   #  doAssert false, "not implemented"
