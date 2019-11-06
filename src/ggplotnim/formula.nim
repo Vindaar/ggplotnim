@@ -223,6 +223,10 @@ func isNumber(s: string): bool =
   else:
     result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_', '-', '+'})
 
+func isNumber*(v: Value): bool =
+  doAssert v.kind == VString
+  result = v.str.isNumber
+
 func almostEqual*(a, b: float, epsilon = 1e-8): bool
 proc formatFloatValue(v: Value, precision: int): string =
   ## Performs the formatting of a value of kind `VFloat` to string.
@@ -320,26 +324,16 @@ proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
 
 template `%~`*(s: openArray[Value]): seq[Value] = @s
 
-func isInt(s: string): bool =
-  result = s.isDigit
+func isInt*(s: string): bool =
+  ## simple "most likely int" check. If the string only contains digits and
+  ## `_` we consider it an Int
+  s.allCharsInSet({'0' .. '9', '_'})
 
-func isDigit(v: Value): bool =
-  ## checks whether the string contained in `Value` is purely made from digits
+func isInt*(v: Value): bool =
+  ## checks whether the string contained in `Value` is likely an integer
+  ## For an `isFloat` equivalent see `isNumber`.
   doAssert v.kind == VString
-  result = v.str.isDigit
-
-func isInt(v: Value): bool =
-  ## checks whether the string stored in a `Value` is an integer
-  doAssert v.kind == VString
-  result = v.isDigit
-
-func isFloat(v: Value): bool =
-  ## checks whether the string stored in a `Value` is a float
-  doAssert v.kind == VString
-  result = v.str.replace(".", "").isDigit
-
-func isBool(s: string): bool = false
-func parseBool(s: string): bool = false
+  result = v.str.isInt
 
 proc toFloat*(v: Value): float =
   doAssert v.kind in {VInt, VFloat}
@@ -560,7 +554,7 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
       # NOTE: This is rather ugly. We just try by guessing. If we fail,
       # go with the next broader class
       var maybeNumber = v[0].isNumber
-      var maybeInt = v[0].allCharsInSet({'0'..'9','_'})
+      var maybeInt = v[0].isInt
       for i, x in v:
         if maybeNumber and maybeInt:
           try:
@@ -716,7 +710,7 @@ proc isValidVal(v: Value, f: FormulaNode): bool =
       raise newException(Exception, "comparison of kind " & $f.op & " does " &
         "not make sense for value kind of " & $v.kind & "!")
   of VString:
-    doAssert not f.rhs.val.isDigit, "comparison must be with another string!"
+    doAssert not f.rhs.val.isNumber, "comparison must be with another string!"
     case f.op
     of amEqual:
       result = v == f.rhs.val
