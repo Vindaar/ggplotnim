@@ -461,7 +461,7 @@ func geom_point*(aes: Aesthetics = aes(),
 
 func geom_bar*(aes: Aesthetics = aes(),
                color: Color = grey20, # color of the bars
-               position = "stack",
+               position = "stack"
               ): Geom =
   let pkKind = parseEnum[PositionKind](position)
   let style = Style(lineType: ltSolid,
@@ -1038,18 +1038,18 @@ proc addHistoRect[T](view: var Viewport, val: T, style: Style,
   ## creates a rectangle for a histogram and adds it to the viewports object
   # TODO: replace width argument by float range, so we
   # only allow values [0.0..1.0]
-  if val.float > 0.0:
+  if val.toFloat > 0.0:
     # calc left side of bar based on width, since we wa t the bar to be centered
     let left = (1.0 - width) / 2.0
     let r = view.initRect(Coord(x: c1(left),
                                 y: yPos), # bottom left
                           quant(width, ukRelative),
-                          quant(-val.float, ukData),
+                          quant(-val.toFloat, ukData),
                           style = some(style))
     view.addObj r
 
 proc addHistoRects(view: var Viewport,
-                   data: OrderedTable[string, (seq[int], Style)],
+                   data: OrderedTable[string, (seq[Value], Style)],
                    yScale: ginger.Scale,
                    position: PositionKind,
                    width = 1.0,
@@ -1082,7 +1082,7 @@ proc addHistoRects(view: var Viewport,
       var prevTop = c1(1.0)
       for label, (val, style) in data:
         p.addHistoRect(val[idx], style, prevTop, width = width)
-        prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].float, kind: ukData,
+        prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].toFloat, kind: ukData,
                                     scale: yScale, axis: akY)
     of pkDodge:
       discard
@@ -1091,21 +1091,21 @@ proc addHistoRects(view: var Viewport,
     inc i
     inc idx
 
-proc addHistoRects(view: var Viewport,
-                   hist: seq[int],
-                   yScale: ginger.Scale,
-                   style: Style,
-                   position: PositionKind,
-                   width = 1.0,
-                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
+proc addHistoRects[T](view: var Viewport,
+                      hist: seq[T],
+                      yScale: ginger.Scale,
+                      style: Style,
+                      position: PositionKind,
+                      width = 1.0,
+                      ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## overload of the above working on a whole data frame. This just extracts the
   ## (label / data) pairs and hands it to `addHistoRects`
-  var data = initOrderedTable[string, (seq[int], Style)]()
-  data["x"] = (hist, style)
+  var data = initOrderedTable[string, (seq[Value], Style)]()
+  data["x"] = (%~ hist, style)
   view.addHistoRects(data, yScale, position, width = width, ignorePortIdxs = ignorePortIdxs)
 
 proc addFreqPoly(view: var Viewport,
-                 data: OrderedTable[string, (seq[int], Style)],
+                 data: OrderedTable[string, (seq[Value], Style)],
                  binWidth: float,
                  nbins: int,
                  position: PositionKind) =
@@ -1129,19 +1129,19 @@ proc addFreqPoly(view: var Viewport,
     # each line disconnected by more than 1 empty bin
     # This is somewhat complicated.
     for i in 0 ..< nbins:
-      var binVal = 0
+      var binVal = %~ 0
       for label, (val, style) in data:
         # add the current value to the current bin value
         binVal = binVal + val[i]
-        if val[i] > 0 or # has data int it, add
-           binVal == 0 or # nothing in the bin yet, add
+        if val[i] > %~ 0 or # has data int it, add
+           binVal == %~ 0 or # nothing in the bin yet, add
            polyTab[label][^1].len == 0 or # current polyLine is empty, add
           (polyTab[label][^1].len > 0 and i > 0 and # sanity checks
-            (val[i - 1] > 0 and val[i] == 0) # this element is empty, but last
+            (val[i - 1] > %~ 0 and val[i] == %~ 0) # this element is empty, but last
                                              # was not, so add to draw back to 0
           ):
           polyTab[label][^1].add (x: binCenters[i], y: binVal.toFloat)
-        elif polyTab[label][^1].len > 0 and i != nbins - 1 and val[i + 1] == 0:
+        elif polyTab[label][^1].len > 0 and i != nbins - 1 and val[i + 1] == %~ 0:
           # only create new seq, if has content and next element is 0
           polyTab[label].add newSeq[Point]()
     # now create the poly lines from the data
@@ -1152,14 +1152,14 @@ proc addFreqPoly(view: var Viewport,
   else:
     doAssert false
 
-proc addFreqPoly(view: var Viewport,
-                 hist: seq[int],
-                 binWidth: float,
-                 nbins: int,
-                 style: Style,
-                 position: PositionKind) =
-  var data = initOrderedTable[string, (seq[int], Style)]()
-  data["x"] = (hist, style)
+proc addFreqPoly[T](view: var Viewport,
+                    hist: seq[T],
+                    binWidth: float,
+                    nbins: int,
+                    style: Style,
+                    position: PositionKind) =
+  var data = initOrderedTable[string, (seq[Value], Style)]()
+  data["x"] = (%~ hist, style)
   view.addFreqPoly(data, binWidth, nbins, position)
 
 proc getHistBins(p: GgPlot, geom: Geom,
@@ -1227,23 +1227,12 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   var yScaleBase = (low: 0.0, high: 0.0)
   for scale in enumerateScales(p, geom):
     any = true
-    var data: seq[Value]
-    # TODO: we do not actually make use of `data`!
-    if scale.col in p.data:
-      data = p.data.dataTo(scale.col, Value)
-    else:
-      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
-
     # accumulate data before we do anything with our viewports, since depending on
     # the `position` of the `geom`, we might need the data for each label at the
     # same time
-    var labData = initOrderedTable[string, (seq[int], Style)]()
+    var labData = initOrderedTable[string, (seq[Value], Style)]()
     var numLabel = 0
     for label, val in scale:
-      when type(p.data) is DataFrame:
-        let df = p.data.filter(f{scale.col == label})
-      else:
-        let df = toDf(p.data).filter(f{scale.col == label})
       # just the regular rectangles, one behind another
       style = changeStyle(style, val)
       const epsilon = 1e-2
@@ -1261,14 +1250,14 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
                              col = scale.col, label = label)
 
       # increase the scale if necessary
-      yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
+      yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.toFloat))
       labData[$label] = (hist, style)
 
     # reverse the order of `labData`, so that the element class with highest string
     # value is located at the bottom of the histogram (to match `ggplot2`)
     labData.sort(
       cmp = (
-        proc(a, b: (string, (seq[int], Style))): int =
+        proc(a, b: (string, (seq[Value], Style))): int =
           result = system.cmp(a[0], b[0])
       ),
       order = SortOrder.Descending)
@@ -1279,13 +1268,13 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     of pkStack:
       # for `pkStack` we must find the bin with the largest sum of
       # label elements
-      var sums = newSeq[int](nbins)
+      var sums = newSeq[Value](nbins)
       for i in 0 ..< nbins:
-        var s = 0
+        var s = %~ 0
         for label in keys(labData):
-          s += labData[label][0][i]
+          s = s + labData[label][0][i]
         sums[i] = s
-      newYMax = max(sums).float
+      newYMax = max(sums).toFloat
     of pkFill:
       # TODO: `pkFill` is basically the same as `pkStack`, only that the sum of
       # any non empty bin must add up to 1.0
@@ -1304,7 +1293,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
     else:
       doAssert false
   if not any:
-    var hist: seq[int]
+    var hist: seq[Value]
     var bins: seq[float]
     case vKind
     of VFloat, VInt:
@@ -1317,7 +1306,7 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
       hist = getHistBins(p, geom, scale = newXScale, col = xSc.col)
     else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
     # set the y scale
-    yScaleBase = (low: 0.0, high: hist.max.float)
+    yScaleBase = (low: 0.0, high: hist.max.toFloat)
     # fix the data scales on the children viewports
     let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
     case geom.kind
