@@ -1202,14 +1202,14 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
   if isDiscrete:
     raise newException(ValueError, "The selected column " & $xScale.col &
       " contains discrete data. Did you want to call geom_bar?")
-
   let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
-  # TODO: here?
-  # assign the new XScale to the view
   view.xScale = newXScale
 
   # generate the histogram itself
-  let nbins = geom.numBins
+  var nbins = geom.numBins
+  if geom.statKind == stIdentity:
+    nbins = p.data.len
+
   let binWidth = (newXScale.high - newXScale.low).float / nbins.float
 
   # get mutable style
