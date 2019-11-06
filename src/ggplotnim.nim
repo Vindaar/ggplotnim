@@ -1162,6 +1162,26 @@ proc addFreqPoly(view: var Viewport,
   data["x"] = (hist, style)
   view.addFreqPoly(data, binWidth, nbins, position)
 
+proc getHistBins(p: GgPlot, geom: Geom,
+                 scale: ginger.Scale,
+                 col: string, label = Value(kind: VNull)): (seq[Value]) =
+  case geom.statKind
+  of stBin:
+    var df = p.data
+    if label.kind != VNull:
+      df = df.filter(f{col == label})
+    let rawData = df.dataTo(p.aes.x.get.col, float)
+    # generate the histogram
+    let (hist, bins) = histogram(rawData, bins = geom.numBins, range = (scale.low, scale.high))
+    result = %~ hist
+  of stIdentity:
+    let yAes = getAes(p, geom, akY)
+    let yData = p.data.dataTo(yAes.y.get.col, Value)
+    result = yData
+  else:
+    raise newException(Exception, "Stat kind of " & $geom.statKind & " is not " &
+      "yet implemented for " & $geom.kind)
+
 proc tryGetStyle(geom: Geom): Style =
   ## returns the style of `geom` if available. If not should probably
   ## use a default (which it doesn't atm)
@@ -1234,9 +1254,12 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
       if geom.kind == gkHistogram:
         style.lineWidth = style.lineWidth + numLabel.float * epsilon
       inc numLabel
-      let rawData = df.dataTo(p.aes.x.get.col, float)
-      # generate the histogram
-      var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+
+      # get the counts and bins
+      let hist = getHistBins(p, geom,
+                             scale = newXScale,
+                             col = scale.col, label = label)
+
       # increase the scale if necessary
       yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
       labData[$label] = (hist, style)
@@ -1290,7 +1313,8 @@ proc createHistFreqPolyGobj(view: var Viewport, p: GgPlot, geom: Geom): seq[Grap
       doAssert xSc.dcKind == dcContinuous
       doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
       # generate the histogram
-      (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+      # get the counts and bins
+      hist = getHistBins(p, geom, scale = newXScale, col = xSc.col)
     else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
     # set the y scale
     yScaleBase = (low: 0.0, high: hist.max.float)
