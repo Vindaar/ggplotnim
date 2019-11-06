@@ -853,29 +853,83 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
     result[k] = df[k].filter(filterIdx)
   result.len = filterIdx.len
 
-template liftVectorFloatProc*(name: untyped): untyped =
-  proc `name`*(v: PersistentVector[Value]): Value =
-    result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
+template liftVectorFloatProc*(name: untyped,
+                             toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `seq[float]` to act on a `PersistentVector[Value]`
+  ## so that it can be used in a formula to act on a whole DF column.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: PersistentVector[Value]): Value =
+      result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
+  else:
+    proc `name`(v: PersistentVector[Value]): Value =
+      result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
 
-template liftVectorIntProc*(name: untyped): untyped =
-  proc `name`*(v: PersistentVector[Value]): Value =
-    result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
+template liftVectorIntProc*(name: untyped,
+                            toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `seq[int]` to act on a `PersistentVector[Value]`
+  ## so that it can be used in a formula to act on a whole DF column.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: PersistentVector[Value]): Value =
+      result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
+  else:
+    proc `name`(v: PersistentVector[Value]): Value =
+      result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
 
-template liftVectorStringProc(name: untyped): untyped =
-  proc `name`*(v: PersistentVector[Value]): Value =
-    result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toInt)))
+template liftVectorStringProc*(name: untyped,
+                               toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `seq[string]` to act on a `PersistentVector[Value]`
+  ## so that it can be used in a formula to act on a whole DF column.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: PersistentVector[Value]): Value =
+      result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toStr)))
+  else:
+    proc `name`(v: PersistentVector[Value]): Value =
+      result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toStr)))
 
-template liftScalarFloatProc*(name: untyped): untyped =
-  proc `name`*(v: Value): Value =
-    result = Value(kind: VFloat, fnum: `name`(v.toFloat))
+template liftScalarFloatProc*(name: untyped,
+                              toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `float` to act on a `Value`
+  ## so that it can be used in a formula to act on an element in a DF.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: Value): Value =
+      result = %~ `name`(v.toFloat)
+  else:
+    proc `name`(v: Value): Value =
+      result = %~ `name`(v.toFloat)
 
-template liftScalarIntProc*(name: untyped): untyped =
-  proc `name`*(v: Value): Value =
-    result = Value(kind: VInt, num: `name`(v.toInt))
+template liftScalarIntProc*(name: untyped,
+                           toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `int` to act on a `Value`
+  ## so that it can be used in a formula to act on an element in a DF.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: Value): Value =
+      result = %~ `name`(v.toInt)
+  else:
+    proc `name`(v: Value): Value =
+      result = %~ `name`(v.toInt)
 
-template liftScalarStringProc(name: untyped): untyped =
-  proc `name`*(v: Value): Value =
-    result = Value(kind: VString, str: `name`(v.toString))
+template liftScalarStringProc*(name: untyped,
+                               toExport: static bool = true): untyped =
+  ## Lifts a proc, which takes a `string` to act on a `Value`
+  ## so that it can be used in a formula to act on an element in a DF.
+  ## `toExport` can be set to `false` so that the resulting proc is not exported.
+  ## This is useful to lift procs only locally (e.g. in a test case etc.)
+  when toExport:
+    proc `name`*(v: Value): Value =
+      result = %~ `name`(v.toStr)
+  else:
+    proc `name`(v: Value): Value =
+      result = %~ `name`(v.toStr)
 
 liftVectorFloatProc(mean)
 liftScalarFloatProc(abs)
