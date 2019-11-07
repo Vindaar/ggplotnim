@@ -17,6 +17,7 @@ task test, "Run tests":
   exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
+  exec "nim c -r tests/test_issue20.nim"
 
 
 import ospaths, strutils, strformat
