@@ -1,12 +1,12 @@
-import ggplotnim, os
+import ggplotnim, times
 
 proc fastRead() =
-  let csvD = readCsv("../data/diamonds.csv")
+  let csvD = readCsv("data/diamonds.csv")
   let df = toDf(csvD)
   echo df
 
 proc fastPlot() =
-  let mpg = toDf(readCsv("../data/mpg.csv"))
+  let mpg = toDf(readCsv("data/mpg.csv"))
   ggplot(mpg, aes(x = "displ", y = "hwy")) +
     geom_point() +
     ggsave("figs/2.3_1.pdf")
@@ -23,7 +23,7 @@ proc fastTogether() =
 
 proc slowTogether() =
   block:
-    let mpg = toDf(readCsv("../data/mpg.csv"))
+    let mpg = toDf(readCsv("data/mpg.csv"))
     ggplot(mpg, aes(x = "displ", y = "hwy")) +
       geom_point() +
       ggsave("figs/2.3_1.pdf")
@@ -34,9 +34,10 @@ proc slowTogether() =
       geom_point() +
       ggsave("figs/2.3_4.pdf")
   block:
-    let csvD = readCsv("../data/diamonds.csv")
+    let csvD = readCsv("data/diamonds.csv")
     let df = toDf(csvD)
     echo df
+
 when isMainModule:
   let t0 = epochTime()
   fastPlot()
