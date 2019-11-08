@@ -61,10 +61,13 @@ type
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
   # static identifier we can calculate to retrieve it?
   # e.g. `xaxis`, `<name of geom>.xaxis` etc.?
+  ScaleTransform* = proc(v: Value): Value
+
   Scale* = object
     # the column which this scale corresponds to
     col*: string
     name*: string
+    ids*: set[uint16]
     vKind*: ValueKind # the value kind of the data of `col`
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
@@ -74,7 +77,7 @@ type
       # to all values associated with this scale
       # For scLinearData the transformation proc is just the identity (or
       # not defined) and will never be called
-      trans*: proc(v: Value): Value
+      trans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
     else: discard
     case dcKind*: DiscreteKind
@@ -110,6 +113,7 @@ type
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom* = object
+    gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
     style*: Option[Style] # if set, apply this style instead of parent's
     position*: PositionKind
@@ -129,6 +133,8 @@ type
     xlabelMargin*: Option[float]
     ylabel*: Option[string]
     ylabelMargin*: Option[float]
+    xLabelSecondary*: Option[string]
+    yLabelSecondary*: Option[string]
     legendPosition*: Option[Coord]
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
 
@@ -138,12 +144,32 @@ type
     subtitle*: string
     # GgPlot can only contain a single `aes` by itself. Geoms may contain
     # seperate ones
-    aes*: Aesthetics
+    aes*: Aesthetics # original `aes` given in `ggplot()` call. Won't be modified
     numXticks*: int
     numYticks*: int
     facet*: Option[Facet]
     geoms*: seq[Geom]
     theme*: Theme
+
+  MainAddScales* = tuple[main: Option[Scale], more: seq[Scale]]
+  FilledScales* = object
+    x*: MainAddScales
+    y*: MainAddScales
+    color*: MainAddScales
+    size*: MainAddScales
+    shape*: MainAddScales
+
+  #FinalPlot* = object
+  #  scales*: FilledScales
+
+  # `PlotView` describes the object the final representation of a `GgPlot` before
+  # being drawn.
+  PlotView* = object
+    # `plotScales` is essentially the final aesthetics used in the drawing of
+    # the plot, based on `GgPlot.aes` and `geoms.aes` combined
+    plotScales*: FilledScales#FinalPlot#seq[Scale]
+    view*: Viewport # the ginger representation of the plot
+
 
 proc `==`*(s1, s2: Scale): bool =
   if s1.dcKind == s2.dcKind and
@@ -156,11 +182,17 @@ proc `==`*(s1, s2: Scale): bool =
 # Workaround. For some reason `hash` for `Style` isn't found if defined in
 # ginger..
 proc hash*(s: Style): Hash =
-  result = hash($s.color)
+  let c = s.color
+  result = hash(c.r)
+  result = result !& hash(c.g)
+  result = result !& hash(c.b)
   result = result !& hash(s.size)
   result = result !& hash(s.lineType)
   result = result !& hash(s.lineWidth)
-  result = result !& hash($s.fillColor)
+  let fc = s.fillColor
+  result = result !& hash(fc.r)
+  result = result !& hash(fc.g)
+  result = result !& hash(fc.b)
   result = !$result
 
 proc hash*(x: ScaleValue): Hash =
@@ -172,9 +204,16 @@ proc hash*(x: ScaleValue): Hash =
     #result = result !& hash(x.rawVal)
     # TODO: Hash proc?
   of scColor:
-    result = result !& hash($x.color)
+    let c = x.color
+    result = result !& hash(c.r)
+    result = result !& hash(c.g)
+    result = result !& hash(c.b)
   of scFillColor:
-    result = result !& hash($x.color & "FILL")
+    let fc = x.color
+    # for fill we take negative values
+    result = result !& hash(-fc.r)
+    result = result !& hash(-fc.g)
+    result = result !& hash(-fc.b)
   of scShape:
     result = result !& hash(x.marker)
   of scSize:
@@ -184,6 +223,7 @@ proc hash*(x: ScaleValue): Hash =
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)
   result = result !& hash(x.col)
+  result = result !& hash(x.ids)
   case x.dcKind:
   of dcDiscrete:
     for k, v in x.valueMap:
