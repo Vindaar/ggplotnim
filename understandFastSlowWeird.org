@@ -1315,6 +1315,23 @@ while readRow(parser):
     result[colHeaders[i]].add parser.rowEntry(col)
 #+END_SRC
 
+With this change, let's see what the run times say now. We'll run it
+again with and without ref types to see the difference both the fast
+and slow code.
+
+non ref types:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ ./timeit bookPlots/slow
+Average call time for cmd `bookPlots/slow` was: 1.32 s
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/fast
+Average call time for cmd `bookPlots/fast` was: 1.25 s
+#+END_SRC
+Woah, that's more like it! Both codes are running at almost the same
+speed now! That's progress. There's still a difference, but for now
+let's just keep it at that.
+
+ref types:
+
 
 Different test cases, their run times in both compilation modes
 
