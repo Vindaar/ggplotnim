@@ -6,3 +6,5 @@ Weird behavior:
 nim c -r bookPlots/weirdFastSlow.nim
 #+END_SRC
 or use =-d:danger=. Behavior is more or less the same.
+
+*See here*: [[file:understandFastSlowWeird.org]]
