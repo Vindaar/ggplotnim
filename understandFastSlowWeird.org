@@ -1106,7 +1106,7 @@ kcachegrind callgrind.out.7359
 
 we are greeted with the following image:
 
-[[./kcachegrind_weirdSlowFast.png]]
+[[media/kcachegrind_weirdSlowFast.png]]
 
 Here I already highlighted the =readCsv= line on the left. On the
 right we can already see the interesting thing (which we already know
@@ -1189,7 +1189,7 @@ valgrind --tool=callgrind bookPlots/slow
 again. After waiting about 5 minutes or so, I launched =kcachegrind=,
 went to the source code tab for the =readCsv= line and:
 
-[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/read_csv_ref_types.png]]
+[[media/read_csv_ref_types.png]]
 
 it starts to click that at least calling =strip= for each single
 element to access the table is probably not a good idea. But also for
@@ -1220,7 +1220,7 @@ calls come from procs in =gc.nim= on the LHS)
 In both cases we end up at =markStackAndRegisters=,
 =interiorAllocatedPtr= and from there it finally spreads out a
 bit.
-[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/both_case_callstack.png]]
+[[media/both_case_callstack.png]]
 
 Looking more closely at the images below, we can see that essentially
 the same stuff happens. In both cases we have 
@@ -1231,9 +1231,9 @@ happen either in the one proc or in the other.
 
 Reference image for these two latter cases:
 **** Non ref types, slowdown due to =copyStringRC1=
-[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/non_ref_types_incl_strip.png]]
+[[media/non_ref_types_incl_strip.png]]
 **** Ref types, slowdown due to =nsuStrip=
-[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/ref_types_incl_strip.png]]
+[[media/ref_types_incl_strip.png]]
 
 *** Compare run times
 
@@ -1267,12 +1267,26 @@ nim c bookPlots/slow.nim
 nim c bookPlots/fast.nim
 ./timeit bookPlots/fast
 #+END_SRC
+Which yields:
+#+BEGIN_SRC sh
+Average call time for cmd `bookPlots/slow` was: 5.48 s
+Average call time for cmd `bookPlots/fast` was: 1.68 s
+#+END_SRC
 
-#+RESULTS:
+Now the same with ref types. Apply stash via magit and then run the
+same as above yields:
+#+BEGIN_SRC sh
+Average call time for cmd `bookPlots/slow` was: 14.78 s
+Average call time for cmd `bookPlots/fast` was: 1.57 s
+#+END_SRC
+So apparently using ref types everywhere isn't a good idea with the
+current code. Well, the fast version is slightly faster and the slow
+version a lot slower! Yay. 
 
 Different test cases, their run times in both compilation modes
 
 Below is noted the root cause of the slowness, if it happens.
+
 | \          | strip used: | yes | no |
 |------------+-------------+-----+----|
 | ref types: |             |     |    |
