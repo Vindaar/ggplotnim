@@ -1,6 +1,6 @@
 import macros, tables, strutils, options, fenv, sets, hashes
 
-import persvector, sequtils, seqmath, stats, strformat, algorithm
+import persvector, sequtils, seqmath, stats, strformat, algorithm, parseutils
 
 # for error messages to print types
 import typetraits
@@ -214,19 +214,85 @@ func isNumber*(s: string): bool =
   ## will be surrounded by `"`.
   ## NOTE: we could also just use `parseutils.parseBiggestFloat`
   ## and check if it fails... Why did we decide on this?
-  let normStr = s.normalize
-  if count(s, '.') > 1 or
-     count(s, 'e') > 1 or
-     count(s, 'E') > 1 or
-     (s[0] == '-' and count(s, '-') > 2) or
-     (s[0] == '-' and s[1] == '-') or
-     (s[0] != '-' and count(s, '-') > 1) or
-     (count(s, 'e') > 0 and count(s, 'E') > 0) or
-     s[0] notin {'-', '0'..'9'} or
-     s[^1] notin {'0'..'9'}:
-    result = false
-  else:
-    result = s.allCharsInSet({'0'..'9', '.', 'e', 'E', '_', '-', '+'})
+  var idx = skipWhile(s, toSkip = {' '})
+  template next(checkFor: untyped): untyped =
+    if idx < s.len - 1:
+      s[idx + 1] in checkFor
+    else:
+      false
+  var
+    negMinus = false
+    posPlus = false
+    expMinus = false
+    expPlus = false
+    numBeforeDot = false
+    numBeforeExp = false
+    dot = false
+    expE = false
+    sinceLastSpace = -1
+  while idx < s.len:
+    case s[idx]
+    of '-':
+      if next({'-', '+', '.'}):
+        # another `-+.` after `-`
+        return false
+      elif not negMinus:
+        negMinus = true
+      elif not expMinus:
+        expMinus = true
+      else:
+        # apparently has 3 minus
+        return false
+    of '+':
+      if next({'+', '-'}):
+        # another `-+.` after `-`
+        return false
+      elif not posPlus:
+        posPlus = true
+      elif not expPlus:
+        posPlus = true
+      else:
+        # apparently has 3 plus
+        return false
+    of '0' .. '9':
+      if not dot:
+        numBeforeDot = true
+      if not expE:
+        numBeforeExp = true
+      inc idx
+      continue
+    of '.':
+      if next({'e', 'E'}):
+        # `e` after `.`
+        return false
+      elif not dot and numBeforeDot:
+        dot = true
+      else:
+        # multiple dots or number before `dot`
+        return false
+    of 'e', 'E':
+      if not next({'0'..'9', '-', '+'}):
+        # apparently ends with an 'e', 'E'
+        return false
+      if not expE and numBeforeExp:
+        expE = true
+      else:
+        # multiple `e` or no number before `e`
+        return false
+    of ' ':
+      if sinceLastSpace == -1 or sinceLastSpace == 1:
+        # when we encounter a space, set our `spaceCounter` to 0 to start
+        # increasing it every itereation in main loop
+        sinceLastSpace = 0
+      elif sinceLastSpace > 1:
+        # apparently something between last space and this space
+        return false
+    else: return false # something not part of a number
+    inc idx
+    if sinceLastSpace >= 0:
+      # last iter found a space, so count spaces
+      inc sinceLastSpace
+  return true
 
 func isNumber*(v: Value): bool =
   doAssert v.kind == VString
