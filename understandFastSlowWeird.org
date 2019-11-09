@@ -1283,6 +1283,39 @@ So apparently using ref types everywhere isn't a good idea with the
 current code. Well, the fast version is slightly faster and the slow
 version a lot slower! Yay. 
 
+So how can me modify the =readCsv= code to remove our bottlenecks? The
+current code is essentially:
+#+BEGIN_SRC nim
+for col in items(parser.headers):
+  result[col.strip] = newSeqOfCap[string](lineCount)
+var lnCount = 0
+while readRow(parser):
+  if lnCount < skipLines:
+    inc lnCount
+    continue
+  for col in parser.headers:
+    result[col.strip].add parser.rowEntry(col).strip
+#+END_SRC
+For the headers we can simply strip the column names once in the top
+loop and use those to access the table. For the row let's just get rid
+of the =strip= for the time being and hope there won't be any spaces
+in our entries that way. Then we might end up with:
+#+BEGIN_SRC nim
+var colHeaders: seq[string]
+for colUnstripped in items(parser.headers):
+  let col = colUnstripped.strip
+  colHeaders.add col
+  result[col] = newSeqOfCap[string](lineCount)
+var lnCount = 0
+while readRow(parser):
+  if lnCount < skipLines:
+    inc lnCount
+    continue
+  for i, col in parser.headers:
+    result[colHeaders[i]].add parser.rowEntry(col)
+#+END_SRC
+
+
 Different test cases, their run times in both compilation modes
 
 Below is noted the root cause of the slowness, if it happens.
