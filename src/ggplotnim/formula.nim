@@ -280,11 +280,11 @@ func isNumber*(s: string): bool =
         # multiple `e` or no number before `e`
         return false
     of ' ':
-      if sinceLastSpace == -1:
+      if sinceLastSpace == -1 or sinceLastSpace == 1:
         # when we encounter a space, set our `spaceCounter` to 0 to start
         # increasing it every itereation in main loop
         sinceLastSpace = 0
-      elif sinceLastSpace > 0:
+      elif sinceLastSpace > 1:
         # apparently something between last space and this space
         return false
     else: return false # something not part of a number

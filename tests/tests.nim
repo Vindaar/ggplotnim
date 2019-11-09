@@ -92,6 +92,9 @@ suite "Value":
     let n21 = "2.441E-04"
     let n22 = "-2.441E-04"
     let n23 = "--2.441"
+    let n24 = "-6.836E-04 "
+    let n25 = "2.930E-04    "
+    let n26 = "2.930E-04  d   "
     check n1.isNumber
     check n2.isNumber
     check not n3.isNumber
@@ -103,7 +106,7 @@ suite "Value":
     check not n9.isNumber
     check not n10.isNumber
     check not n11.isNumber
-    check not n12.isNumber
+    check n12.isNumber
     check not n13.isNumber
     check not n14.isNumber
     check not n15.isNumber
@@ -115,6 +118,9 @@ suite "Value":
     check n21.isNumber
     check n22.isNumber
     check not n23.isNumber
+    check n24.isNumber
+    check n25.isNumber
+    check not n26.isNumber
 
   test "String conversion":
     # Note: this test checks basically whether the content of a `Value`
@@ -155,7 +161,7 @@ suite "Value":
     check $n9 == "."
     check $n10 == "1e"
     check $n11 == "1E"
-    check $n12 == "1."
+    check $n12 == "\"1.\""
     check $n13 == "e1"
     check $n14 == "E1"
     check $n15 == ".1"
