@@ -1432,15 +1432,24 @@ test "CSV parsing with spaces":
 
 removeFile("testCsvSpaces.csv")
 #+END_SRC
+Running the code for the first time revealed that the CSV parser *does
+not* strip whitespace by itself. So the test failed. However, another
+problem was that my "isNumber" proc failed on some of these numbers,
+due to space at the end. 
 
-And it seems to be working!
+Well, since I didn't have anything better to do, I ended up writing a
+new implementation of the =isNumber= check, which just walks through
+the potential number string char by char and checks for all sorts of
+conditions.
+The current (as of <2019-11-09 Sat 22:54>) version lives at:
+https://github.com/Vindaar/ggplotnim/blob/weirdFastSlow/src/ggplotnim/formula.nim#L205-L295
 
-After spending quite a bit more time on how to best handle the
-stripping of whitespace, I finally ended up with the following
-solution: The whitespace is stripped in =readCsv= (I experimented with
-doing it in =toDf= instead). The =rowEntry= CSV proc actually returns
-a =var string= which allows us to strip each entry in place before
-assigning it. This finally gets rid of our copying bottleneck!
+Then I spent quite a bit more time on how to best handle the stripping
+of whitespace. I finally ended up with the following solution: The
+whitespace is stripped in =readCsv= (I experimented with doing it in
+=toDf= instead). The =rowEntry= CSV proc actually returns a =var
+string= which allows us to strip each entry in place before assigning
+it. This finally gets rid of our copying bottleneck!
 
 The final code:
 #+BEGIN_SRC nim
@@ -1461,7 +1470,42 @@ The final code:
       result[colHeaders[i]].add parser.rowEntry(col)
 #+END_SRC
 
-*** 
+And with these two changes the above test case actually runs
+correctly. 
+
+As a final check we make sure that the slow and fast test cases are
+actually still about as fast as before (when we didn't strip
+whitespace at all):
+
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/slow
+Average call time for cmd `bookPlots/slow` was: 1.55 s
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/fast
+Average call time for cmd `bookPlots/fast` was: 1.47 s
+#+END_SRC
+we lose about 30% in this case, but having not to worry about
+whitespace in a CSV is probably worth it. Also the performance
+difference is even smaller when compiled with =-d:danger=
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c -d:danger bookPlots/slow
+Average call time for cmd `bookPlots/slow` was: 0.20 s
+#+END_SRC
+compared to =0.18 s= without any strip (which is only ~10%).
+
+And with that I'm done for the time being. 
+
+*** Conclusion
+
+Well, this was fun. I guess this is also a good way to spend a Friday
+afternoon and Saturday!
+
+I learned a huge amount of stuff about how to approach performance
+issues in code and I'm looking forward to applying my knowledge to
+much bigger performance bottlenecks, which are certainly still in the
+library!
+
+
+** Appendix
 *** Annotate with perf
 
 With =perf= if I create the record like:
@@ -1619,12 +1663,3 @@ index faf4407..9411525 100644
 #+END_SRC
 
 
-** Conclusion
-
-Well, this was fun. I guess this is also a good way to spend a Friday
-afternoon and Saturday!
-
-I learned a huge amount of stuff about how to approach performance
-issues in code and I'm looking forward to applying my knowledge to
-much bigger performance bottlenecks, which are certainly still in the
-library!
