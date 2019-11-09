@@ -1390,9 +1390,10 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 it'd be annoying if those spaces ended up as part of the elements in
 the data frame. Keep in mind however that spaces on floats are not a
 problem for the resulting data frame, since the stringy floats will be
-parsed using =parseFloat=. The string values in the last column
-however will be added as is. Thus, the main question is whether the
-space ends up in the "type" column. Let's write a short test for it.
+parsed using =parseFloat= (*Update:* haha, yeah. no. it crashes and
+burns). The string values in the last column however will be added as
+is. Thus, the main question is whether the space ends up in the "type"
+column. Let's write a short test for it.
 
 #+BEGIN_SRC nim
 import ggplotnim, os, unittest
