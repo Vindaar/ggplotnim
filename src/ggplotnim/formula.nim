@@ -616,6 +616,9 @@ proc `$`*(node: FormulaNode): string =
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
+  ## NOTE: This proc assumes that the given entries in the `seq[string]`
+  ## have been cleaned of white space. The `readCsv` proc takes care of
+  ## this.
   ## TODO: currently does not allow to parse bool!
   result = DataFrame(len: 0)
   for k, v in t:
