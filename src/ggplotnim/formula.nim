@@ -616,9 +616,11 @@ proc `$`*(node: FormulaNode): string =
 
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
+  ## NOTE: This proc assumes that the given entries in the `seq[string]`
+  ## have been cleaned of white space. The `readCsv` proc takes care of
+  ## this.
   ## TODO: currently does not allow to parse bool!
   result = DataFrame(len: 0)
-  var mx = "" # mutable value we use to remove space
   for k, v in t:
     var data = newSeq[Value](v.len)
     # check first element of v for type
@@ -628,28 +630,24 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
       var maybeNumber = v[0].isNumber
       var maybeInt = v[0].isInt
       for i, x in v:
-        # copy `x` and remove potential whitespace from strings. Faster than strip?
-        mx = x
-        mx.removePrefix({' '})
-        mx.removeSuffix({' '})
         if maybeNumber and maybeInt:
           try:
-            data[i] = %~ mx.parseInt
+            data[i] = %~ x.parseInt
           except ValueError:
             maybeInt = false
             try:
-              data[i] = %~ mx.parseFloat
+              data[i] = %~ x.parseFloat
             except ValueError:
               maybeNumber = false
-              data[i] = %~ mx
+              data[i] = %~ x
         elif maybeNumber:
           try:
-            data[i] = %~ mx.parseFloat
+            data[i] = %~ x.parseFloat
           except ValueError:
             maybeNumber = false
-            data[i] = %~ mx
+            data[i] = %~ x
         else:
-          data[i] = %~ mx
+          data[i] = %~ x
     result.data[k] = data.toPersistentVector
     if result.len == 0:
       result.len = result.data[k].len
