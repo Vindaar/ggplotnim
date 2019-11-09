@@ -208,12 +208,12 @@ func isNumber*(s: string): bool =
   ## - ends with {0..9}
   ## - may contain a single `.`
   ## - may contain a single `e`, `E`
-  ## - may contain one minus at beginning and/or for exponent
+  ## - may contain one minus, one plus at beginning and one for exponent
   ## - else may only contain {0..9}
+  ## - `e`, `+`, `-`, `.` may not appear one after another
+  ## - may contain space before and after the number
   ## It is only used to decide whether the stringifaction of `s`
   ## will be surrounded by `"`.
-  ## NOTE: we could also just use `parseutils.parseBiggestFloat`
-  ## and check if it fails... Why did we decide on this?
   var idx = skipWhile(s, toSkip = {' '})
   template next(checkFor: untyped): untyped =
     if idx < s.len - 1:
