@@ -1,0 +1,1439 @@
+* fast code + fast code = slow code
+Apparently.
+
+So after finishing with the major refactoring of the scale filling in
+=ggplotnim= I re-ran the [[file:chapter2.nim][chapter2 examples]] file. 
+
+Before the refactor that file ran in:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ nim c chapter2.nim
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2
+./chapter2  7.07s user 0.13s system 99% cpu 7.229 total
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ nim c -d:danger chapter2.nim
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2
+./chapter2  1.51s user 0.13s system 99% cpu 1.645 total
+#+END_SRC
+which I assumed were (unfortunately) the current run times, due to a
+combination of parsing the ~53,000 line long [[file:~/CastData/ExternCode/ggplotnim/data/diamonds.csv][diamonds.csv]] file,
+converting it to a data frame and then handling the drawing of all
+those points. 
+
+(Aside: For instance for simplicity each graphical primitive is drawn
+individually in cairo creating and destroying a drawing context each,
+instead of accumulating all objects and handling all in one go (for
+that one would have to revert all transformations, which I wanted to
+avoid in the beginning). Also I know that the data frame
+implementation is quite slow at the moment, since everything is
+essentially an "object type" in the language of =numpy= and =pandas=
+(each individual element in the DF is stored as a =Value= object,
+which is similar to a =JsonNode=).)
+
+Anyways, I was slightly disappointed to find that after the refactor I
+got:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ nim c chapter2.nim
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2
+./chapter2  29.27s user 0.17s system 99% cpu 29.568 total
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ nim c -d:danger chapter2.nim
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2 
+./chapter2  2.36s user 0.08s system 98% cpu 2.466 total
+#+END_SRC
+I knew that the code would most likely be a little slower than before,
+because I changed the data handling without thinking about performance
+on large datasets (instead of accessing the DF directly, I wrapped the
+data access in a closure for a more uniform handling for different
+kinds of geoms, which included another level of nesting =Value= ->
+=ScaleValue=...). 
+
+However, the code being slower by more than a factor of 4 made me
+investigate what the heck is going on. Since I knew that by far the
+slowest part was
+- the reading of the =diamonds= csv file
+- the creation of its DF
+- the drawing of its plot
+with the other plots probably making up only a small portion of the
+time, I just commented out the diamonds related code and got:
+#+BEGIN_SRC nim
+  #let diamonds = toDf(readCsv("../data/diamonds.csv"))
+  let economics = toDf(readCsv("../data/economics.csv"))
+
+  # works but ylabels are to close to the plot so that they are
+  # on top of the tick values
+  # also not as fast as it could be :/
+  #ggplot(diamonds, aes("carat", "price")) +
+  #  geom_point() +
+  #  ggsave("figs/2.3_5.pdf")
+#+END_SRC
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ nim c chapter2.nim
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2   
+./chapter2  0.80s user 0.01s system 99% cpu 0.808 total
+#+END_SRC
+which kind of proved that to me. So then I only commented out the
+diamonds plot creation, but keeping the CSV parsing + DF conversion
+still in and got:
+#+BEGIN_SRC nim
+  let diamonds = toDf(readCsv("../data/diamonds.csv"))
+  let economics = toDf(readCsv("../data/economics.csv"))
+
+  # works but ylabels are to close to the plot so that they are
+  # on top of the tick values
+  # also not as fast as it could be :/
+  #ggplot(diamonds, aes("carat", "price")) +
+  #  geom_point() +
+  #  ggsave("figs/2.3_5.pdf")
+#+END_SRC
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2
+./chapter2  15.16s user 0.03s system 99% cpu 15.213 total
+#+END_SRC
+so half the time accounted for I guess? Let's also remove the DF
+conversion:
+#+BEGIN_SRC nim
+  let diamondsCsv = readCsv("../data/diamonds.csv")
+  #let diamonds = toDf(readCsv("../data/diamonds.csv"))
+  let economics = toDf(readCsv("../data/economics.csv"))
+
+  # works but ylabels are to close to the plot so that they are
+  # on top of the tick values
+  # also not as fast as it could be :/
+  #ggplot(diamonds, aes("carat", "price")) +
+  #  geom_point() +
+  #  ggsave("figs/2.3_5.pdf")
+#+END_SRC
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim/bookPlots ツ time ./chapter2
+./chapter2  14.63s user 0.02s system 99% cpu 14.741 total
+#+END_SRC
+aha! So the parsing takes almost 14 s! Let's verify that. Create a
+=/tmp/testread.nim= with:
+#+BEGIN_SRC nim
+import ggplotnim
+
+let dcsv = readCsv("/home/basti/CastData/ExternCode/ggplotnim/data/diamonds.csv")
+#+END_SRC
+#+BEGIN_SRC sh
+basti at void in /tmp λ nim c testread.nim
+basti at void in /tmp λ time ./testread 
+./testread  0.98s user 0.02s system 99% cpu 1.002 total
+#+END_SRC
+Huh?
+
+Well, at this point I went back and forth, inserting random timers
+into my code and being *extremely* confused. For some reason it seemed
+like the =ggplot= calls above the diamonds parsing caused the parsing
+to be slower?!?!?! Guess I'm running a quantum computer. :P
+
+I decided to figure out what the limit to this is. Eventually I ended
+up at the following test file [[file:weirdFastSlow.nim]]:
+#+BEGIN_SRC nim
+import ggplotnim, times
+
+proc fastRead() =
+  let csvD = readCsv("data/diamonds.csv")
+  let df = toDf(csvD)
+  echo df
+
+proc fastPlot() =
+  let mpg = toDf(readCsv("data/mpg.csv"))
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_1.pdf")
+  ggplot(mpg, aes("displ", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_2.pdf")
+  ggplot(mpg, aes("cty", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_4.pdf")
+
+proc fastTogether() =
+  fastPlot()
+  fastRead()
+
+proc slowTogether() =
+  block:
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    ggplot(mpg, aes(x = "displ", y = "hwy")) +
+      geom_point() +
+      ggsave("figs/2.3_1.pdf")
+    ggplot(mpg, aes("displ", "hwy")) +
+      geom_point() +
+      ggsave("figs/2.3_2.pdf")
+    ggplot(mpg, aes("cty", "hwy")) +
+      geom_point() +
+      ggsave("figs/2.3_4.pdf")
+  block:
+    let csvD = readCsv("data/diamonds.csv")
+    let df = toDf(csvD)
+    echo df
+
+when isMainModule:
+  let t0 = epochTime()
+  fastPlot()
+  let t1 = epochTime()
+  echo "Plot first: ", (t1 - t0)
+  fastRead()
+  let t2 = epochTime()
+  echo "Read first: ", (t2 - t1)
+  fastTogether()
+  let t3 = epochTime()
+  echo "Fast together ", (t3 - t2)
+  slowTogether()
+  let t4 = epochTime()
+  echo "Together ", (t4 - t3)
+#+END_SRC
+- 1 proc which only parses, converts to DF and echoes the DF
+- 1 proc, which only parses the much smaller =mpg= dataset and creates
+  3 plots
+- 1 proc, which calls the above two internally
+- and finally a proc, which contains the code of the first two procs
+  in its body, each in a block.
+
+Running the code then results in the following funny result (removed
+the DF echo output):
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/weirdFastSlow.nim
+basti at void in ~/CastData/ExternCode/ggplotnim ツ time bookPlots/weirdFastSlow
+Plot first: 0.2592968940734863                                                  
+Dataframe with 10 columns and 53940 rows:                                       
+...
+Read first: 1.393932580947876
+Dataframe with 10 columns and 53940 rows:
+...
+Fast together 1.590697765350342
+Dataframe with 10 columns and 53940 rows:
+...
+Together 15.17449021339417
+bookPlots/weirdFastSlow  18.33s user 0.04s system 99% cpu 18.442 total          
+#+END_SRC
+So, a proc which essentially does the same as two individual procs is
+almost 10x slower. Right, that makes sense. :P
+
+At this point it was clear that I had to figure out what the problem
+is. I don't want such a time bomb in my code. 
+
+Things that came to my mind to try:
+- look at asm of the slow and fast version, maybe something is
+  noticable 
+  -> yeah right, me as someone who probably only spent about 5 hours in my
+  life in total looking at asm...
+- use =perf= to investigate what's going on
+- use =valgrind= together with =callgrind=
+
+I first dabbled with =perf=, but got a little frustrated (I managed to
+get it working, more on that later), so I went the =asm= route next.
+
+** +Men who stare at...+ Guy who stares at asm
+
+Fortunately mratsim opened an issue about asm generation from Nim code
+recently here (otherwise I'd have to hunt for the best compiler flags :P):
+https://github.com/nim-lang/Nim/issues/12578
+
+So I created a =slow.nim= and a =fast.nim= with the following code:
+#+BEGIN_SRC nim
+# slow.nim
+import ggplotnim
+
+proc slowTogether() =
+
+  let mpg = toDf(readCsv("data/mpg.csv"))
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_1.pdf")
+  ggplot(mpg, aes("displ", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_2.pdf")
+  ggplot(mpg, aes("cty", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_4.pdf")
+  let csvD = readCsv("data/diamonds.csv")
+  let df = toDf(csvD)
+  echo df
+
+when isMainModule:
+  slowTogether()
+#+END_SRC
+and:
+#+BEGIN_SRC nim
+# fast.nim
+import ggplotnim
+
+proc fastRead() =
+  let csvD = readCsv("data/diamonds.csv")
+  let df = toDf(csvD)
+  echo df
+
+proc fastPlot() =
+  let mpg = toDf(readCsv("data/mpg.csv"))
+  ggplot(mpg, aes(x = "displ", y = "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_1.pdf")
+  ggplot(mpg, aes("displ", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_2.pdf")
+  ggplot(mpg, aes("cty", "hwy")) +
+    geom_point() +
+    ggsave("figs/2.3_4.pdf")
+
+when isMainModule:
+  fastPlot()
+  fastRead()
+#+END_SRC
+For reference these are the run times of the above two:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/slow && time bookPlots/slow
+... 
+bookPlots/slow  14.80s user 0.03s system 99% cpu 14.921 total
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c bookPlots/fast && time bookPlots/fast
+...
+bookPlots/fast  1.67s user 0.03s system 99% cpu 1.703 total
+#+END_SRC
+so =1.67 s= vs. =14.80 s=. 
+
+
+To look at the assembly of these we compile with:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --passC:"-fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -masm=intel -fverbose-asm -S" --debugger:native --noLinking:on bookPlots/slow.nim
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --passC:"-fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -masm=intel -fverbose-asm -S" --debugger:native --noLinking:on bookPlots/fast.nim
+#+END_SRC
+This produces the asm output in the Nim cache directory, typically
+here: [[file:~/.cache/nim/]]. The files we're interested in are:
+- [[file:~/.cache/nim/slow_d/@mslow.nim.c.o]]
+- [[file:~/.cache/nim/fast_d/@mfast.nim.c.o]]
+
+They look something like this:
+#+BEGIN_SRC asm
+.LC0:
+	.string	"slowTogether"
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align 8
+.LC1:
+	.string	"/home/basti/CastData/ExternCode/ggplotnim/bookPlots/slow.nim"
+	.align 8
+.LC2:
+	.string	"/home/basti/CastData/ExternCode/ggplotnim/src/ggplotnim.nim"
+	.align 8
+.LC6:
+	.string	"/home/basti/src/nim/nim_git_repo/lib/system.nim"
+	.text
+	.globl	slowTogether__bCXXx182645e8PWKobq26w
+	.hidden	slowTogether__bCXXx182645e8PWKobq26w
+	.type	slowTogether__bCXXx182645e8PWKobq26w, @function
+slowTogether__bCXXx182645e8PWKobq26w:
+.LFB4:
+	.file 2 "/home/basti/CastData/ExternCode/ggplotnim/bookPlots/slow.nim"
+	.loc 2 3 75 is_stmt 1 view -0
+	.cfi_startproc
+	push	r15	#
+	.cfi_def_cfa_offset 16
+	.cfi_offset 15, -16
+	push	r14	#
+	.cfi_def_cfa_offset 24
+	.cfi_offset 14, -24
+	push	r13	#
+	.cfi_def_cfa_offset 32
+	.cfi_offset 13, -32
+	push	r12	#
+	.cfi_def_cfa_offset 40
+	.cfi_offset 12, -40
+	push	rbp	#
+	.cfi_def_cfa_offset 48
+	.cfi_offset 6, -48
+	push	rbx	#
+	.cfi_def_cfa_offset 56
+	.cfi_offset 3, -56
+	sub	rsp, 753192	#,
+	.cfi_def_cfa_offset 753248
+# /home/basti/CastData/ExternCode/ggplotnim/bookPlots/slow.nim:3: proc slowTogether() =
+	.loc 2 3 75 is_stmt 0 view .LVU9
+	mov	rax, QWORD PTR fs:40	# tmp276, MEM[(<address-space-1> long unsigned int *)40B]
+	mov	QWORD PTR 753176[rsp], rax	# D.2982, tmp276
+	xor	eax, eax	# tmp276
+	.loc 2 3 77 is_stmt 1 view .LVU10
+	.loc 2 3 126 view .LVU11
+	.loc 2 3 179 view .LVU12
+	.loc 2 3 229 view .LVU13
+	.loc 2 3 275 view .LVU14
+	.loc 2 3 325 view .LVU15
+	.loc 2 3 374 view .LVU16
+	.loc 2 3 418 view .LVU17
+	.loc 2 3 464 view .LVU18
+	.loc 2 3 508 view .LVU19
+	.loc 2 3 558 view .LVU20
+	.loc 2 3 605 view .LVU21
+	.loc 2 3 656 view .LVU22
+	.loc 2 3 706 view .LVU23
+	.loc 2 3 751 view .LVU24
+	.loc 2 3 798 view .LVU25
+	.loc 2 3 843 view .LVU26
+	.loc 2 3 894 view .LVU27
+	.loc 2 3 941 view .LVU28
+	.loc 2 3 992 view .LVU29
+	.loc 2 3 1042 view .LVU30
+	.loc 2 3 1087 view .LVU31
+	.loc 2 3 1134 view .LVU32
+	.loc 2 3 1179 view .LVU33
+	.loc 2 3 1233 view .LVU34
+	.loc 2 3 1281 view .LVU35
+	.loc 2 3 1319 view .LVU36
+	.loc 2 3 1319 view .LVU37
+	lea	rax, .LC0[rip]	# tmp278,
+	mov	QWORD PTR 232[rsp], rax	# FR_.procname, tmp278
+	.loc 2 3 1319 view .LVU38
+	lea	rax, .LC1[rip]	# tmp279,
+	mov	QWORD PTR 248[rsp], rax	# FR_.filename, tmp279
+	.loc 2 3 1319 view .LVU39
+	mov	QWORD PTR 240[rsp], 0	# FR_.line,
+	.loc 2 3 1319 view .LVU40
+	mov	WORD PTR 256[rsp], 0	# FR_.len,
+	.loc 2 3 1319 view .LVU41
+#+END_SRC
+and
+#+BEGIN_SRC asm
+.LBE336:
+	.loc 6 1000000 80 is_stmt 1 view .LVU594
+	.loc 2 21 2 view .LVU595
+	mov	QWORD PTR 16[rsp], 21	# FR_.line,
+	.loc 2 21 2 view .LVU596
+	lea	rbx, .LC1[rip]	# tmp95,
+	mov	QWORD PTR 24[rsp], rbx	# FR_.filename, tmp95
+	.loc 2 21 76 view .LVU597
+	.loc 2 21 2 view .LVU598
+	call	fastPlot__GdV69c9bJIeDVwXhxavk0MvA	#
+.LVL151:
+	.loc 2 22 2 view .LVU599
+	mov	QWORD PTR 16[rsp], 22	# FR_.line,
+	.loc 2 22 2 view .LVU600
+	mov	QWORD PTR 24[rsp], rbx	# FR_.filename, tmp95
+	.loc 2 22 76 view .LVU601
+	.loc 2 22 2 view .LVU602
+	call	fastRead__GdV69c9bJIeDVwXhxavk0MvA_2	#
+# and somewhere else:
+.LC6:
+	.string	"fastRead"
+	.section	.rodata.str1.8
+	.align 8
+.LC7:
+	.string	"/home/basti/src/nim/nim_git_repo/lib/system.nim"
+	.text
+	.globl	fastRead__GdV69c9bJIeDVwXhxavk0MvA_2
+	.hidden	fastRead__GdV69c9bJIeDVwXhxavk0MvA_2
+	.type	fastRead__GdV69c9bJIeDVwXhxavk0MvA_2, @function
+fastRead__GdV69c9bJIeDVwXhxavk0MvA_2:
+.LFB5:
+	.loc 2 3 75 is_stmt 1 view -0
+	.cfi_startproc
+	push	r12	#
+	.cfi_def_cfa_offset 16
+	.cfi_offset 12, -16
+	push	rbp	#
+	.cfi_def_cfa_offset 24
+	.cfi_offset 6, -24
+	push	rbx	#
+	.cfi_def_cfa_offset 32
+	.cfi_offset 3, -32
+	sub	rsp, 176	#,
+	.cfi_def_cfa_offset 208
+# /home/basti/CastData/ExternCode/ggplotnim/bookPlots/fast.nim:3: proc fastRead() =
+	.loc 2 3 75 is_stmt 0 view .LVU419
+	mov	rax, QWORD PTR fs:40	# tmp108, MEM[(<address-space-1> long unsigned int *)40B]
+	mov	QWORD PTR 168[rsp], rax	# D.3031, tmp108
+	xor	eax, eax	# tmp108
+	.loc 2 3 77 is_stmt 1 view .LVU420
+	.loc 2 3 131 view .LVU421
+	.loc 2 3 179 view .LVU422
+	.loc 2 3 216 view .LVU423
+	.loc 2 3 216 view .LVU424
+	lea	rax, .LC6[rip]	# tmp110,
+	mov	QWORD PTR 40[rsp], rax	# FR_.procname, tmp110
+	.loc 2 3 216 view .LVU425
+	lea	rax, .LC1[rip]	# tmp111,
+	mov	QWORD PTR 56[rsp], rax	# FR_.filename, tmp111
+	.loc 2 3 216 view .LVU426
+	mov	QWORD PTR 48[rsp], 0	# FR_.line,
+	.loc 2 3 216 view .LVU427
+	mov	WORD PTR 64[rsp], 0	# FR_.len,
+	.loc 2 3 216 view .LVU428
+.LVL100:
+.LBB312:
+.LBI312:
+	.loc 3 463 8 view .LVU429
+.LBB313:
+	.loc 3 463 46 view .LVU430
+	.loc 3 464 2 view .LVU431
+	.loc 3 464 3 view .LVU432
+# and 
+.LC0:
+	.string	"fastPlot"
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align 8
+.LC1:
+	.string	"/home/basti/CastData/ExternCode/ggplotnim/bookPlots/fast.nim"
+	.align 8
+.LC2:
+	.string	"/home/basti/CastData/ExternCode/ggplotnim/src/ggplotnim.nim"
+	.text
+	.globl	fastPlot__GdV69c9bJIeDVwXhxavk0MvA
+	.hidden	fastPlot__GdV69c9bJIeDVwXhxavk0MvA
+	.type	fastPlot__GdV69c9bJIeDVwXhxavk0MvA, @function
+fastPlot__GdV69c9bJIeDVwXhxavk0MvA:
+.LFB4:
+	.file 2 "/home/basti/CastData/ExternCode/ggplotnim/bookPlots/fast.nim"
+	.loc 2 8 73 is_stmt 1 view -0
+	.cfi_startproc
+	push	r15	#
+	.cfi_def_cfa_offset 16
+	.cfi_offset 15, -16
+	push	r14	#
+	.cfi_def_cfa_offset 24
+	.cfi_offset 14, -24
+	push	r13	#
+	.cfi_def_cfa_offset 32
+	.cfi_offset 13, -32
+	push	r12	#
+	.cfi_def_cfa_offset 40
+	.cfi_offset 12, -40
+	push	rbp	#
+	.cfi_def_cfa_offset 48
+	.cfi_offset 6, -48
+	push	rbx	#
+	.cfi_def_cfa_offset 56
+	.cfi_offset 3, -56
+	sub	rsp, 753064	#,
+	.cfi_def_cfa_offset 753120
+# /home/basti/CastData/ExternCode/ggplotnim/bookPlots/fast.nim:8: proc fastPlot() =
+	.loc 2 8 73 is_stmt 0 view .LVU9
+	mov	rax, QWORD PTR fs:40	# tmp264, MEM[(<address-space-1> long unsigned int *)40B]
+	mov	QWORD PTR 753048[rsp], rax	# D.2990, tmp264
+	xor	eax, eax	# tmp264
+	.loc 2 8 75 is_stmt 1 view .LVU10
+	.loc 2 8 124 view .LVU11
+	.loc 2 8 177 view .LVU12
+	.loc 2 8 227 view .LVU13
+	.loc 2 8 273 view .LVU14
+	.loc 2 8 323 view .LVU15
+	.loc 2 8 372 view .LVU16
+	.loc 2 8 416 view .LVU17
+	.loc 2 8 462 view .LVU18
+	.loc 2 8 506 view .LVU19
+	.loc 2 8 556 view .LVU20
+	.loc 2 8 603 view .LVU21
+	.loc 2 8 654 view .LVU22
+	.loc 2 8 704 view .LVU23
+	.loc 2 8 749 view .LVU24
+	.loc 2 8 796 view .LVU25
+	.loc 2 8 841 view .LVU26
+	.loc 2 8 892 view .LVU27
+	.loc 2 8 939 view .LVU28
+	.loc 2 8 990 view .LVU29
+	.loc 2 8 1040 view .LVU30
+	.loc 2 8 1085 view .LVU31
+	.loc 2 8 1132 view .LVU32
+	.loc 2 8 1177 view .LVU33
+	.loc 2 8 1177 view .LVU34
+	lea	rax, .LC0[rip]	# tmp266,
+	mov	QWORD PTR 200[rsp], rax	# FR_.procname, tmp266
+	.loc 2 8 1177 view .LVU35
+	lea	rax, .LC1[rip]	# tmp267,
+	mov	QWORD PTR 216[rsp], rax	# FR_.filename, tmp267
+	.loc 2 8 1177 view .LVU36
+	mov	QWORD PTR 208[rsp], 0	# FR_.line,
+	.loc 2 8 1177 view .LVU37
+	mov	WORD PTR 224[rsp], 0	# FR_.len,
+	.loc 2 8 1177 view .LVU38
+#+END_SRC
+
+The thing is I don't even know from where to where I should compare
+these two files. I just assume that the effective "function" ends
+where the nim lines about =framePtr= appear. I guess that's where the
+stack frame is switched to leave the function? I have no idea. :)
+
+Well, since I have no idea how to best look at assembly, I did what
+every disciple of emacs would *surely* do in this case: grab =ediff=
+and compare the two files!
+
+And well. As you can imagine that didn't turn out that well. Either
+the differences were just different numbers on some labels or the
+differences were too large for me to make any sense of..
+
+So I abandoned this ship. *jump*
+
+*** *Update* Maybe we can re-board the ship after all
+<2019-11-09 Sat 13:46>:
+
+mratsim mentioned yesterday evening that I forgot the compilation
+flags, which remove the =.cfi= directives in the assembly.
+
+Turns out that those =.cfi= lines up there are call frame
+information. And if I'm not mistaken those can also be used to
+understand where a proc starts and stop via the =.cfi_startproc= and
+=.cfi_endproc=. 
+
+According to here:
+https://stackoverflow.com/questions/2529185/what-are-cfi-directives-in-gnu-assembler-gas-used-for
+the 
+#+BEGIN_SRC sh
+-fno-asynchronous-unwind-tables
+#+END_SRC
+flag should have disabled them already. But indeed, adding the
+#+BEGIN_SRC sh
+-fno-dwarf2-cfi-asm
+#+END_SRC
+flag in addition is required (at least on my machine).
+
+This cleans up the asm quite significantly already. But we're still
+seeing a large number of =.loc= directives. These according to
+https://stackoverflow.com/questions/24787769/what-are-lfb-lbb-lbe-lvl-loc-in-the-compiler-generated-assembly-code
+are created when compiled with the =-ggdb= flag. Since we didn't
+explicitly compile with it, I assume this flag is handed to =gcc= when
+compiling via =--debugger:native=. Getting rid of it makes the code
+reasonably clean now, but at the expense of seeing the C code
+referenced instead of the nim code. Example of =slow.nim= compiled via:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --passC:"-fno-asynchronous-unwind-tables -fno-dwarf2-cfi-asm -fno-exceptions -fno-rtti -masm=intel -fverbose-asm -S" --noLinking:on bookPlots/slow                                  
+#+END_SRC
+An excerpt of the =slowTogether= of the first =ggplot= call and its
+=aes= call in the argument.
+#+BEGIN_SRC asm
+# /home/basti/.cache/nim/slow_d/@mslow.nim.c:478: 	ggplot__EWnkO8GHNj39cFIRvoGMoRQ(mpg, (&T2_), (&T3_));
+	lea	rdx, -301744[rbp]	# tmp95,
+	lea	rcx, -751792[rbp]	# tmp96,
+	mov	rax, QWORD PTR -752032[rbp]	# tmp97, mpg
+	mov	rsi, rcx	#, tmp96
+	mov	rdi, rax	#, tmp97
+	call	ggplot__EWnkO8GHNj39cFIRvoGMoRQ	#
+# /home/basti/.cache/nim/slow_d/@mslow.nim.c:479: 	nimln_(7, "/home/basti/CastData/ExternCode/ggplotnim/bookPlots/slow.nim");
+	mov	QWORD PTR -751824[rbp], 7	# FR_.line,
+	lea	rax, .LC1[rip]	# tmp98,
+	mov	QWORD PTR -751816[rbp], rax	# FR_.filename, tmp98
+# /home/basti/.cache/nim/slow_d/@mslow.nim.c:480: 	nimln_(643, "/home/basti/CastData/ExternCode/ggplotnim/src/ggplotnim.nim");
+	mov	QWORD PTR -751824[rbp], 643	# FR_.line,
+	lea	rax, .LC2[rip]	# tmp99,
+	mov	QWORD PTR -751816[rbp], rax	# FR_.filename, tmp99
+# /home/basti/.cache/nim/slow_d/@mslow.nim.c:481: 	nimZeroMem((void*)(&T4_), sizeof(tyObject_Aesthetics__Yc5JhiLZssWQKlP19cbOSzw));
+	lea	rax, -701824[rbp]	# tmp100,
+	mov	esi, 49968	#,
+	mov	rdi, rax	#, tmp100
+	call	nimZeroMem	#
+# /home/basti/.cache/nim/slow_d/@mslow.nim.c:482: 	aes__OBaK7JZ7grHROr2p2CPHmg(((NimStringDesc*) NIM_NIL), ((NimStringDesc*) NIM_NIL), ((NimStringDesc*) NIM_NIL), ((NimStringDesc*) NIM_NIL), ((NimStringDesc*) NIM_NIL), ((NimStringDesc*) NIM_NIL), (&T4_));
+	sub	rsp, 8	#,
+	lea	rax, -701824[rbp]	# tmp101,
+	push	rax	# tmp101
+	mov	r9d, 0	#,
+	mov	r8d, 0	#,
+	mov	ecx, 0	#,
+	mov	edx, 0	#,
+	mov	esi, 0	#,
+	mov	edi, 0	#,
+	call	aes__OBaK7JZ7grHROr2p2CPHmg	#
+#+END_SRC
+
+But still, I won't be gaining a whole lot of knowledge from looking at
+this at the moment. 
+
+Although the next thing to look at (now that I understand what the
+hotspot really is in the code), would be to compare the asm of the
+=readCsv= implementation for the slow and fast case.
+
+The =readCsv= implementation is not found in the same file as above,
+but in [[file:~/.cache/nim/slow_d/@m..@ssrc@sggplotnim.nim.c.o]] where we
+could compare if the =readCsv= code is compiled to the same or not. 
+
+That might be interesting, but for now I'm better served by =perf= and
+=callgrind=. 
+
+** =perf= for the rescue (I hope?)
+
+So going back to =perf=. According to the ultimate wisdom of the interwebs, I'm
+supposed to compile my programs to look at them with =perf= along the
+following lines:
+#+BEGIN_SRC sh  
+nim c --passC:"-Og -ggdb -g3 -fno-omit-frame-pointer" chapter2.nim
+#+END_SRC
+
+From here we can either tell perf to give us statistics about running
+the binary:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ perf stat -ddd bookPlots/slow
+Dataframe with 10 columns and 53940 rows:
+        Idx      carat        cut      color    clarity      depth      table      price          x          y          z
+          0       0.23      Ideal          E        SI2       61.5         55        326       3.95       3.98       2.43
+          1       0.21    Premium          E        SI1       59.8         61        326       3.89       3.84       2.31
+          2       0.23       Good          E        VS1       56.9         65        327       4.05       4.07       2.31
+          3       0.29    Premium          I        VS2       62.4         58        334        4.2       4.23       2.63
+          4       0.31       Good          J        SI2       63.3         58        335       4.34       4.35       2.75
+          5       0.24  Very Good          J       VVS2       62.8         57        336       3.94       3.96       2.48
+          6       0.24  Very Good          I       VVS1       62.3         57        336       3.95       3.98       2.47
+          7       0.26  Very Good          H        SI1       61.9         55        337       4.07       4.11       2.53
+          8       0.22       Fair          E        VS2       65.1         61        337       3.87       3.78       2.49
+          9       0.23  Very Good          H        VS1       59.4         61        338          4       4.05       2.39
+         10        0.3       Good          J        SI1         64         55        339       4.25       4.28       2.73
+         11       0.23      Ideal          J        VS1       62.8         56        340       3.93        3.9       2.46
+         12       0.22    Premium          F        SI1       60.4         61        342       3.88       3.84       2.33
+         13       0.31      Ideal          J        SI2       62.2         54        344       4.35       4.37       2.71
+         14        0.2    Premium          E        SI2       60.2         62        345       3.79       3.75       2.27
+         15       0.32    Premium          E         I1       60.9         58        345       4.38       4.42       2.68
+         16        0.3      Ideal          I        SI2         62         54        348       4.31       4.34       2.68
+         17        0.3       Good          J        SI1       63.4         54        351       4.23       4.29        2.7
+         18        0.3       Good          J        SI1       63.8         56        351       4.23       4.26       2.71
+         19        0.3  Very Good          J        SI1       62.7         59        351       4.21       4.27       2.66
+
+ Performance counter stats for 'bookPlots/slow':
+
+          5,339.39 msec task-clock:u              #    1.000 CPUs utilized          
+                 0      context-switches:u        #    0.000 K/sec                  
+                 0      cpu-migrations:u          #    0.000 K/sec                  
+            19,184      page-faults:u             #    0.004 M/sec                  
+    21,020,453,174      cycles:u                  #    3.937 GHz                      (38.42%)
+    57,148,967,453      instructions:u            #    2.72  insn per cycle           (46.12%)
+     7,900,793,796      branches:u                # 1479.719 M/sec                    (46.12%)
+         2,314,388      branch-misses:u           #    0.03% of all branches          (46.14%)
+    11,142,331,629      L1-dcache-loads:u         # 2086.819 M/sec                    (46.16%)
+        42,863,931      L1-dcache-load-misses:u   #    0.38% of all L1-dcache hits    (46.17%)
+         3,491,544      LLC-loads:u               #    0.654 M/sec                    (30.79%)
+         1,201,566      LLC-load-misses:u         #   34.41% of all LL-cache hits     (30.79%)
+   <not supported>      L1-icache-loads:u                                           
+         3,962,707      L1-icache-load-misses:u                                       (30.79%)
+    11,110,873,725      dTLB-loads:u              # 2080.927 M/sec                    (30.79%)
+           148,175      dTLB-load-misses:u        #    0.00% of all dTLB cache hits   (30.77%)
+           106,566      iTLB-loads:u              #    0.020 M/sec                    (30.75%)
+             5,602      iTLB-load-misses:u        #    5.26% of all iTLB cache hits   (30.73%)
+   <not supported>      L1-dcache-prefetches:u                                      
+   <not supported>      L1-dcache-prefetch-misses:u                                   
+
+       5.339677584 seconds time elapsed
+
+       5.283961000 seconds user
+       0.023719000 seconds sys
+#+END_SRC
+which is semi helpful. I guess reading =0.03 %= of all branches missed
+at least means the troulbes are not due to branch misses.
+
+(the =-ddd= is the verbosity level I believe, the more =d= =perf=
+gets, the happier it is to work for us it seems... *cough*).
+
+Or we can tell =perf= to generate a proper report for us, which in
+principle is just:
+#+BEGIN_SRC sh
+perf record <binary>
+#+END_SRC
+Interesting arguments are:
+#+BEGIN_SRC sh
+-o <outname>
+--call-graph dwarf --
+#+END_SRC
+the former outputs to the specified file (I highlight it,
+because.. see below) and the latter changes the format. It generates a
+call stack, which can be easier traversed. However with the latter
+option I don't know how to access the annotation?
+
+So first I went:
+#+BEGIN_SRC sh
+perf record -o slow.data bookPlots/slow
+#+END_SRC
+which worked just fine. Let's look at that file I thought:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ perf report slow.data
+#+END_SRC
+... opens a mostly empty ncurses window
+...
+I press enter and am greeted with:
+#+BEGIN_SRC sh
+perf: Segmentation fault
+-------- backtrace --------
+perf(+0x3a6f94)[0x565168d2cf94]
+/usr/lib/libc.so.6(+0x3b9af)[0x7fd36c3b79af]
+perf(+0x3a449e)[0x565168d2a49e]
+perf(perf_evlist__tui_browse_hists+0x378)[0x565168d2b438]
+perf(cmd_report+0x2e95)[0x565168bbe165]
+perf(+0x2a0db2)[0x565168c26db2]
+perf(main+0x66b)[0x565168ba2c4b]
+/usr/lib/libc.so.6(__libc_start_main+0xea)[0x7fd36c3a2dea]
+perf(_start+0x29)[0x565168ba2ea9]
+#+END_SRC
+what da hell? In 2 minutes I managed to segfault =perf=. Good job
+Vindaar!
+
+Googling at first didn't help. My man page of =perf= is also fun:
+#+BEGIN_SRC sh
+PERF(1)                           perf Manual                          PERF(1)
+
+NAME
+       perf - Performance analysis tools for Linux
+
+SYNOPSIS
+       perf [--version] [--help] [OPTIONS] COMMAND [ARGS]
+
+OPTIONS
+       --debug
+           Setup debug variable (see list below) in value range (0, 10). Use
+           like: --debug verbose # sets verbose = 1 --debug verbose=2 # sets
+           verbose = 2
+
+               List of debug variables allowed to set:
+                 verbose          - general debug messages
+                 ordered-events   - ordered events object debug messages
+                 data-convert     - data convert command debug messages
+                 stderr           - write debug output (option -v) to stderr
+                                    in browser mode
+
+       --buildid-dir
+           Setup buildid cache directory. It has higher priority than
+           buildid.dir config file option.
+
+       -v, --version
+           Display perf version.
+
+       -h, --help
+           Run perf help command.
+
+DESCRIPTION
+       Performance counters for Linux are a new kernel-based subsystem that
+       provide a framework for all things performance analysis. It covers
+       hardware level (CPU/PMU, Performance Monitoring Unit) features and
+       software features (software counters, tracepoints) as well.
+
+SEE ALSO
+       perf-stat(1), perf-top(1), perf-record(1), perf-report(1), perf-list(1)
+
+perf 5.3.1_1                      10/02/2019                           PERF(1)
+/tmp/man.XXXXsRnSeE (END)
+#+END_SRC
+(yeah, by now I realize that I should have gone with
+#+BEGIN_SRC sh
+perf help <xyz>
+#+END_SRC
+...
+
+I googled the segfault and didn't find anything helpful (guess what,
+the name =perf= does not help your googling even a bit..). At some
+point I realized that the syntax to supply the data file is probably
+wrong, and yep. It is:
+#+BEGIN_SRC sh
+perf report -i <your-darn-file>
+#+END_SRC
+
+I mean seriously. Am I the first person to make that mistake, were
+the other people either too lazy to report the not very helpful
+=segfault= or were the developers simply to lazy to fix it? 
+
+Well, after I got over that initial bump, =perf= was actually really
+useful!
+
+I generated the reports for both files:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ perf record -o slow_dwarf.data --call-graph dwarf -- bookPlots/slow
+basti at void in ~/CastData/ExternCode/ggplotnim ツ perf record -o fast_dwarf.data --call-graph dwarf -- bookPlots/fast
+#+END_SRC
+And compared the two side by side (slow on the LHS, fast on the RHS):
+#+BEGIN_SRC sh
+Samples: 21K of event 'cycles:u', Event count (approx.): 21099477017                                                   │Samples: 2K of event 'cycles:u', Event count (approx.): 2503069571
+  Children      Self  Command  Shared Object            Symbol                                                         │  Children      Self  Command  Shared Object            Symbol
++   97.40%     0.00%  slow     [unknown]                [.] 0xffffffffffffffff                                        ◆│+   83.35%     0.00%  fast     fast                     [.] _start                                                   ◆
++   96.23%     0.00%  slow     slow                     [.] slowTogether__bCXXx182645e8PWKobq26w                      ▒│+   83.35%     0.00%  fast     libc-2.30.so             [.] __libc_start_main                                        ▒
++   92.81%     0.09%  slow     slow                     [.] readCsv__IFciN2r3VwHQdzf7Sonedw                           ▒│+   83.35%     0.00%  fast     fast                     [.] main                                                     ▒
++   89.42%     0.18%  slow     slow                     [.] collectCT__XHio9cMpnLoH7GyCj1Z9besg                       ▒│+   83.35%     0.00%  fast     fast                     [.] NimMain                                                  ▒
++   89.24%     0.02%  slow     slow                     [.] collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                 ▒│+   83.16%     0.00%  fast     fast                     [.] NimMainInner                                             ▒
++   86.36%     0.00%  slow     slow                     [.] copyStringRC1                                             ▒│+   83.16%     0.00%  fast     fast                     [.] NimMainModule                                            ▒
++   86.35%     0.06%  slow     slow                     [.] newObjRC1                                                 ▒│+   83.16%     0.00%  fast     fast                     [.] fastRead__GdV69c9bJIeDVwXhxavk0MvA_2                     ▒
++   85.95%    12.54%  slow     slow                     [.] markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g            ▒│+   60.05%     0.95%  fast     fast                     [.] readCsv__IFciN2r3VwHQdzf7Sonedw                          ▒
++   85.73%     0.00%  slow     slow                     [.] gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)            ▒│+   30.17%     1.20%  fast     fast                     [.] collectCT__XHio9cMpnLoH7GyCj1Z9besg                      ▒
++   74.47%    37.26%  slow     slow                     [.] interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ            ▒│+   29.02%     0.04%  fast     fast                     [.] collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                ▒
++   55.23%     0.00%  slow     slow                     [.] isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined)     ▒│+   26.79%     0.37%  fast     fast                     [.] toDf__OdkyX08ij8cszGSKXYpErA                             ▒
++   38.27%    21.87%  slow     slow                     [.] contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                        ▒│+   24.83%     1.73%  fast     fast                     [.] rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ                       ▒
++   17.61%    17.61%  slow     slow                     [.] intSetGet__O3FRrWKKUdi8uRTGxiPdIg                         ▒│+   20.21%     0.26%  fast     fast                     [.] genericAssign                                            ▒
++   11.80%     0.00%  slow     slow                     [.] popFrame (inlined)                                        ▒│+   20.03%     1.60%  fast     fast                     [.] genericAssignAux__U5DxFPRpHCCZDKWQzM9adaw                ▒
++   10.21%     0.00%  slow     slow                     [.] usrToCell__QFQqcLB3lgOdwipkv9a60xwsystem (inlined)        ▒│+   19.52%     2.59%  fast     fast                     [.] genericAssignAux__69cRBG8C28ydeYlu49a9aOJCQ              ▒
++    7.73%     0.00%  slow     slow                     [.] nimFrame (inlined)                                        ▒│+   15.73%     1.50%  fast     fast                     [.] copyString                                               ▒
++    7.66%     0.00%  slow     slow                     [.] popFrame (inlined)                                        ▒│+   14.98%     1.45%  fast     fast                     [.] nsuStrip                                                 ▒
++    7.53%     0.00%  slow     slow                     [.] nimFrame (inlined)                                        ▒│+   14.54%     0.07%  fast     fast                     [.] toPersistentVector__8SFGsOWADGPetLxZAIChPA               ▒
++    6.84%     0.00%  slow     slow                     [.] pageIndex__cMO7rAWQ0KzYXPVgB0ZR3gsystem (inlined)         ▒│+   14.29%     0.26%  fast     fast                     [.] X5BX5D___77tSPwrHe1Kl49cYFFBeLkQ                         ▒
++    5.53%     0.00%  slow     slow                     [.] popFrame (inlined)                                        ▒│+   14.12%     0.22%  fast     fast                     [.] rawNewStringNoInit                                       ▒
++    5.08%     0.00%  slow     slow                     [.] nimFrame (inlined)                                        ▒│+   14.11%     0.00%  fast     [unknown]                [.] 0xffffffffffffffff                                       ▒
++    3.95%     0.26%  slow     slow                     [.] rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ                        ▒│+   13.92%     0.00%  fast     fast                     [.] collectCycles__XHio9cMpnLoH7GyCj1Z9besg_3                ▒
++    3.37%     0.03%  slow     slow                     [.] toDf__OdkyX08ij8cszGSKXYpErA                              ▒│+   13.90%     0.07%  fast     fast                     [.] newObjNoInit                                             ▒
++    2.80%     0.22%  slow     slow                     [.] nsuStrip                                                  ▒│+   13.69%     2.93%  fast     fast                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA                          ▒
++    2.59%     0.38%  slow     slow                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA                           ▒│+   13.57%     0.23%  fast     fast                     [.] copyStringRC1                                            ▒
++    2.55%     0.14%  slow     slow                     [.] newObj                                                    ▒│+   13.38%     8.21%  fast     fast                     [.] unsureAsgnRef                                            ▒
++    2.41%     0.05%  slow     slow                     [.] genericAssign                                             ▒│+   13.34%     0.45%  fast     fast                     [.] newObj                                                   ▒
++    2.40%     0.00%  slow     slow                     [.] nimFrame (inlined)                                        ▒│+   13.30%     0.53%  fast     fast                     [.] readRow__b09aWQWdQLmOgKmRBW0eKTQ                         ▒
++    2.39%     0.24%  slow     slow                     [.] genericAssignAux__U5DxFPRpHCCZDKWQzM9adaw                 ▒│+   13.03%     0.91%  fast     fast                     [.] newObjRC1                                                ▒
++    2.31%     0.28%  slow     slow                     [.] genericAssignAux__69cRBG8C28ydeYlu49a9aOJCQ               ▒│+   12.24%     1.48%  fast     fast                     [.] parseField__6mfYg4gHtbgPqGUu2wyijQ                       ▒
++    2.25%     0.06%  slow     slow                     [.] mnewString                                                ▒│+   12.10%     0.23%  fast     fast                     [.] rawNewString                                             ▒
++    2.20%     0.04%  slow     slow                     [.] rawNewString                                              ▒│+   12.06%     0.11%  fast     fast                     [.] mnewString                                               ▒
++    2.00%     0.00%  slow     slow                     [.] toPersistentVector__8SFGsOWADGPetLxZAIChPA                ▒│+   11.50%     0.31%  fast     fast                     [.] markS__SOJE9bROCOc8iabVsKM64Sg                           ▒
++    1.89%     0.16%  slow     slow                     [.] copyString                                                ▒│+   10.13%     1.40%  fast     fast                     [.] markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g           ▒
++    1.76%     0.02%  slow     slow                     [.] X5BX5D___77tSPwrHe1Kl49cYFFBeLkQ                          ▒│+   10.13%     0.00%  fast     fast                     [.] gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)           ▒
++    1.71%     0.01%  slow     slow                     [.] rawNewStringNoInit                                        ▒│+   10.02%     6.34%  fast     fast                     [.] forAllChildren__XCvXrotwhq0gugZtuZTNPQ                   ▒
+#+END_SRC
+where we can immedetialy see that something is fishy. The right (fast)
+looks about what I'd expect. We have =main=, =NimMain=, etc. and
+eventually at =~83%= =fastRead= (which I'd expect to be the slowest,
+see the rough checks at the beginning) and with about =60%=
+=readCsv=. This is logical, because if =readCsv= is running, then
+=main= has to be above that, since it calls it in the first place! 
+
+On the LHS however, the first entry is 
+#+BEGIN_SRC sh
++   97.40%     0.00%  slow     [unknown]                [.] 0xffffffffffffffff
+#+END_SRC
+what the hell is that supposed to mean?
+
+Also =slowTogether= and specifically =readCsv= make up =96%= and =92%=
+respectively (so note that this is a higher percentage in a more than
+5x longer run time!). So the =readCsv= in the LHS case is doing some
+crazy shit.
+
+Let's expand the call stack of the =readCsv= line on the LHS (press
+=e= to expand it completely or =enter= level by level):
+#+BEGIN_SRC sh
+-   92.81%     0.09%  slow     slow                     [.] readCsv__IFciN2r3VwHQdzf7Sonedw          
+   - 92.72% readCsv__IFciN2r3VwHQdzf7Sonedw                                                          
+      - 86.32% copyStringRC1                                                                         
+         - 86.31% newObjRC1                                                                          
+            - 86.10% collectCT__XHio9cMpnLoH7GyCj1Z9besg                                             
+               - 86.03% collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                                    
+                  - 84.13% markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g                            
+                     - gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)                                
+                        - 70.88% interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ                      
+                           - 54.09% isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined)            
+                              - 35.36% contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                            
+                                 - 16.08% intSetGet__O3FRrWKKUdi8uRTGxiPdIg                          
+                                      5.41% popFrame (inlined)                                       
+                                      4.99% nimFrame (inlined)                                       
+                                   7.44% popFrame (inlined)                                          
+                                   2.25% nimFrame (inlined)                                          
+                              - 6.70% pageIndex__cMO7rAWQ0KzYXPVgB0ZR3gsystem (inlined)              
+                                   2.27% nimFrame (inlined)                                          
+                                   1.01% popFrame (inlined)                                          
+                                6.27% popFrame (inlined)                                             
+                                3.29% nimFrame (inlined)                                             
+                                1.06% intSetGet__O3FRrWKKUdi8uRTGxiPdIg                              
+                             4.30% popFrame (inlined)                                                
+                             1.99% nimFrame (inlined)                                                
+                        - 9.99% usrToCell__QFQqcLB3lgOdwipkv9a60xwsystem (inlined)                   
+                             7.29% nimFrame (inlined)                                                
+                             0.61% popFrame (inlined)                                                
+                          0.97% contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                                   
+                    0.96% interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ                             
+      - 2.79% nsuStrip                                                                               
+         - 2.58% substr__2yh9cer0ymNRHlOOg8P7IuA                                                     
+            - 2.21% mnewString                                                                       
+               - 2.14% rawNewString                                                                  
+                  - newObj                                                                           
+                     - 1.94% rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ                                      
+                        - 1.45% collectCT__XHio9cMpnLoH7GyCj1Z9besg                                  
+                           - 1.40% collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                         
+                              - 1.07% markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g                 
+                                 - gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)                    
+                                    - 0.90% interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ           
+                                         0.68% isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined) 
+      - 1.48% readRow__b09aWQWdQLmOgKmRBW0eKTQ                                                       
+         - 1.35% parseField__6mfYg4gHtbgPqGUu2wyijQ                                                  
+              1.08% unsureAsgnRef                                                                    
+      - 0.83% X5BX5D___l0219aS8r1rZqdRemYqAVGQ                                                       
+         - 0.74% rawGet__gS7Fz9bCHsSKnHns9brIjsogtables (inlined)                                    
+              0.54% hash__6PCYkKlCNhq9cnRLnqWKkwQ                                                    
+      - 0.60% rowEntry__iSnSJzyyzosqzYvzg3RnzQ                                                       
+           0.55% find__ZFKPMFh1RWpGOSS69c9a5CHAsystem (inlined)                                    
+#+END_SRC
+So we see that =86%= is =copyStringRC1=, =newObjRC= and then
+=collectCT=. I guess the last is related to garbage collection. So for
+some reason in this case the =readCsv= proc is copying strings and
+collecting them for a living?
+
+Before we do anything with this knowledge, let's compare this to the
+expansion of =readCsv= on the RHS:
+#+BEGIN_SRC sh
+-   60.05%     0.95%  fast     fast                     [.] readCsv__IFciN2r3VwHQdzf7Sonedw         
+   - 59.10% readCsv__IFciN2r3VwHQdzf7Sonedw                                                         
+      - 14.95% nsuStrip                                                                             
+         - 13.54% substr__2yh9cer0ymNRHlOOg8P7IuA                                                   
+            - 10.75% mnewString                                                                     
+               - rawNewString                                                                       
+                  - newObj                                                                          
+                     - 9.09% rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ                                     
+                        - 4.82% collectCT__XHio9cMpnLoH7GyCj1Z9besg                                 
+                           - 4.28% collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                        
+                              - 2.53% markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g                
+                                 - gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)                   
+                                    - 2.09% interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ          
+                                       - 1.39% isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined)
+                                            0.85% contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                
+                              - 1.45% collectZCT__EN6T32AMm3va9bsrdxtF0cg                           
+                                   0.65% rawDealloc__K7uQ6aTKvW6OnOV8EMoNNQ                         
+                          2.56% rawAlloc__mE4QEVyMvGRVliDWDngZCQ                                    
+                          1.11% addNewObjToZCT__xkq8ZbJr9bIUKHN9cK4tT5NAsystem (inlined)            
+                     - 1.14% zeroMem__FsvhfMqbswETmyMWtamDewsystem (inlined)                        
+                          nimZeroMem (inlined)                                                      
+                        - nimSetMem__zxfKBYntu9cBapkhrCOk1fgmemory (inlined)                        
+                             0.91% __memset_avx2_unaligned_erms                                     
+      - 13.54% copyStringRC1                                                                        
+         - 13.00% newObjRC1                                                                         
+            - 10.95% collectCT__XHio9cMpnLoH7GyCj1Z9besg                                            
+               - 10.81% collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2                                   
+                  - 6.47% collectCycles__XHio9cMpnLoH7GyCj1Z9besg_3                                 
+                     - 5.33% markS__SOJE9bROCOc8iabVsKM64Sg                                         
+                        - 4.18% forAllChildren__XCvXrotwhq0gugZtuZTNPQ                              
+                           - 0.83% Marker_tySequence__sM4lkSb7zS6F7OVMvW9cffQ                       
+                              - nimGCvisit                                                          
+                                doOperation__sl6eqhLncFedgwzv6TlMVw                                 
+                          1.03% containsOrIncl__qhy8GaXaPs9bLqr6V8CV9cFg                            
+                     - 1.10% sweep__XHio9cMpnLoH7GyCj1Z9besg_5                                      
+                          0.88% contains__ClLkUQKF8KrRxQPdAJDd5w                                    
+                  - 2.82% markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g                            
+                     - gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)                               
+                        - 2.38% interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ                      
+                           - 1.76% isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined)            
+                                0.98% contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                            
+                  - 1.48% collectZCT__EN6T32AMm3va9bsrdxtF0cg                                       
+                       0.68% rawDealloc__K7uQ6aTKvW6OnOV8EMoNNQ                                     
+              1.10% rawAlloc__mE4QEVyMvGRVliDWDngZCQ                                                
+      - 13.26% readRow__b09aWQWdQLmOgKmRBW0eKTQ                                                     
+         - 12.24% parseField__6mfYg4gHtbgPqGUu2wyijQ                                                
+            - 9.59% unsureAsgnRef                                                                   
+               - 3.54% isOnStack__plOlFsQAAvcYd3nF5LfWzw                                            
+                    1.03% getActiveStack__muO7WGG730PTJWpoUnluHg                                    
+                    0.76% popFrame (inlined)                                                        
+               - 1.74% usrToCell__QFQqcLB3lgOdwipkv9a60xwsystem (inlined)                           
+                    1.33% nimFrame (inlined)                                                        
+                 1.37% decRef__AT1eRuflKWyTTBdLjEDZbg_2system (inlined)                             
+                 0.87% incRef__AT1eRuflKWyTTBdLjEDZbgsystem (inlined)                               
+                 0.72% popFrame (inlined)                                                           
+#+END_SRC
+I don't know about you, but those percentages seem to be a lot more
+sane to me. It's stripping, copying and reading rows at about an equal
+amount (the stuff below I left out to not extend this even more, but
+those are hashing related and =rowEntry=.
+
+So assuming that the GC is actually our issue, let's compile the code
+without any gc and see what happens:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ time bookPlots/slow 
+Dataframe with 10 columns and 53940 rows:                               
+...                                                                     
+bookPlots/slow  0.91s user 0.06s system 99% cpu 0.972 total             
+basti at void in ~/CastData/ExternCode/ggplotnim ツ time bookPlots/fast
+Dataframe with 10 columns and 53940 rows:                              
+...
+bookPlots/fast  0.94s user 0.05s system 99% cpu 0.995 total            
+#+END_SRC
+(remember the =nim c bookPlots/fast= call from above took =1.67 s=! I
+guess it's expected that the code would be faster without the GC in
+the fast case, but it's great to see that also the slow code is just
+as fast!
+
+Does this also hold for different GCs?
+
+- *boehm*:
+  #+BEGIN_SRC sh
+  basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --gc:boehm bookPlots/slow && time bookPlots/slow
+  Dataframe with 10 columns and 53940 rows:
+  ...
+  bookPlots/slow  1.24s user 0.04s system 141% cpu 0.905 total
+  basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --gc:boehm bookPlots/fast && time bookPlots/fast
+  Dataframe with 10 columns and 53940 rows:
+  ...
+  bookPlots/fast  1.29s user 0.06s system 147% cpu 0.914 total
+  #+END_SRC
+- *markAndSweep*:
+#+BEGIN_SRC sh
+  basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --gc:markAndSweep bookPlots/slow && time bookPlots/slow
+  Dataframe with 10 columns and 53940 rows:
+  ...
+  bookPlots/slow  1.42s user 0.03s system 99% cpu 1.458 total
+  basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --gc:markAndSweep --verbosity:0 --hints:off --warnings:off bookPlots/fast && time bookPlots/fast
+  Dataframe with 10 columns and 53940 rows:
+  ...
+  bookPlots/fast  1.33s user 0.03s system 99% cpu 1.370 total
+#+END_SRC
+- and as a bonus *destructors*:
+#+BEGIN_SRC sh
+  basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c --gc:destructors bookPlots/slow && time bookPlots/slow
+  fatal.nim(39)            sysFatal
+  Error: unhandled exception: liftdestructors.nim(332, 14) `t.assignment != nil`  [AssertionError]
+#+END_SRC
+  I guess destructors wins the race!
+
+For now that's all I figured out, since I also had to write all this
+stuff...
+
+** Using =valgrind= to see truth
+
+That didn't stop me from also taking a look at =valgrind=, or more
+specifically =callgrind= to see what it has to say. Well, good thing I
+started to run =valgrind= already in the afternoon, so it's finished
+by now!... 
+Well I'm kidding of course, instead of lightning fast =30 s= it
+=valgrind= /only/ took a quick 9 minutes to run the
+[[file:weirdFastSlow.nim]] from above. :P
+(Note: I'm aware that one cannot compare =valgrind= and =perf=, I'm
+joking here of course. :) :) :) )
+
+So I called =valgrind= with the following options:
+#+BEGIN_SRC sh 
+valgrind --tool=callgrind bookPlots/weirdFastSlow
+#+END_SRC
+which gave us:
+#+BEGIN_SRC sh
+==7359== Callgrind, a call-graph generating cache profiler                                                                                                                                                                                    
+==7359== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.                                                                                                                                                                 
+==7359== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info                                                                                                                                                                   
+==7359== Command: bookPlots/weirdFastSlow                                                                                                                                                                                                     
+==7359==                                                                                                                                                                                                                                      
+==7359== For interactive control, run 'callgrind_control -h'.                                                                                                                                                                                 
+Plot first: 9.817448616027832                                                                                                                                                                                                                 
+Dataframe with 10 columns and 53940 rows:                                                                                                                                                                                                     
+        Idx      carat        cut      color  ...
+...
+Read first: 53.51081871986389                              
+Dataframe with 10 columns and 53940 rows:  
+...                                                                                                                                                                                                        
+Fast together 58.7412965297699        
+Together 535.3335099220276
+==7359== 
+==7359== Events    : Ir
+==7359== Collected : 157614448556
+==7359== 
+==7359== I   refs:      157,614,448,556
+#+END_SRC
+So at least we also see the factor of =~10= with valgrind.
+
+Now taking a look at the =callgrind= report with =kcachegrind=:
+#+BEGIN_SRC sh
+kcachegrind callgrind.out.7359
+#+END_SRC
+
+we are greeted with the following image:
+
+[[./kcachegrind_weirdSlowFast.png]]
+
+Here I already highlighted the =readCsv= line on the left. On the
+right we can already see the interesting thing (which we already know
+sort of): The =slowTogether= proc makes up =~81 %= of the cycles of
+=readCsv= whereas =fastRead= only makes up =10 %=! Sure, there is a
+small difference (and that's the reason =fastPlot= shows up too): in
+the =slowTogether= proc there are two =readCsv= calls, one for =mpg=
+(=~230= lines of CSV) and =diamonds= (=~53000= lines of csv!), whereas
+in =fastRead= only the =diamonds= file is read.
+
+But still, that's definitely pretty insane.
+
+And with this I'm stopping for the day, since I need to eat and sleep!
+
+** *Update <2019-11-09 Sat 14:02>:* Use all learned tools to fight the powers of evil slowness
+
+This morning I continued my hunt for a solution. I skimmed through
+slides of a talk I stumbled on yesterday:
+https://indico.cern.ch/event/723933/contributions/3045394/attachments/1671281/2681150/121217-perf-measure.pdf
+
+On slide 37 my interest piqued when I saw that "Source Code" tab of
+=kcachegrind= (I assume?), which I hadn't realized existed. That was
+one of my main reasons I tried =perf= first, since I wanted line by
+line information. =perf= however is somewhat annoying in that regard
+(coming back to fighting the program...). While I'm sure it can do
+what I want, I'm not certain how. We'll use this to better understand
+where the problems lie now.
+
+See [[Annotate with perf][further below]] for an explanation of my issues with =perf= in that regard.
+
+mratsim also commented with this link:
+https://github.com/status-im/nim-beacon-chain/issues/370
+and a mention whether it might be a result of a full stack on the gist
+here:
+https://gist.github.com/Vindaar/0fe9340d40e3b70c006e8b5c3c380f87#gistcomment-3078238
+
+Since in that case replacing the =BeaconState= by a =ref= object I
+quickly replaced all =OrderedTable= by =OrderedTableRef= and made
+=Value= and =DataFrame= to see if this is similar to it. For the git
+diff see [[Git diff to convert to ref][below]].
+
+Hopeful as I was, I ran the code and.. it was essentially as slow as
+before. So I ran =perf= again with the same settings as above and
+suddenly saw this:
+#+BEGIN_SRC sh
+Samples: 22K of event 'cycles:u', Event count (approx.): 21452432254
+  Children      Self  Command  Shared Object            Symbol
++   97.33%     0.00%  slow     [unknown]                [.] 0xffffffffffffffff
++   95.77%     0.00%  slow     slow                     [.] slowTogether__bCXXx182645e8PWKobq26w
++   91.95%     0.12%  slow     slow                     [.] readCsv__kf1hcqNPqmGfmUxV420vqA
++   89.85%     0.22%  slow     slow                     [.] collectCT__XHio9cMpnLoH7GyCj1Z9besg
++   89.63%     0.00%  slow     slow                     [.] collectCTBody__XHio9cMpnLoH7GyCj1Z9besg_2
++   88.59%     0.26%  slow     slow                     [.] rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ
++   88.25%     0.13%  slow     slow                     [.] newObj
++   87.68%     0.02%  slow     slow                     [.] mnewString
++   87.67%     0.02%  slow     slow                     [.] rawNewString
++   86.93%     0.24%  slow     slow                     [.] nsuStrip
++   86.69%     0.33%  slow     slow                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA
++   86.41%    11.17%  slow     slow                     [.] markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g
++   86.20%     0.00%  slow     slow                     [.] gcMark__x5SbLN3uVBCsEa67N20nPwsystem (inlined)
++   76.22%    38.18%  slow     slow                     [.] interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ
++   54.12%     0.00%  slow     slow                     [.] isAccessible__EZspgz843pJ9adnD0ZpJO6wsystem (inlined)
++   38.11%    21.36%  slow     slow                     [.] contains__9b5xR7VBZVwQDvk5Nr9bDKdQ
++   18.39%    18.39%  slow     slow                     [.] intSetGet__O3FRrWKKUdi8uRTGxiPdIg
+#+END_SRC
+so all of a sudden the slowness wasn't due to =copyStringRC1= anymore,
+but (a little further down) due to =nsuStrip= (which previously only
+had about 10-15 %). 
+
+With this in mind and the idea to use =callgrind= again to see
+line-by-line information I first checked my compilation flag for the
+=slow.nim= file gain:
+#+BEGIN_SRC sh
+nim c --passC:"-Og -ggdb -g3 -fno-omit-frame-pointer" --debugger:native bookPlots/slow
+#+END_SRC
+and then ran:
+#+BEGIN_SRC sh
+valgrind --tool=callgrind bookPlots/slow
+#+END_SRC
+again. After waiting about 5 minutes or so, I launched =kcachegrind=,
+went to the source code tab for the =readCsv= line and:
+
+[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/read_csv_ref_types.png]]
+
+it starts to click that at least calling =strip= for each single
+element to access the table is probably not a good idea. But also for
+the row entry I should probably try to avoid the =strip= or if I can't
+at least make sure it doesn't copy the whole row entry /again/.
+
+Mind you, I still don't understand why the same code runs fast if it's
+only the =readCsv= without the plotting, but at least we now see where
+a definite inefficiency of the code is, which we can improve!
+
+For a summary with images of the =kcachegrind= results for the ref
+vs. non ref type runs, see [[Summarize slowness by proc]]. Later in
+[[Compare run times]] we'll see how much we can gain by getting rid of the
+=strip= calls in =readCsv=.
+
+*** Summarize slowness by proc
+
+Let's summarize where the slowness comes from in the ref types and non
+ref type cases.
+
+Slowness due to:
+- ref types used: =nsuStrip= (strip then calls =substr=, which creates
+  a new string)
+- no ref types used: =copyStringRC1= (then calls =newObjRC1=, calls =collectCT=)
+but in both cases the slowness is related to the =gc= (see that all
+calls come from procs in =gc.nim= on the LHS)
+
+In both cases we end up at =markStackAndRegisters=,
+=interiorAllocatedPtr= and from there it finally spreads out a
+bit.
+[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/both_case_callstack.png]]
+
+Looking more closely at the images below, we can see that essentially
+the same stuff happens. In both cases we have 
+- 541974 calls to =copyStringRC1=
+- 1083948 calls to =nsuStrip=
+it's just that the major allocation / collection operations seem to
+happen either in the one proc or in the other. 
+
+Reference image for these two latter cases:
+**** Non ref types, slowdown due to =copyStringRC1=
+[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/non_ref_types_incl_strip.png]]
+**** Ref types, slowdown due to =nsuStrip=
+[[/home/basti/CastData/ExternCode/ggplotnim/bookPlots/ref_types_incl_strip.png]]
+
+*** Compare run times
+
+*NOTE:* the run times here are not supposed to be actual
+benchmarks. The numbers are just to get an idea for the rough speed.
+
+We'll run the code 4 times and use the average of the last 3 runs.
+To do that we'll use the following snippet:
+#+BEGIN_SRC nim
+import shell, times, os, strformat, math
+
+if paramCount() > 0:
+  let cmd = paramStr(1)
+  var times: seq[float]
+  for i in 0 ..< 4:
+    let t0 = epochTime()
+    let res = shellVerbose:
+      ($cmd)
+    let t1 = epochTime()
+    if i > 0:
+      times.add (t1 - t0)
+  echo &"Average call time for cmd `{cmd}` was: {times.sum / 3.0:.2f} s"
+#+END_SRC
+
+As a baseline, first again the run times for fast and slow case
+without ref types (i.e. what we measured in the beginning). Well, you
+gotta trust me that I'm reverting /stashing the correct code now :P:
+#+BEGIN_SRC sh
+nim c bookPlots/slow.nim
+./timeit bookPlots/slow
+nim c bookPlots/fast.nim
+./timeit bookPlots/fast
+#+END_SRC
+
+#+RESULTS:
+
+Different test cases, their run times in both compilation modes
+
+Below is noted the root cause of the slowness, if it happens.
+| \          | strip used: | yes | no |
+|------------+-------------+-----+----|
+| ref types: |             |     |    |
+| yes        |             |     |    |
+| no         |             |     |    |
+
+
+
+
+*** Annotate with perf
+
+With =perf= if I create the record like:
+#+BEGIN_SRC sh
+perf record <binary>
+#+END_SRC
+I can access the annotations by pressing =a= on any of the lines. But
+then I don't see it ordered as a call stack, but rather each function
+by itself or something like that. Random example:
+#+BEGIN_SRC sh
+Samples: 22K of event 'cycles:u', Event count (approx.): 21474116041
+Overhead  Command  Shared Object            Symbol
+  37.55%  slow     slow                     [.] interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ
+  21.21%  slow     slow                     [.] contains__9b5xR7VBZVwQDvk5Nr9bDKdQ
+  18.45%  slow     slow                     [.] intSetGet__O3FRrWKKUdi8uRTGxiPdIg
+  12.42%  slow     slow                     [.] markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g
+   0.97%  slow     slow                     [.] unsureAsgnRef
+   0.70%  slow     slow                     [.] forAllChildren__XCvXrotwhq0gugZtuZTNPQ
+   0.49%  slow     slow                     [.] rowEntry__iSnSJzyyzosqzYvzg3RnzQ
+   0.41%  slow     slow                     [.] rawAlloc__mE4QEVyMvGRVliDWDngZCQ
+   0.39%  slow     slow                     [.] nimParseBiggestFloat
+   0.36%  slow     slow                     [.] isOnStack__plOlFsQAAvcYd3nF5LfWzw
+   0.36%  slow     slow                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA
+   0.27%  slow     slow                     [.] murmurHash__CiCiZV9c7F9alrF1xV3QD1ag
+   0.27%  slow     slow                     [.] rawNewObj__ehkAaLROrd0Hc9aLROWt1nQ
+   0.26%  slow     slow                     [.] nsuStrip
+   0.26%  slow     slow                     [.] rawDealloc__K7uQ6aTKvW6OnOV8EMoNNQ
+#+END_SRC
+but I'm not interested in the annotations of these functions. I want a
+higher level view to figure out where these functions are called from! 
+As stated further above
+#+BEGIN_SRC sh
+perf record --call-graph dwarf -- <binary>
+#+END_SRC
+gives me what I actually want, but then I can't annotate the functions
+anymore?! 
+
+*** Git diff to convert to ref
+
+#+BEGIN_SRC nim
+diff --git a/src/ggplotnim.nim b/src/ggplotnim.nim
+index 4f15547..8cbce18 100644
+--- a/src/ggplotnim.nim
++++ b/src/ggplotnim.nim
+@@ -2364,7 +2364,7 @@ proc countLines(s: var FileStream): int =
+ proc readCsv*(fname: string,
+               sep = ',',
+               header = "#",
+-              skipLines = 0): OrderedTable[string, seq[string]] =
++              skipLines = 0): OrderedTableRef[string, seq[string]] =
+   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
+   ## values, where idx 0 corresponds to the first data value
+   ## The `header` field can be used to designate the symbol used to
+@@ -2379,7 +2379,7 @@ proc readCsv*(fname: string,
+   open(parser, s, fname, separator = sep, skipInitialSpace = true)
+   var isHeader = true
+   parser.readHeaderRow()
+-  result = initOrderedTable[string, seq[string]]()
++  result = newOrderedTable[string, seq[string]]()
+   # filter out the header, delimiter, if any
+   parser.headers.keepItIf(it != header)
+   for col in items(parser.headers):
+diff --git a/src/ggplotnim/formula.nim b/src/ggplotnim/formula.nim
+index faf4407..9411525 100644
+--- a/src/ggplotnim/formula.nim
++++ b/src/ggplotnim/formula.nim
+@@ -14,7 +14,7 @@ type
+     VString,
+     VObject
+ 
+-  Value* = object
++  Value* = ref object
+     case kind*: ValueKind
+     of VString:
+       str*: string
+@@ -82,9 +82,9 @@ type
+   DataFrameKind = enum
+     dfNormal, dfGrouped
+ 
+-  DataFrame* = object
++  DataFrame* = ref object
+     len*: int
+-    data*: OrderedTable[string, PersistentVector[Value]]
++    data*: OrderedTableRef[string, PersistentVector[Value]]
+     # TODO: we could possibly add the following two fields to a dataframe
+     # They're easy to determine when first creating a dataframe from either
+     # a file or seqs. Scales help us when calling `setInitialScale` for instane,
+@@ -98,7 +98,7 @@ type
+     of dfGrouped:
+       # a grouped data frame stores the keys of the groups and maps them to
+       # a set of the categories
+-      groupMap: OrderedTable[string, HashSet[Value]]
++      groupMap: OrderedTableRef[string, HashSet[Value]]
+     else: discard
+     #data: Table[string, seq[Value]]
+ 
+@@ -111,7 +111,7 @@ iterator keys*(df: DataFrame): string =
+   for k in keys(df.data):
+     yield k
+ 
+-proc getKeys*[T](tab: OrderedTable[string, T]): seq[string] =
++proc getKeys*[T](tab: OrderedTableRef[string, T]): seq[string] =
+   ## returns the keys of the table as a seq
+   for k in keys(tab):
+     result.add k
+@@ -270,7 +270,7 @@ proc pretty*(v: Value, precision = 4): string =
+   of VObject:
+     result.add "{"
+     for k, x in v.fields:
+-      result.add (&"{k} : {x}")
++      result.add (&"{k} : {pretty(x)}")
+     result.add "}"
+   of VNull:
+     result = "null"
+@@ -548,10 +548,11 @@ proc `$`*(node: FormulaNode): string =
+   result = newStringOfCap(1024)
+   toUgly(result, node)
+ 
+-proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
++proc toDf*(t: OrderedTableRef[string, seq[string]]): DataFrame =
+   ## creates a data frame from a table of seq[string]
+   ## TODO: currently does not allow to parse bool!
+   result = DataFrame(len: 0)
++  result.data = newOrderedTable[string, PersistentVector[Value]]()
+   for k, v in t:
+     var data = newSeq[Value](v.len)
+     # check first element of v for type
+@@ -593,7 +594,7 @@ proc toVector*(s: seq[Value]): PersistentVector[Value] =
+   ## the overload of `toVector`, which simply calls `toPersistentVector` directly
+   result = toPersistentVector(s)
+ 
+-proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
++proc toDf*(t: OrderedTableRef[string, seq[Value]]): DataFrame =
+   ## creates a data frame from a table of `seq[Value]`. Simply have to convert
+   ## the `seq[Value]` to a `PersistentVector[Value]` and add to DF.
+   result = DataFrame(len: 0)
+@@ -1283,7 +1284,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
+     keys2 = getKeys(df2S).toSet
+     allKeys = keys1 + keys2
+   var row = Value(kind: VObject)
+-  var seqTab = initOrderedTable[string, seq[Value]]()
++  var seqTab = newOrderedTable[string, seq[Value]]()
+   for k in allKeys:
+     seqTab[k] = newSeq[Value](max(idxDf1.len, idxDf2.len))
+   var count = 0
+@@ -1812,7 +1813,7 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
+           result = node.val
+       elif type(data) is Table[string, seq[string]]:
+         result = %~ data[node.val.str][idx].parseFloat
+-      elif type(data) is OrderedTable[string, seq[string]]:
++      elif type(data) is OrderedTableRef[string, seq[string]]:
+         result = %~ data[node.val.str][idx].parseFloat
+       else:
+         raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
+#+END_SRC
