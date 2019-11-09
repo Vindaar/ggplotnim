@@ -1348,30 +1348,120 @@ pursuing that eventually.
 
 So then how fast is the code compiled with =-d:danger= now?
 
+non ref types:
+#+BEGIN_SRC sh
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c -d:danger bookPlots/slow
+basti at void in ~/CastData/ExternCode/ggplotnim ツ ./timeit bookPlots/slow
+Average call time for cmd `bookPlots/slow` was: 0.18 s
+basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c -d:danger bookPlots/fast
+basti at void in ~/CastData/ExternCode/ggplotnim ツ ./timeit bookPlots/fast
+Average call time for cmd `bookPlots/fast` was: 0.17 s
+#+END_SRC
+This is speed I like! (It's probably still slow compared to what it
+could be, but "this should be enough for everybody" :P).
+
 ref types:
 #+BEGIN_SRC sh
 basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c -d:danger bookPlots/slow
 basti at void in ~/CastData/ExternCode/ggplotnim ツ ./timeit bookPlots/slow
-Average call time for cmd `bookPlots/fast` was: 0.19 s
+Average call time for cmd `bookPlots/slow` was: 0.19 s
 basti at void in ~/CastData/ExternCode/ggplotnim ツ nim c -d:danger bookPlots/slow
 basti at void in ~/CastData/ExternCode/ggplotnim ツ ./timeit bookPlots/slow
 Average call time for cmd `bookPlots/fast` was: 0.19 s
 #+END_SRC
-so here we don't even
+and now the ref types are slower again. Well, for me the take away is
+that - at least for such a simple case - there's negligible difference
+in the performance of ref types and non ref types.
 
-Different test cases, their run times in both compilation modes
+Well, this still leaves the question whether the row entries should be
+stripped or now. We should test it on a simple csv file, which isn't a
+proper csv file, nor a proper tsv file. Something like:
+#+BEGIN_SRC 
+t_in_s,  C1_in_V,  C2_in_V,  type
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+-2.9976E-06,  1.025E-03,  -2.930E-04 ,  T1
+-2.9968E-06,  9.277E-04,  2.930E-04  ,  T2
+-2.9960E-06,  4.395E-04,  4.883E-04  ,  T2
+-2.9952E-06,  1.465E-04,  -2.930E-04 ,  T2
+-2.9944E-06,  -3.418E-04,  -1.270E-03,  T2
+#+END_SRC
+it'd be annoying if those spaces ended up as part of the elements in
+the data frame. Keep in mind however that spaces on floats are not a
+problem for the resulting data frame, since the stringy floats will be
+parsed using =parseFloat=. The string values in the last column
+however will be added as is. Thus, the main question is whether the
+space ends up in the "type" column. Let's write a short test for it.
 
-Below is noted the root cause of the slowness, if it happens.
+#+BEGIN_SRC nim
+import ggplotnim, os, unittest
 
-| \          | strip used: | yes | no |
-|------------+-------------+-----+----|
-| ref types: |             |     |    |
-| yes        |             |     |    |
-| no         |             |     |    |
+const csvData = """
+t_in_s,  C1_in_V,  C2_in_V,  type
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+-2.9976E-06,  1.025E-03,  -2.930E-04 ,  T1
+-2.9968E-06,  9.277E-04,  2.930E-04  ,  T2
+-2.9960E-06,  4.395E-04,  4.883E-04  ,  T2
+-2.9952E-06,  1.465E-04,  -2.930E-04 ,  T2
+-2.9944E-06,  -3.418E-04,  -1.270E-03,  T2
+"""
+writeFile("testCsvSpaces.csv", csvData)
 
+test "CSV parsing with spaces":
+  let csvRead = readCsv("testCsvSpaces.csv")
+  echo csvRead["type"]
+  let texp = @[-3.0000E-06, -2.9992E-06, -2.9984E-06, -2.9976E-06, -2.9968E-06, 
+               -2.9960E-06, -2.9952E-06, -2.9944E-06] 
+  let c1Exp = @[-2.441E-04, 2.441E-04, 1.025E-03, 1.025E-03, 9.277E-04, 4.395E-04, 
+                 1.465E-04, -3.418E-04] 
+  let c2Exp = @[-6.836E-04, -6.836E-04, -8.789E-04, -2.930E-04, 2.930E-04, 
+                4.883E-04, -2.930E-04, -1.270E-03]
+  let typeExp = @["T1", "T1", "T1", "T1", "T2",
+                  "T2", "T2", "T2"]
+  let dfExp = seqsToDf({"t_in_s" : texp, "C1_in_V" : c1Exp, "C2_in_V" : c2Exp,
+                         "type" : typeExp})
+  let df = toDf(csvRead)
+  check df["t_in_s"].vToSeq == dfExp["t_in_s"].vToSeq
+  check df["C1_in_V"].vToSeq == dfExp["C1_in_V"].vToSeq
+  check df["C2_in_V"].vToSeq == dfExp["C2_in_V"].vToSeq
+  check df["type"].vToSeq == dfExp["type"].vToSeq
+  echo df
 
+removeFile("testCsvSpaces.csv")
+#+END_SRC
 
+And it seems to be working!
 
+After spending quite a bit more time on how to best handle the
+stripping of whitespace, I finally ended up with the following
+solution: The whitespace is stripped in =readCsv= (I experimented with
+doing it in =toDf= instead). The =rowEntry= CSV proc actually returns
+a =var string= which allows us to strip each entry in place before
+assigning it. This finally gets rid of our copying bottleneck!
+
+The final code:
+#+BEGIN_SRC nim
+  parser.headers.keepItIf(it != header)
+  var colHeaders: seq[string]
+  for colUnstripped in items(parser.headers):
+    let col = colUnstripped.strip
+    colHeaders.add col
+    result[col] = newSeqOfCap[string](lineCount)
+  var lnCount = 0
+  while readRow(parser):
+    if lnCount < skipLines:
+      inc lnCount
+      continue
+    for i, col in parser.headers:
+      parser.rowEntry(col).removePrefix({' '})
+      parser.rowEntry(col).removeSuffix({' '})
+      result[colHeaders[i]].add parser.rowEntry(col)
+#+END_SRC
+
+*** 
 *** Annotate with perf
 
 With =perf= if I create the record like:
@@ -1527,3 +1617,14 @@ index faf4407..9411525 100644
        else:
          raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
 #+END_SRC
+
+
+** Conclusion
+
+Well, this was fun. I guess this is also a good way to spend a Friday
+afternoon and Saturday!
+
+I learned a huge amount of stuff about how to approach performance
+issues in code and I'm looking forward to applying my knowledge to
+much bigger performance bottlenecks, which are certainly still in the
+library!
