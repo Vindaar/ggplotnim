@@ -314,3 +314,28 @@ suite "Data frame tests":
 """
     let dfPrecision12 = pretty(df, precision = 12, header = false)
     check expPrecision12 == dfPrecision12
+  test "Summarize":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    block:
+      # explicit LHS
+      let res = mpg.summarize(f{"num" ~ sum("cyl")})
+      check "num" in res
+      check res.len == 1
+      check res["num"][0] == %~ 1378
+      # implicit LHS
+      let resImplicit = mpg.summarize(f{sum("cyl")})
+      check "(sum cyl)" in resImplicit
+      check resImplicit.len == 1
+      check resImplicit["(sum cyl)"][0] == %~ 1378
+    block:
+      # explicit LHS
+      let res = mpg.summarize(f{"mean" ~ mean("cyl")})
+      check "mean" in res
+      check res.len == 1
+      check almostEqual(res["mean"][0].toFloat, 5.888888889)
+      # implicit LHS
+      let resImplicit = mpg.summarize(f{mean("cyl")})
+      check "(mean cyl)" in resImplicit
+      check resImplicit.len == 1
+      check almostEqual(resImplicit["(mean cyl)"][0].toFloat, 5.888888889)
+

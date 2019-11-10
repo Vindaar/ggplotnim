@@ -1491,21 +1491,28 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
   result = DataFrame(kind: dfNormal)
+  var fnEval: FormulaNode
+  var lhsName = ""
   for fn in fns:
-    var mfn = fn
-    # TODO: take next assert out, by adding option to create pure function with
-    # f{} macro, i.e. f{mean("cyl")}
-    doAssert fn.kind == fkTerm, "function must have named result!"
-    doAssert fn.rhs.kind == fkFunction
-    doAssert fn.lhs.kind == fkVariable
+    if fn.kind == fkTerm:
+      doAssert fn.rhs.kind == fkFunction, "`summarize` RHS argument must be a function!"
+      doAssert fn.lhs.kind == fkVariable
+      lhsName = fn.lhs.val.str
+      fnEval = fn.rhs
+    else:
+      doAssert fn.kind == fkFunction, "`summarize` argument must be a function!"
+      lhsName = $fn
+      fnEval = fn
     case df.kind
     of dfNormal:
       # just apply the function
-      let res = toPersistentVector(@[mfn.rhs.evaluate(df)])
-      result[fn.lhs.val.str] = res
+      let res = toPersistentVector(@[fnEval.evaluate(df)])
+      result[lhsName] = res
       result.len = res.len
     of dfGrouped:
       # apply the function to each ``group``
+      # TODO: replace by impl which makes use of `groups` iterator? Check `count` impl
+      # below!
       for k, classes in df.groupMap:
         for class in classes:
           # add current class to `k`, but only if not already done on a
@@ -1515,12 +1522,11 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
           else:
             result[k] = toPersistentVector(@[class])
           var dfcopy = df.filter(f{k == class})
-          let x = mfn.rhs.evaluate(dfcopy)
-          let lhsKey = mfn.lhs.val.str
-          if result.hasKey(lhsKey):
-            result[lhsKey] = result[lhsKey].add x
+          let x = fnEval.evaluate(dfcopy)
+          if result.hasKey(lhsName):
+            result[lhsName] = result[lhsName].add x
           else:
-            result[lhsKey] = toPersistentVector(@[x])
+            result[lhsName] = toPersistentVector(@[x])
         # at some point `k` should have the correct length of the dataframe
         result.len = result[k].len
 
