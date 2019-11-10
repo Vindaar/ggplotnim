@@ -371,3 +371,24 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check resImplicit.len == 1
       check almostEqual(resImplicit["(mean cyl)"][0].toFloat, 5.888888889)
 
+  test "Count":
+    # count elements by group. Useful combination of group_by and summarize(len)
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    # in manual case the order is not preserved, due to `summarize` impl!
+    let exp = {6 : 79, 8 : 70, 4 : 81, 5 : 4}
+    block:
+      # manually
+      let res = mpg.group_by("cyl").summarize(f{"num" ~ length("cyl")})
+      check "num" in res
+      check res.len == 4
+      for i, row in res:
+        check exp[i][0] == row["cyl"].toInt
+        check exp[i][1] == row["num"].toInt
+      # using `count` directly
+      let resDirect = mpg.count("cyl")
+      check "n" in resDirect
+      check resDirect.len == 4
+      let expSorted = exp.sortedByIt(it[0])
+      for i, row in resDirect:
+        check expSorted[i][0] == row["cyl"].toInt
+        check expSorted[i][1] == row["n"].toInt
