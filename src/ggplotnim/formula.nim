@@ -1009,11 +1009,54 @@ proc length*(v: PersistentVector[Value]): Value =
   result = %~ v.len
 
 liftVectorFloatProc(mean)
+liftVectorFloatProc(sum)
 liftScalarFloatProc(abs)
 liftVectorFloatProc(min)
 liftVectorFloatProc(max)
-liftScalarFloatProc(ln)
+
+# The following lifted procs are all lifted from the stdlib and the lifting to
+# work on seqs is done in seqmath. Not all work atm, since some take additional args
+# or return bools
+# ---- from math.nim --------------
+#liftScalarFloatProc(classify)
+#liftScalarFloatProc(binom)
+#liftScalarFloatProc(fac)
+#liftScalarFloatProc(isPowerOfTwo)
+#liftScalarFloatProc(nextPowerOfTwo)
+#liftScalarFloatProc(countBits32)
+#liftScalarFloatProc(random)
+liftScalarFloatProc(sqrt)
+liftScalarFloatProc(cbrt)
 liftScalarFloatProc(log10)
+liftScalarFloatProc(log2)
+liftScalarFloatProc(ln)
+liftScalarFloatProc(exp)
+#liftScalarFloatProc2(fexp)
+liftScalarFloatProc(arccos)
+liftScalarFloatProc(arcsin)
+liftScalarFloatProc(arctan)
+#liftScalarFloatProc2(arctan2)
+liftScalarFloatProc(cos)
+liftScalarFloatProc(cosh)
+#liftScalarFloatProc2(hypot)
+liftScalarFloatProc(sin)
+liftScalarFloatProc(sinh)
+liftScalarFloatProc(tan)
+liftScalarFloatProc(tanh)
+#liftScalarFloatProc2(pow)
+liftScalarFloatProc(erf)
+liftScalarFloatProc(erfc)
+liftScalarFloatProc(lgamma)
+liftScalarFloatProc(tgamma)
+liftScalarFloatProc(trunc)
+liftScalarFloatProc(floor)
+liftScalarFloatProc(ceil)
+liftScalarFloatProc(degToRad)
+liftScalarFloatProc(radToDeg)
+#liftScalarFloatProc(gcd)
+#liftScalarFloatProc(lcm)
+
+
 
 template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
   proc `name`*(v: PersistentVector[Value]): `outType` =
