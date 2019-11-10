@@ -1426,200 +1426,198 @@ proc createHistFreqPolyGobj(view: var Viewport,
   # new xScale, by calling calcTickLocations with it
   # Note: we don't have to assign it to the `view` viewport, since that will
   # happen when calculation of the actual ticks will be done later on
-  #let xAes = getAes(p, geom, akX)
-  #let xScale = xAes.x.get
-  #let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
-  #if isDiscrete:
-  #  raise newException(ValueError, "The selected column " & $xScale.col &
-  #    " contains discrete data. Did you want to call geom_bar?")
-  #
-  #let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
-  ## TODO: here?
-  ## assign the new XScale to the view
-  #view.xScale = newXScale
-  #
-  ## generate the histogram itself
-  #let nbins = geom.numBins
-  #let binWidth = (newXScale.high - newXScale.low).float / nbins.float
-  #
-  #var style: Style
-  #if geom.style.isSome:
-  #  style = geom.style.unsafeGet
-  #else:
-  #  # TODO: inherit from parent somehow?
-  #  discard
-  #
-  ## create the layout needed for the different geoms
-  #case geom.kind
-  #of gkHistogram:
-  #  view.layout(nbins, 1)
-  #else:
-  #  doAssert geom.kind == gkFreqPoly
-  #  # we juse use the given `Viewport`
-  #
-  #var any = false
-  #var yScaleBase = (low: 0.0, high: 0.0)
-  #for scale in enumerateScales(p, geom):
-  #  any = true
-  #  var data: seq[Value]
-  #  # TODO: we do not actually make use of `data`!
-  #  if scale.col in p.data:
-  #    data = p.data.dataTo(scale.col, Value)
-  #  else:
-  #    data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
-  #
-  #  # accumulate data before we do anything with our viewports, since depending on
-  #  # the `position` of the `geom`, we might need the data for each label at the
-  #  # same time
-  #  var labData = initOrderedTable[string, (seq[int], Style)]()
-  #  var numLabel = 0
-  #  for label, val in scale:
-  #    when type(p.data) is DataFrame:
-  #      let df = p.data.filter(f{scale.col == label})
-  #    else:
-  #      let df = toDf(p.data).filter(f{scale.col == label})
-  #    # just the regular rectangles, one behind another
-  #    style = changeStyle(style, val)
-  #    const epsilon = 1e-2
-  #    # for every label, we increase the `lineWidth` by `epsilon` so that the last
-  #    # layer completely covers the ones before it
-  #    # TODO: this is still not a nice solution, especially regarding top and bottom
-  #    # of the rectangles!
-  #    if geom.kind == gkHistogram:
-  #      style.lineWidth = style.lineWidth + numLabel.float * epsilon
-  #    inc numLabel
-  #    let rawData = df.dataTo(p.aes.x.get.col, float)
-  #    # generate the histogram
-  #    var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
-  #    # increase the scale if necessary
-  #    yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
-  #    labData[$label] = (hist, style)
-  #
-  #  # reverse the order of `labData`, so that the element class with highest string
-  #  # value is located at the bottom of the histogram (to match `ggplot2`)
-  #  labData.sort(
-  #    cmp = (
-  #      proc(a, b: (string, (seq[int], Style))): int =
-  #        result = system.cmp(a[0], b[0])
-  #    ),
-  #    order = SortOrder.Descending)
-  #
-  #  # calculate the new Y scale maximum of the plot
-  #  var newYMax = yScaleBase.high
-  #  case geom.position
-  #  of pkStack:
-  #    # for `pkStack` we must find the bin with the largest sum of
-  #    # label elements
-  #    var sums = newSeq[int](nbins)
-  #    for i in 0 ..< nbins:
-  #      var s = 0
-  #      for label in keys(labData):
-  #        s += labData[label][0][i]
-  #      sums[i] = s
-  #    newYMax = max(sums).float
-  #  of pkFill:
-  #    # TODO: `pkFill` is basically the same as `pkStack`, only that the sum of
-  #    # any non empty bin must add up to 1.0
-  #    raise newException(Exception, "Not yet implemented!")
-  #  else: discard
-  #  # with the data available, create the histogram rectangles
-  #  # fix the data scales on the children viewports
-  #  yScaleBase = (low: 0.0, high: newYMax)
-  #  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  #  case geom.kind
-  #  of gkHistogram:
-  #    view.addHistoRects(labData, newYScale, geom.position)
-  #  of gkFreqPoly:
-  #    view.yScale = newYScale
-  #    view.addFreqPoly(labData, binWidth, nbins, geom.position)
-  #  else:
-  #    doAssert false
-  #if not any:
-  #  var hist: seq[int]
-  #  var bins: seq[float]
-  #  case vKind
-  #  of VFloat, VInt:
-  #    let xSc = p.aes.x.get
-  #    let rawData = p.data.dataTo(xSc.col, float)
-  #    doAssert xSc.dcKind == dcContinuous
-  #    doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
-  #    # generate the histogram
-  #    (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
-  #  else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
-  #  # set the y scale
-  #  yScaleBase = (low: 0.0, high: hist.max.float)
-  #  # fix the data scales on the children viewports
-  #  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  #  case geom.kind
-  #  of gkHistogram:
-  #    view.addHistoRects(hist, newYScale, style, geom.position)
-  #  of gkFreqPoly:
-  #    view.yScale = newYScale
-  #    view.addFreqPoly(hist, binWidth, nbins, style, geom.position)
-  #  else:
-  #    doAssert false
-  #
-  ## fix the data scales on the children viewports
-  #let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  #view.yScale = newYScale
-  #for ch in mitems(view):
-  #  ch.yScale = newYScale
-  discard
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      " contains discrete data. Did you want to call geom_bar?")
+
+  let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
+  # TODO: here?
+  # assign the new XScale to the view
+  view.xScale = newXScale
+
+  # generate the histogram itself
+  let nbins = geom.numBins
+  let binWidth = (newXScale.high - newXScale.low).float / nbins.float
+
+  var style: Style
+  if geom.style.isSome:
+    style = geom.style.unsafeGet
+  else:
+    # TODO: inherit from parent somehow?
+    discard
+
+  # create the layout needed for the different geoms
+  case geom.kind
+  of gkHistogram:
+    view.layout(nbins, 1)
+  else:
+    doAssert geom.kind == gkFreqPoly
+    # we juse use the given `Viewport`
+
+  var any = false
+  var yScaleBase = (low: 0.0, high: 0.0)
+  for scale in enumerateScales(p, geom):
+    any = true
+    var data: seq[Value]
+    # TODO: we do not actually make use of `data`!
+    if scale.col in p.data:
+      data = p.data.dataTo(scale.col, Value)
+    else:
+      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
+
+    # accumulate data before we do anything with our viewports, since depending on
+    # the `position` of the `geom`, we might need the data for each label at the
+    # same time
+    var labData = initOrderedTable[string, (seq[int], Style)]()
+    var numLabel = 0
+    for label, val in scale:
+      when type(p.data) is DataFrame:
+        let df = p.data.filter(f{scale.col == label})
+      else:
+        let df = toDf(p.data).filter(f{scale.col == label})
+      # just the regular rectangles, one behind another
+      style = changeStyle(style, val)
+      const epsilon = 1e-2
+      # for every label, we increase the `lineWidth` by `epsilon` so that the last
+      # layer completely covers the ones before it
+      # TODO: this is still not a nice solution, especially regarding top and bottom
+      # of the rectangles!
+      if geom.kind == gkHistogram:
+        style.lineWidth = style.lineWidth + numLabel.float * epsilon
+      inc numLabel
+      let rawData = df.dataTo(p.aes.x.get.col, float)
+      # generate the histogram
+      var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+      # increase the scale if necessary
+      yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
+      labData[$label] = (hist, style)
+
+    # reverse the order of `labData`, so that the element class with highest string
+    # value is located at the bottom of the histogram (to match `ggplot2`)
+    labData.sort(
+      cmp = (
+        proc(a, b: (string, (seq[int], Style))): int =
+          result = system.cmp(a[0], b[0])
+      ),
+      order = SortOrder.Descending)
+
+    # calculate the new Y scale maximum of the plot
+    var newYMax = yScaleBase.high
+    case geom.position
+    of pkStack:
+      # for `pkStack` we must find the bin with the largest sum of
+      # label elements
+      var sums = newSeq[int](nbins)
+      for i in 0 ..< nbins:
+        var s = 0
+        for label in keys(labData):
+          s += labData[label][0][i]
+        sums[i] = s
+      newYMax = max(sums).float
+    of pkFill:
+      # TODO: `pkFill` is basically the same as `pkStack`, only that the sum of
+      # any non empty bin must add up to 1.0
+      raise newException(Exception, "Not yet implemented!")
+    else: discard
+    # with the data available, create the histogram rectangles
+    # fix the data scales on the children viewports
+    yScaleBase = (low: 0.0, high: newYMax)
+    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+    case geom.kind
+    of gkHistogram:
+      view.addHistoRects(labData, newYScale, geom.position)
+    of gkFreqPoly:
+      view.yScale = newYScale
+      view.addFreqPoly(labData, binWidth, nbins, geom.position)
+    else:
+      doAssert false
+  if not any:
+    var hist: seq[int]
+    var bins: seq[float]
+    case vKind
+    of VFloat, VInt:
+      let xSc = p.aes.x.get
+      let rawData = p.data.dataTo(xSc.col, float)
+      doAssert xSc.dcKind == dcContinuous
+      doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
+      # generate the histogram
+      (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
+    else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
+    # set the y scale
+    yScaleBase = (low: 0.0, high: hist.max.float)
+    # fix the data scales on the children viewports
+    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+    case geom.kind
+    of gkHistogram:
+      view.addHistoRects(hist, newYScale, style, geom.position)
+    of gkFreqPoly:
+      view.yScale = newYScale
+      view.addFreqPoly(hist, binWidth, nbins, style, geom.position)
+    else:
+      doAssert false
+
+  # fix the data scales on the children viewports
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  view.yScale = newYScale
+  for ch in mitems(view):
+    ch.yScale = newYScale
 
 proc createBarGobj(view: var Viewport,
                    df: DataFrame,
                    geom: Geom,
                    plotScales: FilledScales): seq[GraphObject] =
   ## creates the GraphObjects required for a bar plot
-  #let xAes = getAes(p, geom, akX)
-  #let xScale = xAes.x.get
-  #let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
-  #if not isDiscrete:
-  #  raise newException(ValueError, "The selected column " & $xScale.col &
-  #    "contains continuous data. Did you want to call geom_histogram?")
-  #let numElements = xScale.labelSeq.len
-  #var style: Style
-  #if geom.style.isSome:
-  #  style = geom.style.unsafeGet
-  #else:
-  #  # TODO: inherit from parent somehow?
-  #  #doAssert false
-  #  discard
-  #
-  ##of VFloat, VInt:
-  ##  doAssert false, "not implemented"
-  #let discrMarginOpt = p.theme.discreteScaleMargin
-  #var discrMargin = quant(0.0, ukRelative)
-  #if discrMarginOpt.isSome:
-  #  discrMargin = discrMarginOpt.unsafeGet
-  #let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
-  #view.layout(numElements + 2, 1,
-  #            colwidths = concat(@[discrMargin],
-  #                               indWidths,
-  #                               @[discrMargin]))
-  #let toIgnore = toSet([0, numElements + 1])
-  #var yScaleBase: ginger.Scale
-  #case vKind
-  #of VFloat, VInt, VString:
-  #  # instead get count of each element
-  #  var maxVal = 0
-  #  var hist: seq[int]
-  #  for k, v in pairs(xScale):
-  #    let val = v.val.toInt.int
-  #    hist.add val
-  #    if val > maxVal:
-  #      maxVal = val
-  #  yScaleBase = (low: 0.0, high: maxVal.float)
-  #  view.addHistoRects(hist, yScaleBase, style, geom.position,
-  #                     width = 0.8, ignorePortIdxs = toIgnore)
-  #else:
+  let xAes = getAes(p, geom, akX)
+  let xScale = xAes.x.get
+  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
+  if not isDiscrete:
+    raise newException(ValueError, "The selected column " & $xScale.col &
+      "contains continuous data. Did you want to call geom_histogram?")
+  let numElements = xScale.labelSeq.len
+  var style: Style
+  if geom.style.isSome:
+    style = geom.style.unsafeGet
+  else:
+    # TODO: inherit from parent somehow?
+    #doAssert false
+    discard
+
+  #of VFloat, VInt:
   #  doAssert false, "not implemented"
-  ## fix child viewport yscales
-  #let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  #view.yScale = newYScale
-  #for ch in mitems(view):
-  #  ch.yScale = newYScale
-  discard
+  let discrMarginOpt = p.theme.discreteScaleMargin
+  var discrMargin = quant(0.0, ukRelative)
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet
+  let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
+  view.layout(numElements + 2, 1,
+              colwidths = concat(@[discrMargin],
+                                 indWidths,
+                                 @[discrMargin]))
+  let toIgnore = toSet([0, numElements + 1])
+  var yScaleBase: ginger.Scale
+  case vKind
+  of VFloat, VInt, VString:
+    # instead get count of each element
+    var maxVal = 0
+    var hist: seq[int]
+    for k, v in pairs(xScale):
+      let val = v.val.toInt.int
+      hist.add val
+      if val > maxVal:
+        maxVal = val
+    yScaleBase = (low: 0.0, high: maxVal.float)
+    view.addHistoRects(hist, yScaleBase, style, geom.position,
+                       width = 0.8, ignorePortIdxs = toIgnore)
+  else:
+    doAssert false, "not implemented"
+  # fix child viewport yscales
+  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
+  view.yScale = newYScale
+  for ch in mitems(view):
+    ch.yScale = newYScale
 
 proc createGobjFromGeom(view: var Viewport,
                         df: DataFrame,
