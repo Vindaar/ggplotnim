@@ -1299,9 +1299,9 @@ The same can also be seen with =callgrind=. Compare the number of
 cycles of the above mentioned procs in the following two images. The
 first one shows the slow case and shows an estimated number of 230
 Mio. cycles for the three procs (=interiorAllocatedPtr=, ...) and
-about 3.5 Mio. cycles of =unsureAsgnRef=. In the fast case in the
-second figure shows about the same number of =unsureAsgnRef= cycles
-~3.2 Mio., but only about 3 Mio. =interiorAllocatedPtr= cycles. 
+about 3.2 Mio. cycles of =unsureAsgnRef=. In the fast case in the
+second figure shows exactly the same number of =unsureAsgnRef= cycles
+, but only about 3 Mio. =interiorAllocatedPtr= cycles. 
 
 [[./media/callgrind_cycles_slow.png]]
 
