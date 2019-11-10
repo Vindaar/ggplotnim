@@ -1000,6 +1000,14 @@ template liftScalarStringProc*(name: untyped,
     proc `name`(v: Value): Value =
       result = %~ `name`(v.toStr)
 
+proc length*(v: PersistentVector[Value]): Value =
+  ## returns the `length` of the given vector (DF column) as a `Value`.
+  ## Essentially just a working version of `len` for use in formulas, e.g.
+  ## for `summarize`. Does not use the `len` name for two reasons:
+  ## 1. Nim does not allow overload by return type
+  ## 2. `length` is the name in R
+  result = %~ v.len
+
 liftVectorFloatProc(mean)
 liftScalarFloatProc(abs)
 liftVectorFloatProc(min)
