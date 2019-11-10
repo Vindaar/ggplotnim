@@ -1235,6 +1235,78 @@ Reference image for these two latter cases:
 **** Ref types, slowdown due to =nsuStrip=
 [[media/ref_types_incl_strip.png]]
 
+*** Note on difference between slow and fast case
+
+In order to get a better sense for the origin of the speed difference
+of the fast and slow case, we can use =perf= and =callgrind= and check
+the number of cycle counts for the different functions. 
+
+Using =perf= we can sample the number of instructions by using:
+#+BEGIN_SRC sh
+perf record -e instructions -o <outfile> <binary>
+#+END_SRC
+Note, it seems here we should leave out the =--call-graph= option,
+because that screws up the order in which the report is given (I guess
+one can change that somehow?).
+We can then look at the results using:
+#+BEGIN_SRC sh
+perf report -i <outfile> -n
+#+END_SRC
+Doing this for both the slow and fast case results in the following
+output, again LHS shows the slow and RHS the fast binary.
+#+BEGIN_SRC sh
+# Total Lost Samples: 0                                                                                                │# Total Lost Samples: 0
+#                                                                                                                      │#
+# Samples: 21K of event 'instructions:u'                                                                               │# Samples: 2K of event 'instructions:u'
+# Event count (approx.): 57123223371                                                                                   │# Event count (approx.): 6135456347
+#                                                                                                                      │#
+# Overhead       Samples  Command  Shared Object            Symbol                                                     │# Overhead       Samples  Command  Shared Object            Symbol                                            
+# ........  ............  .......  .......................  .......................................................    │# ........  ............  .......  .......................  ..................................................
+#                                                                                                                      │#
+    30.55%          6521  slow     slow                     [.] interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ         │     9.22%           227  fast     fast                     [.] unsureAsgnRef
+    25.90%          5513  slow     slow                     [.] contains__9b5xR7VBZVwQDvk5Nr9bDKdQ                     │     5.45%           134  fast     fast                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA
+    25.72%          5477  slow     slow                     [.] intSetGet__O3FRrWKKUdi8uRTGxiPdIg                      │     4.29%           104  fast     fast                     [.] rowEntry__iSnSJzyyzosqzYvzg3RnzQ
+     8.33%          1777  slow     slow                     [.] markStackAndRegisters__U6T7JWtDLrWhtmhXSoy9a6g         │     4.16%           105  fast     fast                     [.] rawAlloc__mE4QEVyMvGRVliDWDngZCQ
+     1.00%           216  slow     slow                     [.] unsureAsgnRef                                          │     3.73%            93  fast     fast                     [.] isOnStack__plOlFsQAAvcYd3nF5LfWzw
+     0.50%           111  slow     slow                     [.] rawAlloc__mE4QEVyMvGRVliDWDngZCQ                       │     3.61%           115  fast     fast                     [.] interiorAllocatedPtr__NuzKjA4SX9afyji9cHHIuKpQ
+     0.44%            93  slow     slow                     [.] substr__2yh9cer0ymNRHlOOg8P7IuA                        │     3.40%           110  fast     fast                     [.] intSetGet__O3FRrWKKUdi8uRTGxiPdIg
+     0.42%            89  slow     slow                     [.] rowEntry__iSnSJzyyzosqzYvzg3RnzQ                       │     3.22%            92  fast     fast                     [.] add__W9aRfhn7HvnQTPAb8ajo1uwsystem
+     0.36%            90  slow     slow                     [.] genericAssignAux__69cRBG8C28ydeYlu49a9aOJCQ            │     3.03%            62  fast     fast                     [.] readLine__FbqDHP9bu7nqCh9c04dnSOxw
+     0.35%            78  slow     slow                     [.] isOnStack__plOlFsQAAvcYd3nF5LfWzw                      │     2.97%            93  fast     fast                     [.] contains__9b5xR7VBZVwQDvk5Nr9bDKdQ
+#+END_SRC
+So we can see that in the slow case the calls to
+=interiorAllocatedPtr=, =contains=, =intSetGet= completetly dominate
+the cycles with a much more even distribution in the fast case (and
+=interiorAllocatedPtr= at a measly 3%). 
+
+But note also the event count in both cases. =N_e = 57,123,223,371= (that's
+57 billion!) events in the slow case of which ~6521 / 21,000 * N_e =
+17,738,120,933.5~. So about 18 billion events go to
+=interiorAllocatedPtr= alone. 
+
+In the fast case only =6,135,456,347= events were recorded. That's
+about =10.7 %= of the events in the slow case, which roughly fits to
+our performance difference of about a factor
+of 10. =interiorAllocatedPtr= only makes up about =352,788,740=
+cycles. The largest contributor =unsureAsgnRef= counts about
+=696,374,296= cycles. Note that the number of =unsureAsgnRef= cycles
+in the slow case is actually roughly similar with =587,553,155=. 
+
+So we can take away that we're producing a huge number of additional
+GC related calls in the slow case. I just don't understand why...
+
+The same can also be seen with =callgrind=. Compare the number of
+cycles of the above mentioned procs in the following two images. The
+first one shows the slow case and shows an estimated number of 230
+Mio. cycles for the three procs (=interiorAllocatedPtr=, ...) and
+about 3.5 Mio. cycles of =unsureAsgnRef=. In the fast case in the
+second figure shows about the same number of =unsureAsgnRef= cycles
+~3.2 Mio., but only about 3 Mio. =interiorAllocatedPtr= cycles. 
+
+[[./media/callgrind_cycles_slow.png]]
+
+[[./media/callgrind_cycles_fast.png]]
+
 *** Compare run times
 
 *NOTE:* the run times here are not supposed to be actual
