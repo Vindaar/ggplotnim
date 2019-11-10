@@ -1,4 +1,4 @@
-import ggplotnim, unittest, sequtils, math, strutils
+import ggplotnim, unittest, sequtils, math, strutils, os
 import algorithm
 
 suite "Data frame tests":
@@ -314,6 +314,38 @@ suite "Data frame tests":
 """
     let dfPrecision12 = pretty(df, precision = 12, header = false)
     check expPrecision12 == dfPrecision12
+
+  test "CSV parsing with spaces":
+    const csvData = """
+t_in_s,  C1_in_V,  C2_in_V,  type
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+-2.9976E-06,  1.025E-03,  -2.930E-04 ,  T1
+-2.9968E-06,  9.277E-04,  2.930E-04  ,  T2
+-2.9960E-06,  4.395E-04,  4.883E-04  ,  T2
+-2.9952E-06,  1.465E-04,  -2.930E-04 ,  T2
+-2.9944E-06,  -3.418E-04,  -1.270E-03,  T2
+"""
+    writeFile("testCsvSpaces.csv", csvData)
+    let csvRead = readCsv("testCsvSpaces.csv")
+    let texp = @[-3.0000E-06, -2.9992E-06, -2.9984E-06, -2.9976E-06, -2.9968E-06,
+                 -2.9960E-06, -2.9952E-06, -2.9944E-06]
+    let c1Exp = @[-2.441E-04, 2.441E-04, 1.025E-03, 1.025E-03, 9.277E-04, 4.395E-04,
+                   1.465E-04, -3.418E-04]
+    let c2Exp = @[-6.836E-04, -6.836E-04, -8.789E-04, -2.930E-04, 2.930E-04,
+                  4.883E-04, -2.930E-04, -1.270E-03]
+    let typeExp = @["T1", "T1", "T1", "T1", "T2",
+                    "T2", "T2", "T2"]
+    let dfExp = seqsToDf({"t_in_s" : texp, "C1_in_V" : c1Exp, "C2_in_V" : c2Exp,
+                           "type" : typeExp})
+    let df = toDf(csvRead)
+    check df["t_in_s"].vToSeq == dfExp["t_in_s"].vToSeq
+    check df["C1_in_V"].vToSeq == dfExp["C1_in_V"].vToSeq
+    check df["C2_in_V"].vToSeq == dfExp["C2_in_V"].vToSeq
+    check df["type"].vToSeq == dfExp["type"].vToSeq
+    removeFile("testCsvSpaces.csv")
+
   test "Summarize":
     let mpg = toDf(readCsv("data/mpg.csv"))
     block:
