@@ -1073,6 +1073,7 @@ template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
 proc isValidFunc(fn: NimNode): bool =
   ## Checks if the given `fn` sym node represents a valid function
   ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
+  # TODO: this is essentialy the IMPL of `getFuncKind` too!!!
   let impl = fn.getTypeImpl
   result = false
   case impl.kind
@@ -1086,7 +1087,7 @@ proc isValidFunc(fn: NimNode): bool =
       if eqIdent(argType, "Value"):
         result = true
   of nnkBracketExpr:
-    expectKind(impl[1], nnkProcTy)
+    doAssert impl[1].kind in {nnkProcTy, nnkSym}
     result = isValidFunc(impl[1])
   else:
     error("Invalid kind " & $impl.kind)
@@ -1107,6 +1108,8 @@ macro extractFunction(fn: typed): untyped =
       if isValidFunc(ch):
         result = ch
         return result
+  of nnkCheckedFieldExpr:
+    result = fn
   else:
     error("Invalid node kind " & $fn.kind & " is " & fn.treeRepr)
   if result.kind == nnkEmpty:
@@ -1147,7 +1150,7 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     FormulaNode(kind: fkVariable, val: %~ `val`)
 
 proc constructFunction*(n: NimNode): NimNode =
-  let fname = n[0].strVal
+  let fname = n[0].repr #.strVal
   let fn = n[0]
   let arg = constructVariable(n[1])
   result = quote do:
@@ -1203,7 +1206,7 @@ proc handleInfix(n: NimNode): NimNode =
                                 replaced)
     node = full
 
-  let opid = node[0].strVal
+  let opid = node[0].repr
   let op = quote do:
     parseEnum[ArithmeticKind](`opid`)
   let lhs = buildFormula(node[1])
@@ -1728,7 +1731,7 @@ proc getFuncKind(fn: NimNode): NimNode =
       doAssert eqIdent(argType, "Value")
       result = ident"ScalarValuedFunc"
   of nnkBracketExpr:
-    expectKind(impl[1], nnkProcTy)
+    doAssert impl[1].kind in {nnkProcTy, nnkSym}
     result = getFuncKind(impl[1])
   else:
     error("Invalid kind " & $impl.kind)
@@ -1941,7 +1944,6 @@ makeMathProc(`:<=`, amLeq)
 makeMathProc(leq, amLeq)
 
 proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
-  #echo "Node ", node
   case node.kind
   of fkVariable:
     case node.val.kind
@@ -2007,7 +2009,6 @@ proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
     # we also convert to float for the time being. Implement a different proc or make this
     # generic, we want to support functions returning e.g. `string` (maybe to change the
     # field name at runtime via some magic proc)
-    #echo "Accessing ", data[node.arg.val]
     when type(data) is DataFrame:
       case node.fnKind
       of funcVector:
@@ -2039,7 +2040,6 @@ proc evaluate*[T](node: var FormulaNode, data: T): Value =
     # we also convert to float for the time being. Implement a different proc or make this
     # generic, we want to support functions returning e.g. `string` (maybe to change the
     # field name at runtime via some magic proc)
-    #echo "Accessing ", data[node.arg.val]
     when type(data) is DataFrame:
       case node.fnKind
       of funcVector:
