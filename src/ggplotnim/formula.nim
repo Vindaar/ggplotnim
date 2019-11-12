@@ -1603,11 +1603,10 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
         # at some point `k` should have the correct length of the dataframe
         result.len = result[k].len
 
-proc count*(df: DataFrame, col: string): DataFrame =
+proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
   ## counts the number of elements per type in `col` of the data frame.
   ## Basically a shorthand for df.group_by.summarize(f{length(col)}).
   ## TODO: handle already grouped dataframes.
-  const numCol = "n"
   let grouped = df.group_by(col)
   result = DataFrame()
   for class, subdf in groups(grouped):
@@ -1616,10 +1615,10 @@ proc count*(df: DataFrame, col: string): DataFrame =
       result[key] = result[key].add class[0][1]
     else:
       result[key] = toPersistentVector(@[class[0][1]])
-    if numCol in result:
-      result[numCol] = result[numCol].add (%~ subDf.len)
+    if name in result:
+      result[name] = result[name].add (%~ subDf.len)
     else:
-      result[numCol] = toPersistentVector(@[%~ subDf.len])
+      result[name] = toPersistentVector(@[%~ subDf.len])
     inc result.len
 
 proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
