@@ -287,3 +287,28 @@ proc `$`*[T](p: GgPlot[T]): string =
   for g in p.geoms:
     result.add $g
   result.add ")"
+
+proc `$`*(s: Scale): string =
+  result = &"Scale(col: {s.col}"
+  result.add &", name: {s.name}"
+  if s.ids == {0'u16 .. high(uint16)}:
+    result.add ", ids: {0..65535'u16}"
+  else:
+    result.add &", ids: {s.ids}"
+  result.add &", vKind: {s.vKind}"
+  result.add &", scKind: {s.scKind}"
+  case s.scKind
+  of scLinearData, scTransformedData:
+    result.add &", axKind: {s.axKind}"
+    result.add &", trans.isNil?: {s.trans.isNil}"
+    result.add &", secondaryAxis: {s.secondaryAxis}"
+  else: discard
+  result.add &", dcKind: {s.dcKind}"
+  case s.dcKind
+  of dcDiscrete:
+    result.add &", valueMap: {s.valueMap}"
+    result.add &", labelSeq: {s.labelSeq}"
+  of dcContinuous:
+    result.add &", dataScale: {s.dataScale}"
+    result.add &", mapData.isNil?: {s.mapData.isNil}"
+  result.add ")"
