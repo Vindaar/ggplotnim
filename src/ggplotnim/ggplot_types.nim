@@ -1,4 +1,4 @@
-import options, tables, hashes, macros
+import options, tables, hashes, macros, strformat
 import chroma
 import formula
 import ginger
@@ -99,6 +99,7 @@ type
       # the data to the correct `ScaleKind`. For linear data it's just the data
       # itself. For `transformedData` it applies the transformation. For color etc.
       # the
+      # TODO: pretty sure we can get rid of this now
       mapData*: proc(idxs: seq[int] = @[]): seq[ScaleValue]
 
   Facet* = object
@@ -158,23 +159,42 @@ type
     geoms*: seq[Geom]
     theme*: Theme
 
+  # A filled geom is a geom plus a closure to yield the
+  FilledGeom* = object
+    geom*: Geom
+    xcol*: string
+    ycol*: string
+    # each geom will fill its own data scales. The filledScale will then
+    # select the correct scale for the whole plot
+    xScale*: ginger.Scale
+    yScale*: ginger.Scale
+    # `Style` stores base style for each value of the discrete (!) scales
+    yieldData*: OrderedTable[Style, (seq[Style], DataFrame)]
+    # the number of max elements for each dimensions found for this geom
+    # if x or y is discrete the following will store the number of classes
+    # if continuous just the max number of elements the largest style
+    numX*: int
+    numY*: int
+
   MainAddScales* = tuple[main: Option[Scale], more: seq[Scale]]
   FilledScales* = object
+    xScale*: ginger.Scale
+    yScale*: ginger.Scale
+    geoms*: seq[FilledGeom]
     x*: MainAddScales
     y*: MainAddScales
     color*: MainAddScales
+    fill*: MainAddScales
     size*: MainAddScales
     shape*: MainAddScales
-
-  #FinalPlot* = object
-  #  scales*: FilledScales
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.
   PlotView* = object
-    # `plotScales` is essentially the final aesthetics used in the drawing of
-    # the plot, based on `GgPlot.aes` and `geoms.aes` combined
-    plotScales*: FilledScales#FinalPlot#seq[Scale]
+    # `filledScales` is essentially the final aesthetics used in the drawing of
+    # the plot, based on `GgPlot.aes` and `geoms.aes` combined and includes additional
+    # fields to avoid dependency on GgPlot object to draw
+    filledScales*: FilledScales
     view*: Viewport # the ginger representation of the plot
 
 
