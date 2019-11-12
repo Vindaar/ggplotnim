@@ -1346,6 +1346,18 @@ proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
     for k in keys:
       result[i][k] = df[k, i]
 
+proc getColsAsRowsIdx(df: DataFrame, keys: seq[string]): seq[(int, Value)] =
+  ## Given a dataframe `df` and column keys `keys`, returns a `seq[(int, Value)]`
+  ## where each `Value` is a `VObject` containing a single row, with
+  ## (key, value) pairs and `int` contains the index
+  # now build the rows
+  result = newSeq[(int, Value)](df.len)
+  for i in 0 ..< result.len:
+    result[i][0] = i
+    result[i][1] = newVObject()
+    for k in keys:
+      result[i][1][k] = (df[k, i])
+
 proc arrangeSortImpl(toSort: var seq[(int, Value)], order: SortOrder) =
   ## sorts the given `(index, Value)` pair according to the `Value`
   toSort.sort(
@@ -1362,16 +1374,15 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
   # in ascending order of the columns
   var idxCol: seq[(int, Value)]
   if by.len == 1:
-    let col = toSeq(df[by[0]])
-    let idx = toSeq(0 .. col.high)
-    idxCol = zip(idx, col)
+    idxCol.setLen(df.len)
+    let col = by[0]
+    for i in 0 ..< df.len:
+      idxCol[i] = (i, df[col, i])
     idxCol.arrangeSortImpl(order)
   else:
     # in case of having multiple strings to sort by, first create a sequence of all
     # rows (only containig the columns to be sorted)
-    let colRows = getColsAsRows(df, by)
-    let idx = toSeq(0 .. colRows.high)
-    idxCol = zip(idx, colRows)
+    idxCol = getColsAsRowsIdx(df, by)
     idxCol.arrangeSortImpl(order)
   result.len = df.len
   for k in keys(df):
@@ -1493,11 +1504,12 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
   let dfArranged = df.arrange(keys)
   # having the data frame in a sorted order, walk it and return each combination
   var
-    currentKeys: seq[(string, Value)]
-    lastKeys: seq[(string, Value)]
+    currentKeys = newSeq[(string, Value)](keys.len)
+    lastKeys = newSeq[(string, Value)](keys.len)
     startIdx, stopIdx: int # indices which indicate from where to where a subgroup is located
   for i in 0 ..< dfArranged.len:
-    currentKeys = keys.mapIt((it, dfArranged[it, i]))
+    for j, key in keys:
+      currentKeys[j] = (key, dfArranged[key, i])
     if currentKeys == lastKeys:
       # continue accumulating
       discard
@@ -1508,10 +1520,11 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
       yield (lastKeys, dfArranged[startIdx .. stopIdx])
       # set new start and stop idx
       startIdx = i
+      lastKeys = currentKeys
     else:
       # should only happen for i == 0
       doAssert i == 0
-    lastKeys = currentKeys
+      lastKeys = currentKeys
   # finally yield the last subgroup or the whole group, in case we only
   # have a single key
   yield (currentKeys, dfArranged[startIdx .. dfArranged.high])
