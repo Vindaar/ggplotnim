@@ -107,27 +107,34 @@ iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
         yieldedSet.incl scale
         yield scale
 
-iterator enumerateScalesByIds(plotScales: FilledScales): Scale =
+iterator enumerateScalesByIds(filledScales: FilledScales): Scale =
   ## yields all scales from the FilledScales
   template genYield(field: untyped): untyped =
-    if plotScales.field.main.isSome:
-      yield plotScales.field.main.get
-    for m in plotScales.field.more:
+    if filledScales.field.main.isSome:
+      yield filledScales.field.main.get
+    for m in filledScales.field.more:
       yield m
   # color Scale
   genYield(x)
   genYield(y)
   genYield(color)
+  genYield(fill)
   genYield(size)
   genYield(shape)
 
-iterator enumerateScales(plotScales: FilledScales, geom: Geom): Scale =
+iterator enumerateScales(filledScales: FilledScales, geom: Geom): Scale =
   ## Yields all scales, which are allowed for the given geom
   var yieldedSet = initHashSet[Scale]()
-  for s in enumerateScalesByIds(plotScales):
+  for s in enumerateScalesByIds(filledScales):
     if geom.gid in s.ids and s notin yieldedSet:
       yieldedSet.incl s
       yield s
+
+iterator enumerateData(geom: FilledGeom): (seq[Style], DataFrame) =
+  ## yields the pairs of continuous styles for the current discrete style and
+  ## its data from `yieldData`
+  for (style, df) in values(geom.yieldData):
+    yield (style, df)
 
 proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
@@ -209,7 +216,6 @@ proc discreteAndType(data: seq[Value]):
   result = (isDiscrete: isDiscreteData(data, drawSamples = false),
             vKind: guessType(data, drawSamples = false))
 
-
 proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
   let isDiscrete = refVals.isDiscreteData
   if isDiscrete:
@@ -290,7 +296,7 @@ proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: str
   result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
   let colorCs = ggColorHue(labelSeq.len)
-  for i, k in labelSeq:
+  for i, k in result.labelSeq:
     # NOTE: workaround, since we cannot do `kind: sckind` atm
     result.valueMap[k] = if scKind == scColor:
                            ScaleValue(kind: scColor, color: colorCs[i])
@@ -314,41 +320,27 @@ proc fillDiscreteLinearTransScale(
   col: string,
   axKind: AxisKind,
   vKind: ValueKind, labelSeq: seq[Value],
-  df: DataFrame,#data: seq[Value],
+  df: DataFrame,
   trans: Option[ScaleTransform] = none[ScaleTransform]()
      ): Scale =
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
-  result.labelSeq = labelSeq
+  result.labelSeq = labelSeq.sortedByIt(it)
   result.valueMap = initOrderedTable[Value, ScaleValue]()
   result.axKind = axKind
   if scKind == scTransformedData:
     ## we make  sure `trans` is some in the calling scope!
     result.trans = trans.get
-  # TODO: make this the result of some proc we call. Maybe add a Formula
-  # field, which is evaluated here, so that we apply arbitrary functions,
-  # instead of just counting, which is conveniently done via grouping
-  #let df = seqsToDf({col : data})
-  let dfgrouped = df.group_by(by = col)
-  for keys, subDf in groups(dfgrouped):
-    doAssert keys.len == 1
-    doAssert keys[0][0] == col
-    result.valueMap[keys[0][1]] = ScaleValue(kind: scLinearData, val: %~ subDf.len)
-  #for i, k in res.labelSeq:
-  #  # TODO: don't filter here?! Inefficient, since we
-  #  valueMap[k] = ScaleValue(kind: scLinearData, val: %~ df.filter(f{scale.col == k}).len)
-  #raise newException(Exception, "`fillScale` not implemented for " & $scKind)
 
 proc fillContinuousLinearScale(col: string, axKind: AxisKind, vKind: ValueKind,
                                dataScale: ginger.Scale,
                                df: DataFrame): Scale =
-                               #data: seq[Value]): Scale =
   result = Scale(scKind: scLinearData, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
   result.axKind = axKind
   result.mapData = (
     proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
       var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)#data.high)
+      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
       result = idxs.mapIt(ScaleValue(kind: scLinearData, val: df[col][it]))
   )
@@ -359,7 +351,6 @@ proc fillContinuousTransformedScale(col: string,
                                     trans: ScaleTransform,
                                     dataScale: ginger.Scale,
                                     df: DataFrame): Scale =
-                                    #data: seq[Value]): Scale =
   result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
                  dcKind: dcContinuous,
                  dataScale: dataScale)
@@ -368,7 +359,7 @@ proc fillContinuousTransformedScale(col: string,
   result.mapData = (
     proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
       var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)#data.high)
+      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
       result = idxs.mapIt(ScaleValue(kind: scTransformedData,
                                      val: trans(df[col][it])))
@@ -379,7 +370,6 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
                               df: DataFrame): Scale =
-                              #data: seq[Value]): Scale =
   ## devise colormap mapping
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
@@ -388,7 +378,7 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
   result.mapData = (
     proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
       var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)#data.high)
+      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
@@ -407,7 +397,6 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
 proc fillContinuousSizeScale(col: string, vKind: ValueKind,
                              dataScale: ginger.Scale,
                              df: DataFrame): Scale =
-                             #data: seq[Value]): Scale =
   const minSize = 2.0
   const maxSize = 7.0
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcContinuous,
@@ -415,7 +404,7 @@ proc fillContinuousSizeScale(col: string, vKind: ValueKind,
   result.mapData = (
     proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
       var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)#data.high)
+      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
@@ -429,7 +418,7 @@ proc fillScaleImpl(
   vKind: ValueKind,
   isDiscrete: bool,
   col: string,
-  df: DataFrame,#data: seq[Value],
+  df: DataFrame,
   scKind: static ScaleKind,
   labelSeqOpt: Option[seq[Value]] = none[seq[Value]](), # for discrete data
   dataScaleOpt: Option[ginger.Scale] = none[ginger.Scale](), # for cont data
@@ -490,29 +479,24 @@ proc fillScaleImpl(
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
 
-type
-  ScaleData = tuple
-    data: Option[DataFrame]
-    scale: Scale
+proc getIdentityData(df: DataFrame, col: string): DataFrame =
+  if col in df:
+    result = df.select(f{"data" ~ col})
+  else:
+    let d = @[Value(kind: VString, str: col)]
+    result = seqsToDf({"data" : d})
 
-proc fillScale(df: DataFrame, scales: seq[Scale], scKind: static ScaleKind): seq[Scale] =
+proc fillScale(df: DataFrame, scales: seq[Scale],
+               scKind: static ScaleKind): seq[Scale] =
   # get the data column we scale by
-  var data = newSeqOfCap[Value](df.len * scales.len)
-  var fullCol = "" # full column. May be two or more columns together
+  var data: DataFrame #newSeqOfCap[Value](df.len * scales.len)
   var transOpt: Option[ScaleTransform]
   var axKindOpt: Option[AxisKind]
   # in a first loop over the scales read the data required to make decisions about
   # the appearence of the resulting scale
   for s in scales:
-    #if fullCol.len == 0:
-    #  fullCol = s.col
-    #else:
-    #  fullCol = fullCol & ", " & s.col
-    if s.col in df:
-      data.add df.dataTo(s.col, Value)
-    else:
-      data.add @[Value(kind: VString, str: s.col)]
-
+    # No statKind dispatch here. Will be done geom wise after scales are filled
+    data.add getIdentityData(df, s.col)
   # in the second loop for each of the scales add one filled scale to the result
   # using the combined dataset of all. This way we automatically get the correct
   # data range / correct number of labels while retaining a single scale per
@@ -529,49 +513,25 @@ proc fillScale(df: DataFrame, scales: seq[Scale], scKind: static ScaleKind): seq
       transOpt = some(s.trans)
     else: discard
 
-    let (isDiscrete, vKind) = discreteAndType(data)
+    let (isDiscrete, vKind) = discreteAndType(data, "data")
     if vKind == VNull:
-      echo "WARNING: Unexpected data type VNull of column: ", fullCol, "!"
+      echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
-      #return none[Scale]()
 
     if isDiscrete:
-      labelSeqOpt = some(data.toHashSet.toSeq.sorted)
+      labelSeqOpt = some(data["data"].unique.sorted)
     else:
-      dataScaleOpt = some((low: min(data).toFloat, high: max(data).toFloat))
+      dataScaleOpt = some((low: min(data["data"]).toFloat,
+                           high: max(data["data"]).toFloat))
 
     # now have to call `fillScaleImpl` with this information
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, data, scKind,
                                labelSeqOpt, dataScaleOpt,
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
     filled.ids = s.ids
     result.add filled
-
-#proc fillAes(df: DataFrame, aes: Aesthetics): Aesthetics =
-#  # TODO: we must estimate whether the given column is "continuous like" or
-#  # "discrete like"
-#  # If continuous like in case of
-#  # - color: create colorbar
-#  # - shape: raise exception not possible
-#  # - size: bin the data and use bins as fixed sizes
-#
-#
-#
-#  result = aes
-#  result.x = aes.x.fillScale(df, scLinearData) # TODO: add more data
-#  result.y = aes.y.fillScale(df, scLinearData) # TODO: add more data
-#  result.color = aes.color.fillScale(df, scColor)
-#  result.fill = aes.fill.fillScale(df, scFillColor)
-#  # not implemented yet:
-#  #result.shape = aes.shape.fillScale(df, scShape)
-#  result.size = aes.size.fillScale(df, scSize)
-#
-#proc addAes(p: var GgPlot, aes: Aesthetics) =
-#  ## adds the aesthetics to the plot. This is non trivial, because
-#  ## an aestetics encodes information that may have to be calculated
-#  p.aes = fillAes(p.data, aes)
 
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
@@ -626,6 +586,7 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.x)
   fillIt(result.y)
   fillIt(result.color)
+  fillIt(result.fill)
   fillIt(result.size)
   fillIt(result.shape)
 
@@ -698,7 +659,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let style = Style(lineType: ltSolid,
-                    lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
+                    lineWidth: 0.2, # draw 1 pt wide black line to avoid white pixels
                                     # between bins at size of exactly 1.0 bin width
                     color: color, # default color
                     fillColor: color)
@@ -752,7 +713,7 @@ proc scale_x_log10*(): Scale =
                  axKind: akX,
                  dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
-                          result = %~ log10(v.toFloat))
+                            result = %~ log10(v.toFloat))
 
 proc scale_y_log10*(): Scale =
   ## sets the Y scale of the plot to a log10 scale
@@ -761,7 +722,7 @@ proc scale_y_log10*(): Scale =
                  axKind: akY,
                  dcKind: dcContinuous,
                  trans: proc(v: Value): Value =
-                          result = %~ log10(v.toFloat))
+                            result = %~ log10(v.toFloat))
 
 func sec_axis*(trans: FormulaNode = nil, name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
@@ -934,13 +895,6 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
-  # fill the aesthetics of the geom
-  #var mgeom = geom
-  #if geom.data.isSome:
-  #  mgeom.aes = fillAes(geom.data.unsafeGet, geom.aes)
-  #else:
-  #  mgeom.aes = fillAes(p.data, geom.aes)
-  #result.geoms.add mgeom
   result.geoms.add geom
 
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
@@ -951,7 +905,6 @@ proc `+`*(p: GgPlot, facet: Facet): GgPlot =
 proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
   ## adds the given aesthetics to the GgPlot object
   result = p
-  #result.addAes aes
   result.aes = p
 
 proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
@@ -978,17 +931,26 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
     case scale.axKind
     of akX:
       if aes.x.isSome:
-        mscale.dataScale = aes.x.get.dataScale
         mscale.col = aes.x.get.col
+        mscale.ids = aes.x.get.ids
         result.x = some(mscale)
     of akY:
       if aes.y.isSome:
-        mscale.dataScale = aes.y.get.dataScale
         mscale.col = aes.y.get.col
+        mscale.ids = aes.y.get.ids
         result.y = some(mscale)
-  of scFillColor, scColor: result.color = some(mscale)
-  of scSize: result.size = some(mscale)
-  of scShape: result.shape = some(mscale)
+  of scColor:
+    mscale.ids = aes.color.get.ids
+    result.color = some(mscale)
+  of scFillColor:
+    mscale.ids = aes.fill.get.ids
+    result.fill = some(mscale)
+  of scSize:
+    mscale.ids = aes.size.get.ids
+    result.size = some(mscale)
+  of scShape:
+    mscale.ids = aes.shape.get.ids
+    result.shape = some(mscale)
 
 proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   ## adds the given Scale to the GgPlot object.
@@ -1011,15 +973,12 @@ template anyScale(arg: untyped): untyped =
   else:
     false
 
-proc requiresLegend(plotScales: FilledScales): bool =
+proc requiresLegend(filledScales: FilledScales): bool =
   ## returns true if the plot requires a legend to be drawn
-  #if plotScales.color.main.isSome or
-  #   plotScales.size.main.isSome or
-  #   plotScales.shape.main.isSome:
-  #  result = true
-  if anyScale(plotScales.color) or
-     anyScale(plotScales.size) or
-     anyScale(plotScales.shape):
+  if anyScale(filledScales.color) or
+     anyScale(filledScales.fill) or
+     anyScale(filledScales.size) or
+     anyScale(filledScales.shape):
     result = true
   else:
     result = false
@@ -1138,20 +1097,35 @@ proc changeStyle(s: Style, scVal: ScaleValue): Style =
     result.fillColor = scVal.color
   of scSize:
     result.size = scVal.size
+  of scShape:
+    result.marker = scVal.marker
   else:
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
 
-iterator markerStylePairs(df: DataFrame, plotScales: FilledScales, geom: Geom): (int, (MarkerKind, Style)) {.exportc: "testtest".} =
-  ## iterates all scales relevant for `p` and `geom` and yields the
-  ## `MarkerKind` and the `Style` required for ``each datapoint`` as well
-  ## as the current index.
-  var style = geom.style.unsafeGet
-  var marker = mkCircle
+proc applyStyle(style: var Style, df: DataFrame, scales: seq[Scale], keys: seq[(string, Value)]) =
+  var styleVal: ScaleValue
+  for (col, val) in keys:
+    for s in scales:
+      # walk all scales and build the correct style
+      case s.dcKind
+      of dcDiscrete:
+        if col notin df:
+          # constant value
+          styleVal = s.getValue(%~ s.col)
+        else:
+          styleVal = s.getValue(val)
+        style = changeStyle(style, styleVal)
+      else:
+        discard
 
+iterator markerStylePairs(df: DataFrame, filledScales: FilledScales, geom: Geom): (int, Style) =
+  ## iterates all scales relevant for `p` and `geom` and yields the
+  ## the `Style` required for ``each datapoint`` as well as the current index.
+  var style = geom.style.unsafeGet
   # first collect all scales we have to consider for this geom
   var scales: seq[Scale]
-  for scale in enumerateScales(plotScales, geom):
+  for scale in enumerateScales(filledScales, geom):
     case scale.scKind
     of scLinearData, scTransformedData:
       continue
@@ -1173,26 +1147,46 @@ iterator markerStylePairs(df: DataFrame, plotScales: FilledScales, geom: Geom): 
         else:
           val = s.getValue(df[s.col][i])
         #let val = s.getValue(df[s.col][i])# %~ s.col)
-        case val.kind
-        of scShape:
-          # Marker is not encoded in `ginger.Style`, hence retrieve manually
-          marker = val.marker
-        of scLinearData, scTransformedData:
-          continue
-        else:
-          lStyle = changeStyle(lStyle, val)
+        lStyle = changeStyle(lStyle, val)
       else:
         # get the `i`-th element from the data
         val = s.mapData(@[i])[0]
         case val.kind
-        of scShape:
-          # Marker is not encoded in `ginger.Style`, hence get retrieve manually
-          marker = val.marker
         of scLinearData, scTransformedData:
           continue
         else:
           lStyle = changeStyle(lStyle, val)
-    yield (i, (marker, lStyle))
+    yield (i, lStyle)
+
+iterator enumerateStyles(df: DataFrame, scales: seq[Scale], geom: Geom): (int, Style) =
+  #df: DataFrame, filledScales: FilledScales, geom: Geom): (int, Style) =
+  ## iterates all scales relevant for `p` and `geom` and yields the
+  ## the `Style` required for ``each datapoint`` as well as the current index.
+  var style = geom.style.unsafeGet
+  # first collect all scales we have to consider for this geom
+  # then walk data frame and extracting correct style for each
+  var lStyle: Style
+  var val: ScaleValue
+  for i in 0 ..< df.len:
+    for s in scales:
+      # walk all scales and build the correct style
+      case s.dcKind
+      of dcDiscrete:
+        if s.col notin df:
+          # constant value
+          val = s.getValue(%~ s.col)
+        else:
+          val = s.getValue(df[s.col][i])
+        lStyle = changeStyle(lStyle, val)
+      else:
+        # get the `i`-th element from the data
+        val = s.mapData(@[i])[0]
+        case val.kind
+        of scLinearData, scTransformedData:
+          continue
+        else:
+          lStyle = changeStyle(lStyle, val)
+    yield (i, lStyle)
 
 iterator markerStyles(p: GgPlot, geom: Geom): (MarkerKind, Style) =
   ## iterates all scales relevant for `p` and `geom` and yields the
@@ -1203,13 +1197,13 @@ iterator markerStyles(p: GgPlot, geom: Geom): (MarkerKind, Style) =
 macro genGetScale(field: untyped): untyped =
   let name = ident("get" & $field.strVal & "Scale")
   result = quote do:
-    proc `name`(plotScales: FilledScales, geom = Geom(gid: 0)): Scale =
-      if plotScales.`field`.main.isSome:
+    proc `name`(filledScales: FilledScales, geom = Geom(gid: 0)): Scale =
+      if filledScales.`field`.main.isSome:
         # use main
-        result = plotScales.`field`.main.get
+        result = filledScales.`field`.main.get
       else:
         # find scale matching `gid`
-        for s in plotScales.`field`.more:
+        for s in filledScales.`field`.more:
           if geom.gid == 0 or geom.gid in s.ids:
             return s
 
@@ -1219,85 +1213,51 @@ genGetScale(color)
 genGetScale(size)
 genGetScale(shape)
 
-#func getXScale(plotScales: FilledScales, geom: Geom): Scale =
-#  if plotScales.x.main.isSome:
-#    # use main
-#    result = plotScales.x.main.get
-#  else:
-#    # find scale matching `gid`
-#    for s in plotScales.x.more:
-#      if geom.gid in s.ids:
-#        return s.scale
-
-proc readScaleAwareData[T: tuple](plotScales: FilledScales, geom: Geom): T =
-  ## TODO: not quite done yet. Only supports float etc.
-  case geom.kind
-  of gkLine, gkPoint:
-    # gkLine, gkPoint need `x` and `y` (with stat = "identity"; default)
-    let
-      xScale = plotScales.getXScale(geom)
-      yScale = plotScales.getYScale(geom)
-    result = (xScale.mapData(), yScale.mapData())
-  else:
-    discard
-#    template getData(scale: untyped): untyped =
-#      let df = if geom.data.isSome: geom.data.get else: p.data
-#      var data: seq[float]
-#      case scale.scKind
-#      of scLinearData:
-#        data = df.dataTo(scale.col, float)
-#      of scTransformedData:
-#        data = df.dataTo(scale.col, float, scale.trans)
-#      else: discard
-#      data
-#    let xdata = getData(xAes.x.get)
-#    let ydata = getData(yAes.y.get)
-#    result = (xData, yData)
-
 proc createPointGobj(view: var Viewport,
-                     df: DataFrame, geom: Geom,
-                     plotScales: FilledScales): seq[GraphObject] =
+                     fg: FilledGeom): seq[GraphObject] =
   ## creates the GraphObjects for a `gkPoint` geom
   ## TODO: we could unify the code in the `create*Gobj` procs, by
   ## - making all procs in ginger take a `Style`
   ## - just build the style in the same way we do here (in a separate proc)
   ##   and create the `GraphObject`
-  doAssert geom.kind == gkPoint
-  doAssert geom.style.isSome
-  # then walk data frame and extracting correct style for each
-  let (xdata, ydata) = readScaleAwareData[(seq[ScaleValue],
-                                           seq[ScaleValue])](plotScales,
-                                                             geom)
-  for i, (marker, style) in markerStylePairs(df, plotScales, geom):
-    result.add initPoint(view, (x: xdata[i].val.toFloat, y: ydata[i].val.toFloat),
-                         marker = marker,
-                         color = style.color,
-                         size = style.size)
+  doAssert fg.geom.kind == gkPoint
+  doAssert fg.geom.style.isSome
+  for (styles, subDf) in enumerateData(fg):
+    var points = newSeq[Point](subDf.len)
+    if styles.len == 1:
+      let style = styles[0]
+      for i in 0 ..< subDf.len:
+        result.add initPoint(view, (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat),
+                       marker = style.marker,
+                       color = style.color,
+                       size = style.size)
+    else:
+      for i in 0 ..< subDf.len:
+        result.add initPoint(view, (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat),
+                       marker = styles[i].marker,
+                       color = styles[i].color,
+                       size = styles[i].size)
 
 proc createLineGobj(view: var Viewport,
-                    df: DataFrame,
-                    geom: Geom,
-                    plotScales: FilledScales): seq[GraphObject] =
+                    fg: FilledGeom): seq[GraphObject] =
   ## creates the `goPolyLine` objects for the given geom
-  doAssert geom.kind == gkLine
-  doAssert geom.style.isSome
+  doAssert fg.geom.kind == gkLine
+  doAssert fg.geom.style.isSome
   # for line gobj we have to be a little more careful, because we draw the whole line
   # in one go. Thus collect marker styles and corresponding indices first
-  var msMap = initTable[(MarkerKind, Style), seq[int]]()
-  for i, (marker, style) in markerStylePairs(df, plotScales, geom):
-    if (marker, style) notin msMap:
-      msMap[(marker, style)] = newSeqOfCap[int](df.len)
-    msMap[(marker, style)].add i
-
-  # and then read all idx for each marker kind, sort them and draw the line
-  let (xData, yData) = readScaleAwareData[(seq[ScaleValue], seq[ScaleValue])](plotScales, geom)
-  # TODO: in case of float, handle non connected points!
-  for markerStyle, pointIdxs in pairs(msMap):
-    var points = newSeq[Point](pointIdxs.len)
-    for i, idx in pointIdxs:
-      points[i] = (x: xData[idx].val.toFloat, y: yData[idx].val.toFloat)
-    points.sort((x, y: Point) => cmp(x.x, y.x))
-    result.add view.initPolyLine(points, some(markerStyle[1]))
+  for (styles, subDf) in enumerateData(fg):
+    var points = newSeq[Point](subDf.len)#pointIdxs.len)
+    for i in 0 ..< subDf.len: #pointIdxs:
+      points[i] = (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat)
+    if styles.len == 1:
+      result.add view.initPolyLine(points, some(styles[0]))
+    else:
+      # since `ginger` doesn't support gradients on lines atm, we just draw from
+      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
+      # of styles between the two, but we don't atm!
+      echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      for i in 0 ..< styles.high: # last element covered by i + 1
+        result.add view.initPolyLine(@[points[i], points[i+1]], some(styles[i]))
 
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0),
@@ -1316,7 +1276,7 @@ proc addHistoRect[T](view: var Viewport, val: T, style: Style,
     view.addObj r
 
 proc addHistoRects(view: var Viewport,
-                   data: OrderedTable[string, (seq[int], Style)],
+                   data: OrderedTable[int, (seq[float], Style)],
                    yScale: ginger.Scale,
                    position: PositionKind,
                    width = 1.0,
@@ -1330,7 +1290,6 @@ proc addHistoRects(view: var Viewport,
   var i = 0
   var idx = 0
   for p in mitems(view):
-    #doAssert p.yScale.high >= hist.max.float
     if i in ignorePortIdxs:
       inc i
       continue
@@ -1347,14 +1306,14 @@ proc addHistoRects(view: var Viewport,
         prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].float, kind: ukData,
                                     scale: yScale, axis: akY)
     of pkDodge:
-      discard
+      raise newException(Exception, "Not implemented yet :)")
     of pkFill:
-      discard
+      raise newException(Exception, "Not implemented yet :)")
     inc i
     inc idx
 
 proc addHistoRects(view: var Viewport,
-                   hist: seq[int],
+                   hist: seq[float],
                    yScale: ginger.Scale,
                    style: Style,
                    position: PositionKind,
@@ -1362,12 +1321,12 @@ proc addHistoRects(view: var Viewport,
                    ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
   ## overload of the above working on a whole data frame. This just extracts the
   ## (label / data) pairs and hands it to `addHistoRects`
-  var data = initOrderedTable[string, (seq[int], Style)]()
-  data["x"] = (hist, style)
+  var data = initOrderedTable[int, (seq[float], Style)]()
+  data[0] = (hist, style)
   view.addHistoRects(data, yScale, position, width = width, ignorePortIdxs = ignorePortIdxs)
 
 proc addFreqPoly(view: var Viewport,
-                 data: OrderedTable[string, (seq[int], Style)],
+                 data: OrderedTable[int, (seq[float], Style)],
                  binWidth: float,
                  nbins: int,
                  position: PositionKind) =
@@ -1380,10 +1339,10 @@ proc addFreqPoly(view: var Viewport,
     for label, (val, style) in data:
       var points = newSeq[Point](val.len)
       for i in 0 ..< nbins:
-        points[i] = (x: binCenters[i], y: val[i].toFloat)
+        points[i] = (x: binCenters[i], y: val[i])
       view.addObj view.initPolyLine(points, some(style))
   of pkStack:
-    var polyTab = initOrderedTable[string, seq[seq[Point]]]()
+    var polyTab = initOrderedTable[int, seq[seq[Point]]]()
     for label in keys(data):
       polyTab[label] = newSeqWith(1, newSeq[Point]())
 
@@ -1391,7 +1350,7 @@ proc addFreqPoly(view: var Viewport,
     # each line disconnected by more than 1 empty bin
     # This is somewhat complicated.
     for i in 0 ..< nbins:
-      var binVal = 0
+      var binVal = 0.0
       for label, (val, style) in data:
         # add the current value to the current bin value
         binVal = binVal + val[i]
@@ -1402,7 +1361,7 @@ proc addFreqPoly(view: var Viewport,
             (val[i - 1] > 0 and val[i] == 0) # this element is empty, but last
                                              # was not, so add to draw back to 0
           ):
-          polyTab[label][^1].add (x: binCenters[i], y: binVal.toFloat)
+          polyTab[label][^1].add (x: binCenters[i], y: binVal)
         elif polyTab[label][^1].len > 0 and i != nbins - 1 and val[i + 1] == 0:
           # only create new seq, if has content and next element is 0
           polyTab[label].add newSeq[Point]()
@@ -1415,185 +1374,66 @@ proc addFreqPoly(view: var Viewport,
     doAssert false
 
 proc addFreqPoly(view: var Viewport,
-                 hist: seq[int],
+                 hist: seq[float],
                  binWidth: float,
                  nbins: int,
                  style: Style,
                  position: PositionKind) =
-  var data = initOrderedTable[string, (seq[int], Style)]()
-  data["x"] = (hist, style)
+  var data = initOrderedTable[int, (seq[float], Style)]()
+  data[0] = (hist, style)
   view.addFreqPoly(data, binWidth, nbins, position)
 
-proc tryGetStyle(geom: Geom): Style =
-  ## returns the style of `geom` if available. If not should probably
-  ## use a default (which it doesn't atm)
-  if geom.style.isSome:
-    result = geom.style.unsafeGet
-  else:
-    # TODO: inherit from parent somehow?
-    discard
-
 proc createHistFreqPolyGobj(view: var Viewport,
-                            df: DataFrame,
-                            geom: Geom,
-                            plotScales: FilledScales): seq[GraphObject] =
-  # before performing a calculation for the histogram viewports, get the
-  # new xScale, by calling calcTickLocations with it
-  # Note: we don't have to assign it to the `view` viewport, since that will
-  # happen when calculation of the actual ticks will be done later on
-  let xAes = getAes(p, geom, akX)
-  let xScale = xAes.x.get
-  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
-  if isDiscrete:
-    raise newException(ValueError, "The selected column " & $xScale.col &
-      " contains discrete data. Did you want to call geom_bar?")
-
-  let (newXScale, _, _) = calcTickLocations(view.xScale, p.numXTicks)
-  # TODO: here?
-  # assign the new XScale to the view
-  view.xScale = newXScale
-
-  # generate the histogram itself
-  let nbins = geom.numBins
-  let binWidth = (newXScale.high - newXScale.low).float / nbins.float
-
-  # get mutable style
-  var style = tryGetStyle(geom)
-
+                            fg: FilledGeom): seq[GraphObject] =
+  let geom = fg.geom
+  let nbins = fg.numX
   # create the layout needed for the different geoms
   case geom.kind
   of gkHistogram:
-    view.layout(nbins, 1)
+    view.layout(geom.numBins, 1)
   else:
     doAssert geom.kind == gkFreqPoly
     # we juse use the given `Viewport`
-
-  var any = false
-  var yScaleBase = (low: 0.0, high: 0.0)
-  for scale in enumerateScales(p, geom):
-    any = true
-    var data: seq[Value]
-    # TODO: we do not actually make use of `data`!
-    if scale.col in p.data:
-      data = p.data.dataTo(scale.col, Value)
+  var labData = initOrderedTable[int, (seq[float], Style)]()
+  var numLabel = 0
+  for (styles, subDf) in enumerateData(fg):
+    var points = newSeq[Point](subDf.len)
+    let bins = dataTo(subDf, fg.xcol, float)
+    let hist = dataTo(subDf, fg.ycol, float)
+    if styles.len == 1:
+      let style = styles[0]
+      labData[numLabel] = (hist, style)
     else:
-      data = toSeq(0 ..< p.data.len).mapIt(Value(kind: VString, str: scale.col))
+      # what's this supposed to be? continuously colored bins?
+      raise newException(Exception, "Does this make sense?")
+    inc numLabel
 
-    # accumulate data before we do anything with our viewports, since depending on
-    # the `position` of the `geom`, we might need the data for each label at the
-    # same time
-    var labData = initOrderedTable[string, (seq[int], Style)]()
-    var numLabel = 0
-    for label, val in scale:
-      when type(p.data) is DataFrame:
-        let df = p.data.filter(f{scale.col == label})
-      else:
-        let df = toDf(p.data).filter(f{scale.col == label})
-      # just the regular rectangles, one behind another
-      style = changeStyle(style, val)
-      const epsilon = 1e-2
-      # for every label, we increase the `lineWidth` by `epsilon` so that the last
-      # layer completely covers the ones before it
-      # TODO: this is still not a nice solution, especially regarding top and bottom
-      # of the rectangles!
-      if geom.kind == gkHistogram:
-        style.lineWidth = style.lineWidth + numLabel.float * epsilon
-      inc numLabel
-      let rawData = df.dataTo(p.aes.x.get.col, float)
-      # generate the histogram
-      var (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
-      # increase the scale if necessary
-      yScaleBase = (low: 0.0, high: max(yScaleBase.high, hist.max.float))
-      labData[$label] = (hist, style)
-
-    # reverse the order of `labData`, so that the element class with highest string
-    # value is located at the bottom of the histogram (to match `ggplot2`)
-    labData.sort(
-      cmp = (
-        proc(a, b: (string, (seq[int], Style))): int =
-          result = system.cmp(a[0], b[0])
-      ),
-      order = SortOrder.Descending)
-
-    # calculate the new Y scale maximum of the plot
-    var newYMax = yScaleBase.high
-    case geom.position
-    of pkStack:
-      # for `pkStack` we must find the bin with the largest sum of
-      # label elements
-      var sums = newSeq[int](nbins)
-      for i in 0 ..< nbins:
-        var s = 0
-        for label in keys(labData):
-          s += labData[label][0][i]
-        sums[i] = s
-      newYMax = max(sums).float
-    of pkFill:
-      # TODO: `pkFill` is basically the same as `pkStack`, only that the sum of
-      # any non empty bin must add up to 1.0
-      raise newException(Exception, "Not yet implemented!")
-    else: discard
-    # with the data available, create the histogram rectangles
-    # fix the data scales on the children viewports
-    yScaleBase = (low: 0.0, high: newYMax)
-    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-    case geom.kind
-    of gkHistogram:
-      view.addHistoRects(labData, newYScale, geom.position)
-    of gkFreqPoly:
-      view.yScale = newYScale
-      view.addFreqPoly(labData, binWidth, nbins, geom.position)
-    else:
-      doAssert false
-  if not any:
-    var hist: seq[int]
-    var bins: seq[float]
-    case vKind
-    of VFloat, VInt:
-      let xSc = p.aes.x.get
-      let rawData = p.data.dataTo(xSc.col, float)
-      doAssert xSc.dcKind == dcContinuous
-      doAssert xSc.mapData().mapIt(it.val.toFloat) == rawData
-      # generate the histogram
-      (hist, bins) = histogram(rawData, bins = nbins, range = (newXScale.low, newXScale.high))
-    else: doAssert false, "not implemented " & $vKind & " for histogram/freqpoly"
-    # set the y scale
-    yScaleBase = (low: 0.0, high: hist.max.float)
-    # fix the data scales on the children viewports
-    let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-    case geom.kind
-    of gkHistogram:
-      view.addHistoRects(hist, newYScale, style, geom.position)
-    of gkFreqPoly:
-      view.yScale = newYScale
-      view.addFreqPoly(hist, binWidth, nbins, style, geom.position)
-    else:
-      doAssert false
-
+  # reverse the order of `labData`, so that the element class with highest string
+  # value is located at the bottom of the histogram (to match `ggplot2`)
+  # This just reverses the order
+  labData.sort(
+    cmp = (
+      proc(a, b: (int, (seq[float], Style))): int =
+        result = system.cmp(a[0], b[0])
+    ),
+    order = SortOrder.Descending)
+  # with the data available, create the histogram rectangles
   # fix the data scales on the children viewports
-  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  view.yScale = newYScale
-  for ch in mitems(view):
-    ch.yScale = newYScale
+  case geom.kind
+  of gkHistogram:
+    view.addHistoRects(labData, fg.yScale, geom.position)
+  of gkFreqPoly:
+    let binWidth = (fg.xScale.high - fg.xScale.low).float / nbins.float
+    view.addFreqPoly(labData, binWidth, nbins, geom.position)
+  else:
+    doAssert false
 
 proc createBarGobj(view: var Viewport,
-                   df: DataFrame,
-                   geom: Geom,
-                   plotScales: FilledScales): seq[GraphObject] =
+                   fg: FilledGeom,
+                   theme: Theme): seq[GraphObject] =
   ## creates the GraphObjects required for a bar plot
-  let xAes = getAes(p, geom, akX)
-  let xScale = xAes.x.get
-  let (isDiscrete, vKind) = discreteAndType(p.data, xScale.col)
-  if not isDiscrete:
-    raise newException(ValueError, "The selected column " & $xScale.col &
-      "contains continuous data. Did you want to call geom_histogram?")
-  let numElements = xScale.labelSeq.len
-  # get mutable style
-  var style = tryGetStyle(geom)
-
-  #of VFloat, VInt:
-  #  doAssert false, "not implemented"
-  let discrMarginOpt = p.theme.discreteScaleMargin
+  let numElements = fg.numX
+  let discrMarginOpt = theme.discreteScaleMargin
   var discrMargin = quant(0.0, ukRelative)
   if discrMarginOpt.isSome:
     discrMargin = discrMarginOpt.unsafeGet
@@ -1603,43 +1443,42 @@ proc createBarGobj(view: var Viewport,
                                  indWidths,
                                  @[discrMargin]))
   let toIgnore = toSet([0, numElements + 1])
-  var yScaleBase: ginger.Scale
-  case vKind
-  of VFloat, VInt, VString:
-    # instead get count of each element
-    var maxVal = 0
-    var hist: seq[int]
-    for k, v in pairs(xScale):
-      let val = v.val.toInt.int
-      hist.add val
-      if val > maxVal:
-        maxVal = val
-    yScaleBase = (low: 0.0, high: maxVal.float)
-    view.addHistoRects(hist, yScaleBase, style, geom.position,
-                       width = 0.8, ignorePortIdxs = toIgnore)
-  else:
-    doAssert false, "not implemented"
-  # fix child viewport yscales
-  let (newYScale, _, _) = calcTickLocations(yScaleBase, p.numYTicks)
-  view.yScale = newYScale
-  for ch in mitems(view):
-    ch.yScale = newYScale
+  var labData = initOrderedTable[int, (seq[float], Style)]()
+  var numLabel = 0
+  for (styles, subDf) in enumerateData(fg):
+    let counts = dataTo(subDf, fg.ycol, float)
+    if styles.len == 1:
+      let style = styles[0]
+      labData[numLabel] = (counts, style)
+    else:
+      # what's this supposed to be? continuously colored bins?
+      raise newException(Exception, "Does this make sense?")
+    inc numLabel
+  # reverse the order of `labData`, so that the element class with highest string
+  # value is located at the bottom of the histogram (to match `ggplot2`)
+  labData.sort(
+    cmp = (
+      proc(a, b: (int, (seq[float], Style))): int =
+        result = system.cmp(a[0], b[0])
+    ),
+    order = SortOrder.Descending)
+  view.addHistoRects(labData, fg.yScale, fg.geom.position,
+                     width = 0.8, ignorePortIdxs = toIgnore)
 
 proc createGobjFromGeom(view: var Viewport,
-                        df: DataFrame,
-                        geom: Geom,
-                        plotScales: FilledScales): seq[GraphObject] =
+                        fg: FilledGeom,
+                        theme: Theme): seq[GraphObject] =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
-  case geom.kind
+  case fg.geom.kind
   of gkPoint:
-    result = view.createPointGobj(df, geom, plotScales)
+    result = view.createPointGobj(fg)
   of gkHistogram, gkFreqPoly:
-    result = view.createHistFreqPolyGobj(df, geom, plotScales)
+    result = view.createHistFreqPolyGobj(fg)
   of gkLine:
-    result = view.createLineGobj(df, geom, plotScales)
+    result = view.createLineGobj(fg)
   of gkBar:
-    result = view.createBarGobj(df, geom, plotScales)
+    result = view.createBarGobj(fg, theme)
   else:
     discard
 
@@ -1724,24 +1563,24 @@ proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
   labPos.add log10(maxv)
   result = (labs, labPos)
 
-func getSecondaryAxis(plotScales: FilledScales, axKind: AxisKind): SecondaryAxis =
+func getSecondaryAxis(filledScales: FilledScales, axKind: AxisKind): SecondaryAxis =
   ## Assumes a secondary axis must exist!
   case axKind
   of akX:
-    let xScale = plotScales.getXScale()
-    result = xScale.secondaryAxis.unwrap()#p.aes.x.get.secondaryAxis.get
+    let xScale = filledScales.getXScale()
+    result = xScale.secondaryAxis.unwrap()
   of akY:
-    let yScale = plotScales.getYScale()
-    result = yScale.secondaryAxis.unwrap()#p.aes.x.get.secondaryAxis.get
+    let yScale = filledScales.getYScale()
+    result = yScale.secondaryAxis.unwrap()
 
-func hasSecondary(plotScales: FilledScales, axKind: AxisKind): bool =
+func hasSecondary(filledScales: FilledScales, axKind: AxisKind): bool =
   case axKind
   of akX:
-    let xScale = plotScales.getXScale()
+    let xScale = filledScales.getXScale()
     if xScale.secondaryAxis.isSome:
       result = true
   of akY:
-    let yScale = plotScales.getYScale()
+    let yScale = filledScales.getYScale()
     if yScale.secondaryAxis.isSome:
       result = true
 
@@ -1824,29 +1663,30 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
-proc handleTicks(view: var Viewport, plotScales: FilledScales, p: GgPlot,
+proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
                  axKind: AxisKind): seq[GraphObject] =
-  var scale: Scale#Option[Scale]
+  ## This handles the creation of the tick positions and tick labels.
+  ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
+  var scale: Scale
   var numTicks: int
   case axKind
   of akX:
-    scale = plotScales.getXScale() #.aes.x
+    scale = filledScales.getXScale()
     numTicks = p.numXTicks
   of akY:
-    scale = plotScales.getYScale() #aes.y
+    scale = filledScales.getYScale()
     numTicks = p.numYTicks
-  if scale.col.len > 0: #isSome:
-    #let scale = scale.get
+  if scale.col.len > 0:
     case scale.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, scale)
-      if hasSecondary(plotScales, axKind):
-        let secAxis = plotScales.getSecondaryAxis(axKind)
+      if hasSecondary(filledScales, axKind):
+        let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleDiscreteTicks(p, axKind, scale, isSecondary = true)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, scale, numTicks)
-      if hasSecondary(plotScales, axKind):
-        let secAxis = plotScales.getSecondaryAxis(axKind)
+      if hasSecondary(filledScales, axKind):
+        let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleContinuousTicks(p, axKind, scale, numTicks, isSecondary = true)
   else:
     # this should mean the main geom is histogram like?
@@ -1870,7 +1710,7 @@ template argMaxIt(s, arg: untyped): untyped =
         maxVal = arg
     maxId
 
-proc handleLabels(view: var Viewport, theme: Theme) =#p: GgPlot) =
+proc handleLabels(view: var Viewport, theme: Theme) =
   ## potentially moves the label positions and enlarges the areas (not yet)
   ## potentially moves the label positions and enlarges the areas (not yet)
   ## for the y label / tick label column or x row.
@@ -1881,15 +1721,14 @@ proc handleLabels(view: var Viewport, theme: Theme) =#p: GgPlot) =
     xMargin: Coord1D
     yMargin: Coord1D
   let
-    xlabTxt = theme.xLabel.unwrap()#labelName(p, akX)
-    ylabTxt = theme.yLabel.unwrap()#labelName(p, akY)
-  #if p.theme.xlabelMargin.isSome:
-  #  marginVal = p.theme.xlabelMargin.get
+    xlabTxt = theme.xLabel.unwrap()
+    ylabTxt = theme.yLabel.unwrap()
+
   template getMargin(marginVar, themeField, nameVal, axKind: untyped): untyped =
     if not themeField.isSome:
-      let labs = view.objects.filterIt(it.name == nameVal)#"ytickLabel")
+      let labs = view.objects.filterIt(it.name == nameVal)
       let labNames = labs.mapIt(it.txtText)
-      let labLens = labNames.argMaxIt(len(it)) #labNames.sortedByIt(len(it))
+      let labLens = labNames.argMaxIt(len(it))
       let font = labs[0].txtFont
       case axKind
       of akX:
@@ -1912,7 +1751,7 @@ proc handleLabels(view: var Viewport, theme: Theme) =#p: GgPlot) =
       label = labproc(view,
                       labTxt,
                       margin = marginVal,
-                      isSecondary = isSecond)#quant(margin.toPoints.pos, ukPoint).toCentimeter.val + 0.5)
+                      isSecondary = isSecond)
 
   getMargin(xMargin, theme.xlabelMargin, "xtickLabel", akX)
   getMargin(yMargin, theme.ylabelMargin, "ytickLabel", akY)
@@ -1921,84 +1760,20 @@ proc handleLabels(view: var Viewport, theme: Theme) =#p: GgPlot) =
 
   view.addObj @[xLabObj, yLabObj]
 
-  if theme.hasSecondary(akX):#p, akX):
+  if theme.hasSecondary(akX):
     let secAxisLabel = theme.xLabelSecondary.unwrap()
     var labSec: GraphObject
-    createLabel(labSec, xlabel, secAxisLabel, theme.yLabelMargin, 0.0,#xMargin,
+    createLabel(labSec, xlabel, secAxisLabel, theme.yLabelMargin, 0.0,
                 true)
     view.addObj @[labSec]
   if theme.hasSecondary(akY):#p, akY):
     let secAxisLabel = theme.yLabelSecondary.unwrap()
     var labSec: GraphObject
-    createLabel(labSec, ylabel, secAxisLabel, theme.yLabelMargin, 0.0,#yMargin,
+    createLabel(labSec, ylabel, secAxisLabel, theme.yLabelMargin, 0.0,
                 true)
     view.addObj @[labSec]
 
-#proc mergeScales(view: var Viewport, geom: Geom) =
-proc mergeScales(p: var GgPlot, geom: Geom) =
-  ## This proc performs a merging of the
-  ## NOTE: Not to be confused with `updateDataScale`!
-  ## TODO: We still have to somehow successfully combine not only the
-  ## ginger.Scales of the viewport, but also all other scales,
-  # performs a merge of the current `geom` aes  into the corresponding
-  # `p` aes
-
-  # NOTE NOTE NOTE:
-  # This merges *ONLY* the data scales! `mapData` etc are not touched
-  # since those are handled with fillScales and the access of those procs
-  # when createing the graph objects!
-  var pAes = p.aes
-  let gAes = geom.aes
-  var scale: Scale
-  macro mergeInto(dcKind: DiscreteKind, scKind: ScaleKind, fident: static string): untyped =
-    # this template assumes that `gAes.field` is some!
-    let field = ident(fident)
-    result = quote do:
-      var toMerge = false
-      if pAes.`field`.isSome:
-        scale = pAes.`field`.get
-        toMerge = true
-      else:
-        pAes.`field` = gAes.`field`
-      if toMerge:
-        case `dcKind`
-        of dcContinuous:
-          case `scKind`
-          of scLinearData:
-            let newscale = (min(scale.dataScale.low, gAes.`field`.get.dataScale.low),
-                            max(scale.dataScale.high, gAes.`field`.get.dataScale.high))
-            scale.dataScale = newScale
-          else:
-            raise newException(Exception, "no bad : " & $`scKind` & " and " & $`dcKind`)
-        of dcDiscrete:
-          case `scKind`
-          of scLinearData:
-            discard
-          else:
-            raise newException(Exception, "no bad : " & $`scKind` & " and " & $`dcKind`)
-        pAes.`field` = some(scale)
-
-  macro checkIfSome(fident: static string): untyped =
-    let field = ident(fident)
-    result = quote do:
-      if gAes.`field`.isSome and
-        (pAes.`field`.isNone xor
-             (pAes.`field`.isSome and
-              pAes.`field`.get.dcKind == gAes.`field`.get.dcKind)) and
-        (pAes.`field`.isNone xor
-             (pAes.`field`.isSome and
-              pAes.`field`.get.scKind == gAes.`field`.get.scKind)):
-        let gAesScale = gAes.`field`.get
-        mergeInto(gAesScale.dcKind, gAesScale.scKind, `fident`)
-
-  checkIfSome("x")
-  checkIfSome("y")
-  checkIfSome("color")
-  checkIfSome("size")
-  checkIfSome("shape")
-  p.aes = pAes
-
-proc generatePlot(view: Viewport, p: GgPlot, plotScales: FilledScales,
+proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
                   theme: Theme,
                   addLabels = true): Viewport =
   # first write all plots into dummy viewport
@@ -2006,12 +1781,9 @@ proc generatePlot(view: Viewport, p: GgPlot, plotScales: FilledScales,
   result.background()
 
   # set the data scale for the result
-  let xScale = plotScales.getXScale()
-  let yScale = plotScales.getYScale()
-  result.xScale = xScale.dataScale
-  result.yScale = yScale.dataScale
-
-  for geom in p.geoms:
+  result.xScale = filledScales.xScale
+  result.yScale = filledScales.yScale
+  for fg in filledScales.geoms:
     # for each geom, we create a child viewport of `result` covering
     # the whole resultport, which will house the data we just created.
     # Due to being a child, if will be drawn *after* its parent. This way things like
@@ -2019,30 +1791,17 @@ proc generatePlot(view: Viewport, p: GgPlot, plotScales: FilledScales,
     # On the other hand this allows us to draw several geoms in on a plot and have the
     # order of the function calls `geom_*` be preserved
     var pChild = result.addViewport(name = "data")
-
-    #p.mergeScales(geom)
-    let df = if geom.data.isSome: geom.data.get else: p.data
-    let gobjs = pChild.createGobjFromGeom(df, geom, plotScales)
-
+    # DF here not needed anymore!
+    let gobjs = pChild.createGobjFromGeom(fg, theme)
     # add the data to the child
     pChild.addObj gobjs
     # add the data viewport to the view
     result.children.add pChild
 
-    # for these types there is no y data scale attached to the image so far,
-    # thus we assign `pChild`'s data scale to it
-    # TODO: solve this more elegantly!
+  var xticks = result.handleTicks(filledScales, p, akX)
+  var yticks = result.handleTicks(filledScales, p, akY)
 
-    # potentially the creation of the graph objects have altered the scales
-    # of the viewport. We have to make sure that the parents receive an updated
-    # scale too
-    # result.yScale = pChild.yScale
-
-  #echo "result children ", result.children
-
-  var xticks = result.handleTicks(plotScales, p, akX)
-  var yticks = result.handleTicks(plotScales, p, akY)
-  # TODO: make it such that we don't have to do that here!
+  # TODO: Make sure we still have to do this. I think not!
   result.updateDataScale()
 
   result.updateDataScale(xticks)
@@ -2101,31 +1860,15 @@ proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
   #   result.children[i].children = plt.children
   discard
 
-proc setInitialScale(p: GgPlot, scaleOpt: Option[Scale]): ginger.Scale =
-  # TODO:  alternative could be using `isDiscrete`?
-  if scaleOpt.isSome:
-    # TODO: this is expensive for large columns!
-    let scale = scaleOpt.unsafeGet
-    let (isDiscrete, vKind) = discreteAndType(p.data, scale.col)
-    if not isDiscrete:
-      result = scale.dataScale
-    else:
-      result = (low: 0.0, high: 1.0)
-    #  case vKind
-    #  of VFloat, VInt:
-    #    let data = p.data.dataTo(scale.col, float)
-    #    let minx = data.min
-    #    result = (low: data.min, high: data.max)
-    #  of VString:
-    #    # simply use equivalent of relative coordinates to space the categories
-    #    result = (low: 0.0, high: 1.0)
-    #  else: doAssert false, "unsupported!"
-    #else:
-    #  discard
-
 proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
   result = t.legendPosition.isSome
+
+type
+  ScaleData = tuple
+    data: Option[DataFrame]
+    scale: Scale
+    statKind: StatKind
 
 proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
                    scKind: static ScaleKind): seq[Scale] =
@@ -2140,21 +1883,345 @@ proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
     if i notin separateIdxs:
       scalesToUse.add s.scale
   if scalesToUse.len > 0:
-    let filled = fillScale(pData, scalesToUse, scKind)
+    var filled: seq[Scale]
+    # If the first scale is transformed, the others are too. Transformed handled
+    # here, because `collectScales` uses `scLinearData` for `x` and `y`
+    case scalesToUse[0].scKind
+    of scTransformedData:
+      filled = fillScale(pData, scalesToUse, scTransformedData)
+    else:
+      filled = fillScale(pData, scalesToUse, scKind)
     for fs in filled:
       result.add fs
-
   # now separates
   for i in separateIdxs:
-    let additional = fillScale(scales[i].data.get, @[scales[i].scale], scKind)
+    var additional: seq[Scale]
+    case scales[i].scale.scKind
+    of scTransformedData:
+      additional = fillScale(scales[i].data.get, @[scales[i].scale], scTransformedData)
+    else:
+      additional = fillScale(scales[i].data.get, @[scales[i].scale], scKind)
     doAssert additional.len <= 1
     for fs in additional:
-      result.add fs #(scale: fs, ids: scales[i].ids)
+      result.add fs
 
-proc collectScales(p: GgPlot): FilledScales =#seq[Scale] =
+func getScales(gid: uint16, filledScales: FilledScales,
+               yIsNone = false): (Scale, Scale, seq[Scale]) =
+  ## Returns the x and y scales individually and the other scales as a
+  ## sequence
+  template getScale(field: untyped): untyped =
+    let moreScale = field.more.filterIt(gid in it.ids)
+    doAssert moreScale.len <= 1, "FOUND " & $moreScale & " for gid " & $gid
+    if moreScale.len == 1:
+      some(moreScale[0])
+    elif field.main.isSome:
+      field.main
+    else:
+      none[Scale]()
+  template addIfAny(toAdd, arg: untyped): untyped =
+    if arg.isSome:
+      toAdd.add arg.get
+
+  # just normal x against y
+  let xOpt = getScale(filledScales.x)
+  let yOpt = getScale(filledScales.y)
+  doAssert xOpt.isSome
+  result[0] = xOpt.get
+  if not yIsNone:
+    doAssert yOpt.isSome
+    result[1] = yOpt.get
+  addIfAny(result[2], getScale(filledScales.color))
+  addIfAny(result[2], getScale(filledScales.fill))
+  addIfAny(result[2], getScale(filledScales.size))
+  addIfAny(result[2], getScale(filledScales.shape))
+
+func isEmpty(s: ginger.Scale): bool =
+  ## checks if the given scale is empty
+  result = s.low == s.high
+
+func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
+  ## merges the two data scales and returns a version encompassing both
+  result = (low: min(s1.low, s2.low),
+            high: max(s1.high, s2.high))
+
+proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
+  ## Given a sequence of scales applies all transformations of the `scales`.
+  ## That is for each `scTransformedData` scale the accroding transformation
+  ## is applied its column
+  var fns: seq[FormulaNode]
+  for s in scales:
+    if s.scKind == scTransformedData:
+      let fn = f{ s.col ~ s.trans( s.col ) }
+      fns.add fn
+    elif s.col in df:
+      # `s.col` may be pointing to scale which sets constant value
+      fns.add f{ s.col }
+  df = df.transmute(fns)
+
+proc separateScalesApplyTrafos(
+  df: var DataFrame, gid: uint16,
+  filledScales: FilledScales, yIsNone = false):
+    tuple[x: Scale, y: Scale, discretes: seq[Scale], contCols: seq[string]] =
+  # NOTE: if `yIsNone = true` the `y` in the next line will be an empty scale,
+  # caller has to be aware of that!
+  let (x, y, scales) = getScales(gid, filledScales, yIsNone = yIsNone)
+  # apply scale transformations
+  if not yIsNone:
+    df.applyTransformations(concat(@[x, y], scales))
+  else:
+    df.applyTransformations(concat(@[x], scales))
+  # split by discrete and continuous
+  let discretes = scales.filterIt(it.dcKind == dcDiscrete)
+  let cont = scales.filterIt(it.dcKind == dcContinuous)
+  var contCols = newSeq[string]()
+  for c in cont:
+    contCols.add c.col
+  result = (x: x, y: y, discretes: discretes, contCols: contCols)
+
+proc splitDiscreteSetMap(df: DataFrame,
+                         scales: seq[Scale]): (seq[string], seq[string]) =
+  ## splits the given discrete (!) columns by whether they set data (i.e.
+  ## arg not a DF column) or map data (arg is column)
+  var setDiscCols = newSeq[string]()
+  var mapDiscCols = newSeq[string]()
+  for d in scales:
+    # for discrete scales, build the continuous (if any) scales
+    if d.col in df:
+      mapDiscCols.add d.col
+    else:
+      setDiscCols.add d.col
+  result = (setDiscCols, mapDiscCols)
+
+proc filledIdentityGeom(df: var DataFrame, g: Geom,
+                        filledScales: FilledScales): FilledGeom =
+  let (x, y, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
+                                                                 filledScales)
+  let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+  result = FilledGeom(geom: g,
+                      xcol: x.col,
+                      ycol: y.col)
+  if x.dataScale.isEmpty:
+    result.xScale = (low: min(df[x.col]).toFloat, high: max(df[x.col]).toFloat)
+  else:
+    result.xScale = x.dataScale
+  if y.dataScale.isEmpty:
+    result.yScale = (low: min(df[y.col]).toFloat, high: max(df[y.col]).toFloat)
+  else:
+    result.yScale = y.dataScale
+  # w/ all groupings
+  doAssert g.style.isSome
+  var style = g.style.get
+  for setVal in setDiscCols:
+    applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
+  if mapDiscCols.len > 0:
+    df = df.group_by(mapDiscCols)
+    for keys, subDf in groups(df):
+      # now consider settings
+      applyStyle(style, subDf, discretes, keys)
+      var yieldDf = subDf.select(concat(@[x.col, y.col], contCols))
+      result.numX = max(result.numX, yieldDf.len)
+      result.yieldData[style] = (@[style], yieldDf)
+  else:
+    # is select here even useful? Just makes the df given smaller, but...
+    var yieldDf = df.select(concat(@[x.col, y.col], contCols))
+    result.numX = yieldDf.len
+    result.yieldData[style] = (@[style], yieldDf)
+
+  # `numX` == `numY` since `identity` maps `X -> Y`
+  result.numY = result.numX
+
+proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
+  const countCol = "count" # do not hardcode!
+  let (x, _, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
+                                                                 filledScales,
+                                                                 yIsNone = true)
+  let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+  result = FilledGeom(geom: g,
+                      xcol: x.col,
+                      ycol: countCol)
+  # w/ all groupings
+  doAssert g.style.isSome
+  var style = g.style.get
+  for setVal in setDiscCols:
+    applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
+  if mapDiscCols.len > 0:
+    df = df.group_by(mapDiscCols)
+    # sumHist used to calculate height of stacked histogram
+    var sumHist: seq[int]
+    for keys, subDf in groups(df):
+      # now consider settings
+      applyStyle(style, subDf, discretes, keys)
+      # before we assign calculate histogram
+      let (hist, bins) = histogram(subDf.dataTo(x.col, float), bins = g.numBins,
+                                   range = (x.dataScale.low, x.dataScale.high))
+      case g.position
+      of pkStack:
+        if sumHist.len == 0:
+          sumHist = hist
+        else:
+          for i in 0 .. sumHist.high:
+            sumHist[i] += hist[i]
+      of pkIdentity, pkDodge:
+        sumHist = hist
+      of pkFill: sumHist = @[1] # max for fill always 1.0
+      var yieldDf = seqsToDf({ x.col : bins,
+                               countCol: hist })
+      for c in contCols:
+        yieldDf[c] = subDf[c]
+      result.yieldData[style] = (@[style], yieldDf)
+      result.numX = max(result.numX, yieldDf.len)
+      result.xScale = mergeScales(result.xScale, (low: bins.min.float,
+                                                  high: bins.max.float))
+      result.yScale = mergeScales(result.yScale, (low: 0.0,
+                                                  high: sumHist.max.float))
+  else:
+    let (hist, bins) = histogram(df.dataTo(x.col, float), bins = g.numBins,
+                                 range = (x.dataScale.low, x.dataScale.high))
+    var yieldDf = seqsToDf({ x.col : bins,
+                             countCol: hist })
+    result.numX = yieldDf.len
+    for c in contCols:
+      yieldDf[c] = df[c]
+    result.yieldData[style] = (@[style], yieldDf)
+    result.xScale = (low: bins.min.float, high: bins.max.float)
+    result.yScale = (low: 0.0, high: hist.max.float)
+
+  # `numY` for `bin` stat is just max of the y scale. Since `histogram` counts the
+  # number of values in a binned continuous scale the maximum value is always an `int`!
+  result.numY = result.yScale.high.round.int
+  doAssert result.numX == g.numBins
+
+proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
+  const countCol = "count" # do not hardcode!
+  let (x, _, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
+                                                                 filledScales,
+                                                                 yIsNone = true)
+  let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+  result = FilledGeom(geom: g,
+                      xcol: x.col,
+                      ycol: countCol)
+  let allClasses = df[x.col].unique
+  # w/ all groupings
+  doAssert g.style.isSome
+  var style = g.style.get
+  for setVal in setDiscCols:
+    applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
+  if mapDiscCols.len > 0:
+    df = df.group_by(mapDiscCols)
+    # sumCounts used to calculate height of stacked histogram
+    # TODO: can be simplified by implementing `count` of `grouped` DFs!
+    var sumCounts = DataFrame()
+    for keys, subDf in groups(df):
+      # now consider settings
+      applyStyle(style, subDf, discretes, keys)
+      var yieldDf = subDf.count(x.col, name = countCol)
+      # all values, which are zero still have to be accounted for! Add those keys with
+      # zero values
+      # TODO: clean this up
+      let zeroKeys = allClasses.filterIt(it notin yieldDf[x.col].unique)
+      let zeroVals = zeroKeys.mapIt(0)
+      let zeroDf = seqsToDf({ x.col: zeroKeys, countCol: zeroVals })
+      yieldDf.add zeroDf
+      yieldDf = yieldDf.arrange(x.col)
+      case g.position
+      of pkStack:
+        if sumCounts.len == 0:
+          sumCounts = yieldDf
+        else:
+          for i in 0 ..< yieldDf.len:
+            sumCounts[countCol, i] = sumCounts[countCol, i] + yieldDf[countCol, i]
+      of pkIdentity, pkDodge:
+        sumCounts = yieldDf
+      of pkFill: sumCounts[countCol] = toVector(%~ @[1]) # max for fill always 1.0
+      result.numX = max(result.numX, yieldDf.len)
+      for c in contCols:
+        yieldDf[c] = df[c]
+      result.yieldData[style] = (@[style], yieldDf)
+      result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
+      result.yieldData[style] = (@[style], yieldDf)
+      result.xScale = (low: 0.0, high: 1.0)
+      result.yScale = mergeScales(result.yScale,
+                                  (low: 0.0,
+                                   high: max(sumCounts[countCol]).toFloat))
+  else:
+    var yieldDf = df.count(x.col, name = countCol)
+    result.numX = yieldDf.len
+    for c in contCols:
+      yieldDf[c] = df[c]
+    result.yieldData[style] = (@[style], yieldDf)
+    result.xScale = (low: 0.0, high: 1.0)
+    result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
+
+  # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
+  # maximum value is always an `int`!
+  result.numY = result.yScale.high.round.int
+  doAssert result.numX == allClasses.len
+
+proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
+  ## walk all geoms and create the dataframes required to draw the
+  ## geoms
+  var xScale: ginger.Scale
+  var yScale: ginger.Scale
+  for g in p.geoms:
+    var df = if g.data.isSome: g.data.get else: p.data
+    var filledGeom: FilledGeom
+    case g.kind
+    of gkPoint, gkLine:
+      # can be handled the same
+      # need x and y data for sure
+      case g.statKind
+      of stIdentity:
+        filledGeom = filledIdentityGeom(df, g, filledScales)
+      of stCount, stBin:
+        # for now...
+        discard
+    of gkHistogram:
+      case g.statKind
+      of stIdentity:
+        # essentially take same data as for point
+        filledGeom = filledIdentityGeom(df, g, filledScales)
+        # but change number of bins to data classes
+        filledGeom.geom.numBins = 4
+        # still a geom, make sure bottom is still at 0!
+        filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
+      of stBin:
+        # calculate histogram
+        filledGeom = filledBinGeom(df, g, filledScales)
+      else:
+        discard
+    of gkBar:
+      case g.statKind
+      of stIdentity:
+        # essentially take same data as for point
+        filledGeom = filledIdentityGeom(df, g, filledScales)
+      of stCount:
+        # count values in classes
+        filledGeom = filledCountGeom(df, g, filledScales)
+      else:
+        discard
+    else:
+      echo "Woaah, hey there"
+    if not xScale.isEmpty:
+      xScale = mergeScales(xScale, filledGeom.xScale)
+      yScale = mergeScales(yScale, filledGeom.yScale)
+    else:
+      xScale = filledGeom.xScale
+      yScale = filledGeom.yScale
+    filledScales.geoms.add filledGeom
+  let (finalXScale, _, _) = calcTickLocations(xScale, p.numXTicks)
+  let (finalYScale, _, _) = calcTickLocations(yScale, p.numYTicks)
+  filledScales.xScale = finalXScale
+  filledScales.yScale = finalYScale
+  # With the final scales in place, update all geoms to know about it
+  for g in mitems(filledScales.geoms):
+    g.xScale = finalXScale
+    g.yScale = finalyScale
+
+proc collectScales(p: GgPlot): FilledScales =
   ## Collects all scales required to draw the plot. This means comparing each
   ## possible aesthetic scale of the `GgPlot p` itself with its geoms and
   ## building the final `Scale` for each.
+  # TODO: clean up
   macro collect(f: static string): untyped =
     let field = ident(f)
     result = quote do:
@@ -2163,30 +2230,36 @@ proc collectScales(p: GgPlot): FilledScales =#seq[Scale] =
         if p.aes.`field`.isSome:
           # NOTE: the dataframe of `GgPlot` is always given individually to
           # the `fill*` procs, hence we give a `none` here
-          sds.add (data: none(DataFrame), scale: p.aes.`field`.get)
+          sds.add (data: none(DataFrame), scale: p.aes.`field`.get,
+                   statKind: stIdentity)
         for g in p.geoms:
           if g.aes.`field`.isSome:
-            sds.add (data: g.data, scale: g.aes.`field`.get)
+            sds.add (data: g.data, scale: g.aes.`field`.get,
+                     statKind: g.statKind)
         sds
 
   macro fillField(f: static string, arg: typed): untyped =
     let field = ident(f)
     let argId = ident(arg.strVal)
     result = quote do:
-      if `argId`.len > 0 and `argId`[0].ids.card == 0:
+      if `argId`.len > 0 and `argId`[0].ids == {0'u16 .. high(uint16)}:
         result.`field` = (main: some(`argId`[0]), more: `argId`[1 .. ^1])
       else:
         result.`field` = (main: none[Scale](), more: `argId`)
-
   let xs = collect("x")
-  let xFilled = callFillScale(p.data, xs, scLinearData) # NOTE must not definitely be linear!
+  # NOTE: transformed data handled from this in `callFillScale`!
+  let xFilled = callFillScale(p.data, xs, scLinearData)
   fillField("x", xFilled)
   let ys = collect("y")
-  let yFilled = callFillScale(p.data, ys, scLinearData) # NOTE must not definitely be linear!
+  # NOTE: transformed data handled from this in `callFillScale`!
+  let yFilled = callFillScale(p.data, ys, scLinearData)
   fillField("y", yFilled)
   let colors = collect("color")
   let colorFilled = callFillScale(p.data, colors, scColor)
   fillField("color", colorFilled)
+  let fills = collect("fill")
+  let fillFilled = callFillScale(p.data, fills, scFillColor)
+  fillField("fill", fillFilled)
   let sizes = collect("size")
   let sizeFilled = callFillScale(p.data, sizes, scSize)
   fillField("size", sizeFilled)
@@ -2194,20 +2267,22 @@ proc collectScales(p: GgPlot): FilledScales =#seq[Scale] =
   let shapeFilled = callFillScale(p.data, shapes, scShape)
   fillField("shape", shapeFilled)
 
-func labelName(plotScales: FilledScales, p: GgPlot, axKind: AxisKind): string =
+  postProcessScales(result, p)
+
+func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string =
   ## extracts the correct label for the given axis.
   ## First checks whether the theme sets a name, then checks the name of the
   ## x / y `Scale` and finally defaults to the column name.
   # doAssert p.aes.x.isSome, "x scale should exist?"
   case axKind
   of akX:
-    let xScale = getXScale(plotScales)
+    let xScale = getXScale(filledScales)
     if xScale.name.len > 0:
       result = xScale.name
     else:
       result = xScale.col
   of akY:
-    let yScale = getYScale(plotScales)
+    let yScale = getYScale(filledScales)
     if yScale.name.len > 0:
       result = yScale.name
     elif yScale.col.len > 0:
@@ -2215,21 +2290,19 @@ func labelName(plotScales: FilledScales, p: GgPlot, axKind: AxisKind): string =
     else:
       result = "count"
 
-#    func
-
-proc buildTheme*(plotScales: FilledScales, p: GgPlot): Theme =
+proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
   ## builds the final theme used for the plot. It takes the theme of the
   ## `GgPlot` object and fills in all missing fields as required from
-  ## `plotScales` and `p`.
+  ## `filledScales` and `p`.
   result = p.theme
   if result.xLabel.isNone:
-    result.xLabel = some(labelName(plotScales, p, akX))
+    result.xLabel = some(labelName(filledScales, p, akX))
   if result.yLabel.isNone:
-    result.yLabel = some(labelName(plotScales, p, akY))
-  if result.xLabelSecondary.isNone and plotScales.hasSecondary(akX):
-    result.xLabelSecondary = some(plotScales.getSecondaryAxis(akX).name)
-  if result.yLabelSecondary.isNone and plotScales.hasSecondary(akY):
-    result.yLabelSecondary = some(plotScales.getSecondaryAxis(akY).name)
+    result.yLabel = some(labelName(filledScales, p, akY))
+  if result.xLabelSecondary.isNone and filledScales.hasSecondary(akX):
+    result.xLabelSecondary = some(filledScales.getSecondaryAxis(akX).name)
+  if result.yLabelSecondary.isNone and filledScales.hasSecondary(akY):
+    result.yLabelSecondary = some(filledScales.getSecondaryAxis(akY).name)
 
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## applies all calculations to the `GgPlot` object required to draw
@@ -2239,26 +2312,14 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## plot.
   ## This proc is useful to investigate the final Scales or the Viewport
   ## that will actually be drawn.
-  let plotScales = collectScales(p)
-
-  let theme = buildTheme(plotScales, p)
-
-  # TODO: this probably doesn't have to happen here!
-  #let (xAes, yAes) = getXYAes(p, p.geoms[0])
-
+  let filledScales = collectScales(p)
+  let theme = buildTheme(filledScales, p)
   # create the plot
-  var img = initViewport(#xScale = some(xScale),
-                         #yScale = some(yScale),
-                         name = "root",
+  var img = initViewport(name = "root",
                          wImg = width,
                          hImg = height)
 
-
-  # NOTE: the question if ``not`` whether a `PLOT` requires a legend
-  # but rather whether an `AESTHETIC` with an attached `SCALE` requires
-  # legend! So check for each `aes` whether we have to draw a legend!
-  # Assembly of the plot layout thus has to happen at the very end
-  let drawLegend = plotScales.requiresLegend
+  let drawLegend = filledScales.requiresLegend
   if drawLegend:
     img.plotLayoutWithLegend()
   else:
@@ -2272,16 +2333,14 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
     # Have to consider what should happen for that though.
     # Need flag to disable auto subtraction, because we don't have space or
     # rather if done needs to be done on all subplots?
-    echo "XLABEL ", theme.xLabel.unwrap()
-    echo "YLABEL ", theme.yLabel.unwrap()
-    let xlabel = pltBase.xlabel(theme.xLabel.unwrap())#p.aes.x.get.col)
-    let ylabel = pltBase.ylabel(theme.yLabel.unwrap())#p.aes.x.get.col)
+    let xlabel = pltBase.xlabel(theme.xLabel.unwrap())
+    let ylabel = pltBase.ylabel(theme.yLabel.unwrap())
     pltBase.addObj @[xlabel, ylabel]
   else:
-    pltBase = pltBase.generatePlot(p, plotScales, theme)
+    pltBase = pltBase.generatePlot(p, filledScales, theme)
 
-  let xScale = pltBase.xScale#plotScales.x.main.get.dataScale #setInitialScale(p, xAes.x)
-  let yScale = pltBase.yScale#plotScales.y.main.get.dataScale#setInitialScale(p, yAes.y)
+  let xScale = pltBase.xScale
+  let yScale = pltBase.yScale
   img[4] = pltBase
   img.xScale = xScale
   img.yScale = yScale
@@ -2293,7 +2352,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   # draw legends
   # store each type of drawn legend. only one type for each kind
   var drawnLegends = initHashSet[(DiscreteKind, ScaleKind)]()
-  for scale in enumerateScalesByIds(plotScales):
+  for scale in enumerateScalesByIds(filledScales):
     if scale.scKind notin {scLinearData, scTransformedData} and
        (scale.dcKind, scale.scKind) notin drawnLegends:
       # handle color legend
@@ -2328,7 +2387,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
     titleView.addObj title
     img[1] = titleView
 
-  result.plotScales = plotScales
+  result.filledScales = filledScales
   result.view = img
 
 proc ggdraw*(view: Viewport, fname: string) =
