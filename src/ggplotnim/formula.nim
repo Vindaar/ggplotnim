@@ -1286,9 +1286,14 @@ proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
     if fn.kind == fkVariable:
       doAssert fn.val.kind == VString
       result[fn.val.str] = df[fn.val.str]
-    else:
+    elif fn.kind == fkTerm:
+      doAssert fn.rhs.kind == fkFunction
       let (colName, newCol) = df.calcNewColumn(fn)
       result[colName] = newCol
+    else:
+      raise newException(Exception, "Function for `transmute` must either be a" &
+        "`fkVariable` (select) or `fkTerm` with `fkVariable` as LHS and `fkFunction` " &
+        "as RHS!")
 
 proc select*[T: string | FormulaNode](df: DataFrame, cols: varargs[T]): DataFrame =
   ## Returns the data frame cut to the names given as `cols`. The argument
@@ -1478,6 +1483,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   ## but unless e.g. `summarize` is called on it, remains unchanged.
   ## If `df` is already a grouped data frame and `add` is `true`, the
   ## groups given by `by` will be added as additional groups!
+  doAssert by.len > 0, "Need at least one argument to group by!"
   if df.kind == dfGrouped and add:
     # just copy `df`
     result = df
