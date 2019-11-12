@@ -200,6 +200,7 @@ proc hash*(s: Style): Hash =
   result = result !& hash(fc.r)
   result = result !& hash(fc.g)
   result = result !& hash(fc.b)
+  result = result !& hash(s.marker)
   result = !$result
 
 proc hash*(x: ScaleValue): Hash =
