@@ -1676,6 +1676,16 @@ template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
   let args = zip(ids, dfs)
   bind_rows(args, id)
 
+proc add*(df: var DataFrame, dfToAdd: DataFrame) =
+  ## The simplest form of "adding" a data frame. If the keys match exactly or
+  ## `df` is empty `dfToAdd` will be stacked below. This makes a key check and then
+  ## calls `bind_rows` for the job.
+  if df.len == 0:
+    df = dfToAdd
+  else:
+    doAssert df.getKeys == dfToAdd.getKeys, "all keys must match to add dataframe!"
+    df = bind_rows([("", df), ("", dfToAdd)])
+
 proc head*(df: DataFrame, num: int): DataFrame =
   ## returns the head of the DataFrame. `num` elements
   result = df[0 ..< num]
