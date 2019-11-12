@@ -149,30 +149,30 @@ proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVec
     for x in w:
       result = result.add x
 
-proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] =
-#proc `[]`(df: DataFrame, k: string): seq[Value] =
+proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] {.inline.} =
   result = df.data[k]
 
-proc `[]`*(df: DataFrame, k: string, idx: int): Value =
+proc `[]`*(df: DataFrame, k: string, idx: int): Value {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
   ## returning the whole vector first
   result = df.data[k][idx]
 
-proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] =
+proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] {.inline.} =
   ## returns the elements in `slice` in column `k` directly, without
   ## returning the whole vector first
   result = df.data[k][slice.a .. slice.b]
 
-proc `[]=`*(df: var DataFrame, k: string, vec: PersistentVector[Value]) =
-#proc `[]=`(df: var DataFrame, k: string, vec: seq[Value]) =
+proc `[]=`*(df: var DataFrame, k: string, vec: PersistentVector[Value]) {.inline.} =
   df.data[k] = vec
-  # doAssert df.len == vec.len
 
-proc `[]`*(v: Value, key: string): Value =
+proc `[]=`*(df: var DataFrame, k: string, idx: int, val: Value) {.inline.} =
+  df.data[k] = df.data[k].update(idx, val)
+
+proc `[]`*(v: Value, key: string): Value {.inline.} =
   doAssert v.kind == VObject
   result = v.fields[key]
 
-proc `[]=`*(v: var Value, key: string, val: Value) =
+proc `[]=`*(v: var Value, key: string, val: Value) {.inline.} =
   doAssert v.kind == VObject
   v.fields[key] = val
 
