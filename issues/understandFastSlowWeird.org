@@ -1106,7 +1106,7 @@ kcachegrind callgrind.out.7359
 
 we are greeted with the following image:
 
-[[media/kcachegrind_weirdSlowFast.png]]
+[[../media/issues/kcachegrind_weirdSlowFast.png]]
 
 Here I already highlighted the =readCsv= line on the left. On the
 right we can already see the interesting thing (which we already know
@@ -1189,7 +1189,7 @@ valgrind --tool=callgrind bookPlots/slow
 again. After waiting about 5 minutes or so, I launched =kcachegrind=,
 went to the source code tab for the =readCsv= line and:
 
-[[media/read_csv_ref_types.png]]
+[[../media/issues/read_csv_ref_types.png]]
 
 it starts to click that at least calling =strip= for each single
 element to access the table is probably not a good idea. But also for
@@ -1220,7 +1220,7 @@ calls come from procs in =gc.nim= on the LHS)
 In both cases we end up at =markStackAndRegisters=,
 =interiorAllocatedPtr= and from there it finally spreads out a
 bit.
-[[media/both_case_callstack.png]]
+[[../media/issues/both_case_callstack.png]]
 
 Looking more closely at the images below, we can see that essentially
 the same stuff happens. In both cases we have 
@@ -1231,9 +1231,9 @@ happen either in the one proc or in the other.
 
 Reference image for these two latter cases:
 **** Non ref types, slowdown due to =copyStringRC1=
-[[media/non_ref_types_incl_strip.png]]
+[[../media/issues/non_ref_types_incl_strip.png]]
 **** Ref types, slowdown due to =nsuStrip=
-[[media/ref_types_incl_strip.png]]
+[[../media/issues/ref_types_incl_strip.png]]
 
 *** Note on difference between slow and fast case
 
@@ -1303,9 +1303,9 @@ about 3.2 Mio. cycles of =unsureAsgnRef=. In the fast case in the
 second figure shows exactly the same number of =unsureAsgnRef= cycles
 , but only about 3 Mio. =interiorAllocatedPtr= cycles. 
 
-[[./media/callgrind_cycles_slow.png]]
+[[../media/issues/callgrind_cycles_slow.png]]
 
-[[./media/callgrind_cycles_fast.png]]
+[[../media/issues/callgrind_cycles_fast.png]]
 
 *** Compare run times
 
