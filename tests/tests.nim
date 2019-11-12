@@ -213,6 +213,22 @@ suite "Formula":
     let h = f{tup.a == tup.b}
     check $h == "(== 5.5 ok)"
 
+    let f2 = f{"min" ~ min("runTimes")}
+    check $f2 == "(~ min (min runTimes))"
+
+    let s = Scale(col: "testCol",
+                  scKind: scTransformedData,
+                  dcKind: dcContinuous,
+                  trans: (proc(v: Value): Value =
+                            result = v * (%~ 2.0)
+                  )
+    )
+    var f3 = f{ s.col ~ s.trans( s.col )}
+    check $f3 == "(~ testCol (s.trans testCol))"
+    # test function on DF
+    let df = seqsToDf( { "testCol" : @[1.0, 2.0, 3.0] })
+    check toSeq(0 .. 2).mapIt(f3.rhs.evaluate(df, it)) == %~ @[2.0, 4.0, 6.0]
+
   test "Evaluate ~ formula":
     let mpg = readCsv("data/mpg.csv")
     let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
