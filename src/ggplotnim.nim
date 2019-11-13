@@ -1968,7 +1968,7 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
 proc separateScalesApplyTrafos(
   df: var DataFrame, gid: uint16,
   filledScales: FilledScales, yIsNone = false):
-    tuple[x: Scale, y: Scale, discretes: seq[Scale], contCols: seq[string]] =
+    tuple[x: Scale, y: Scale, discretes: seq[Scale], cont: seq[Scale]] =
   # NOTE: if `yIsNone = true` the `y` in the next line will be an empty scale,
   # caller has to be aware of that!
   let (x, y, scales) = getScales(gid, filledScales, yIsNone = yIsNone)
@@ -1980,10 +1980,7 @@ proc separateScalesApplyTrafos(
   # split by discrete and continuous
   let discretes = scales.filterIt(it.dcKind == dcDiscrete)
   let cont = scales.filterIt(it.dcKind == dcContinuous)
-  var contCols = newSeq[string]()
-  for c in cont:
-    contCols.add c.col
-  result = (x: x, y: y, discretes: discretes, contCols: contCols)
+  result = (x: x, y: y, discretes: discretes, cont: cont)
 
 proc splitDiscreteSetMap(df: DataFrame,
                          scales: seq[Scale]): (seq[string], seq[string]) =
@@ -2001,8 +1998,9 @@ proc splitDiscreteSetMap(df: DataFrame,
 
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
-  let (x, y, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
+  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                                  filledScales)
+  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,
@@ -2039,9 +2037,10 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
 
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
-  let (x, _, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
-                                                                 filledScales,
-                                                                 yIsNone = true)
+  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+                                                             filledScales,
+                                                             yIsNone = true)
+  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,
@@ -2100,9 +2099,10 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
-  let (x, _, discretes, contCols) = df.separateScalesApplyTrafos(g.gid,
-                                                                 filledScales,
-                                                                 yIsNone = true)
+  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+                                                             filledScales,
+                                                             yIsNone = true)
+  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,

@@ -96,10 +96,9 @@ type
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
       # and the closure to read the correct data, which takes care of mapping
-      # the data to the correct `ScaleKind`. For linear data it's just the data
-      # itself. For `transformedData` it applies the transformation. For color etc.
-      # the
-      # TODO: pretty sure we can get rid of this now
+      # the data to the correct `ScaleKind`. This is `nil` for `scLinearData` and
+      # `scTransformedData`, but contains the correct style calculations for the
+      # other `ScaleKinds`
       mapData*: proc(idxs: seq[int] = @[]): seq[ScaleValue]
 
   Facet* = object
