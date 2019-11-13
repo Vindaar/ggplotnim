@@ -1996,6 +1996,20 @@ proc splitDiscreteSetMap(df: DataFrame,
       setDiscCols.add d.col
   result = (setDiscCols, mapDiscCols)
 
+proc applyContScaleIfAny(yieldDf: DataFrame,
+                         fullDf: DataFrame,
+                         scales: seq[Scale], baseStyle: Style): (seq[Style], DataFrame) =
+  ## given continuous `scales` (if any) return the correct scales based
+  ## on each of these scales
+  ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
+  result[1] = yieldDf
+  for c in scales:
+    result[1][c.col] = fullDf[c.col]
+    for el in c.mapData():
+      result[0].add baseStyle.changeStyle(el)
+  if result[0].len == 0:
+    result = (@[baseStyle], yieldDf)
+
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
@@ -2025,12 +2039,12 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
       applyStyle(style, subDf, discretes, keys)
       var yieldDf = subDf.select(concat(@[x.col, y.col], contCols))
       result.numX = max(result.numX, yieldDf.len)
-      result.yieldData[style] = (@[style], yieldDf)
+      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
   else:
     # is select here even useful? Just makes the df given smaller, but...
     var yieldDf = df.select(concat(@[x.col, y.col], contCols))
     result.numX = yieldDf.len
-    result.yieldData[style] = (@[style], yieldDf)
+    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
 
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
@@ -2072,9 +2086,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       of pkFill: sumHist = @[1] # max for fill always 1.0
       var yieldDf = seqsToDf({ x.col : bins,
                                countCol: hist })
-      for c in contCols:
-        yieldDf[c] = subDf[c]
-      result.yieldData[style] = (@[style], yieldDf)
+      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
       result.xScale = mergeScales(result.xScale, (low: bins.min.float,
                                                   high: bins.max.float))
@@ -2085,10 +2097,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                  range = (x.dataScale.low, x.dataScale.high))
     var yieldDf = seqsToDf({ x.col : bins,
                              countCol: hist })
+    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.numX = yieldDf.len
-    for c in contCols:
-      yieldDf[c] = df[c]
-    result.yieldData[style] = (@[style], yieldDf)
     result.xScale = (low: bins.min.float, high: bins.max.float)
     result.yScale = (low: 0.0, high: hist.max.float)
 
@@ -2140,12 +2150,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       of pkIdentity, pkDodge:
         sumCounts = yieldDf
       of pkFill: sumCounts[countCol] = toVector(%~ @[1]) # max for fill always 1.0
+      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
-      for c in contCols:
-        yieldDf[c] = df[c]
-      result.yieldData[style] = (@[style], yieldDf)
-      result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
-      result.yieldData[style] = (@[style], yieldDf)
       result.xScale = (low: 0.0, high: 1.0)
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0,
@@ -2153,10 +2159,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   else:
     var yieldDf = df.count(x.col, name = countCol)
     result.numX = yieldDf.len
-    for c in contCols:
-      yieldDf[c] = df[c]
-    result.yieldData[style] = (@[style], yieldDf)
-    result.xScale = (low: 0.0, high: 1.0)
+    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
