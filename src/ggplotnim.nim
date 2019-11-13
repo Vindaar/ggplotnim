@@ -481,10 +481,10 @@ proc fillScaleImpl(
 
 proc getIdentityData(df: DataFrame, col: string): DataFrame =
   if col in df:
-    result = df.select(f{"data" ~ col})
+    result = df.select(col)
   else:
     let d = @[Value(kind: VString, str: col)]
-    result = seqsToDf({"data" : d})
+    result = seqsToDf({col : d})
 
 proc fillScale(df: DataFrame, scales: seq[Scale],
                scKind: static ScaleKind): seq[Scale] =
@@ -513,16 +513,16 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       transOpt = some(s.trans)
     else: discard
 
-    let (isDiscrete, vKind) = discreteAndType(data, "data")
+    let (isDiscrete, vKind) = discreteAndType(data, s.col)
     if vKind == VNull:
       echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
 
     if isDiscrete:
-      labelSeqOpt = some(data["data"].unique.sorted)
+      labelSeqOpt = some(data[s.col].unique.sorted)
     else:
-      dataScaleOpt = some((low: min(data["data"]).toFloat,
-                           high: max(data["data"]).toFloat))
+      dataScaleOpt = some((low: min(data[s.col]).toFloat,
+                           high: max(data[s.col]).toFloat))
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, data, scKind,
