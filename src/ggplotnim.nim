@@ -2224,7 +2224,7 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
         # but change number of bins to data classes
-        filledGeom.geom.numBins = 4
+        filledGeom.geom.numBins = filledGeom.numX
         # still a geom, make sure bottom is still at 0!
         filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
       of stBin:
