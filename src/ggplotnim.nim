@@ -1996,6 +1996,20 @@ proc splitDiscreteSetMap(df: DataFrame,
       setDiscCols.add d.col
   result = (setDiscCols, mapDiscCols)
 
+proc setCountXScaleByType(xScale: var ginger.Scale, vKind: ValueKind,
+                          xCol: string, df: DataFrame) =
+  ## sets the X scale according to the value kind for `"count"` stats
+  case vKind
+  of VString, VBool, VNull, VObject:
+    xScale = (low: 0.0, high: 1.0)
+  of VInt, VFloat:
+    let dfXScale = (low: min(df[xCol]).toFloat,
+                    high: max(df[xCol]).toFloat)
+    if xScale.isEmpty:
+      xScale = dfXScale
+    else:
+      xScale = mergeScales(xScale, dfXScale)
+
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          fullDf: DataFrame,
                          scales: seq[Scale], baseStyle: Style): (seq[Style], DataFrame) =
@@ -2009,6 +2023,45 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
       result[0].add baseStyle.changeStyle(el)
   if result[0].len == 0:
     result = (@[baseStyle], yieldDf)
+
+proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
+                         col: string, pos: PositionKind) =
+  ## adds the `df` column `col` elements to the `sumCounts` data frame in the
+  ## same column taking into account the geom position kind.
+  case pos
+  of pkStack:
+    if sumCounts.len == 0:
+      sumCounts = df
+    else:
+      for i in 0 ..< df.len:
+        sumCounts[col, i] = sumCounts[col, i] + df[col, i]
+  of pkIdentity, pkDodge:
+    sumCounts = df
+  of pkFill: sumCounts[col] = toVector(%~ @[1]) # max for fill always 1.0
+
+proc addBinCountsByPosition(sumHist: var seq[int], hist: seq[int],
+                            pos: PositionKind) =
+  ## adds the `hist` sequence elements to the `sumHist` sequence taking into
+  ## account the geom position kind
+  case pos
+  of pkStack:
+    if sumHist.len == 0:
+      sumHist = hist
+    else:
+      for i in 0 .. sumHist.high:
+        sumHist[i] += hist[i]
+  of pkIdentity, pkDodge:
+    sumHist = hist
+  of pkFill: sumHist = @[1] # max for fill always 1.0
+
+proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
+  ## Adds the `keys` columns which have zero count values to the `df`.
+  ## This is needed for `count` stats, since the `groups` iterator does not
+  ## yield empty subgroups, yet we need those for the plot.
+  let existKeys = df[xCol].unique
+  let zeroKeys = keys.filterIt(it notin existKeys)
+  let zeroVals = zeroKeys.mapIt(0)
+  df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
 
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
@@ -2074,16 +2127,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # before we assign calculate histogram
       let (hist, bins) = histogram(subDf.dataTo(x.col, float), bins = g.numBins,
                                    range = (x.dataScale.low, x.dataScale.high))
-      case g.position
-      of pkStack:
-        if sumHist.len == 0:
-          sumHist = hist
-        else:
-          for i in 0 .. sumHist.high:
-            sumHist[i] += hist[i]
-      of pkIdentity, pkDodge:
-        sumHist = hist
-      of pkFill: sumHist = @[1] # max for fill always 1.0
+      sumHist.addBinCountsByPosition(hist, g.position)
       var yieldDf = seqsToDf({ x.col : bins,
                                countCol: hist })
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
@@ -2134,32 +2178,21 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       var yieldDf = subDf.count(x.col, name = countCol)
       # all values, which are zero still have to be accounted for! Add those keys with
       # zero values
-      # TODO: clean this up
-      let zeroKeys = allClasses.filterIt(it notin yieldDf[x.col].unique)
-      let zeroVals = zeroKeys.mapIt(0)
-      let zeroDf = seqsToDf({ x.col: zeroKeys, countCol: zeroVals })
-      yieldDf.add zeroDf
+      yieldDf.addZeroKeys(allClasses, x.col, countCol)
+      # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange(x.col)
-      case g.position
-      of pkStack:
-        if sumCounts.len == 0:
-          sumCounts = yieldDf
-        else:
-          for i in 0 ..< yieldDf.len:
-            sumCounts[countCol, i] = sumCounts[countCol, i] + yieldDf[countCol, i]
-      of pkIdentity, pkDodge:
-        sumCounts = yieldDf
-      of pkFill: sumCounts[countCol] = toVector(%~ @[1]) # max for fill always 1.0
+      sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
-      result.xScale = (low: 0.0, high: 1.0)
+      result.xScale.setCountXScaleByType(x.vKind, x.col, yieldDf)
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0,
                                    high: max(sumCounts[countCol]).toFloat))
   else:
-    var yieldDf = df.count(x.col, name = countCol)
+    let yieldDf = df.count(x.col, name = countCol)
     result.numX = yieldDf.len
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+    result.xScale.setCountXScaleByType(x.vKind, x.col, yieldDf)
     result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
