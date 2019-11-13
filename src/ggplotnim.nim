@@ -2215,9 +2215,12 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
       case g.statKind
       of stIdentity:
         filledGeom = filledIdentityGeom(df, g, filledScales)
-      of stCount, stBin:
-        # for now...
-        discard
+      of stCount:
+        filledGeom = filledCountGeom(df, g, filledScales)
+      else:
+        # filledGeom = filledBinGeom(df, g, filledScales)
+        raise newException(Exception, "`bin` stats currently not supported for " &
+          "`geom_point`. Requires `numBins` argument, api unclear.")
     of gkHistogram:
       case g.statKind
       of stIdentity:
@@ -2230,8 +2233,9 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
       of stBin:
         # calculate histogram
         filledGeom = filledBinGeom(df, g, filledScales)
-      else:
-        discard
+      of stCount:
+        raise newException(Exception, "For discrete counts of your data use " &
+          "`geom_bar` instead!")
     of gkBar:
       case g.statKind
       of stIdentity:
@@ -2240,8 +2244,9 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
       of stCount:
         # count values in classes
         filledGeom = filledCountGeom(df, g, filledScales)
-      else:
-        discard
+      of stBin:
+        raise newException(Exception, "For continuous binning of your data use " &
+          "`geom_histogram` instead!")
     else:
       echo "Woaah, hey there"
     if not xScale.isEmpty:
