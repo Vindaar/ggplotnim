@@ -604,15 +604,18 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
 proc geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
                  color: Color = black,
-                 size: float = 3.0): Geom =
+                 size: float = 3.0,
+                 stat = "identity"): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkPoint,
                 style: some(Style(color: color,
                                   size: size)),
-                aes: aes.fillIds({gid}))
+                aes: aes.fillIds({gid}),
+                statKind: stKind)
 
 proc geom_bar*(aes: Aesthetics = aes(),
                color: Color = grey20, # color of the bars
@@ -638,8 +641,10 @@ proc geom_line*(aes: Aesthetics = aes(),
                 data = DataFrame(),
                 color: Color = grey20,
                 size: float = 1.0,
-                lineType: LineType = ltSolid): Geom =
+                lineType: LineType = ltSolid,
+                stat = "identity"): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -648,7 +653,8 @@ proc geom_line*(aes: Aesthetics = aes(),
                                   lineWidth: size,
                                   lineType: lineType,
                                   fillColor: transparent)),
-                aes: aes.fillIds({gid}))
+                aes: aes.fillIds({gid}),
+                statKind: stKind)
 
 proc geom_histogram*(aes: Aesthetics = aes(),
                      binWidth = 0.0, bins = 30,
@@ -1117,6 +1123,7 @@ proc applyStyle(style: var Style, df: DataFrame, scales: seq[Scale], keys: seq[(
           styleVal = s.getValue(val)
         style = changeStyle(style, styleVal)
       else:
+
         discard
 
 iterator markerStylePairs(df: DataFrame, filledScales: FilledScales, geom: Geom): (int, Style) =
