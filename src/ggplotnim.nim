@@ -2081,12 +2081,14 @@ proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
-                                                                 filledScales)
+                                                             filledScales)
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,
-                      ycol: y.col)
+                      ycol: y.col,
+                      dcKindX: x.dcKind,
+                      dcKindY: y.dcKind)
   if x.dataScale.isEmpty:
     result.xScale = (low: min(df[x.col]).toFloat, high: max(df[x.col]).toFloat)
   else:
@@ -2117,16 +2119,43 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
+func callHistogram(geom: Geom, data: seq[float], range: ginger.Scale): (seq[int], seq[float], seq[float]) =
+  ## calls the `histogram` proc taking into account the `geom` fields for
+  ## - numBins
+  ## - binWidth
+  ## - binEdges
+  ## and chooses the correct field for the calculation
+  doAssert geom.statKind == stBin, "Can only bin `stBin` geoms!"
+  var
+    hist: seq[int]
+    binEdges: seq[float]
+    binWidths: seq[float]
+  if geom.binEdges.isSome:
+    (hist, binEdges) = histogram(data, bins = geom.binEdges.get, range = (range.low, range.high))
+  elif geom.binWidth.isSome:
+    let bins = ((range.high - range.low) / geom.binWidth.get).round.int
+    (hist, binEdges) = histogram(data, bins = binEdges, range = (range.low, range.high))
+  else:
+    (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
+  for i in 0 ..< binEdges.high:
+    binWidths.add binEdges[i+1] - binEdges[i]
+  result = (hist, binEdges, binWidths)
+
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
+  const widthCol = "binWidths"
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
                                                              yIsNone = true)
+  if x.dcKind == dcDiscrete:
+    raise newException(ValueError, "For discrete data columns use `geom_bar` instead!")
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,
-                      ycol: countCol)
+                      ycol: countCol,
+                      dcKindX: x.dcKind,
+                      dcKindY: dcContinuous)
   # w/ all groupings
   doAssert g.style.isSome
   var style = g.style.get
@@ -2140,8 +2169,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      let (hist, bins) = histogram(subDf.dataTo(x.col, float), bins = g.numBins,
-                                   range = (x.dataScale.low, x.dataScale.high))
+      let (hist, bins, binWidths) = g.callHistogram(subDf.dataTo(x.col, float),
+                                                    range = x.dataScale)
       sumHist.addBinCountsByPosition(hist, g.position)
       var yieldDf = seqsToDf({ x.col : bins,
                                countCol: hist })
@@ -2152,10 +2181,11 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       result.yScale = mergeScales(result.yScale, (low: 0.0,
                                                   high: sumHist.max.float))
   else:
-    let (hist, bins) = histogram(df.dataTo(x.col, float), bins = g.numBins,
-                                 range = (x.dataScale.low, x.dataScale.high))
+    let (hist, bins, binWidths) = g.callHistogram(df.dataTo(x.col, float),
+                                                  range = x.dataScale)
     var yieldDf = seqsToDf({ x.col : bins,
-                             countCol: hist })
+                             countCol: hist,
+                             widthCol: binWidths})
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.numX = yieldDf.len
     result.xScale = (low: bins.min.float, high: bins.max.float)
@@ -2171,11 +2201,15 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
                                                              yIsNone = true)
+  if x.dcKind == dcContinuous:
+    raise newException(ValueError, "For continuous data columns use `geom_histogram` instead!")
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: x.col,
-                      ycol: countCol)
+                      ycol: countCol,
+                      dcKindX: x.dcKind,
+                      dcKindY: dcContinuous)
   let allClasses = df[x.col].unique
   # w/ all groupings
   doAssert g.style.isSome
