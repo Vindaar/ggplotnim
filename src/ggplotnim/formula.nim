@@ -1287,7 +1287,7 @@ proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
       doAssert fn.val.kind == VString
       result[fn.val.str] = df[fn.val.str]
     elif fn.kind == fkTerm:
-      doAssert fn.rhs.kind == fkFunction
+      doAssert fn.rhs.kind in {fkFunction, fkTerm}
       let (colName, newCol) = df.calcNewColumn(fn)
       result[colName] = newCol
     else:
