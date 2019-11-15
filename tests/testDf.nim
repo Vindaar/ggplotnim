@@ -375,20 +375,21 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     # count elements by group. Useful combination of group_by and summarize(len)
     let mpg = toDf(readCsv("data/mpg.csv"))
     # in manual case the order is not preserved, due to `summarize` impl!
-    let exp = {6 : 79, 8 : 70, 4 : 81, 5 : 4}
+    let exp = toSet({6 : 79, 8 : 70, 4 : 81, 5 : 4})
     block:
       # manually
       let res = mpg.group_by("cyl").summarize(f{"num" ~ length("cyl")})
       check "num" in res
       check res.len == 4
+      var resSet = initHashSet[(int, int)]()
       for i, row in res:
-        check exp[i][0] == row["cyl"].toInt
-        check exp[i][1] == row["num"].toInt
+        resSet.incl (row["cyl"].toInt.int, row["num"].toInt.int)
+      check resSet == exp
       # using `count` directly
       let resDirect = mpg.count("cyl")
       check "n" in resDirect
       check resDirect.len == 4
-      let expSorted = exp.sortedByIt(it[0])
+      var resDirectSet = initHashSet[(int, int)]()
       for i, row in resDirect:
-        check expSorted[i][0] == row["cyl"].toInt
-        check expSorted[i][1] == row["n"].toInt
+        resDirectSet.incl (row["cyl"].toInt.int, row["n"].toInt.int)
+      check resDirectSet == exp
