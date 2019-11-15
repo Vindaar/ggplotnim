@@ -479,15 +479,21 @@ proc fillScaleImpl(
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
 
-proc getIdentityData(df: DataFrame, col: string): DataFrame =
+proc getIdentityData(df: DataFrame, col, name: string): DataFrame =
   if col in df:
-    result = df.select(col)
+    result = df.select(f{name ~ col})
   else:
     let d = @[Value(kind: VString, str: col)]
-    result = seqsToDf({col : d})
+    result = seqsToDf({name : d})
 
 proc fillScale(df: DataFrame, scales: seq[Scale],
                scKind: static ScaleKind): seq[Scale] =
+  # NOTE: `rawCol` is used to build a DF of all data of the given scales. Be aware
+  # that all scales given here belong to the same `aes` field, i.e. the same
+  # "axis" (x, y, color,...) and thus can be considered compatible and part of the
+  # same scale / classes! The actual data given to each filled scale however is not
+  # this DF, but rather the input `df.select(s.col)`, see below.
+  const rawCol = "data"
   # get the data column we scale by
   var data: DataFrame #newSeqOfCap[Value](df.len * scales.len)
   var transOpt: Option[ScaleTransform]
@@ -495,8 +501,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # in a first loop over the scales read the data required to make decisions about
   # the appearence of the resulting scale
   for s in scales:
-    # No statKind dispatch here. Will be done geom wise after scales are filled
-    data.add getIdentityData(df, s.col)
+    # add this scales dasta to `data` DF for deduction of labels / data scales
+    data.add getIdentityData(df, s.col, rawCol)
   # in the second loop for each of the scales add one filled scale to the result
   # using the combined dataset of all. This way we automatically get the correct
   # data range / correct number of labels while retaining a single scale per
@@ -513,19 +519,21 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       transOpt = some(s.trans)
     else: discard
 
-    let (isDiscrete, vKind) = discreteAndType(data, s.col)
+    # now determine labels, data scale from `data`
+    let (isDiscrete, vKind) = discreteAndType(data, rawCol)
     if vKind == VNull:
       echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
 
     if isDiscrete:
-      labelSeqOpt = some(data[s.col].unique.sorted)
+      labelSeqOpt = some(data[rawCol].unique.sorted)
     else:
-      dataScaleOpt = some((low: min(data[s.col]).toFloat,
-                           high: max(data[s.col]).toFloat))
+      dataScaleOpt = some((low: min(data[rawCol]).toFloat,
+                           high: max(data[rawCol]).toFloat))
 
     # now have to call `fillScaleImpl` with this information
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, data, scKind,
+    # note that data given to proc is a DF of only this scales column
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df.select(s.col), scKind,
                                labelSeqOpt, dataScaleOpt,
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
