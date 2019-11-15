@@ -98,12 +98,14 @@ This generates:
 
 *** Stacked lines colored by some class
 
+*NOTE*: the first lines should actually go to 0 again. That's a bug currently.
+
 The same as above can also be represented with lines using =geom_freqpoly=:
 #+BEGIN_SRC nim :tangle recipes/rStackedMpgFreqpoly.nim
 import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
-ggplot(df, aes("cty", fill = "class")) + 
-  geom_histogram() + 
+ggplot(df, aes("cty", color = "class")) + 
+  geom_freqpoly() + 
   ggsave("media/recipes/rStackedMpgFreqpoly.pdf")
 #+END_SRC
 This generates:

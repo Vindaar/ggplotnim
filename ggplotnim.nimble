@@ -72,7 +72,7 @@ task recipes, "Generate and run all recipes":
   exec "nim c -r recipes/rTwoSensorsGoodStyle.nim"
   exec "nim c -r recipes/rPrebinnedHisto.nim"
   exec "nim c -r recipes/rMassAttenuationFunction.nim"
-  exec "nim c -r recipes/axionMassesLogLog.nim"
+  exec "nim c -r recipes/rAxionMassesLogLog.nim"
   exec "nim c -r recipes/rStackedMpgFreqpoly.nim"
   exec "nim c -r recipes/rMpgStackedBarPlot.nim"
 
