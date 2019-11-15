@@ -7,4 +7,4 @@ let y = x.mapIt(pow(sin(it), 2.0))
 let df = seqsToDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +
-  ggsave("rLinePlotSize.png", width = width, height = height)
+  ggsave("media/recipes/rLinePlotSize.png", width = width, height = height)
