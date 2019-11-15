@@ -540,7 +540,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
 
     # now have to call `fillScaleImpl` with this information
     # note that data given to proc is a DF of only this scales column
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df.select(s.col), scKind,
+    let dfSelected = getIdentityData(df, s.col, s.col)
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, dfSelected, scKind,
                                labelSeqOpt, dataScaleOpt,
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
