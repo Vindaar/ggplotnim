@@ -1964,7 +1964,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     result.handleLabels(theme)
   result.addObj @[grdLines]
 
-proc generateFacetPlots(view: Viewport, p: GgPlot): Viewport =
+proc generateFacetPlots(view: Viewport, p: GgPlot, plotScales: FilledScales,
+                        theme: Theme): Viewport =
   # first perform faceting by creating subgroups
   # doAssert p.facet.isSome
   # var mplt = p
@@ -2547,7 +2548,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var pltBase = img[4]
 
   if p.facet.isSome:
-    pltBase = pltBase.generateFacetPlots(p)
+    pltBase = pltBase.generateFacetPlots(p, filledScales, theme)
     # TODO :clean labels up, combine with handleLabels!
     # Have to consider what should happen for that though.
     # Need flag to disable auto subtraction, because we don't have space or
@@ -2557,7 +2558,6 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
     pltBase.addObj @[xlabel, ylabel]
   else:
     pltBase = pltBase.generatePlot(p, filledScales, theme)
-
   let xScale = pltBase.xScale
   let yScale = pltBase.yScale
   img[4] = pltBase
