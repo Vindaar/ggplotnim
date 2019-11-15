@@ -52,3 +52,29 @@ task docs, "Generate HTML docs using the Org file":
   for f in files:
     let fname = f.basename & ".html"
     mvFile fname, "docs/" & $fname
+
+task recipes, "Generate and run all recipes":
+  exec "ntangle recipes.org"
+  exec "nim c -r recipes/rStackedMpgHistogram.nim"
+  exec "nim c -r recipes/rNewtonAcceleration.nim"
+  exec "nim c -r recipes/rMpgStackedPointPlot.nim"
+  exec "nim c -r recipes/rLinePlotSize.nim"
+  exec "nim c -r recipes/rMpgHistoBinWidth.nim"
+  exec "nim c -r recipes/rMpgContinuousColorPoints.nim"
+  exec "nim c -r recipes/rAxionMassVsDensity.nim"
+  exec "nim c -r recipes/rMpgHistoNumBins.nim"
+  exec "nim c -r recipes/rMpgHistoCustomBreaks.nim"
+  exec "nim c -r recipes/rMpgCustomColorPoint.nim"
+  exec "nim c -r recipes/rMpgHistoPlusPoints.nim"
+  exec "nim c -r recipes/rSimpleLinePlot.nim"
+  exec "nim c -r recipes/rMpgSimpleBarPlot.nim"
+  exec "nim c -r recipes/rTwoSensorsBadStyle.nim"
+  exec "nim c -r recipes/rTwoSensorsGoodStyle.nim"
+  exec "nim c -r recipes/rPrebinnedHisto.nim"
+  exec "nim c -r recipes/rMassAttenuationFunction.nim"
+  exec "nim c -r recipes/axionMassesLogLog.nim"
+  exec "nim c -r recipes/rStackedMpgFreqpoly.nim"
+  exec "nim c -r recipes/rMpgStackedBarPlot.nim"
+
+task recipesPlots, "Generate the PNGs from all recipes":
+  exec """for f in media/recipes/r*.pdf; do inkscape $f --export-png="${f/.pdf/.png}"; done"""
