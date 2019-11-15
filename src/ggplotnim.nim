@@ -2302,10 +2302,8 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
       of stCount:
         filledGeom = filledCountGeom(df, g, filledScales)
       else:
-        # filledGeom = filledBinGeom(df, g, filledScales)
-        raise newException(Exception, "`bin` stats currently not supported for " &
-          "`geom_point`. Requires `numBins` argument, api unclear.")
-    of gkHistogram:
+        filledGeom = filledBinGeom(df, g, filledScales)
+    of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:
         # essentially take same data as for point
@@ -2330,7 +2328,9 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
         raise newException(Exception, "For continuous binning of your data use " &
           "`geom_histogram` instead!")
     else:
-      echo "Woaah, hey there"
+      raise newException(Exception, "Woaah, hey there, I'm just gonna ignore " &
+        "you! " & $g.kind)
+
     if not xScale.isEmpty:
       xScale = mergeScales(xScale, filledGeom.xScale)
       yScale = mergeScales(yScale, filledGeom.yScale)
