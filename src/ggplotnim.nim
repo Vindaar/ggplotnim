@@ -2455,9 +2455,15 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
 
 proc ggdraw*(view: Viewport, fname: string) =
   ## draws the given viewport and stores it in `fname`.
-  ## It assumes that the `view` was created from a `GgPlot` object with
-  ## `ggcreate`
+  ## It assumes that the `view` was created as the field of
+  ## a `PlotView` object from a `GgPlot` object with `ggcreate`
   view.draw(fname)
+
+proc ggdraw*(plt: PlotView, fname: string) =
+  ## draws the viewport of the given `PlotView` and stores it in `fname`.
+  ## It assumes that the `plt`` was created from a `GgPlot` object with
+  ## `ggcreate`
+  plt.view.draw(fname)
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
   let plt = p.ggcreate(width = width, height = height)
