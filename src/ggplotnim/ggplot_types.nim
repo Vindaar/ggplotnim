@@ -297,8 +297,24 @@ proc `$`*(aes: Aesthetics): string =
   result.add ")"
 
 proc `$`*(g: Geom): string =
-  result = "(kind: " & $g.kind & ","
-  result.add "aes: " & $g.aes
+  result = "Geom("
+  result.add &"kind: {g.kind}, "
+  result.add &"gid: {g.gid}, "
+  result.add &"data.isSome?: {g.data.isSome}, "
+  if g.style.isSome:
+    result.add &"style: {g.style.get}, "
+  result.add &"aes: {g.aes}, "
+  result.add &"position: {g.position}, "
+  result.add &"binPosition: {g.binPosition}, "
+  result.add &"statKind: {g.statKind}, "
+  case g.statKind
+  of stBin:
+    result.add "("
+    result.add &"numBins: {g.numBins}, "
+    result.add &"binWidth: {g.binWidth}, "
+    result.add &"binEdges: {g.binEdges}, "
+    result.add ")"
+  else: discard
   result.add ")"
 
 macro typeName(x: typed): untyped =
