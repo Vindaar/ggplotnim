@@ -326,7 +326,7 @@ ggplot(df) +
   ggsave("media/recipes/rTwoSensorsBadStyle.pdf")
 #+END_SRC
 This generates the following:
-[[./media/recipes/rTwoSensorsBadStyle.pdf]]
+[[./media/recipes/rTwoSensorsBadStyle.png]]
 
 Which means that we specify the =x= and =y= aesthetics only in the two
 geoms and give it a color according to a string, which does represent
@@ -349,7 +349,7 @@ ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
 #+END_SRC
 Which then results in the following nicer plot (note that the legend
 now says something more useful as its title):
-[[./media/recipes/rTwoSensorsGoodStyle.pdf]]
+[[./media/recipes/rTwoSensorsGoodStyle.png]]
 
 *** TODO Log(-log) plot
 
@@ -450,6 +450,7 @@ ggplot(df, aes("r / km", "g(r) / m s¯²")) +
 #+END_SRC
 The resulting plot is the following:
 [[./media/recipes/rNewtonAcceleration.png]]
+
 and shows what we expect. A linear increase in acceleration up to the
 surface and a =1/r^2= drop from there.
 At this point we might ask "Do we recover the known 9.81 m/s^2 at the
@@ -549,7 +550,7 @@ makePlot(-6.0, 2.0, "rAxionMassesLogLog.pdf")
 #+END_SRC
 
 This creates the following plot:
-[[./media/recipes/axionMassesLogLog.png]]
+[[./media/recipes/rAxionMassesLogLog.png]]
 
 *** "Another one of the quiet stories" story 
 
