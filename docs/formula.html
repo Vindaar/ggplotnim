@@ -896,6 +896,8 @@ function main() {
     title="`[]`(df: DataFrame; k: string; slice: Slice[int]): seq[Value]"><wbr />`[]`<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#%5B%5D%3D%2CDataFrame%2Cstring%2CPersistentVector%5BValue%5D"
     title="`[]=`(df: var DataFrame; k: string; vec: PersistentVector[Value])"><wbr />`[]=`<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#%5B%5D%3D%2CDataFrame%2Cstring%2Cint%2CValue"
+    title="`[]=`(df: var DataFrame; k: string; idx: int; val: Value)"><wbr />`[]=`<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#%5B%5D%2CValue%2Cstring"
     title="`[]`(v: Value; key: string): Value"><wbr />`[]`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#%5B%5D%3D%2CValue%2Cstring%2CValue"
@@ -941,13 +943,13 @@ function main() {
   <li><a class="reference" href="#%3C%3D%2CValue%2CValue"
     title="`&lt;=`(v, w: Value): bool"><wbr />`&lt;=`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#%2B%2CValue%2CValue"
-    title="`+`(v`gensym352476, w`gensym352477: Value): Value"><wbr />`+`<span class="attachedType">Value</span></a></li>
+    title="`+`(v`gensym538276, w`gensym538277: Value): Value"><wbr />`+`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#-%2CValue%2CValue"
-    title="`-`(v`gensym352623, w`gensym352624: Value): Value"><wbr />`-`<span class="attachedType">Value</span></a></li>
+    title="`-`(v`gensym538423, w`gensym538424: Value): Value"><wbr />`-`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#%2A%2CValue%2CValue"
-    title="`*`(v`gensym352823, w`gensym352824: Value): Value"><wbr />`*`<span class="attachedType">Value</span></a></li>
+    title="`*`(v`gensym538623, w`gensym538624: Value): Value"><wbr />`*`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#%2F%2CValue%2CValue"
-    title="`/`(v`gensym353023, w`gensym353024: Value): Value"><wbr />`/`<span class="attachedType">Value</span></a></li>
+    title="`/`(v`gensym538823, w`gensym538824: Value): Value"><wbr />`/`<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#pretty%2CDataFrame%2Cint%2Cint"
     title="pretty(df: DataFrame; numLines = 20; precision = 4; header = true): string"><wbr />pretty<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#toUgly%2Cstring%2CFormulaNode"
@@ -970,18 +972,66 @@ function main() {
     title="toFloat(s: string): float"><wbr />to<wbr />Float<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#filter%2CDataFrame%2Cvarargs%5BFormulaNode%5D"
     title="filter(df: DataFrame; conds: varargs[FormulaNode]): DataFrame"><wbr />filter<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#length%2CPersistentVector%5BValue%5D"
+    title="length(v: PersistentVector[Value]): Value"><wbr />length<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#mean"
-    title="mean(v`gensym365920: PersistentVector[Value]): Value"><wbr />mean<span class="attachedType">Value</span></a></li>
+    title="mean(v`gensym551424: PersistentVector[Value]): Value"><wbr />mean<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#sum"
+    title="sum(v`gensym552802: PersistentVector[Value]): Value"><wbr />sum<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#abs%2CValue"
-    title="abs(v`gensym367123: Value): Value"><wbr />abs<span class="attachedType">Value</span></a></li>
+    title="abs(v`gensym554002: Value): Value"><wbr />abs<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#min"
-    title="min(v`gensym367142: PersistentVector[Value]): Value"><wbr />min<span class="attachedType">Value</span></a></li>
+    title="min(v`gensym554202: PersistentVector[Value]): Value"><wbr />min<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#max"
-    title="max(v`gensym368286: PersistentVector[Value]): Value"><wbr />max<span class="attachedType">Value</span></a></li>
-  <li><a class="reference" href="#ln%2CValue"
-    title="ln(v`gensym369486: Value): Value"><wbr />ln<span class="attachedType">Value</span></a></li>
+    title="max(v`gensym555402: PersistentVector[Value]): Value"><wbr />max<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#sqrt%2CValue"
+    title="sqrt(v`gensym556602: Value): Value"><wbr />sqrt<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#cbrt%2CValue"
+    title="cbrt(v`gensym556802: Value): Value"><wbr />cbrt<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#log10%2CValue"
-    title="log10(v`gensym369505: Value): Value"><wbr />log10<span class="attachedType">Value</span></a></li>
+    title="log10(v`gensym557002: Value): Value"><wbr />log10<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#log2%2CValue"
+    title="log2(v`gensym557202: Value): Value"><wbr />log2<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#ln%2CValue"
+    title="ln(v`gensym557402: Value): Value"><wbr />ln<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#exp%2CValue"
+    title="exp(v`gensym557602: Value): Value"><wbr />exp<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#arccos%2CValue"
+    title="arccos(v`gensym557802: Value): Value"><wbr />arccos<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#arcsin%2CValue"
+    title="arcsin(v`gensym558002: Value): Value"><wbr />arcsin<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#arctan%2CValue"
+    title="arctan(v`gensym558202: Value): Value"><wbr />arctan<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#cos%2CValue"
+    title="cos(v`gensym558402: Value): Value"><wbr />cos<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#cosh%2CValue"
+    title="cosh(v`gensym558602: Value): Value"><wbr />cosh<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#sin%2CValue"
+    title="sin(v`gensym558802: Value): Value"><wbr />sin<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#sinh%2CValue"
+    title="sinh(v`gensym559002: Value): Value"><wbr />sinh<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#tan%2CValue"
+    title="tan(v`gensym559202: Value): Value"><wbr />tan<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#tanh%2CValue"
+    title="tanh(v`gensym559402: Value): Value"><wbr />tanh<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#erf%2CValue"
+    title="erf(v`gensym559602: Value): Value"><wbr />erf<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#erfc%2CValue"
+    title="erfc(v`gensym559802: Value): Value"><wbr />erfc<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#lgamma%2CValue"
+    title="lgamma(v`gensym560002: Value): Value"><wbr />lgamma<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#tgamma%2CValue"
+    title="tgamma(v`gensym560202: Value): Value"><wbr />tgamma<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#trunc%2CValue"
+    title="trunc(v`gensym560402: Value): Value"><wbr />trunc<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#floor%2CValue"
+    title="floor(v`gensym560602: Value): Value"><wbr />floor<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#ceil%2CValue"
+    title="ceil(v`gensym560802: Value): Value"><wbr />ceil<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#degToRad%2CValue"
+    title="degToRad(v`gensym561002: Value): Value"><wbr />deg<wbr />To<wbr />Rad<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#radToDeg%2CValue"
+    title="radToDeg(v`gensym561202: Value): Value"><wbr />rad<wbr />To<wbr />Deg<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#constructVariable%2CNimNode"
     title="constructVariable(n: NimNode; identIsVar: static bool = true): NimNode"><wbr />construct<wbr />Variable<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#constructFunction%2CNimNode"
@@ -1008,78 +1058,84 @@ function main() {
     title="group_by(df: DataFrame; by: varargs[string]; add = false): DataFrame"><wbr />group_<wbr />by<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#summarize%2CDataFrame%2Cvarargs%5BFormulaNode%5D"
     title="summarize(df: DataFrame; fns: varargs[FormulaNode]): DataFrame"><wbr />summarize<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#count%2CDataFrame%2Cstring%2Cstring"
+    title="count(df: DataFrame; col: string; name = &quot;n&quot;): DataFrame"><wbr />count<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#bind_rows%2Cvarargs%5B%5D%2Cstring"
     title="bind_rows(dfs: varargs[(string, DataFrame)]; id: string = &quot;&quot;): DataFrame"><wbr />bind_<wbr />rows<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#add%2CDataFrame%2CDataFrame"
+    title="add(df: var DataFrame; dfToAdd: DataFrame)"><wbr />add<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#head%2CDataFrame%2Cint"
     title="head(df: DataFrame; num: int): DataFrame"><wbr />head<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#tail%2CDataFrame%2Cint"
     title="tail(df: DataFrame; num: int): DataFrame"><wbr />tail<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#gather%2CDataFrame%2Cvarargs%5Bstring%5D%2Cstring%2Cstring"
+    title="gather(df: DataFrame; cols: varargs[string]; key = &quot;key&quot;; value = &quot;value&quot;): DataFrame"><wbr />gather<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#%3A~%2CT%2CU"
-    title="`:~`[T, U](x`gensym435032: T; y`gensym435033: U): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:~`[T, U](x`gensym631232: T; y`gensym631233: U): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A~%2CFormulaNode%2CT"
-    title="`:~`[T](lhs`gensym435036: FormulaNode; y`gensym435037: T): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:~`[T](lhs`gensym631236: FormulaNode; y`gensym631237: T): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A~%2CT%2CFormulaNode"
-    title="`:~`[T](x`gensym435039: T; rhs`gensym435040: FormulaNode): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:~`[T](x`gensym631239: T; rhs`gensym631240: FormulaNode): FormulaNode"><wbr />`:~`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3D%2CT%2CU"
-    title="`:=`[T, U](x`gensym435069: T; y`gensym435070: U): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:=`[T, U](x`gensym631269: T; y`gensym631270: U): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3D%2CFormulaNode%2CT"
-    title="`:=`[T](lhs`gensym435073: FormulaNode; y`gensym435074: T): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:=`[T](lhs`gensym631273: FormulaNode; y`gensym631274: T): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3D%2CT%2CFormulaNode"
-    title="`:=`[T](x`gensym435076: T; rhs`gensym435077: FormulaNode): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:=`[T](x`gensym631276: T; rhs`gensym631277: FormulaNode): FormulaNode"><wbr />`:=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#equal%2CT%2CU"
-    title="equal[T, U](x`gensym435106: T; y`gensym435107: U): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
+    title="equal[T, U](x`gensym631306: T; y`gensym631307: U): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#equal%2CFormulaNode%2CT"
-    title="equal[T](lhs`gensym435110: FormulaNode; y`gensym435111: T): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
+    title="equal[T](lhs`gensym631310: FormulaNode; y`gensym631311: T): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#equal%2CT%2CFormulaNode"
-    title="equal[T](x`gensym435113: T; rhs`gensym435114: FormulaNode): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
+    title="equal[T](x`gensym631313: T; rhs`gensym631314: FormulaNode): FormulaNode"><wbr />equal<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%2CT%2CU"
-    title="`:&gt;`[T, U](x`gensym435143: T; y`gensym435144: U): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;`[T, U](x`gensym631343: T; y`gensym631344: U): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%2CFormulaNode%2CT"
-    title="`:&gt;`[T](lhs`gensym435147: FormulaNode; y`gensym435148: T): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;`[T](lhs`gensym631347: FormulaNode; y`gensym631348: T): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%2CT%2CFormulaNode"
-    title="`:&gt;`[T](x`gensym435150: T; rhs`gensym435151: FormulaNode): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;`[T](x`gensym631350: T; rhs`gensym631351: FormulaNode): FormulaNode"><wbr />`:&gt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#greater%2CT%2CU"
-    title="greater[T, U](x`gensym435180: T; y`gensym435181: U): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
+    title="greater[T, U](x`gensym631380: T; y`gensym631381: U): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#greater%2CFormulaNode%2CT"
-    title="greater[T](lhs`gensym435184: FormulaNode; y`gensym435185: T): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
+    title="greater[T](lhs`gensym631384: FormulaNode; y`gensym631385: T): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#greater%2CT%2CFormulaNode"
-    title="greater[T](x`gensym435187: T; rhs`gensym435188: FormulaNode): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
+    title="greater[T](x`gensym631387: T; rhs`gensym631388: FormulaNode): FormulaNode"><wbr />greater<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%2CT%2CU"
-    title="`:&lt;`[T, U](x`gensym435217: T; y`gensym435218: U): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;`[T, U](x`gensym631417: T; y`gensym631418: U): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%2CFormulaNode%2CT"
-    title="`:&lt;`[T](lhs`gensym435221: FormulaNode; y`gensym435222: T): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;`[T](lhs`gensym631421: FormulaNode; y`gensym631422: T): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%2CT%2CFormulaNode"
-    title="`:&lt;`[T](x`gensym435224: T; rhs`gensym435225: FormulaNode): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;`[T](x`gensym631424: T; rhs`gensym631425: FormulaNode): FormulaNode"><wbr />`:&lt;`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#less%2CT%2CU"
-    title="less[T, U](x`gensym435254: T; y`gensym435255: U): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
+    title="less[T, U](x`gensym631454: T; y`gensym631455: U): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#less%2CFormulaNode%2CT"
-    title="less[T](lhs`gensym435258: FormulaNode; y`gensym435259: T): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
+    title="less[T](lhs`gensym631458: FormulaNode; y`gensym631459: T): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#less%2CT%2CFormulaNode"
-    title="less[T](x`gensym435261: T; rhs`gensym435262: FormulaNode): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
+    title="less[T](x`gensym631461: T; rhs`gensym631462: FormulaNode): FormulaNode"><wbr />less<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%3D%2CT%2CU"
-    title="`:&gt;=`[T, U](x`gensym435291: T; y`gensym435292: U): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;=`[T, U](x`gensym631491: T; y`gensym631492: U): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%3D%2CFormulaNode%2CT"
-    title="`:&gt;=`[T](lhs`gensym435295: FormulaNode; y`gensym435296: T): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;=`[T](lhs`gensym631495: FormulaNode; y`gensym631496: T): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3E%3D%2CT%2CFormulaNode"
-    title="`:&gt;=`[T](x`gensym435298: T; rhs`gensym435299: FormulaNode): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&gt;=`[T](x`gensym631498: T; rhs`gensym631499: FormulaNode): FormulaNode"><wbr />`:&gt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#geq%2CT%2CU"
-    title="geq[T, U](x`gensym435328: T; y`gensym435329: U): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
+    title="geq[T, U](x`gensym631528: T; y`gensym631529: U): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#geq%2CFormulaNode%2CT"
-    title="geq[T](lhs`gensym435332: FormulaNode; y`gensym435333: T): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
+    title="geq[T](lhs`gensym631532: FormulaNode; y`gensym631533: T): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#geq%2CT%2CFormulaNode"
-    title="geq[T](x`gensym435335: T; rhs`gensym435336: FormulaNode): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
+    title="geq[T](x`gensym631535: T; rhs`gensym631536: FormulaNode): FormulaNode"><wbr />geq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%3D%2CT%2CU"
-    title="`:&lt;=`[T, U](x`gensym435365: T; y`gensym435366: U): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;=`[T, U](x`gensym631565: T; y`gensym631566: U): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%3D%2CFormulaNode%2CT"
-    title="`:&lt;=`[T](lhs`gensym435369: FormulaNode; y`gensym435370: T): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;=`[T](lhs`gensym631569: FormulaNode; y`gensym631570: T): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#%3A%3C%3D%2CT%2CFormulaNode"
-    title="`:&lt;=`[T](x`gensym435372: T; rhs`gensym435373: FormulaNode): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
+    title="`:&lt;=`[T](x`gensym631572: T; rhs`gensym631573: FormulaNode): FormulaNode"><wbr />`:&lt;=`<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#leq%2CT%2CU"
-    title="leq[T, U](x`gensym435402: T; y`gensym435403: U): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
+    title="leq[T, U](x`gensym631602: T; y`gensym631603: U): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#leq%2CFormulaNode%2CT"
-    title="leq[T](lhs`gensym435406: FormulaNode; y`gensym435407: T): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
+    title="leq[T](lhs`gensym631606: FormulaNode; y`gensym631607: T): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#leq%2CT%2CFormulaNode"
-    title="leq[T](x`gensym435409: T; rhs`gensym435410: FormulaNode): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
+    title="leq[T](x`gensym631609: T; rhs`gensym631610: FormulaNode): FormulaNode"><wbr />leq<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#evaluate%2CFormulaNode%2CT%2Cint"
     title="evaluate[T](node: var FormulaNode; data: T; idx: int): Value"><wbr />evaluate<span class="attachedType">FormulaNode</span></a></li>
   <li><a class="reference" href="#evaluate%2CFormulaNode%2CT"
@@ -1092,6 +1148,14 @@ function main() {
   <ul class="simple simple-toc-section">
       <li><a class="reference" href="#high%2CDataFrame"
     title="high(df: DataFrame): int"><wbr />high<span class="attachedType">DataFrame</span></a></li>
+  <li><a class="reference" href="#isNumber%2Cstring"
+    title="isNumber(s: string): bool"><wbr />is<wbr />Number<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#isNumber%2CValue"
+    title="isNumber(v: Value): bool"><wbr />is<wbr />Number<span class="attachedType">Value</span></a></li>
+  <li><a class="reference" href="#isInt%2Cstring"
+    title="isInt(s: string): bool"><wbr />is<wbr />Int<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#isInt%2CValue"
+    title="isInt(v: Value): bool"><wbr />is<wbr />Int<span class="attachedType">Value</span></a></li>
   <li><a class="reference" href="#almostEqual%2Cfloat%2Cfloat%2Cfloat"
     title="almostEqual(a, b: float; epsilon = 1e-08): bool"><wbr />almost<wbr />Equal<span class="attachedType"></span></a></li>
 
@@ -1139,13 +1203,17 @@ function main() {
   <li><a class="reference" href="#seqsToDf.t%2Cvarargs%5Buntyped%5D"
     title="seqsToDf(s: varargs[untyped]): untyped"><wbr />seqs<wbr />To<wbr />Df<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#liftVectorFloatProc.t%2Cuntyped"
-    title="liftVectorFloatProc(name: untyped): untyped"><wbr />lift<wbr />Vector<wbr />Float<wbr />Proc<span class="attachedType"></span></a></li>
+    title="liftVectorFloatProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Vector<wbr />Float<wbr />Proc<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#liftVectorIntProc.t%2Cuntyped"
-    title="liftVectorIntProc(name: untyped): untyped"><wbr />lift<wbr />Vector<wbr />Int<wbr />Proc<span class="attachedType"></span></a></li>
+    title="liftVectorIntProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Vector<wbr />Int<wbr />Proc<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#liftVectorStringProc.t%2Cuntyped"
+    title="liftVectorStringProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Vector<wbr />String<wbr />Proc<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#liftScalarFloatProc.t%2Cuntyped"
-    title="liftScalarFloatProc(name: untyped): untyped"><wbr />lift<wbr />Scalar<wbr />Float<wbr />Proc<span class="attachedType"></span></a></li>
+    title="liftScalarFloatProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Scalar<wbr />Float<wbr />Proc<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#liftScalarIntProc.t%2Cuntyped"
-    title="liftScalarIntProc(name: untyped): untyped"><wbr />lift<wbr />Scalar<wbr />Int<wbr />Proc<span class="attachedType"></span></a></li>
+    title="liftScalarIntProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Scalar<wbr />Int<wbr />Proc<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#liftScalarStringProc.t%2Cuntyped"
+    title="liftScalarStringProc(name: untyped; toExport: static bool = true): untyped"><wbr />lift<wbr />Scalar<wbr />String<wbr />Proc<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#bind_rows.t%2Cvarargs%5BDataFrame%5D%2Cstring"
     title="bind_rows(dfs: varargs[DataFrame]; id: string = &quot;&quot;): DataFrame"><wbr />bind_<wbr />rows<span class="attachedType">DataFrame</span></a></li>
   <li><a class="reference" href="#~.t%2Cuntyped"
@@ -1300,45 +1368,53 @@ adds all elements of <tt class="docutils literal"><span class="pre">w</span></tt
 
 </dd>
 <a id="[],DataFrame,string"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="[],DataFrame,string,int"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring%2Cint"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">idx</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring%2Cint"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">idx</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 returns the element at index <tt class="docutils literal"><span class="pre">idx</span></tt> in column <tt class="docutils literal"><span class="pre">k</span></tt> directly, without returning the whole vector first
 
 </dd>
 <a id="[],DataFrame,string,Slice[int]"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring%2CSlice%5Bint%5D"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">slice</span><span class="Other">:</span> <span class="Identifier">Slice</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CDataFrame%2Cstring%2CSlice%5Bint%5D"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">slice</span><span class="Other">:</span> <span class="Identifier">Slice</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 returns the elements in <tt class="docutils literal"><span class="pre">slice</span></tt> in column <tt class="docutils literal"><span class="pre">k</span></tt> directly, without returning the whole vector first
 
 </dd>
 <a id="[]=,DataFrame,string,PersistentVector[Value]"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%3D%2CDataFrame%2Cstring%2CPersistentVector%5BValue%5D"><span class="Identifier">`[]=`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">vec</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%3D%2CDataFrame%2Cstring%2CPersistentVector%5BValue%5D"><span class="Identifier">`[]=`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">vec</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="[]=,DataFrame,string,int,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%3D%2CDataFrame%2Cstring%2Cint%2CValue"><span class="Identifier">`[]=`</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">k</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">idx</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">;</span> <span class="Identifier">val</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="[],Value,string"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CValue%2Cstring"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">;</span> <span class="Identifier">key</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%2CValue%2Cstring"><span class="Identifier">`[]`</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">;</span> <span class="Identifier">key</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="[]=,Value,string,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%3D%2CValue%2Cstring%2CValue"><span class="Identifier">`[]=`</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">;</span> <span class="Identifier">key</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">val</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%5B%5D%3D%2CValue%2Cstring%2CValue"><span class="Identifier">`[]=`</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">;</span> <span class="Identifier">key</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">val</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">inline</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
@@ -1490,28 +1566,28 @@ checks whether <tt class="docutils literal"><span class="pre">v</span></tt> is s
 
 </dd>
 <a id="+,Value,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%2B%2CValue%2CValue"><span class="Identifier">`+`</span></a><span class="Other">(</span><span class="Identifier">v`gensym352476</span><span class="Other">,</span> <span class="Identifier">w`gensym352477</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%2B%2CValue%2CValue"><span class="Identifier">`+`</span></a><span class="Other">(</span><span class="Identifier">v`gensym538276</span><span class="Other">,</span> <span class="Identifier">w`gensym538277</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 Adds two Values together, if they are addeable. These operations only work for <tt class="docutils literal"><span class="pre">VInt</span></tt> and <tt class="docutils literal"><span class="pre">VFloat</span></tt>. <tt class="docutils literal"><span class="pre">VInt</span></tt> is converted to floats for the calculation. The result is always a <tt class="docutils literal"><span class="pre">VFloat</span></tt>!
 
 </dd>
 <a id="-,Value,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#-%2CValue%2CValue"><span class="Identifier">`-`</span></a><span class="Other">(</span><span class="Identifier">v`gensym352623</span><span class="Other">,</span> <span class="Identifier">w`gensym352624</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#-%2CValue%2CValue"><span class="Identifier">`-`</span></a><span class="Other">(</span><span class="Identifier">v`gensym538423</span><span class="Other">,</span> <span class="Identifier">w`gensym538424</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 Adds two Values together, if they are addeable. These operations only work for <tt class="docutils literal"><span class="pre">VInt</span></tt> and <tt class="docutils literal"><span class="pre">VFloat</span></tt>. <tt class="docutils literal"><span class="pre">VInt</span></tt> is converted to floats for the calculation. The result is always a <tt class="docutils literal"><span class="pre">VFloat</span></tt>!
 
 </dd>
 <a id="*,Value,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%2A%2CValue%2CValue"><span class="Identifier">`*`</span></a><span class="Other">(</span><span class="Identifier">v`gensym352823</span><span class="Other">,</span> <span class="Identifier">w`gensym352824</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%2A%2CValue%2CValue"><span class="Identifier">`*`</span></a><span class="Other">(</span><span class="Identifier">v`gensym538623</span><span class="Other">,</span> <span class="Identifier">w`gensym538624</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 Adds two Values together, if they are addeable. These operations only work for <tt class="docutils literal"><span class="pre">VInt</span></tt> and <tt class="docutils literal"><span class="pre">VFloat</span></tt>. <tt class="docutils literal"><span class="pre">VInt</span></tt> is converted to floats for the calculation. The result is always a <tt class="docutils literal"><span class="pre">VFloat</span></tt>!
 
 </dd>
 <a id="/,Value,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%2F%2CValue%2CValue"><span class="Identifier">`/`</span></a><span class="Other">(</span><span class="Identifier">v`gensym353023</span><span class="Other">,</span> <span class="Identifier">w`gensym353024</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%2F%2CValue%2CValue"><span class="Identifier">`/`</span></a><span class="Other">(</span><span class="Identifier">v`gensym538823</span><span class="Other">,</span> <span class="Identifier">w`gensym538824</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 Adds two Values together, if they are addeable. These operations only work for <tt class="docutils literal"><span class="pre">VInt</span></tt> and <tt class="docutils literal"><span class="pre">VFloat</span></tt>. <tt class="docutils literal"><span class="pre">VInt</span></tt> is converted to floats for the calculation. The result is always a <tt class="docutils literal"><span class="pre">VFloat</span></tt>!
@@ -1546,7 +1622,7 @@ Converts <tt class="docutils literal"><span class="pre">node</span></tt> to its 
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
-creates a data frame from a table of seq[string] TODO: currently does not allow to parse bool!
+creates a data frame from a table of seq[string] NOTE: This proc assumes that the given entries in the <tt class="docutils literal"><span class="pre">seq[string]</span></tt> have been cleaned of white space. The <tt class="docutils literal"><span class="pre">readCsv</span></tt> proc takes care of this. TODO: currently does not allow to parse bool!
 
 </dd>
 <a id="toVector,openArray[T]"></a>
@@ -1599,43 +1675,214 @@ creates a data frame from a table of <tt class="docutils literal"><span class="p
 returns the data frame filtered by the conditions given
 
 </dd>
+<a id="length,PersistentVector[Value]"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#length%2CPersistentVector%5BValue%5D"><span class="Identifier">length</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+returns the <tt class="docutils literal"><span class="pre">length</span></tt> of the given vector (DF column) as a <tt class="docutils literal"><span class="pre">Value</span></tt>. Essentially just a working version of <tt class="docutils literal"><span class="pre">len</span></tt> for use in formulas, e.g. for <tt class="docutils literal"><span class="pre">summarize</span></tt>. Does not use the <tt class="docutils literal"><span class="pre">len</span></tt> name for two reasons:<ol class="simple"><li>Nim does not allow overload by return type</li>
+<li><tt class="docutils literal"><span class="pre">length</span></tt> is the name in R</li>
+</ol>
+
+
+</dd>
 <a id="mean"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#mean"><span class="Identifier">mean</span></a><span class="Other">(</span><span class="Identifier">v`gensym365920</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#mean"><span class="Identifier">mean</span></a><span class="Other">(</span><span class="Identifier">v`gensym551424</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="sum"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#sum"><span class="Identifier">sum</span></a><span class="Other">(</span><span class="Identifier">v`gensym552802</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="abs,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#abs%2CValue"><span class="Identifier">abs</span></a><span class="Other">(</span><span class="Identifier">v`gensym367123</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#abs%2CValue"><span class="Identifier">abs</span></a><span class="Other">(</span><span class="Identifier">v`gensym554002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="min"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#min"><span class="Identifier">min</span></a><span class="Other">(</span><span class="Identifier">v`gensym367142</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#min"><span class="Identifier">min</span></a><span class="Other">(</span><span class="Identifier">v`gensym554202</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="max"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#max"><span class="Identifier">max</span></a><span class="Other">(</span><span class="Identifier">v`gensym368286</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#max"><span class="Identifier">max</span></a><span class="Other">(</span><span class="Identifier">v`gensym555402</span><span class="Other">:</span> <span class="Identifier">PersistentVector</span><span class="Other">[</span><a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
-<a id="ln,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#ln%2CValue"><span class="Identifier">ln</span></a><span class="Other">(</span><span class="Identifier">v`gensym369486</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<a id="sqrt,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#sqrt%2CValue"><span class="Identifier">sqrt</span></a><span class="Other">(</span><span class="Identifier">v`gensym556602</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="cbrt,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#cbrt%2CValue"><span class="Identifier">cbrt</span></a><span class="Other">(</span><span class="Identifier">v`gensym556802</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="log10,Value"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#log10%2CValue"><span class="Identifier">log10</span></a><span class="Other">(</span><span class="Identifier">v`gensym369505</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#log10%2CValue"><span class="Identifier">log10</span></a><span class="Other">(</span><span class="Identifier">v`gensym557002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="log2,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#log2%2CValue"><span class="Identifier">log2</span></a><span class="Other">(</span><span class="Identifier">v`gensym557202</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="ln,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#ln%2CValue"><span class="Identifier">ln</span></a><span class="Other">(</span><span class="Identifier">v`gensym557402</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="exp,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#exp%2CValue"><span class="Identifier">exp</span></a><span class="Other">(</span><span class="Identifier">v`gensym557602</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="arccos,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#arccos%2CValue"><span class="Identifier">arccos</span></a><span class="Other">(</span><span class="Identifier">v`gensym557802</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="arcsin,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#arcsin%2CValue"><span class="Identifier">arcsin</span></a><span class="Other">(</span><span class="Identifier">v`gensym558002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="arctan,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#arctan%2CValue"><span class="Identifier">arctan</span></a><span class="Other">(</span><span class="Identifier">v`gensym558202</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="cos,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#cos%2CValue"><span class="Identifier">cos</span></a><span class="Other">(</span><span class="Identifier">v`gensym558402</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="cosh,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#cosh%2CValue"><span class="Identifier">cosh</span></a><span class="Other">(</span><span class="Identifier">v`gensym558602</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="sin,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#sin%2CValue"><span class="Identifier">sin</span></a><span class="Other">(</span><span class="Identifier">v`gensym558802</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="sinh,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#sinh%2CValue"><span class="Identifier">sinh</span></a><span class="Other">(</span><span class="Identifier">v`gensym559002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="tan,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#tan%2CValue"><span class="Identifier">tan</span></a><span class="Other">(</span><span class="Identifier">v`gensym559202</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="tanh,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#tanh%2CValue"><span class="Identifier">tanh</span></a><span class="Other">(</span><span class="Identifier">v`gensym559402</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="erf,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#erf%2CValue"><span class="Identifier">erf</span></a><span class="Other">(</span><span class="Identifier">v`gensym559602</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="erfc,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#erfc%2CValue"><span class="Identifier">erfc</span></a><span class="Other">(</span><span class="Identifier">v`gensym559802</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="lgamma,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#lgamma%2CValue"><span class="Identifier">lgamma</span></a><span class="Other">(</span><span class="Identifier">v`gensym560002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="tgamma,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#tgamma%2CValue"><span class="Identifier">tgamma</span></a><span class="Other">(</span><span class="Identifier">v`gensym560202</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="trunc,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#trunc%2CValue"><span class="Identifier">trunc</span></a><span class="Other">(</span><span class="Identifier">v`gensym560402</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="floor,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#floor%2CValue"><span class="Identifier">floor</span></a><span class="Other">(</span><span class="Identifier">v`gensym560602</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="ceil,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#ceil%2CValue"><span class="Identifier">ceil</span></a><span class="Other">(</span><span class="Identifier">v`gensym560802</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="degToRad,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#degToRad%2CValue"><span class="Identifier">degToRad</span></a><span class="Other">(</span><span class="Identifier">v`gensym561002</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="radToDeg,Value"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#radToDeg%2CValue"><span class="Identifier">radToDeg</span></a><span class="Other">(</span><span class="Identifier">v`gensym561202</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
@@ -1734,10 +1981,18 @@ returns a grouped data frame grouped by all keys <tt class="docutils literal"><s
 </dd>
 <a id="summarize,DataFrame,varargs[FormulaNode]"></a>
 <dt><pre><span class="Keyword">proc</span> <a href="#summarize%2CDataFrame%2Cvarargs%5BFormulaNode%5D"><span class="Identifier">summarize</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">fns</span><span class="Other">:</span> <span class="Identifier">varargs</span><span class="Other">[</span><a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma">
-    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">,</span> <span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 returns a data frame with the summaries applied given by <tt class="docutils literal"><span class="pre">fn</span></tt>. They are applied in the order in which they are given
+
+</dd>
+<a id="count,DataFrame,string,string"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#count%2CDataFrame%2Cstring%2Cstring"><span class="Identifier">count</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">col</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">name</span> <span class="Other">=</span> <span class="StringLit">&quot;n&quot;</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma">
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">,</span> <span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+counts the number of elements per type in <tt class="docutils literal"><span class="pre">col</span></tt> of the data frame. Basically a shorthand for df.group_by.summarize(f{length(col)}). TODO: handle already grouped dataframes.
 
 </dd>
 <a id="bind_rows,varargs[],string"></a>
@@ -1746,6 +2001,13 @@ returns a data frame with the summaries applied given by <tt class="docutils lit
 <dd>
 
 <tt class="docutils literal"><span class="pre">bind_rows</span></tt> combines several data frames row wise (i.e. data frames are stacked on top of one another). If a given column does not exist in one of the data frames, the corresponding rows of the data frame missing it, will be filled with <tt class="docutils literal"><span class="pre">VNull</span></tt>.
+
+</dd>
+<a id="add,DataFrame,DataFrame"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#add%2CDataFrame%2CDataFrame"><span class="Identifier">add</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">dfToAdd</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">)</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+The simplest form of &quot;adding&quot; a data frame. If the keys match exactly or <tt class="docutils literal"><span class="pre">df</span></tt> is empty <tt class="docutils literal"><span class="pre">dfToAdd</span></tt> will be stacked below. This makes a key check and then calls <tt class="docutils literal"><span class="pre">bind_rows</span></tt> for the job.
 
 </dd>
 <a id="head,DataFrame,int"></a>
@@ -1762,232 +2024,240 @@ returns the head of the DataFrame. <tt class="docutils literal"><span class="pre
 returns the tail of the DataFrame. <tt class="docutils literal"><span class="pre">num</span></tt> elements
 
 </dd>
+<a id="gather,DataFrame,varargs[string],string,string"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#gather%2CDataFrame%2Cvarargs%5Bstring%5D%2Cstring%2Cstring"><span class="Identifier">gather</span></a><span class="Other">(</span><span class="Identifier">df</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">;</span> <span class="Identifier">cols</span><span class="Other">:</span> <span class="Identifier">varargs</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span><span class="Other">;</span> <span class="Identifier">key</span> <span class="Other">=</span> <span class="StringLit">&quot;key&quot;</span><span class="Other">;</span> <span class="Identifier">value</span> <span class="Other">=</span> <span class="StringLit">&quot;value&quot;</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma">
+    <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">KeyError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+gathers the <tt class="docutils literal"><span class="pre">cols</span></tt> from <tt class="docutils literal"><span class="pre">df</span></tt> and merges these columns into two new columns where the <tt class="docutils literal"><span class="pre">key</span></tt> column contains the name of the column from which the <tt class="docutils literal"><span class="pre">value</span></tt> entry is taken. I.e. transforms <tt class="docutils literal"><span class="pre">cols</span></tt> from wide to long format.
+
+</dd>
 <a id=":~,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CT%2CU"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435032</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435033</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CT%2CU"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631232</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631233</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":~,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CFormulaNode%2CT"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435036</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435037</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CFormulaNode%2CT"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631236</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631237</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":~,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CT%2CFormulaNode"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435039</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435040</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A~%2CT%2CFormulaNode"><span class="Identifier">`:~`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631239</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631240</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":=,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CT%2CU"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435069</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435070</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CT%2CU"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631269</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631270</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":=,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CFormulaNode%2CT"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435073</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435074</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CFormulaNode%2CT"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631273</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631274</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":=,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CT%2CFormulaNode"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435076</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435077</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3D%2CT%2CFormulaNode"><span class="Identifier">`:=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631276</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631277</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="equal,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CT%2CU"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435106</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435107</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CT%2CU"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631306</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631307</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="equal,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CFormulaNode%2CT"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435110</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435111</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CFormulaNode%2CT"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631310</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631311</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="equal,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CT%2CFormulaNode"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435113</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435114</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#equal%2CT%2CFormulaNode"><span class="Identifier">equal</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631313</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631314</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CT%2CU"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435143</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435144</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CT%2CU"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631343</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631344</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CFormulaNode%2CT"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435147</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435148</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CFormulaNode%2CT"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631347</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631348</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CT%2CFormulaNode"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435150</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435151</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%2CT%2CFormulaNode"><span class="Identifier">`:&gt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631350</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631351</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="greater,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CT%2CU"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435180</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435181</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CT%2CU"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631380</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631381</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="greater,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CFormulaNode%2CT"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435184</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435185</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CFormulaNode%2CT"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631384</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631385</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="greater,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CT%2CFormulaNode"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435187</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435188</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#greater%2CT%2CFormulaNode"><span class="Identifier">greater</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631387</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631388</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CT%2CU"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435217</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435218</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CT%2CU"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631417</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631418</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CFormulaNode%2CT"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435221</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435222</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CFormulaNode%2CT"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631421</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631422</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CT%2CFormulaNode"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435224</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435225</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%2CT%2CFormulaNode"><span class="Identifier">`:&lt;`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631424</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631425</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="less,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#less%2CT%2CU"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435254</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435255</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#less%2CT%2CU"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631454</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631455</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="less,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#less%2CFormulaNode%2CT"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435258</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435259</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#less%2CFormulaNode%2CT"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631458</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631459</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="less,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#less%2CT%2CFormulaNode"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435261</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435262</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#less%2CT%2CFormulaNode"><span class="Identifier">less</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631461</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631462</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>=,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CT%2CU"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435291</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435292</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CT%2CU"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631491</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631492</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>=,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CFormulaNode%2CT"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435295</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435296</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CFormulaNode%2CT"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631495</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631496</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":>=,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CT%2CFormulaNode"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435298</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435299</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3E%3D%2CT%2CFormulaNode"><span class="Identifier">`:&gt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631498</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631499</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="geq,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CT%2CU"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435328</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435329</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CT%2CU"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631528</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631529</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="geq,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CFormulaNode%2CT"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435332</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435333</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CFormulaNode%2CT"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631532</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631533</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="geq,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CT%2CFormulaNode"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435335</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435336</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#geq%2CT%2CFormulaNode"><span class="Identifier">geq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631535</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631536</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<=,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CT%2CU"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435365</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435366</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CT%2CU"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631565</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631566</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<=,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CFormulaNode%2CT"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435369</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435370</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CFormulaNode%2CT"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631569</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631570</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id=":<=,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CT%2CFormulaNode"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435372</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435373</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%3A%3C%3D%2CT%2CFormulaNode"><span class="Identifier">`:&lt;=`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631572</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631573</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="leq,T,U"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CT%2CU"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435402</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym435403</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CT%2CU"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">,</span> <span class="Identifier">U</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631602</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">y`gensym631603</span><span class="Other">:</span> <span class="Identifier">U</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="leq,FormulaNode,T"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CFormulaNode%2CT"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym435406</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym435407</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CFormulaNode%2CT"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">lhs`gensym631606</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">;</span> <span class="Identifier">y`gensym631607</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
 
 </dd>
 <a id="leq,T,FormulaNode"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CT%2CFormulaNode"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym435409</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym435410</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#leq%2CT%2CFormulaNode"><span class="Identifier">leq</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">x`gensym631609</span><span class="Other">:</span> <span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">rhs`gensym631610</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#FormulaNode"><span class="Identifier">FormulaNode</span></a></pre></dt>
 <dd>
 
 
@@ -2017,6 +2287,44 @@ evaluation of a data frame under a given <tt class="docutils literal"><span clas
 <dd>
 
 
+
+</dd>
+<a id="isNumber,string"></a>
+<dt><pre><span class="Keyword">func</span> <a href="#isNumber%2Cstring"><span class="Identifier">isNumber</span></a><span class="Other">(</span><span class="Identifier">s</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+returns true, if <tt class="docutils literal"><span class="pre">s</span></tt> is a number according to our rules:<ul class="simple"><li>starts with {0..9}</li>
+<li>ends with {0..9}</li>
+<li>may contain a single <tt class="docutils literal"><span class="pre">.</span></tt></li>
+<li>may contain a single <tt class="docutils literal"><span class="pre">e</span></tt>, <tt class="docutils literal"><span class="pre">E</span></tt></li>
+<li>may contain one minus, one plus at beginning and one for exponent</li>
+<li>else may only contain {0..9}</li>
+<li><tt class="docutils literal"><span class="pre">e</span></tt>, <tt class="docutils literal"><span class="pre">+</span></tt>, <tt class="docutils literal"><span class="pre">-</span></tt>, <tt class="docutils literal"><span class="pre">.</span></tt> may not appear one after another</li>
+<li>may contain space before and after the number</li>
+</ul>
+<p>It is only used to decide whether the stringifaction of <tt class="docutils literal"><span class="pre">s</span></tt> will be surrounded by <tt class="docutils literal"><span class="pre">&quot;</span></tt>.</p>
+
+
+</dd>
+<a id="isNumber,Value"></a>
+<dt><pre><span class="Keyword">func</span> <a href="#isNumber%2CValue"><span class="Identifier">isNumber</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="isInt,string"></a>
+<dt><pre><span class="Keyword">func</span> <a href="#isInt%2Cstring"><span class="Identifier">isInt</span></a><span class="Other">(</span><span class="Identifier">s</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+simple &quot;most likely int&quot; check. If the string only contains digits and <tt class="docutils literal"><span class="pre">_</span></tt> we consider it an Int
+
+</dd>
+<a id="isInt,Value"></a>
+<dt><pre><span class="Keyword">func</span> <a href="#isInt%2CValue"><span class="Identifier">isInt</span></a><span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dd>
+
+checks whether the string contained in <tt class="docutils literal"><span class="pre">Value</span></tt> is likely an integer For an <tt class="docutils literal"><span class="pre">isFloat</span></tt> equivalent see <tt class="docutils literal"><span class="pre">isNumber</span></tt>.
 
 </dd>
 <a id="almostEqual,float,float,float"></a>
@@ -2135,31 +2443,45 @@ converts an arbitrary number of sequences to a <tt class="docutils literal"><spa
 
 </dd>
 <a id="liftVectorFloatProc.t,untyped"></a>
-<dt><pre><span class="Keyword">template</span> <a href="#liftVectorFloatProc.t%2Cuntyped"><span class="Identifier">liftVectorFloatProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dt><pre><span class="Keyword">template</span> <a href="#liftVectorFloatProc.t%2Cuntyped"><span class="Identifier">liftVectorFloatProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
 <dd>
 
-
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">seq[float]</span></tt> to act on a <tt class="docutils literal"><span class="pre">PersistentVector[Value]</span></tt> so that it can be used in a formula to act on a whole DF column. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
 </dd>
 <a id="liftVectorIntProc.t,untyped"></a>
-<dt><pre><span class="Keyword">template</span> <a href="#liftVectorIntProc.t%2Cuntyped"><span class="Identifier">liftVectorIntProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dt><pre><span class="Keyword">template</span> <a href="#liftVectorIntProc.t%2Cuntyped"><span class="Identifier">liftVectorIntProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
 <dd>
 
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">seq[int]</span></tt> to act on a <tt class="docutils literal"><span class="pre">PersistentVector[Value]</span></tt> so that it can be used in a formula to act on a whole DF column. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
+</dd>
+<a id="liftVectorStringProc.t,untyped"></a>
+<dt><pre><span class="Keyword">template</span> <a href="#liftVectorStringProc.t%2Cuntyped"><span class="Identifier">liftVectorStringProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dd>
+
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">seq[string]</span></tt> to act on a <tt class="docutils literal"><span class="pre">PersistentVector[Value]</span></tt> so that it can be used in a formula to act on a whole DF column. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
 </dd>
 <a id="liftScalarFloatProc.t,untyped"></a>
-<dt><pre><span class="Keyword">template</span> <a href="#liftScalarFloatProc.t%2Cuntyped"><span class="Identifier">liftScalarFloatProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dt><pre><span class="Keyword">template</span> <a href="#liftScalarFloatProc.t%2Cuntyped"><span class="Identifier">liftScalarFloatProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
 <dd>
 
-
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">float</span></tt> to act on a <tt class="docutils literal"><span class="pre">Value</span></tt> so that it can be used in a formula to act on an element in a DF. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
 </dd>
 <a id="liftScalarIntProc.t,untyped"></a>
-<dt><pre><span class="Keyword">template</span> <a href="#liftScalarIntProc.t%2Cuntyped"><span class="Identifier">liftScalarIntProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dt><pre><span class="Keyword">template</span> <a href="#liftScalarIntProc.t%2Cuntyped"><span class="Identifier">liftScalarIntProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
 <dd>
 
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">int</span></tt> to act on a <tt class="docutils literal"><span class="pre">Value</span></tt> so that it can be used in a formula to act on an element in a DF. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
+</dd>
+<a id="liftScalarStringProc.t,untyped"></a>
+<dt><pre><span class="Keyword">template</span> <a href="#liftScalarStringProc.t%2Cuntyped"><span class="Identifier">liftScalarStringProc</span></a><span class="Other">(</span><span class="Identifier">name</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">;</span> <span class="Identifier">toExport</span><span class="Other">:</span> <span class="Identifier">static</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">true</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span></pre></dt>
+<dd>
+
+Lifts a proc, which takes a <tt class="docutils literal"><span class="pre">string</span></tt> to act on a <tt class="docutils literal"><span class="pre">Value</span></tt> so that it can be used in a formula to act on an element in a DF. <tt class="docutils literal"><span class="pre">toExport</span></tt> can be set to <tt class="docutils literal"><span class="pre">false</span></tt> so that the resulting proc is not exported. This is useful to lift procs only locally (e.g. in a test case etc.)
 
 </dd>
 <a id="bind_rows.t,varargs[DataFrame],string"></a>
@@ -2221,7 +2543,7 @@ Overload of <tt class="docutils literal"><span class="pre">bind_rows</span></tt>
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br/>
-        <small>Made with Nim. Generated: 2019-11-05 11:48:43 UTC</small>
+        <small>Made with Nim. Generated: 2019-11-15 21:58:41 UTC</small>
       </div>
     </div>
   </div>
