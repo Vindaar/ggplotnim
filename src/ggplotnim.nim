@@ -2260,7 +2260,7 @@ func callHistogram(geom: Geom, data: seq[float], range: ginger.Scale): (seq[int]
     (hist, binEdges) = histogram(data, bins = geom.binEdges.get, range = (range.low, range.high))
   elif geom.binWidth.isSome:
     let bins = ((range.high - range.low) / geom.binWidth.get).round.int
-    (hist, binEdges) = histogram(data, bins = binEdges, range = (range.low, range.high))
+    (hist, binEdges) = histogram(data, bins = bins, range = (range.low, range.high))
   else:
     (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
   for i in 0 ..< binEdges.high:
