@@ -50,7 +50,7 @@ and create the plot:
 #+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
 ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   geom_line() +
-  ggsave("rSimpleLinePlot.pdf")
+  ggsave("media/recipes/rSimpleLinePlot.pdf")
 #+END_SRC
 This results in the following plot:
 [[./media/recipes/rSimpleLinePlot.png]]
@@ -70,7 +70,7 @@ let y = x.mapIt(pow(sin(it), 2.0))
 let df = seqsToDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +
-  ggsave("rLinePlotSize.png", width = width, height = height)
+  ggsave("media/recipes/rLinePlotSize.png", width = width, height = height)
 #+END_SRC
 You can see that =ggsave= accepts a =width= and =height= argument. The
 desired output filetype is deduced from the filename
@@ -81,18 +81,293 @@ extension. Supported are:
 The above generates the following plot:
 [[./media/recipes/rLinePlotSize.png]]
 
+*** Stacked histogram colored by some class
+
+Often one has a certain type of data for several discrete different
+classes. In these cases a stacked histogram may be useful. Considering
+the =mpg= dataset, this is done via:
+#+BEGIN_SRC nim :tangle recipes/rStackedMpgHistogram.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("cty", fill = "class")) + 
+  geom_histogram() + 
+  ggsave("media/recipes/rStackedMpgHistogram.pdf")
+#+END_SRC
+This generates:
+[[./media/recipes/rStackedMpgHistogram.png]]
+
+*** Stacked lines colored by some class
+
+The same as above can also be represented with lines using =geom_freqpoly=:
+#+BEGIN_SRC nim :tangle recipes/rStackedMpgFreqpoly.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("cty", fill = "class")) + 
+  geom_histogram() + 
+  ggsave("media/recipes/rStackedMpgFreqpoly.pdf")
+#+END_SRC
+This generates:
+[[./media/recipes/rStackedMpgFreqpoly.png]]
+
+*** Simple histogram with N bins
+
+Given a continuous data column we may want to calculate a histogram
+with N bins:
+#+BEGIN_SRC nim :tangle recipes/rMpgHistoNumBins.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy")) + 
+  geom_histogram(bins = 20) + # by default 30 bins are used
+  ggsave("media/recipes/rMpgHistoNumBins.pdf")
+#+END_SRC
+This generates:
+[[./media/recipes/rMpgHistoNumBins.png]]
+
+*** Simple histogram with specific bin width
+
+We can also set a specific bin width instead of a number of
+bins. E.g. we want to bin by 1.5 mpg, which can be done using the
+=binWidth= argument:
+#+BEGIN_SRC nim :tangle recipes/rMpgHistoBinWidth.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy")) + 
+  geom_histogram(binWidth = 1.5) +
+  ggsave("media/recipes/rMpgHistoBinWidth.pdf")
+#+END_SRC
+This generates:
+[[./media/recipes/rMpgHistoBinWidth.png]]
+
+*** Histogram with specific bin edges
+
+Or sometimes one has specific edges in mind one wants to
+investigate. This can be done via the =breaks= argument. NOTE: the
+breaks given are interpreted as left bin edges plus the right most
+edge of the last bin! So the below starts at 0 on the left side and
+the last bin ends at 40 on the right side.
+#+BEGIN_SRC nim :tangle recipes/rMpgHistoCustomBreaks.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy")) + 
+  geom_histogram(breaks = @[0'f64, 10, 15, 19, 23, 25, 40]) +
+  ggsave("media/recipes/rMpgHistoCustomBreaks.pdf")
+#+END_SRC
+This generates:
+[[./media/recipes/rMpgHistoCustomBreaks.png]]
+
+*** Bin with =geom_point= and overlay on histogram with specific bin edges
+
+While this is a bad example, there are use cases when aside from the
+bins for the histogram points should be used to indicate some data
+that is binned in the same way. For instance when comparing
+simulations with experimental data in particle physics. In this case
+here we'll just bin the point data in the same way as the histogram
+itself and draw the points into the center bin positions.
+#+BEGIN_SRC nim :tangle recipes/rMpgHistoPlusPoints.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
+ggplot(df, aes("cty")) +
+  geom_histogram(breaks = breaks) +
+  geom_point(stat="bin", breaks = breaks, binPosition = "center") +
+  ggsave("media/recipes/rMpgHistoPlusPoints.pdf")
+#+END_SRC
+Note both additional arguments to the =geom_point= call. The
+~stat="bin"~ tells ggplotnim that the user wants to perform binning of
+the given x columns ("cty"). With that setting the =breaks= argument
+won't be ignored and will be applied in the same way as for the
+=geom_histogram= call. Finally the ~binPosition="center"~ is used to
+draw the points not where the binning data is located (read: left bin
+edge), but rather in the center of the bins.
+
+This generates:
+[[./media/recipes/rMpgHistoPlusPoints.png]]
+
+*** Scatter plot with different point color
+
+Sometimes the black points (or color of some other non classified
+geom) might be boring. That's why the =geom_*= procs also take a
+=color= argument. This just takes a =chroma.Color= object. Let's color
+our points monokai pink:
+#+BEGIN_SRC nim :tangle recipes/rMpgCustomColorPoint.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
+ggplot(df, aes("displ", "cty")) +
+  geom_point(color = parseHex("F92672")) +
+  ggsave("media/recipes/rMpgCustomColorPoint.pdf")
+#+END_SRC
+
+*** Histogram from already binned data
+
+When dealing with histograms it's quite likely that the user has
+already computed the bin content with a custom binning before hand and
+simply wants to plot that information. This can also be done easily by
+building a DF from that prebinned data and using ~stat="identity"~ as
+the histogram argument:
+#+BEGIN_SRC nim :tangle recipes/rPrebinnedHisto.nim
+import ggplotnim
+let bins = @[0, 2, 5, 9, 15]
+let counts = @[0.1, 0.8, 0.3, 0.05, 0.0] # <- last element is dummy
+let df = seqsToDf({"bin_edges" : bins, "counts" : counts})
+ggplot(df, aes("bin_edges", "counts")) + 
+  geom_histogram(stat = "identity") +
+  ggsave("media/recipes/rPrebinnedHisto.pdf")
+#+END_SRC
+There are a couple of important things to mention here. In the case
+above the user hands =x= as the bin edges (!) starting from the left
+bin edge of the first bin to the right edge of the last bin. However,
+this means we only have =N - 1= actual bins. Yet the DF requires all
+columns to have the same number of entries (Note: technically that's
+not true, it'll be filled up with =VNull= values, yet it's not a nice
+solution and will cause other issues). 
+
+There are several ways to deal with this. Either one hands one
+additional dummy value in the =counts= sequence, which will be ignored
+for the bin content. Alternatively, one may only hand essentially the
+left edges of the bins (and thus as many =bins= elements as real
+=counts= values) and let ggplotnim determine the bin width. This works
+fine as long as the bin width of the second to last bin is the same as
+the bin width of the last bin. So if that is the case for your data,
+feel free to only hand =N - 1= elements. 
+
+Which generates the following:
+[[./media/recipes/rPrebinnedHisto.png]]
+
+*** Simple bar plot for N categories
+
+Often one deals with categorical data with N classes, e.g. the
+different type of cars listed in the =mpg= dataset and wishes to count
+the number of elements in each class. For this we can use a =geom_bar=
+plot. NOTE: For the moment the only function supported is the number
+of counts. =FormulaNode= and other Nim function support will probably
+be added at some point (or when desired by someone):
+#+BEGIN_SRC nim :tangle recipes/rMpgSimpleBarPlot.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("class")) + 
+  geom_bar() + 
+  ggsave("media/recipes/rMpgSimpleBarPlot.pdf")
+#+END_SRC
+Giving us the following result:
+[[./media/recipes/rMpgSimpleBarPlot.png]]
+
+*** Stacked bar plot for N categories split by some other category
+
+Sometimes the above classes may be part of some other class though,
+which is supposed to be split by as well. For instance whether cars of
+a specific class are 4WD, RWD or FWD:
+#+BEGIN_SRC nim :tangle recipes/rMpgStackedBarPlot.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("class", fill = "drv")) + 
+  geom_bar() + 
+  ggsave("media/recipes/rMpgStackedBarPlot.pdf")
+#+END_SRC
+Results in:
+[[./media/recipes/rMpgStakedBarPlot.png]]
+
+*** Points colored by some continuous scale
+
+*NOTE*: the used colormap still has to receive a legend!
+
+Sometimes a scatter plot is supposed to highlight some continuous
+value of the points. For instance we can color a =geom_point= plot of
+the =mpg= displacement versus the highway efficiency by the city
+efficiency to get an even fuller picture:
+#+BEGIN_SRC nim :tangle recipes/rMpgContinuousColorPoints.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("displ", "hwy", color = "cty")) + 
+  geom_point() + 
+  ggsave("media/recipes/rMpgContinuousColorPoints.pdf")
+#+END_SRC
+See:
+[[./media/recipes/rMpgContinuousColorPoints.png]]
+
+*** Using bars to show discrete counts
+
+Instead of using bars to show some count data classified by two
+columns, we can show the same thing using points instead. The same
+plot as above is then:
+#+BEGIN_SRC nim :tangle recipes/rMpgStackedPointPlot.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("class", fill = "drv")) + 
+  geom_point(stat = "count") + 
+  ggsave("media/recipes/rMpgStackedPointPlot.pdf")
+#+END_SRC
+Results in:
+[[./media/recipes/rMpgStackedPointPlot.png]]
+
+*** Plotting column Y1 and Y2 against X
+
+In many practical cases we may end up with some data =Y1= and =Y2=,
+which both is equivalent in the phase space sense and was measured
+against the same variable but is available only in the format of:
+#+BEGIN_SRC 
+# X        Y1        Y2
+x1       y1_1        y2_1
+x2       y1_2        y2_2
+... 
+#+END_SRC
+One case such as this would be having two different sensors for the
+same property, which both took data at the same time. In those cases
+one probably wants a plot of X against Y1 and X againt Y2 in one plot
+with two different colors.
+
+The naive way to do this is the following:
+#+BEGIN_SRC nim :tangle recipes/rTwoSensorsBadStyle.nim
+import ggplotnim, sequtils, seqmath
+let df = toDf(readCsv("data/50-18004.CSV"))
+ggplot(df) +
+  geom_line(aes(x = "in_s", y = "C1_in_V", color = "C1")) +
+  geom_line(aes(x = "in_s", y = "C2_in_V", color = "C2")) +
+  ggsave("media/recipes/rTwoSensorsBadStyle.pdf")
+#+END_SRC
+This generates the following:
+[[./media/recipes/rTwoSensorsBadStyle.pdf]]
+
+Which means that we specify the =x= and =y= aesthetics only in the two
+geoms and give it a color according to a string, which does represent
+a column of the =df=. In that way the =color= is being /set/ to "C1"
+and "C2". While this works it's maybe not the nicest way to handle
+this, since the =gather= proc is specifically there to convert a table
+from this short form of =X, Y1, Y2= to a long format dataframe of the
+type =X, Key, Value=, where =Key= stores the name of the previous
+column (or a custom name) and =Value= the value corresponding to =X=
+of that column. This simplifies the plotting to a single call to
+=geom_line= by specifying the =Channel= column as the discrete color scale:
+#+BEGIN_SRC nim :tangle recipes/rTwoSensorsGoodStyle.nim
+import ggplotnim, sequtils, seqmath
+let df = toDf(readCsv("data/50-18004.CSV"))
+let dfnew = df.gather("C1_in_V", "C2_in_V", key = "Channel", value = "V")
+# Plotting via `df` directly causes scale problems!
+ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
+  geom_line() +
+  ggsave("media/recipes/rTwoSensorsGoodStyle.pdf")
+#+END_SRC
+Which then results in the following nicer plot (note that the legend
+now says something more useful as its title):
+[[./media/recipes/rTwoSensorsGoodStyle.pdf]]
+
 *** TODO Log(-log) plot
 
-*** TODO Line + point plot (w/ different) number of elements per type
-e.g. fitting data to some points, calculating fit function as smooth
-fn, still having only N points
+See TMAS section below for now.
 
-*** TODO Two geoms w/ same X but different Y data, one colored
+*** TODO Line + point plot (w/ different) number of elements per type
+
+See TMAS section below for now.
 
 *** TODO Set custom margin on a label
 
 *** TODO Add lines in a plot to highlight something
 
+See TMAS section below for now.
+
+*** TODO Add lines in a plot to highlight something
+
+See TMAS section below for now.
 
 ** TMAS "Tell Me A Story" recipes
 
@@ -171,7 +446,7 @@ And finally create the plot of the dependency:
 ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   geom_line() +
   ggtitle("Gravitational acceleration of Earth depending on radial distance") +
-  ggsave("rNewtonAcceleration.pdf")
+  ggsave("media/recipes/rNewtonAcceleration.pdf")
 #+END_SRC
 The resulting plot is the following:
 [[./media/recipes/rNewtonAcceleration.png]]
@@ -209,6 +484,219 @@ we'd have to include the rotation of Earth to account for the
 centripetal force...  But since this isn't a physics lesson (going
 down this rabbit hole is a lot of fun though, I promise!), we'll stop
 here!
+
+*** "Tell me an axion story without telling it to me" story
+
+Creating a log-log plot is as easy as done in the =makePlot= proc at
+the bottom. And yes, there'll be explanations soon here for the
+curious of you! :)
+
+#+BEGIN_SRC nim :tangle recipes/rAxionMassesLogLog.nim
+import sequtils, seqmath, ggplotnim, strformat, algorithm, nlopt, options, strutils
+
+proc effPhotonMass(ne: float): float =
+  ## returns the effective photon mass for a given electron number density
+  const alpha = 1.0 / 137.0
+  const me = 511e3 # 511 keV
+  # note the 1.97e-7 cubed to account for the length scale in `ne`
+  result = sqrt( pow(1.97e-7, 3) * 4 * PI * alpha * ne / me )
+
+proc numDensity(c: float): float =
+  ## converts a molar concentration in mol / m^3 to a number density
+  const Z = 2 # number of electron in helium atom
+  result = Z * 6.022e23 * c
+
+proc molarAmount(p, vol, temp: float): float =
+  ## calculates the molar amount of gas given a certain pressure,
+  ## volume and temperature
+  ## the pressure is assumed in mbar
+  const gasConstant = 8.314 # joule K^-1 mol^-1
+  let pressure = p * 1e2 # pressure in Pa
+  result = pressure * vol / (gasConstant * temp)
+
+proc babyIaxoEffMass(p: float): float =
+  ## calculates the effective photon (and thus axion mass) for BabyIAXO given
+  ## a certain helium pressure in the BabyIAXO magnet
+  const vol = 10.0 * (PI * pow(0.3, 2)) # 10m length, bore radius 30 cm
+  # UPDATE: IAXO will be run at 4.2 K instead of 1.7 K
+  # const temp = 1.7 # assume 1.7 K same as CAST
+  const temp = 4.2
+  once:
+    echo "BabyIAXO magnet volume is ", vol, " m^3"
+    echo "BabyIAXO magnet temperature is ", temp, " K"
+  let amountMol = molarAmount(p, vol, temp) # amount of gas in mol
+  let numPerMol = numDensity(amountMol / vol) # number of electrons per m^3
+  result = effPhotonMass(numPerMol)
+
+proc logspace(start, stop: float, num: int, base = 10.0): seq[float] =
+  ## generates evenly spaced points between start and stop in log space
+  let linear = linspace(start, stop, num)
+  result = linear.mapIt(pow(base, it))
+
+proc makePlot(pstart, pstop: float, fname: string) =
+  let pressures = logspace(pstart, pstop, 1000) # 1000 values from 1e-5 mbar to 500 mbar
+  let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
+  # convert both seqs to a dataframe
+  let df = seqsToDf({"P / mbar" : pressures, "m_a / eV" : masses})
+  ggplot(df, aes("P / mbar", "m_a / eV")) +
+    geom_line() +
+    scale_x_log10() +
+    scale_y_log10() +
+    ggtitle("Sensitive axion mass in eV depending on helium pressure in mbar") +
+    ggsave(fname)
+
+makePlot(-6.0, 2.0, "rAxionMassesLogLog.pdf")
+#+END_SRC
+
+This creates the following plot:
+[[./media/recipes/axionMassesLogLog.png]]
+
+*** "Another one of the quiet stories" story 
+
+A typical problem is comparing some measured data from experiment with
+a theoretical model for which an analytical description may exist. So
+that the analytical model may be represented by O(1000) elements,
+while the measured data only consists of =N << 1000= elements. This
+can be done as shown below. It creates a plot of the mass attenuation
+function of X-rays in the energy range between =0-10 keV= (very soft
+X-rays) for ⁴He.
+#+BEGIN_SRC nim :tangle recipes/rMassAttenuationFunction.nim
+import sequtils, seqmath, ggplotnim, algorithm, strutils
+
+proc logMassAttenuation(e: float): float =
+  ## calculates the logarithm of the mass attenuation coefficient for a given
+  ## energy `e` in `keV` and the result in `cm^2/g`
+  result = -1.5832 + 5.9195 * exp(-0.353808 * e) + 4.03598 * exp(-0.970557 * e)
+
+let energies = linspace(0.0, 10.0 , 1000) # from 0 to 10 keV
+let logMuOverRho = energies.mapIt(logMassAttenuation(it))
+# now the non-log values
+let muOverRho = logMuOverRho.mapIt(exp(it))
+
+const massAttenuationFile = "data/mass_attenuation_nist_data.txt"
+# skip one line after header, second header line
+var dfMuRhoTab = toDf(readCsv(massAttenuationFile, skipLines = 1, sep = ' '))
+  # convert MeV energy to keV
+  .mutate(f{"Energy" ~ "Energy" * 1000.0})
+  .filter(f{"Energy" >= energies.min and "Energy" <= energies.max})
+# create df of interpolated values
+let dfMuRhoInterp = seqsToDf({ "E / keV" : energies,
+                               "mu/rho" : muOverRho })
+# rename the columns of the tabulated values df and create a log column
+dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" ~ "Energy"})
+# build combined DF
+let dfMuRho = bind_rows([("Interpolation", dfMuRhoInterp), 
+                         ("NIST", dfMuRhoTab)], 
+                        id = "type")
+
+# and the plot of the raw mu/rho values
+ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) + 
+  geom_line(data = dfMuRho.filter(f{"type" == "Interpolation"})) +
+  geom_point(data = dfMuRho.filter(f{"type" == "NIST"})) +
+  scale_y_log10() +
+  ggtitle("Mass attenuation coefficient interpolation and data") +
+  ggsave("media/recipes/rMassAttenuationFunction.pdf")
+#+END_SRC
+
+Gives:
+[[./media/recipes/rMassAttenuationFunction.png]]
+
+*** TODO Add lines in a plot to highlight something
+
+See TMAS section below for now.
+
+#+BEGIN_SRC nim :tangle recipes/rAxionMassVsDensity.nim
+import sequtils, seqmath, ggplotnim, algorithm, strutils
+
+proc logspace(start, stop: float, num: int, base = 10.0): seq[float] =
+  ## generates evenly spaced points between start and stop in log space
+  let linear = linspace(start, stop, num)
+  result = linear.mapIt(pow(base, it))
+
+proc density(p: float, temp = 4.2): float = 
+  ## returns the density of the gas for the given pressure.
+  ## The pressure is assumed in `mbar` and the temperature (in `K`).
+  ## The default temperature corresponds to BabyIAXO aim.
+  ## Returns the density in `g / cm^3`
+  const gasConstant = 8.314 # joule K^-1 mol^-1
+  const M = 4.002602 # g / mol
+  let pressure = p * 1e2 # pressure in Pa
+  # factor 1000 for conversion of M in g / mol to kg / mol
+  result = pressure * M / (gasConstant * temp * 1000.0)
+  # convert the result to g / cm^3 for use with mass attenuations
+  result = result / 1000.0
+
+proc numDensity(c: float): float =
+  ## converts a molar concentration in mol / m^3 to a number density
+  const Z = 2 # number of electron in helium atom
+  result = Z * 6.022e23 * c
+
+proc effPhotonMass(ne: float): float =
+  ## returns the effective photon mass for a given electron number density
+  const alpha = 1.0 / 137.0
+  const me = 511e3 # 511 keV
+  # note the 1.97e-7 cubed to account for the length scale in `ne`
+  result = sqrt( pow(1.97e-7, 3) * 4 * PI * alpha * ne / me )
+
+proc pressureGivenEffPhotonMass(m_gamma: float, T = 4.2): float =
+  ## calculates the inverse of `babyIaxoEffPhotonMass`, i.e. the pressure 
+  ## from a given effective photon mass in BabyIAXO
+  result = m_gamma * m_gamma * T / 0.01988
+
+proc molarAmount(p, vol, temp: float): float =
+  ## calculates the molar amount of gas given a certain pressure,
+  ## volume and temperature
+  ## the pressure is assumed in mbar
+  const gasConstant = 8.314 # joule K^-1 mol^-1
+  let pressure = p * 1e2 # pressure in Pa
+  result = pressure * vol / (gasConstant * temp)
+
+proc babyIaxoEffMass(p: float): float =
+  ## calculates the effective photon (and thus axion mass) for BabyIAXO given 
+  ## a certain helium pressure in the BabyIAXO magnet
+  const vol = 10.0 * (PI * pow(0.3, 2)) # 10m length, bore radius 30 cm 
+  const temp = 4.2
+  let amountMol = molarAmount(p, vol, temp) # amount of gas in mol
+  let numPerMol = numDensity(amountMol / vol) # number of electrons per m^3
+  result = effPhotonMass(numPerMol) 
+
+proc vacuumMassLimit(energy: float, magnetLength = 10.0): float =
+  ## given an axion energy in keV, calculate the limit of coherence
+  ## for the vacuum case in BabyIAXO
+  let babyIaxoLen = magnetLength / 1.97e-7 # length in "eV"
+  result = sqrt(PI * 2 * energy * 1e3 / babyIaxoLen) # convert energy to eV
+
+const babyIaxoVacuumMassLimit = vacuumMassLimit(4.2)
+proc m_a_vs_density(pstart, pstop: float) =
+  let pressures = logspace(pstart.log10, pstop.log10, 1000)
+  let densities = pressures.mapIt(density(it, 4.2))
+  let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
+  # convert both seqs to a dataframe
+  let ref1Bar = density(1000, 293.15)
+  let df1bar = seqsToDf({"ρ / g/cm^3" : @[ref1Bar, ref1Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let ref3Bar = density(3000, 293.15)
+  let df3bar = seqsToDf({"ρ / g/cm^3" : @[ref3Bar, ref3Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let refVacLimit = density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit))
+  let dfVacLimit = seqsToDf({"ρ / g/cm^3" : @[refVacLimit, refVacLimit], "m_a / eV" : @[1e-2, 1.0]})
+  let df = seqsToDf({"ρ / g/cm^3" : densities, "m_a / eV" : masses})
+  let dfComb = bind_rows([("ma vs ρ", df),
+                          ("1 bar @ 293 K", df1bar),
+                          ("3 bar @ 293 K", df3bar),
+                          ("Vacuum limit", dfVacLimit)],
+                         id = "Legend")
+  ggplot(dfComb, aes("ρ / g/cm^3", "m_a / eV", color = "Legend")) +
+    geom_line() + 
+    scale_x_log10() + 
+    scale_y_log10() +
+    ggtitle("Sensitive axion mass in eV depending on helium density in g / cm^3") +
+    ggsave("media/recipes/rAxionMassVsDensity.pdf")
+
+m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,
+               pressureGivenEffPhotonMass(0.4521) * 1.1)
+#+END_SRC
+
+Which gives us the following annotated plot:
+[[./media/recipes/rAxionMassVsDensity.png]]
 
 ** Other resources
 
