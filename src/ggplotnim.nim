@@ -1274,55 +1274,9 @@ genGetScale(color)
 genGetScale(size)
 genGetScale(shape)
 
-proc createPointGobj(view: var Viewport,
-                     fg: FilledGeom): seq[GraphObject] =
-  ## creates the GraphObjects for a `gkPoint` geom
-  ## TODO: we could unify the code in the `create*Gobj` procs, by
-  ## - making all procs in ginger take a `Style`
-  ## - just build the style in the same way we do here (in a separate proc)
-  ##   and create the `GraphObject`
-  doAssert fg.geom.kind == gkPoint
-  doAssert fg.geom.style.isSome
-  for (styles, subDf) in enumerateData(fg):
-    var points = newSeq[Point](subDf.len)
-    if styles.len == 1:
-      let style = styles[0]
-      for i in 0 ..< subDf.len:
-        result.add initPoint(view, (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat),
-                       marker = style.marker,
-                       color = style.color,
-                       size = style.size)
-    else:
-      for i in 0 ..< subDf.len:
-        result.add initPoint(view, (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat),
-                       marker = styles[i].marker,
-                       color = styles[i].color,
-                       size = styles[i].size)
-
-proc createLineGobj(view: var Viewport,
-                    fg: FilledGeom): seq[GraphObject] =
-  ## creates the `goPolyLine` objects for the given geom
-  doAssert fg.geom.kind == gkLine
-  doAssert fg.geom.style.isSome
-  # for line gobj we have to be a little more careful, because we draw the whole line
-  # in one go. Thus collect marker styles and corresponding indices first
-  for (styles, subDf) in enumerateData(fg):
-    var points = newSeq[Point](subDf.len)#pointIdxs.len)
-    for i in 0 ..< subDf.len: #pointIdxs:
-      points[i] = (x: subDf[fg.xcol][i].toFloat, y: subDf[fg.ycol][i].toFloat)
-    if styles.len == 1:
-      result.add view.initPolyLine(points, some(styles[0]))
-    else:
-      # since `ginger` doesn't support gradients on lines atm, we just draw from
-      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
-      # of styles between the two, but we don't atm!
-      echo "WARNING: using non-gradient drawing of line with multiple colors!"
-      for i in 0 ..< styles.high: # last element covered by i + 1
-        result.add view.initPolyLine(@[points[i], points[i+1]], some(styles[i]))
-
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0),
-                     width = 1.0 ) =
+                     width = 1.0) =
   ## creates a rectangle for a histogram and adds it to the viewports object
   # TODO: replace width argument by float range, so we
   # only allow values [0.0..1.0]
@@ -1336,173 +1290,43 @@ proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                           style = some(style))
     view.addObj r
 
-proc addHistoRects(view: var Viewport,
-                   data: OrderedTable[int, (seq[float], Style)],
-                   yScale: ginger.Scale,
-                   position: PositionKind,
-                   width = 1.0,
-                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
-  ## Adds all rectangles for a histogram
-  ## The `data` table contains both the `seq[float]` data and the `Style`
-  ## that corresponds to it
-  ## If `ignorePortIdxs` contains values, we will skip the children viewports
-  ## corresponding to these indices
-  ## generate the histogram
-  var i = 0
-  var idx = 0
-  for p in mitems(view):
-    if i in ignorePortIdxs:
-      inc i
-      continue
-    case position
-    of pkIdentity:
-      for label, (val, style) in data:
-        p.addHistoRect(val[idx], style, width = width)
-    of pkStack:
-      # create one rectangle for each label, each successive starting at the
-      # top of the previous
-      var prevTop = c1(1.0)
-      for label, (val, style) in data:
-        p.addHistoRect(val[idx], style, prevTop, width = width)
-        prevTop = prevTop - Coord1D(pos: yScale.high - val[idx].float, kind: ukData,
-                                    scale: yScale, axis: akY)
-    of pkDodge:
-      raise newException(Exception, "Not implemented yet :)")
-    of pkFill:
-      raise newException(Exception, "Not implemented yet :)")
-    inc i
-    inc idx
+proc addHistoCentered[T](view: var Viewport, val: T, style: Style,
+                         yPos: Coord1D = c1(1.0),
+                               width = 1.0): GraphObject =
+  ## creates a rectangle for a histogram and adds it to the viewports object
+  # TODO: replace width argument by float range, so we
+  # only allow values [0.0..1.0]
+  if val.float > 0.0:
+    # calc left side of bar based on width, since we wa t the bar to be centered
+    let left = (1.0 - width) / 2.0
+    view.addObj view.initRect(Coord(x: c1(left),
+                                y: yPos), # bottom left
+                          quant(width, ukRelative),
+                          quant(-val.float, ukData),
+                          style = some(style))
+    #view.addObj result
 
-proc addHistoRects(view: var Viewport,
-                   hist: seq[float],
-                   yScale: ginger.Scale,
-                   style: Style,
-                   position: PositionKind,
-                   width = 1.0,
-                   ignorePortIdxs: HashSet[int] = initHashSet[int]()) =
-  ## overload of the above working on a whole data frame. This just extracts the
-  ## (label / data) pairs and hands it to `addHistoRects`
-  var data = initOrderedTable[int, (seq[float], Style)]()
-  data[0] = (hist, style)
-  view.addHistoRects(data, yScale, position, width = width, ignorePortIdxs = ignorePortIdxs)
+proc addPointCentered[T](view: var Viewport, val: T, style: Style): GraphObject =
+  ## creates a rectangle for a histogram and adds it to the viewports object
+  if val.float > 0.0:
+    # TODO: dispatch on discrete axis!
+    view.addObj initPoint(view,
+                          pos = Coord(
+                            x: c1(0.5, ukRelative),
+                            y: Coord1D(pos: val, kind: ukData,
+                                       axis: akY,
+                                       scale: view.yScale)),
+                          marker = style.marker,
+                          color = style.color,
+                          size = style.size)
 
-proc addFreqPoly(view: var Viewport,
-                 data: OrderedTable[int, (seq[float], Style)],
-                 binWidth: float,
-                 nbins: int,
-                 position: PositionKind) =
-  # only single viewport will be used
-  # calculate bin centers
-  let binCenters = linspace(view.xScale.low + binWidth / 2.0, view.xScale.high - binWidth / 2.0, nbins)
-  # build data points for polyLine
-  case position
-  of pkIdentity:
-    for label, (val, style) in data:
-      var points = newSeq[Point](val.len)
-      for i in 0 ..< nbins:
-        points[i] = (x: binCenters[i], y: val[i])
-      view.addObj view.initPolyLine(points, some(style))
-  of pkStack:
-    var polyTab = initOrderedTable[int, seq[seq[Point]]]()
-    for label in keys(data):
-      polyTab[label] = newSeqWith(1, newSeq[Point]())
-
-    # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
-    # each line disconnected by more than 1 empty bin
-    # This is somewhat complicated.
-    for i in 0 ..< nbins:
-      var binVal = 0.0
-      for label, (val, style) in data:
-        # add the current value to the current bin value
-        binVal = binVal + val[i]
-        if val[i] > 0 or # has data int it, add
-           binVal == 0 or # nothing in the bin yet, add
-           polyTab[label][^1].len == 0 or # current polyLine is empty, add
-          (polyTab[label][^1].len > 0 and i > 0 and # sanity checks
-            (val[i - 1] > 0 and val[i] == 0) # this element is empty, but last
-                                             # was not, so add to draw back to 0
-          ):
-          polyTab[label][^1].add (x: binCenters[i], y: binVal)
-        elif polyTab[label][^1].len > 0 and i != nbins - 1 and val[i + 1] == 0:
-          # only create new seq, if has content and next element is 0
-          polyTab[label].add newSeq[Point]()
-    # now create the poly lines from the data
-    for label, (val, style) in data:
-      for line in polyTab[label]:
-        if line.len > 0:
-          view.addObj view.initPolyLine(line, some(style))
-  else:
-    doAssert false
-
-proc addFreqPoly(view: var Viewport,
-                 hist: seq[float],
-                 binWidth: float,
-                 nbins: int,
-                 style: Style,
-                 position: PositionKind) =
-  var data = initOrderedTable[int, (seq[float], Style)]()
-  data[0] = (hist, style)
-  view.addFreqPoly(data, binWidth, nbins, position)
-
-proc createHistFreqPolyGobj(view: var Viewport,
-                            fg: FilledGeom): seq[GraphObject] =
-  let geom = fg.geom
-  let nbins = fg.numX
-  # create the layout needed for the different geoms
-  case geom.kind
-  of gkHistogram:
-    view.layout(geom.numBins, 1)
-  else:
-    doAssert geom.kind == gkFreqPoly
-    # we juse use the given `Viewport`
-  var labData = initOrderedTable[int, (seq[float], Style)]()
-  var numLabel = 0
-  for (styles, subDf) in enumerateData(fg):
-    var points = newSeq[Point](subDf.len)
-    let bins = dataTo(subDf, fg.xcol, float)
-    let hist = dataTo(subDf, fg.ycol, float)
-    if styles.len == 1:
-      let style = styles[0]
-      labData[numLabel] = (hist, style)
-    else:
-      # what's this supposed to be? continuously colored bins?
-      raise newException(Exception, "Does this make sense?")
-    inc numLabel
-
-  # reverse the order of `labData`, so that the element class with highest string
-  # value is located at the bottom of the histogram (to match `ggplot2`)
-  # This just reverses the order
-  labData.sort(
-    cmp = (
-      proc(a, b: (int, (seq[float], Style))): int =
-        result = system.cmp(a[0], b[0])
-    ),
-    order = SortOrder.Descending)
-  # with the data available, create the histogram rectangles
-  # fix the data scales on the children viewports
-  case geom.kind
-  of gkHistogram:
-    view.addHistoRects(labData, fg.yScale, geom.position)
-  of gkFreqPoly:
-    let binWidth = (fg.xScale.high - fg.xScale.low).float / nbins.float
-    view.addFreqPoly(labData, binWidth, nbins, geom.position)
-  else:
-    doAssert false
-
-proc createBarGobj(view: var Viewport,
-                   fg: FilledGeom,
-                   theme: Theme): seq[GraphObject] =
+proc getDiscreteData(view: var Viewport,
+                     fg: FilledGeom,
+                     theme: Theme):
+                       tuple[data: OrderedTable[int, (seq[float], Style)],
+                             toIgnore: HashSet[int]] =
   ## creates the GraphObjects required for a bar plot
   let numElements = fg.numX
-  let discrMarginOpt = theme.discreteScaleMargin
-  var discrMargin = quant(0.0, ukRelative)
-  if discrMarginOpt.isSome:
-    discrMargin = discrMarginOpt.unsafeGet
-  let indWidths = toSeq(0 ..< numElements).mapIt(quant(0.0, ukRelative))
-  view.layout(numElements + 2, 1,
-              colwidths = concat(@[discrMargin],
-                                 indWidths,
-                                 @[discrMargin]))
   let toIgnore = toSet([0, numElements + 1])
   var labData = initOrderedTable[int, (seq[float], Style)]()
   var numLabel = 0
@@ -1523,25 +1347,290 @@ proc createBarGobj(view: var Viewport,
         result = system.cmp(a[0], b[0])
     ),
     order = SortOrder.Descending)
-  view.addHistoRects(labData, fg.yScale, fg.geom.position,
-                     width = 0.8, ignorePortIdxs = toIgnore)
+  result = (data: labData, toIgnore: toIgnore)
+
+proc addGeomCentered(view: var Viewport,
+                     fg: FilledGeom): seq[GraphObject] =
+  ## given N(xM soon) viewports, will add the `data` at index `i` for viewport
+  ## `i` in the center using the given GeomKind
+  doAssert fg.dcKindX == dcDiscrete or fg.dcKindY == dcDiscrete, "at least one axis must be discrete!"
+  # TODO: can both be discrete? Yes.
+  # TODO: can identity and stack be unified?
+  let (data, toIgnore) = getDiscreteData(view, fg, Theme())
+  var i = 0
+  var idx = 0
+  for p in mitems(view):
+    if i in toIgnore:
+      inc i
+      continue
+    case fg.geom.position
+    of pkIdentity:
+      for label, (val, style) in data:
+        case fg.geom.kind
+        of gkBar:
+          result.add p.addHistoCentered(val[idx], style, width = 0.8) # geom.barWidth
+        of gkPoint:
+          result.add p.addPointCentered(val[idx], style)
+        of gkLine:
+          raise newException(Exception, "Need two points for line!")
+        else:
+          raise newException(Exception, "Implement me: " & $fg.geom.kind)
+    of pkStack:
+      # create one rectangle for each label, each successive starting at the
+      # top of the previous
+      var prevTop = c1(1.0)
+      var prevVal = 0.0
+      for label, (val, style) in data:
+        case fg.geom.kind
+        of gkBar:
+          result.add p.addHistoCentered(val[idx], style, prevTop, width = 0.8) # geom.barWidth
+        of gkPoint:
+          result.add p.addPointCentered(val[idx] + prevVal, style)
+        else:
+          raise newException(Exception, "Implement me: " & $fg.geom.kind)
+        prevVal = val[idx]
+        prevTop = prevTop - Coord1D(pos: fg.yScale.high - val[idx].float, kind: ukData,
+                                    scale: fg.yScale, axis: akY)
+    of pkDodge:
+      raise newException(Exception, "Not implemented yet :)")
+    of pkFill:
+      raise newException(Exception, "Not implemented yet :)")
+    inc i
+    inc idx
+
+proc drawStackedPolyLine(view: var Viewport,
+                         prevVals: seq[float],
+                         linePoints: seq[Point],
+                         style: Style): GraphObject =
+  ## used both for `gkLine` as well as `gkPolyLine`!
+  # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
+  # each line disconnected by more than 1 empty bin
+  # This is somewhat complicated.
+  var polyLines: seq[seq[Point]]
+  let nElems = linePoints.len
+  for i, p in linePoints:
+    let (x, y) = p
+    # add the current value to the current bin value
+    let binVal = prevVals[i] + y
+    if y > 0 or # has data int it, add
+       binVal == 0 or # nothing in the bin yet, add
+       polyLines[^1].len == 0 or # current polyLine is empty, add
+      (polyLines[^1].len > 0 and i > 0 and # sanity checks
+        (linePoints[i - 1].y > 0 and y == 0) # this element is empty, but last
+                                             # was not, so add to draw back to 0
+      ):
+      polyLines[^1].add (x: x, y: binVal)
+    elif polyLines[^1].len > 0 and i != nElems - 1 and linePoints[i + 1].y == 0:
+      # only create new seq, if has content and next element is 0
+      polyLines.add newSeq[Point]()
+  # now create the poly lines from the data
+  for line in polyLines:
+    if line.len > 0:
+      result = view.initPolyLine(line, some(style))
+
+func readOrCalcBinWidth(df: DataFrame, idx: int,
+                        dataCol: string,
+                        col = "binWidths"): float =
+  ## either reads the bin width from the DF for element at `idx`
+  ## from the bin widths `col` or calculates it from the distance
+  ## to the next bin in the `dataCol`.
+  ## NOTE: Cannot be calculated for the last element of the DataFrame
+  ## DataFrame. So make sure the DF contains the right bin edge
+  ## (we assume bins are actually left edge) is included in the DF.
+  if col in df:
+    result = df[col][idx].toFloat
+  elif idx < df.high:
+    result = (df[dataCol][idx + 1].toFloat - df[dataCol][idx].toFloat)
+
+proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
+  ## moves `x` by half the bin width, if required by `bpKind`
+  case bpKind
+  of bpLeft, bpNone:
+    # bpLeft requires no change, since bins are assumed to be left edge based
+    # or bpNone if data is not bin like
+    discard
+  of bpCenter:
+    # since our data is given as `bpLeft`, move half to right
+    x = x + binWidth / 2.0
+  of bpRight:
+    x = x + binWidth
+
+proc identityDraw[T: Style | seq[Style]](view: var Viewport,
+                                         fg: FilledGeom,
+                                         styleIn: T,
+                                         df: DataFrame): seq[GraphObject] =
+  # TODO: add support for decision what bin columns means (for results of
+  # statBin that is! Left edge, center or right edge!
+  # needed for gkLine, gkPolyLine
+  var linePoints = newSeqOfCap[(float, float)](df.len)
+  # needed for histogram
+  var binWidth: float
+  for i in 0 ..< df.len:
+    when T is Style:
+      let style = styleIn
+    else:
+      let style = styleIn[i]
+    var x = df[fg.xcol][i].toFloat
+    let y = df[fg.ycol][i].toFloat
+    binWidth = readOrCalcBinWidth(df, i, fg.xcol)
+    # potentially move `x` by half of the `binWidth`
+    x.moveBinPosition(fg.geom.binPosition, binWidth)
+    case fg.geom.kind
+    of gkPoint:
+      result.add initPoint(view, (x: x, y: y),
+                           marker = style.marker,
+                           color = style.color,
+                           size = style.size)
+    of gkHistogram:
+      let xPos = x # assumes bins are left edges
+      let rect = view.initRect(Coord(x: Coord1D(pos: xPos, kind: ukData,
+                                                axis: akX, scale: fg.xScale),
+                                     y: c1(1.0)),
+                                quant(binWidth, ukData),
+                                quant(-y, ukData),
+                                style = some(style))
+      result.add rect
+    of gkLine, gkFreqPoly:
+      # have to accumulate the data first before we draw it
+      linePoints.add (x: x, y: y)
+    else:
+      raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
+  # for `gkLine`, `gkFreqPoly` now draw the lines
+  if fg.geom.kind in {gkLine, gkFreqPoly}:
+    when T is Style:
+      result.add view.initPolyLine(linePoints, some(styleIn))
+    else:
+      # since `ginger` doesn't support gradients on lines atm, we just draw from
+      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
+      # of styles between the two, but we don't atm!
+      echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      for i in 0 ..< styleIn.high: # last element covered by i + 1
+        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styleIn[i]))
+
+
+proc stackDraw[T: Style | seq[Style]](view: var Viewport,
+                                      prevVals: var seq[float],
+                                      fg: FilledGeom,
+                                      styleIn: T,
+                                      df: DataFrame): seq[GraphObject] =
+  # TODO: add support for decision what bin columns means (for results of
+  # TODO: add support for stacking in X rather than Y
+  # TODO: unify with identityDraw? Lots of similar code!
+  # statBin that is! Left edge, center or right edge!
+  # needed for gkLine, gkPolyLine
+  var linePoints = newSeqOfCap[Point](df.len)
+  var binWidth: float
+  for i in 0 ..< df.len:
+    when T is Style:
+      let style = styleIn
+    else:
+      let style = styleIn[i]
+    var x = df[fg.xcol][i].toFloat
+    let y = df[fg.ycol][i].toFloat
+    binWidth = readOrCalcBinWidth(df, i, fg.xcol)
+    # potentially move `x` by half of the `binWidth`
+    x.moveBinPosition(fg.geom.binPosition, binWidth)
+    case fg.geom.kind
+    of gkPoint:
+      result.add initPoint(view, (x: x, y: y + prevVals[i]), # TODO: is + prevals correct
+                           marker = style.marker,
+                           color = style.color,
+                           size = style.size)
+    of gkHistogram:
+      let newypos = c1(1.0) - Coord1D(pos: fg.yScale.high - prevVals[i], kind: ukData,
+                                      axis: akY, scale: fg.yScale)
+      let rect = view.initRect(Coord(x: Coord1D(pos: x, kind: ukData,
+                                                axis: akX, scale: fg.xScale),
+                                     y: newypos),
+                                quant(binWidth, ukData),
+                                quant(-y.float, ukData),
+                                style = some(style))
+      result.add rect
+    of gkLine, gkFreqPoly:
+      # have to accumulate the data first before we draw it
+      linePoints.add (x: x, y: y)
+    else:
+      raise newException(Exception, "I'm not implemented yet in stackDraw: " & $fg.geom.kind)
+    # now update the previous values
+    prevVals[i] += y
+  # for `gkLine`, `gkFreqPoly` now draw the lines
+  if fg.geom.kind in {gkLine, gkFreqPoly}:
+    when T is Style:
+      #result.add view.initPolyLine(linePoints, some(styles[0]))
+      result.add view.drawStackedPolyLine(prevVals, linePoints, styleIn)
+    else:
+      # since `ginger` doesn't support gradients on lines atm, we just draw from
+      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
+      # of styles between the two, but we don't atm!
+      echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      if fg.geom.kind == gkFreqPoly:
+        echo "WARNING: probably doing something weird right now drawing gkFreqPoly!"
+      for i in 0 ..< styleIn.high: # last element covered by i + 1
+        let start = (x: linePoints[i].x, y: linePoints[i].y + prevVals[i])
+        let stop = (x: linePoints[i + 1].x, y: linePoints[i + 1].y + prevVals[i + 1])
+        result.add view.initPolyLine(@[start, stop],
+                                     some(styleIn[i]))
+
+template colsRows(fg: FilledGeom): (int, int) =
+  var
+    cols = 1
+    rows = 1
+  if fg.dcKindX == dcDiscrete:
+    cols = fg.numX
+  if fg.dcKindY == dcDiscrete:
+    rows = fg.numY
+  (cols, rows)
+
+proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
+  ## prepares the required viewports in `view` for `fg` to be drawn in
+  ## In each axis x,y will create N children viewports for the number
+  ## of discrete labels along that axis. For continuous data no further
+  ## children are created.
+  let (cols, rows) = colsRows(fg)
+  # view.layout(cols, rows) # TODO: extend for discrete rows
+  let discrMarginOpt = theme.discreteScaleMargin
+  var discrMargin = quant(0.0, ukRelative)
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet
+  let indWidths = toSeq(0 ..< cols * rows).mapIt(quant(0.0, ukRelative))
+  view.layout(cols * rows + 2, 1,
+              colwidths = concat(@[discrMargin],
+                                 indWidths,
+                                 @[discrMargin]))
 
 proc createGobjFromGeom(view: var Viewport,
                         fg: FilledGeom,
                         theme: Theme): seq[GraphObject] =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
-  case fg.geom.kind
-  of gkPoint:
-    result = view.createPointGobj(fg)
-  of gkHistogram, gkFreqPoly:
-    result = view.createHistFreqPolyGobj(fg)
-  of gkLine:
-    result = view.createLineGobj(fg)
-  of gkBar:
-    result = view.createBarGobj(fg, theme)
-  else:
-    discard
+  view.prepareViews(fg, theme)
+  # TODO: some geoms are by (our) definition discrete, e.g. geom_bar!
+  # should we case on those first?
+  case fg.dcKindX
+  of dcDiscrete:
+    # draw discrete along x
+    # doAssert fg.dcKindY == dcContinuous
+    # TODO: make sure all procs return correct stuff...!
+    result = view.addGeomCentered(fg)
+  of dcContinuous:
+    # draw continuous both axes
+    case fg.geom.position
+    of pkIdentity:
+      for (styles, subDf) in enumerateData(fg):
+        if styles.len == 1:
+          result.add view.identityDraw(fg, styles[0], subDf)
+        else:
+          result.add view.identityDraw(fg, styles, subDf)
+    of pkStack:
+      # yield data in reversed order, so that "higehst value" appears at bottom
+      var prevVals = newSeq[float](fg.numX)
+      for (styles, subDf) in reversedEnumerateData(fg):
+        if styles.len == 1:
+          result.add view.stackDraw(prevVals, fg, styles[0], subDf)
+        else:
+          result.add view.stackDraw(prevVals, fg, styles, subDf)
+    else:
+      raise newException(Exception, $fg.geom.position & " not implemented yet. :)")
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
