@@ -173,7 +173,6 @@ suite "Value":
     check $n21 == "\"2.441E-04\""
     check $n22 == "\"-2.441E-04\""
 
-
   test "Math with Values":
     check (v1 * v2).kind == VFloat
     check (v1 + v1).kind == VFloat
@@ -263,15 +262,20 @@ suite "Geom":
     discard
 
 suite "GgPlot":
-  test "histogram with discrete scale fails":
+  test "Histogram with discrete scale fails":
     let mpg = toDf(readCsv("data/mpg.csv"))
     expect(ValueError):
       ggplot(mpg, aes("class")) + geom_histogram() + ggsave("fails.pdf")
 
+  test "Bar with continuous scale fails":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    expect(ValueError):
+      ggplot(mpg, aes("cty")) + geom_bar() + ggsave("fails.pdf")
+
   test "Bar plot with string based scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
     let plt = ggcreate(ggplot(mpg, aes("class")) + geom_bar())
-    let plotview = plt[4]
+    let plotview = plt.view[4]
     check plotview.name == "plot"
     proc calcPos(classes: seq[string]): seq[float] =
       ## given the possible classes, calculates the positions the
@@ -424,9 +428,10 @@ suite "GgPlot":
     let x = logspace(-6, 1.0, 100)
     let y = x.mapIt(exp(-it))
     let df = seqsToDf({"x" : x, "exp" : y})
-    let plt = ggcreate(ggplot(df, aes("x", "exp")) +
+    let pltView = ggcreate(ggplot(df, aes("x", "exp")) +
       geom_line() +
       scale_y_log10())
+    let plt = pltView.view
     # extract x and y label of plt's objects
     let xLab = plt.children[4].objects.filterIt(it.name == "xLabel")
     let yLab = plt.children[4].objects.filterIt(it.name == "yLabel")
@@ -458,11 +463,12 @@ suite "GgPlot":
     let df = seqsToDf({"x" : x, "exp" : y})
     const xMargin = 0.5
     const yMargin = 1.7
-    let plt = ggcreate(ggplot(df, aes("x", "exp")) +
+    let pltView = ggcreate(ggplot(df, aes("x", "exp")) +
       geom_line() +
       xlab("Custom label", margin = xMargin) +
       ylab("More custom!", margin = yMargin) +
       scale_y_log10())
+    let plt = pltView.view
     # extract x and y label of plt's objects
     let view = plt.children[4]
     let xLab = view.objects.filterIt(it.name == "xLabel")
