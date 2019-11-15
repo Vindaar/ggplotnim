@@ -1,4 +1,4 @@
-import sequtils, seqmath, ggplotnim, algorithm, strutils
+import sequtils, seqmath, ggplotnim
 
 proc logspace(start, stop: float, num: int, base = 10.0): seq[float] =
   ## generates evenly spaced points between start and stop in log space
@@ -81,7 +81,7 @@ proc m_a_vs_density(pstart, pstop: float) =
     scale_x_log10() + 
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium density in g / cm^3") +
-    ggsave("media/recipes/rAxionMassVsDensity.pdf")
+    ggsave("media/recipes/rAxionMassVsDensity.png")
 
 m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,
                pressureGivenEffPhotonMass(0.4521) * 1.1)

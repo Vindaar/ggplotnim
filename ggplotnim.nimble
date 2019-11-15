@@ -55,28 +55,32 @@ task docs, "Generate HTML docs using the Org file":
     let fname = f.basename & ".html"
     mvFile fname, "docs/" & $fname
 
+import shell
 task recipes, "Generate and run all recipes":
   exec "ntangle recipes.org"
-  exec "nim c -r recipes/rStackedMpgHistogram.nim"
-  exec "nim c -r recipes/rNewtonAcceleration.nim"
-  exec "nim c -r recipes/rMpgStackedPointPlot.nim"
-  exec "nim c -r recipes/rLinePlotSize.nim"
-  exec "nim c -r recipes/rMpgHistoBinWidth.nim"
-  exec "nim c -r recipes/rMpgContinuousColorPoints.nim"
-  exec "nim c -r recipes/rAxionMassVsDensity.nim"
-  exec "nim c -r recipes/rMpgHistoNumBins.nim"
-  exec "nim c -r recipes/rMpgHistoCustomBreaks.nim"
-  exec "nim c -r recipes/rMpgCustomColorPoint.nim"
-  exec "nim c -r recipes/rMpgHistoPlusPoints.nim"
-  exec "nim c -r recipes/rSimpleLinePlot.nim"
-  exec "nim c -r recipes/rMpgSimpleBarPlot.nim"
-  exec "nim c -r recipes/rTwoSensorsBadStyle.nim"
-  exec "nim c -r recipes/rTwoSensorsGoodStyle.nim"
-  exec "nim c -r recipes/rPrebinnedHisto.nim"
-  exec "nim c -r recipes/rMassAttenuationFunction.nim"
-  exec "nim c -r recipes/rAxionMassesLogLog.nim"
-  exec "nim c -r recipes/rStackedMpgFreqpoly.nim"
-  exec "nim c -r recipes/rMpgStackedBarPlot.nim"
+  # without using shell running all these commands sometimes makes
+  # travis throw up and stall....
+  shell:
+    nim c "-r recipes/rStackedMpgHistogram.nim"
+    nim c "-r recipes/rNewtonAcceleration.nim"
+    nim c "-r recipes/rMpgStackedPointPlot.nim"
+    nim c "-r recipes/rLinePlotSize.nim"
+    nim c "-r recipes/rMpgHistoBinWidth.nim"
+    nim c "-r recipes/rMpgContinuousColorPoints.nim"
+    nim c "-r recipes/rAxionMassVsDensity.nim"
+    nim c "-r recipes/rMpgHistoNumBins.nim"
+    nim c "-r recipes/rMpgHistoCustomBreaks.nim"
+    nim c "-r recipes/rMpgCustomColorPoint.nim"
+    nim c "-r recipes/rMpgHistoPlusPoints.nim"
+    nim c "-r recipes/rSimpleLinePlot.nim"
+    nim c "-r recipes/rMpgSimpleBarPlot.nim"
+    nim c "-r recipes/rTwoSensorsBadStyle.nim"
+    nim c "-r recipes/rTwoSensorsGoodStyle.nim"
+    nim c "-r recipes/rPrebinnedHisto.nim"
+    nim c "-r recipes/rMassAttenuationFunction.nim"
+    nim c "-r recipes/rAxionMassesLogLog.nim"
+    nim c "-r recipes/rStackedMpgFreqpoly.nim"
+    nim c "-r recipes/rMpgStackedBarPlot.nim"
 
 task recipesPlots, "Generate the PNGs from all recipes":
   exec """for f in media/recipes/r*.pdf; do inkscape $f --export-png="${f/.pdf/.png}"; done"""

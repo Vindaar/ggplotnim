@@ -3,40 +3,43 @@ import ggplotnim, unittest, strutils, os, sequtils, osproc, shell
 #[
 This test simply builds all recipes, runs them and compares the final image of
 all recipes with the expected plots in `media/expected`
+
+NOTE: this test depends on imagemagick, since it converts the PNG files to PPM!
 ]#
 
 suite "Compare recipe output":
   test "Compare recipe output":
-    # discard execCmdEx("nimble recipes")
-    let res = shellVerbose:
-      nimble recipes
-    echo res
-    let files = @["rStackedMpgHistogram.pdf",
-                  "rNewtonAcceleration.pdf",
-                  "rMpgStackedPointPlot.pdf",
+    let runRecipes = shellVerbose:
+      nimble recipes # currently done in .travis.yml
+    let files = @["rStackedMpgHistogram.png",
+                  "rNewtonAcceleration.png",
+                  "rMpgStackedPointPlot.png",
                   "rLinePlotSize.png",
-                  "rMpgHistoBinWidth.pdf",
-                  "rMpgContinuousColorPoints.pdf",
-                  "rAxionMassVsDensity.pdf",
-                  "rMpgHistoNumBins.pdf",
-                  "rMpgHistoCustomBreaks.pdf",
-                  "rMpgCustomColorPoint.pdf",
-                  "rMpgHistoPlusPoints.pdf",
-                  "rSimpleLinePlot.pdf",
-                  "rMpgSimpleBarPlot.pdf",
-                  "rTwoSensorsBadStyle.pdf",
-                  "rTwoSensorsGoodStyle.pdf",
-                  "rPrebinnedHisto.pdf",
-                  "rMassAttenuationFunction.pdf",
-                  "rAxionMassesLogLog.pdf",
-                  "rStackedMpgFreqpoly.pdf",
-                  "rMpgStackedBarPlot.pdf"]
-    proc readFiles(path: string): seq[seq[string]] =
+                  "rMpgHistoBinWidth.png",
+                  "rMpgContinuousColorPoints.png",
+                  "rAxionMassVsDensity.png",
+                  "rMpgHistoNumBins.png",
+                  "rMpgHistoCustomBreaks.png",
+                  "rMpgCustomColorPoint.png",
+                  "rMpgHistoPlusPoints.png",
+                  "rSimpleLinePlot.png",
+                  "rMpgSimpleBarPlot.png",
+                  "rTwoSensorsBadStyle.png",
+                  "rTwoSensorsGoodStyle.png",
+                  "rPrebinnedHisto.png",
+                  "rMassAttenuationFunction.png",
+                  "rAxionMassesLogLog.png",
+                  "rStackedMpgFreqpoly.png",
+                  "rMpgStackedBarPlot.png"]
+    proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
-        let data = readFile(path / $f).splitLines.filterIt("CreationDate" notin it)
+        let pathF = path / $f
+        let res = shellVerbose:
+          convert ($pathF) ($pathF.replace(".png", ".ppm"))
+        let data = readFile(pathF.replace(".png", ".ppm")).splitLines
         result.add data
-    let expected = readFiles("media/expected")
-    let isnow = readFiles("media/recipes")
+    let expected = convertRead("media/expected")
+    let isnow = convertRead("media/recipes")
     check isnow.len == expected.len
     for i in 0 ..< files.len:
       check expected[i] == isnow[i]

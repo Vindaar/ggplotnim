@@ -7,4 +7,4 @@ let df = seqsToDf(x, y)
 
 ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   geom_line() +
-  ggsave("media/recipes/rSimpleLinePlot.pdf")
+  ggsave("media/recipes/rSimpleLinePlot.png")
