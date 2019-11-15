@@ -116,6 +116,14 @@ type
   VegaDraw* = object
     discard
 
+  # bin position kind stores the different ways bins can be represented
+  # Either as left bin edges, center positions or right edges
+  BinPositionKind* = enum
+    bpNone = "none" # <- means "leave data untouched", default for geom_point etc.
+    bpCenter = "center"
+    bpLeft = "left"
+    bpRight = "right"
+
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom* = object
@@ -126,11 +134,14 @@ type
     aes*: Aesthetics # a geom can have its own aesthetics. Needs to be part of
                     # the `Geom`, because if we add it to `GgPlot` we lose track
                     # of which geom it corresponds to
-    statKind*: StatKind
-    case kind*: GeomKind
-    of gkHistogram, gkFreqPoly:
+    binPosition*: BinPositionKind
+    kind*: GeomKind
+    case statKind*: StatKind
+    of stBin:
       numBins*: int # number of bins
-      binWidth*: float # width of bins in terms of the data
+      binWidth*: Option[float] # width of bins in terms of the data, overrides `numBins`
+      # bin edges given in data values. Overrides `numBins` and `binWidth`
+      binEdges*: Option[seq[float]]
     else:
       discard
 
