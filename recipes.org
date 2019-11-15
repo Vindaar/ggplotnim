@@ -50,7 +50,7 @@ and create the plot:
 #+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
 ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   geom_line() +
-  ggsave("media/recipes/rSimpleLinePlot.pdf")
+  ggsave("media/recipes/rSimpleLinePlot.png")
 #+END_SRC
 This results in the following plot:
 [[./media/recipes/rSimpleLinePlot.png]]
@@ -91,7 +91,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("cty", fill = "class")) + 
   geom_histogram() + 
-  ggsave("media/recipes/rStackedMpgHistogram.pdf")
+  ggsave("media/recipes/rStackedMpgHistogram.png")
 #+END_SRC
 This generates:
 [[./media/recipes/rStackedMpgHistogram.png]]
@@ -106,7 +106,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("cty", color = "class")) + 
   geom_freqpoly() + 
-  ggsave("media/recipes/rStackedMpgFreqpoly.pdf")
+  ggsave("media/recipes/rStackedMpgFreqpoly.png")
 #+END_SRC
 This generates:
 [[./media/recipes/rStackedMpgFreqpoly.png]]
@@ -120,7 +120,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy")) + 
   geom_histogram(bins = 20) + # by default 30 bins are used
-  ggsave("media/recipes/rMpgHistoNumBins.pdf")
+  ggsave("media/recipes/rMpgHistoNumBins.png")
 #+END_SRC
 This generates:
 [[./media/recipes/rMpgHistoNumBins.png]]
@@ -135,7 +135,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy")) + 
   geom_histogram(binWidth = 1.5) +
-  ggsave("media/recipes/rMpgHistoBinWidth.pdf")
+  ggsave("media/recipes/rMpgHistoBinWidth.png")
 #+END_SRC
 This generates:
 [[./media/recipes/rMpgHistoBinWidth.png]]
@@ -152,7 +152,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy")) + 
   geom_histogram(breaks = @[0'f64, 10, 15, 19, 23, 25, 40]) +
-  ggsave("media/recipes/rMpgHistoCustomBreaks.pdf")
+  ggsave("media/recipes/rMpgHistoCustomBreaks.png")
 #+END_SRC
 This generates:
 [[./media/recipes/rMpgHistoCustomBreaks.png]]
@@ -172,7 +172,7 @@ let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("cty")) +
   geom_histogram(breaks = breaks) +
   geom_point(stat="bin", breaks = breaks, binPosition = "center") +
-  ggsave("media/recipes/rMpgHistoPlusPoints.pdf")
+  ggsave("media/recipes/rMpgHistoPlusPoints.png")
 #+END_SRC
 Note both additional arguments to the =geom_point= call. The
 ~stat="bin"~ tells ggplotnim that the user wants to perform binning of
@@ -197,8 +197,10 @@ let df = toDf(readCsv("data/mpg.csv"))
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("displ", "cty")) +
   geom_point(color = parseHex("F92672")) +
-  ggsave("media/recipes/rMpgCustomColorPoint.pdf")
+  ggsave("media/recipes/rMpgCustomColorPoint.png")
 #+END_SRC
+Gives:
+[[./media/recipes/rMpgCustomColorPoint.png]]
 
 *** Histogram from already binned data
 
@@ -214,7 +216,7 @@ let counts = @[0.1, 0.8, 0.3, 0.05, 0.0] # <- last element is dummy
 let df = seqsToDf({"bin_edges" : bins, "counts" : counts})
 ggplot(df, aes("bin_edges", "counts")) + 
   geom_histogram(stat = "identity") +
-  ggsave("media/recipes/rPrebinnedHisto.pdf")
+  ggsave("media/recipes/rPrebinnedHisto.png")
 #+END_SRC
 There are a couple of important things to mention here. In the case
 above the user hands =x= as the bin edges (!) starting from the left
@@ -249,7 +251,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("class")) + 
   geom_bar() + 
-  ggsave("media/recipes/rMpgSimpleBarPlot.pdf")
+  ggsave("media/recipes/rMpgSimpleBarPlot.png")
 #+END_SRC
 Giving us the following result:
 [[./media/recipes/rMpgSimpleBarPlot.png]]
@@ -264,7 +266,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("class", fill = "drv")) + 
   geom_bar() + 
-  ggsave("media/recipes/rMpgStackedBarPlot.pdf")
+  ggsave("media/recipes/rMpgStackedBarPlot.png")
 #+END_SRC
 Results in:
 [[./media/recipes/rMpgStackedBarPlot.png]]
@@ -282,7 +284,8 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("displ", "hwy", color = "cty")) + 
   geom_point() + 
-  ggsave("media/recipes/rMpgContinuousColorPoints.pdf")
+  ggsave("media/recipes/rMpgContinuousColorPoints.png")
+echo "YEAH FUCKKERR"
 #+END_SRC
 See:
 [[./media/recipes/rMpgContinuousColorPoints.png]]
@@ -297,7 +300,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("class", fill = "drv")) + 
   geom_point(stat = "count") + 
-  ggsave("media/recipes/rMpgStackedPointPlot.pdf")
+  ggsave("media/recipes/rMpgStackedPointPlot.png")
 #+END_SRC
 Results in:
 [[./media/recipes/rMpgStackedPointPlot.png]]
@@ -325,7 +328,7 @@ let df = toDf(readCsv("data/50-18004.CSV"))
 ggplot(df) +
   geom_line(aes(x = "in_s", y = "C1_in_V", color = "C1")) +
   geom_line(aes(x = "in_s", y = "C2_in_V", color = "C2")) +
-  ggsave("media/recipes/rTwoSensorsBadStyle.pdf")
+  ggsave("media/recipes/rTwoSensorsBadStyle.png")
 #+END_SRC
 This generates the following:
 [[./media/recipes/rTwoSensorsBadStyle.png]]
@@ -347,7 +350,7 @@ let dfnew = df.gather("C1_in_V", "C2_in_V", key = "Channel", value = "V")
 # Plotting via `df` directly causes scale problems!
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
   geom_line() +
-  ggsave("media/recipes/rTwoSensorsGoodStyle.pdf")
+  ggsave("media/recipes/rTwoSensorsGoodStyle.png")
 #+END_SRC
 Which then results in the following nicer plot (note that the legend
 now says something more useful as its title):
@@ -448,7 +451,7 @@ And finally create the plot of the dependency:
 ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   geom_line() +
   ggtitle("Gravitational acceleration of Earth depending on radial distance") +
-  ggsave("media/recipes/rNewtonAcceleration.pdf")
+  ggsave("media/recipes/rNewtonAcceleration.png")
 #+END_SRC
 The resulting plot is the following:
 [[./media/recipes/rNewtonAcceleration.png]]
@@ -495,7 +498,7 @@ the bottom. And yes, there'll be explanations soon here for the
 curious of you! :)
 
 #+BEGIN_SRC nim :tangle recipes/rAxionMassesLogLog.nim
-import sequtils, seqmath, ggplotnim, strformat, algorithm, nlopt, options, strutils
+import sequtils, seqmath, ggplotnim
 
 proc effPhotonMass(ne: float): float =
   ## returns the effective photon mass for a given electron number density
@@ -548,7 +551,7 @@ proc makePlot(pstart, pstop: float, fname: string) =
     ggtitle("Sensitive axion mass in eV depending on helium pressure in mbar") +
     ggsave(fname)
 
-makePlot(-6.0, 2.0, "rAxionMassesLogLog.pdf")
+makePlot(-6.0, 2.0, "media/recipes/rAxionMassesLogLog.png")
 #+END_SRC
 
 This creates the following plot:
@@ -564,7 +567,7 @@ can be done as shown below. It creates a plot of the mass attenuation
 function of X-rays in the energy range between =0-10 keV= (very soft
 X-rays) for ⁴He.
 #+BEGIN_SRC nim :tangle recipes/rMassAttenuationFunction.nim
-import sequtils, seqmath, ggplotnim, algorithm, strutils
+import sequtils, seqmath, ggplotnim
 
 proc logMassAttenuation(e: float): float =
   ## calculates the logarithm of the mass attenuation coefficient for a given
@@ -598,7 +601,7 @@ ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) +
   geom_point(data = dfMuRho.filter(f{"type" == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
-  ggsave("media/recipes/rMassAttenuationFunction.pdf")
+  ggsave("media/recipes/rMassAttenuationFunction.png")
 #+END_SRC
 
 Gives:
@@ -609,7 +612,7 @@ Gives:
 See TMAS section below for now.
 
 #+BEGIN_SRC nim :tangle recipes/rAxionMassVsDensity.nim
-import sequtils, seqmath, ggplotnim, algorithm, strutils
+import sequtils, seqmath, ggplotnim
 
 proc logspace(start, stop: float, num: int, base = 10.0): seq[float] =
   ## generates evenly spaced points between start and stop in log space
@@ -692,7 +695,7 @@ proc m_a_vs_density(pstart, pstop: float) =
     scale_x_log10() + 
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium density in g / cm^3") +
-    ggsave("media/recipes/rAxionMassVsDensity.pdf")
+    ggsave("media/recipes/rAxionMassVsDensity.png")
 
 m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,
                pressureGivenEffPhotonMass(0.4521) * 1.1)

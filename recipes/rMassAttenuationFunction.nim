@@ -1,4 +1,4 @@
-import sequtils, seqmath, ggplotnim, algorithm, strutils
+import sequtils, seqmath, ggplotnim
 
 proc logMassAttenuation(e: float): float =
   ## calculates the logarithm of the mass attenuation coefficient for a given
@@ -32,4 +32,4 @@ ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) +
   geom_point(data = dfMuRho.filter(f{"type" == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
-  ggsave("media/recipes/rMassAttenuationFunction.pdf")
+  ggsave("media/recipes/rMassAttenuationFunction.png")

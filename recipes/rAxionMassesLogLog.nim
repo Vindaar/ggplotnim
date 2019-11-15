@@ -1,4 +1,4 @@
-import sequtils, seqmath, ggplotnim, strformat, algorithm, nlopt, options, strutils
+import sequtils, seqmath, ggplotnim
 
 proc effPhotonMass(ne: float): float =
   ## returns the effective photon mass for a given electron number density
@@ -51,4 +51,4 @@ proc makePlot(pstart, pstop: float, fname: string) =
     ggtitle("Sensitive axion mass in eV depending on helium pressure in mbar") +
     ggsave(fname)
 
-makePlot(-6.0, 2.0, "rAxionMassesLogLog.pdf")
+makePlot(-6.0, 2.0, "media/recipes/rAxionMassesLogLog.png")

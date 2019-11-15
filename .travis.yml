@@ -28,6 +28,7 @@ addons:
      packages:
        - libcairo2
        - libcairo2-dev
+       - imagemagick
 
 install:
   - curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
@@ -35,7 +36,8 @@ install:
   - export PATH=$HOME/.nimble/bin:$PATH
   - nimble refresh -y
   - choosenim $CHANNEL
-  - nimble install ntangle
+  - nimble install ntangle -y
+  - nimble install shell -y # to make sure recipes don't break...
 
 script:
   - nimble install -y
