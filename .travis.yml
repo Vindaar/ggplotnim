@@ -35,6 +35,7 @@ install:
   - export PATH=$HOME/.nimble/bin:$PATH
   - nimble refresh -y
   - choosenim $CHANNEL
+  - nimble install ntangle
 
 script:
   - nimble install -y

@@ -1,4 +1,4 @@
-import ggplotnim, unittest, strutils, os, sequtils, osproc
+import ggplotnim, unittest, strutils, os, sequtils, osproc, shell
 
 #[
 This test simply builds all recipes, runs them and compares the final image of
@@ -7,7 +7,10 @@ all recipes with the expected plots in `media/expected`
 
 suite "Compare recipe output":
   test "Compare recipe output":
-    discard execCmdEx("nimble recipes")
+    # discard execCmdEx("nimble recipes")
+    let res = shellVerbose:
+      nimble recipes
+    echo res
     let files = @["rStackedMpgHistogram.pdf",
                   "rNewtonAcceleration.pdf",
                   "rMpgStackedPointPlot.pdf",

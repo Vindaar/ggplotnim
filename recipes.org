@@ -267,7 +267,7 @@ ggplot(df, aes("class", fill = "drv")) +
   ggsave("media/recipes/rMpgStackedBarPlot.pdf")
 #+END_SRC
 Results in:
-[[./media/recipes/rMpgStakedBarPlot.png]]
+[[./media/recipes/rMpgStackedBarPlot.png]]
 
 *** Points colored by some continuous scale
 
@@ -287,7 +287,7 @@ ggplot(df, aes("displ", "hwy", color = "cty")) +
 See:
 [[./media/recipes/rMpgContinuousColorPoints.png]]
 
-*** Using bars to show discrete counts
+*** Using points to show discrete counts
 
 Instead of using bars to show some count data classified by two
 columns, we can show the same thing using points instead. The same
