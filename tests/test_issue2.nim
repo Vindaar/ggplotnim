@@ -12,7 +12,8 @@ test "Issue2":
                    aes("x", "y")) +
     geom_line()
 
-  let view = plt.ggcreate()
+  let plotView = plt.ggcreate()
+  let view = plotView.view
   let xScale = (low: 0.0, high: 3000.0)
   let yScale = (low: 0.0, high: 7000000.0)
   for ch in view.children:
