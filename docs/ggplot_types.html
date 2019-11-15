@@ -846,6 +846,9 @@ function main() {
   <li><a class="reference" href="#PositionKind"
     title="PositionKind = enum
   pkIdentity = &quot;identity&quot;, pkStack = &quot;stack&quot;, pkDodge = &quot;dodge&quot;, pkFill = &quot;fill&quot;"><wbr />Position<wbr />Kind<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#StatKind"
+    title="StatKind = enum
+  stIdentity = &quot;identity&quot;, stCount = &quot;count&quot;, stBin = &quot;bin&quot;"><wbr />Stat<wbr />Kind<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#DiscreteKind"
     title="DiscreteKind = enum
   dcDiscrete, dcContinuous"><wbr />Discrete<wbr />Kind<span class="attachedType"></span></a></li>
@@ -868,15 +871,18 @@ function main() {
   trans*: Option[FormulaNode]
   name*: string
   axKind*: AxisKind"><wbr />Secondary<wbr />Axis<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#ScaleTransform"
+    title="ScaleTransform = proc (v: Value): Value"><wbr />Scale<wbr />Transform<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#Scale"
     title="Scale = object
   col*: string
   name*: string
+  ids*: set[uint16]
   vKind*: ValueKind
   case scKind*: ScaleKind
   of scLinearData, scTransformedData:
       axKind*: AxisKind
-      trans*: proc (v: Value): Value
+      trans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis]
 
   else:
@@ -900,19 +906,26 @@ function main() {
   <li><a class="reference" href="#VegaDraw"
     title="VegaDraw = object
   nil"><wbr />Vega<wbr />Draw<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#BinPositionKind"
+    title="BinPositionKind = enum
+  bpNone = &quot;none&quot;, bpCenter = &quot;center&quot;, bpLeft = &quot;left&quot;, bpRight = &quot;right&quot;"><wbr />Bin<wbr />Position<wbr />Kind<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#GeomKind"
     title="GeomKind = enum
   gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine"><wbr />Geom<wbr />Kind<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#Geom"
     title="Geom = object
+  gid*: uint16
   data*: Option[DataFrame]
   style*: Option[Style]
   position*: PositionKind
   aes*: Aesthetics
-  case kind*: GeomKind
-  of gkHistogram, gkFreqPoly:
+  binPosition*: BinPositionKind
+  kind*: GeomKind
+  case statKind*: StatKind
+  of stBin:
       numBins*: int
-      binWidth*: float
+      binWidth*: Option[float]
+      binEdges*: Option[seq[float]]
 
   else:
       nil"><wbr />Geom<span class="attachedType"></span></a></li>
@@ -922,6 +935,8 @@ function main() {
   xlabelMargin*: Option[float]
   ylabel*: Option[string]
   ylabelMargin*: Option[float]
+  xLabelSecondary*: Option[string]
+  yLabelSecondary*: Option[string]
   legendPosition*: Option[Coord]
   discreteScaleMargin*: Option[Quantity]"><wbr />Theme<span class="attachedType"></span></a></li>
   <li><a class="reference" href="#GgPlot"
@@ -935,6 +950,35 @@ function main() {
   facet*: Option[Facet]
   geoms*: seq[Geom]
   theme*: Theme"><wbr />Gg<wbr />Plot<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#FilledGeom"
+    title="FilledGeom = object
+  geom*: Geom
+  xcol*: string
+  ycol*: string
+  xScale*: ginger.Scale
+  yScale*: ginger.Scale
+  yieldData*: OrderedTable[Style, (seq[Style], DataFrame)]
+  dcKindX*: DiscreteKind
+  dcKindY*: DiscreteKind
+  numX*: int
+  numY*: int"><wbr />Filled<wbr />Geom<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#MainAddScales"
+    title="MainAddScales = tuple[main: Option[Scale], more: seq[Scale]]"><wbr />Main<wbr />Add<wbr />Scales<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#FilledScales"
+    title="FilledScales = object
+  xScale*: ginger.Scale
+  yScale*: ginger.Scale
+  geoms*: seq[FilledGeom]
+  x*: MainAddScales
+  y*: MainAddScales
+  color*: MainAddScales
+  fill*: MainAddScales
+  size*: MainAddScales
+  shape*: MainAddScales"><wbr />Filled<wbr />Scales<span class="attachedType"></span></a></li>
+  <li><a class="reference" href="#PlotView"
+    title="PlotView = object
+  filledScales*: FilledScales
+  view*: Viewport"><wbr />Plot<wbr />View<span class="attachedType"></span></a></li>
 
   </ul>
 </li>
@@ -957,6 +1001,8 @@ function main() {
     title="`$`(g: Geom): string"><wbr />`$`<span class="attachedType">Geom</span></a></li>
   <li><a class="reference" href="#%24%2CGgPlot%5BT%5D"
     title="`$`[T](p: GgPlot[T]): string"><wbr />`$`<span class="attachedType">GgPlot</span></a></li>
+  <li><a class="reference" href="#%24%2CScale"
+    title="`$`(s: Scale): string"><wbr />`$`<span class="attachedType">Scale</span></a></li>
 
   </ul>
 </li>
@@ -1006,6 +1052,14 @@ function main() {
 
 
 </dd>
+<a id="StatKind"></a>
+<dt><pre><a href="ggplot_types.html#StatKind"><span class="Identifier">StatKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
+  <span class="Identifier">stIdentity</span> <span class="Other">=</span> <span class="StringLit">&quot;identity&quot;</span><span class="Other">,</span> <span class="Identifier">stCount</span> <span class="Other">=</span> <span class="StringLit">&quot;count&quot;</span><span class="Other">,</span> <span class="Identifier">stBin</span> <span class="Other">=</span> <span class="StringLit">&quot;bin&quot;</span></pre></dt>
+<dd>
+
+
+
+</dd>
 <a id="DiscreteKind"></a>
 <dt><pre><a href="ggplot_types.html#DiscreteKind"><span class="Identifier">DiscreteKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
   <span class="Identifier">dcDiscrete</span><span class="Other">,</span> <span class="Identifier">dcContinuous</span></pre></dt>
@@ -1046,15 +1100,23 @@ function main() {
 
 
 </dd>
+<a id="ScaleTransform"></a>
+<dt><pre><a href="ggplot_types.html#ScaleTransform"><span class="Identifier">ScaleTransform</span></a> <span class="Other">=</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a></pre></dt>
+<dd>
+
+
+
+</dd>
 <a id="Scale"></a>
 <dt><pre><a href="ggplot_types.html#Scale"><span class="Identifier">Scale</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
   <span class="Identifier">col</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
   <span class="Identifier">name</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
+  <span class="Identifier">ids</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">set</span><span class="Other">[</span><span class="Identifier">uint16</span><span class="Other">]</span>
   <span class="Identifier">vKind</span><span class="Operator">*</span><span class="Other">:</span> <a href="formula.html#ValueKind"><span class="Identifier">ValueKind</span></a>
   <span class="Keyword">case</span> <span class="Identifier">scKind</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#ScaleKind"><span class="Identifier">ScaleKind</span></a>
   <span class="Keyword">of</span> <span class="Identifier">scLinearData</span><span class="Other">,</span> <span class="Identifier">scTransformedData</span><span class="Other">:</span>
       <span class="Identifier">axKind</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">AxisKind</span>
-      <span class="Identifier">trans</span><span class="Operator">*</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Identifier">v</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a><span class="Other">)</span><span class="Other">:</span> <a href="formula.html#Value"><span class="Identifier">Value</span></a>
+      <span class="Identifier">trans</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#ScaleTransform"><span class="Identifier">ScaleTransform</span></a>
       <span class="Identifier">secondaryAxis</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><a href="ggplot_types.html#SecondaryAxis"><span class="Identifier">SecondaryAxis</span></a><span class="Other">]</span>
 
   <span class="Keyword">else</span><span class="Other">:</span>
@@ -1103,6 +1165,14 @@ function main() {
 
 
 </dd>
+<a id="BinPositionKind"></a>
+<dt><pre><a href="ggplot_types.html#BinPositionKind"><span class="Identifier">BinPositionKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
+  <span class="Identifier">bpNone</span> <span class="Other">=</span> <span class="StringLit">&quot;none&quot;</span><span class="Other">,</span> <span class="Identifier">bpCenter</span> <span class="Other">=</span> <span class="StringLit">&quot;center&quot;</span><span class="Other">,</span> <span class="Identifier">bpLeft</span> <span class="Other">=</span> <span class="StringLit">&quot;left&quot;</span><span class="Other">,</span> <span class="Identifier">bpRight</span> <span class="Other">=</span> <span class="StringLit">&quot;right&quot;</span></pre></dt>
+<dd>
+
+
+
+</dd>
 <a id="GeomKind"></a>
 <dt><pre><a href="ggplot_types.html#GeomKind"><span class="Identifier">GeomKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
   <span class="Identifier">gkPoint</span><span class="Other">,</span> <span class="Identifier">gkBar</span><span class="Other">,</span> <span class="Identifier">gkHistogram</span><span class="Other">,</span> <span class="Identifier">gkFreqPoly</span><span class="Other">,</span> <span class="Identifier">gkTile</span><span class="Other">,</span> <span class="Identifier">gkLine</span></pre></dt>
@@ -1113,14 +1183,18 @@ function main() {
 </dd>
 <a id="Geom"></a>
 <dt><pre><a href="ggplot_types.html#Geom"><span class="Identifier">Geom</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
+  <span class="Identifier">gid</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">uint16</span>
   <span class="Identifier">data</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">]</span>
   <span class="Identifier">style</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Style</span><span class="Other">]</span>
   <span class="Identifier">position</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#PositionKind"><span class="Identifier">PositionKind</span></a>
   <span class="Identifier">aes</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#Aesthetics"><span class="Identifier">Aesthetics</span></a>
-  <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#GeomKind"><span class="Identifier">GeomKind</span></a>
-  <span class="Keyword">of</span> <span class="Identifier">gkHistogram</span><span class="Other">,</span> <span class="Identifier">gkFreqPoly</span><span class="Other">:</span>
+  <span class="Identifier">binPosition</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#BinPositionKind"><span class="Identifier">BinPositionKind</span></a>
+  <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#GeomKind"><span class="Identifier">GeomKind</span></a>
+  <span class="Keyword">case</span> <span class="Identifier">statKind</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#StatKind"><span class="Identifier">StatKind</span></a>
+  <span class="Keyword">of</span> <span class="Identifier">stBin</span><span class="Other">:</span>
       <span class="Identifier">numBins</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">int</span>
-      <span class="Identifier">binWidth</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">float</span>
+      <span class="Identifier">binWidth</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">float</span><span class="Other">]</span>
+      <span class="Identifier">binEdges</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">seq</span><span class="Other">[</span><span class="Identifier">float</span><span class="Other">]</span><span class="Other">]</span>
 
   <span class="Keyword">else</span><span class="Other">:</span>
       <span class="Keyword">nil</span>
@@ -1137,6 +1211,8 @@ function main() {
   <span class="Identifier">xlabelMargin</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">float</span><span class="Other">]</span>
   <span class="Identifier">ylabel</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span>
   <span class="Identifier">ylabelMargin</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">float</span><span class="Other">]</span>
+  <span class="Identifier">xLabelSecondary</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span>
+  <span class="Identifier">yLabelSecondary</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span>
   <span class="Identifier">legendPosition</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Coord</span><span class="Other">]</span>
   <span class="Identifier">discreteScaleMargin</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><span class="Identifier">Quantity</span><span class="Other">]</span>
 </pre></dt>
@@ -1156,6 +1232,58 @@ function main() {
   <span class="Identifier">facet</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><a href="ggplot_types.html#Facet"><span class="Identifier">Facet</span></a><span class="Other">]</span>
   <span class="Identifier">geoms</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="ggplot_types.html#Geom"><span class="Identifier">Geom</span></a><span class="Other">]</span>
   <span class="Identifier">theme</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#Theme"><span class="Identifier">Theme</span></a>
+</pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="FilledGeom"></a>
+<dt><pre><a href="ggplot_types.html#FilledGeom"><span class="Identifier">FilledGeom</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
+  <span class="Identifier">geom</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#Geom"><span class="Identifier">Geom</span></a>
+  <span class="Identifier">xcol</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
+  <span class="Identifier">ycol</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
+  <span class="Identifier">xScale</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">ginger</span><span class="Other">.</span><span class="Identifier">Scale</span>
+  <span class="Identifier">yScale</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">ginger</span><span class="Other">.</span><span class="Identifier">Scale</span>
+  <span class="Identifier">yieldData</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">OrderedTable</span><span class="Other">[</span><span class="Identifier">Style</span><span class="Other">,</span> <span class="Other">(</span><span class="Identifier">seq</span><span class="Other">[</span><span class="Identifier">Style</span><span class="Other">]</span><span class="Other">,</span> <a href="formula.html#DataFrame"><span class="Identifier">DataFrame</span></a><span class="Other">)</span><span class="Other">]</span>
+  <span class="Identifier">dcKindX</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#DiscreteKind"><span class="Identifier">DiscreteKind</span></a>
+  <span class="Identifier">dcKindY</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#DiscreteKind"><span class="Identifier">DiscreteKind</span></a>
+  <span class="Identifier">numX</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">int</span>
+  <span class="Identifier">numY</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">int</span>
+</pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="MainAddScales"></a>
+<dt><pre><a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a> <span class="Other">=</span> <span class="Keyword">tuple</span><span class="Other">[</span><span class="Identifier">main</span><span class="Other">:</span> <span class="Identifier">Option</span><span class="Other">[</span><a href="ggplot_types.html#Scale"><span class="Identifier">Scale</span></a><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">more</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="ggplot_types.html#Scale"><span class="Identifier">Scale</span></a><span class="Other">]</span><span class="Other">]</span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="FilledScales"></a>
+<dt><pre><a href="ggplot_types.html#FilledScales"><span class="Identifier">FilledScales</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
+  <span class="Identifier">xScale</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">ginger</span><span class="Other">.</span><span class="Identifier">Scale</span>
+  <span class="Identifier">yScale</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">ginger</span><span class="Other">.</span><span class="Identifier">Scale</span>
+  <span class="Identifier">geoms</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="ggplot_types.html#FilledGeom"><span class="Identifier">FilledGeom</span></a><span class="Other">]</span>
+  <span class="Identifier">x</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+  <span class="Identifier">y</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+  <span class="Identifier">color</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+  <span class="Identifier">fill</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+  <span class="Identifier">size</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+  <span class="Identifier">shape</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#MainAddScales"><span class="Identifier">MainAddScales</span></a>
+</pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="PlotView"></a>
+<dt><pre><a href="ggplot_types.html#PlotView"><span class="Identifier">PlotView</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
+  <span class="Identifier">filledScales</span><span class="Operator">*</span><span class="Other">:</span> <a href="ggplot_types.html#FilledScales"><span class="Identifier">FilledScales</span></a>
+  <span class="Identifier">view</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Viewport</span>
 </pre></dt>
 <dd>
 
@@ -1210,7 +1338,8 @@ function main() {
 
 </dd>
 <a id="$,Geom"></a>
-<dt><pre><span class="Keyword">proc</span> <a href="#%24%2CGeom"><span class="Identifier">`$`</span></a><span class="Other">(</span><span class="Identifier">g</span><span class="Other">:</span> <a href="ggplot_types.html#Geom"><span class="Identifier">Geom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">Exception</span><span class="Other">,</span> <span class="Identifier">ValueError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
+<dt><pre><span class="Keyword">proc</span> <a href="#%24%2CGeom"><span class="Identifier">`$`</span></a><span class="Other">(</span><span class="Identifier">g</span><span class="Other">:</span> <a href="ggplot_types.html#Geom"><span class="Identifier">Geom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">,</span> <span class="Identifier">UnpackError</span><span class="Other">,</span> <span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span>
+                        <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
@@ -1218,6 +1347,13 @@ function main() {
 </dd>
 <a id="$,GgPlot[T]"></a>
 <dt><pre><span class="Keyword">proc</span> <a href="#%24%2CGgPlot%5BT%5D"><span class="Identifier">`$`</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">p</span><span class="Other">:</span> <a href="ggplot_types.html#GgPlot"><span class="Identifier">GgPlot</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span></pre></dt>
+<dd>
+
+
+
+</dd>
+<a id="$,Scale"></a>
+<dt><pre><span class="Keyword">proc</span> <a href="#%24%2CScale"><span class="Identifier">`$`</span></a><span class="Other">(</span><span class="Identifier">s</span><span class="Other">:</span> <a href="ggplot_types.html#Scale"><span class="Identifier">Scale</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> <span><span class="Other">{</span><span class="Other pragmadots">...</span><span class="Other">}</span></span><span class="pragmawrap"><span class="Other">{.</span><span class="pragma"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">ValueError</span><span class="Other">,</span> <span class="Identifier">Exception</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
 
@@ -1233,7 +1369,7 @@ function main() {
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br/>
-        <small>Made with Nim. Generated: 2019-11-05 11:48:44 UTC</small>
+        <small>Made with Nim. Generated: 2019-11-15 21:58:43 UTC</small>
       </div>
     </div>
   </div>
