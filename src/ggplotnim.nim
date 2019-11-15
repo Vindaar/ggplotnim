@@ -2191,7 +2191,6 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   # `numY` for `bin` stat is just max of the y scale. Since `histogram` counts the
   # number of values in a binned continuous scale the maximum value is always an `int`!
   result.numY = result.yScale.high.round.int
-  doAssert result.numX == g.numBins
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
@@ -2272,8 +2271,6 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
       of stIdentity:
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
-        # but change number of bins to data classes
-        filledGeom.geom.numBins = filledGeom.numX
         # still a geom, make sure bottom is still at 0!
         filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
       of stBin:
