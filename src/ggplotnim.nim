@@ -1677,10 +1677,9 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
     # in case of a discrete scale we have categories, which are evenly spaced.
     # taking into account the margin of the plot, calculate center of all categories
     let pos = discrMargin + i.float * barViewWidth + centerPos
+    let scale = (low: 0.0, high: 1.0)
     tickLocs.add Coord1D(pos: pos,
-                         kind: ukData,
-                         scale: gScale,
-                         axis: axKind)
+                         kind: ukRelative)
   let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind)
   view.addObj concat(tickObjs, labObjs)
   result = tickObjs
@@ -1745,7 +1744,6 @@ proc handleLabels(view: var Viewport, theme: Theme) =
   let
     xlabTxt = theme.xLabel.unwrap()
     ylabTxt = theme.yLabel.unwrap()
-
   template getMargin(marginVar, themeField, nameVal, axKind: untyped): untyped =
     if not themeField.isSome:
       let labs = view.objects.filterIt(it.name == nameVal)
@@ -1779,7 +1777,6 @@ proc handleLabels(view: var Viewport, theme: Theme) =
   getMargin(yMargin, theme.ylabelMargin, "ytickLabel", akY)
   createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
   createLabel(xLabObj, xlabel, xLabTxt, theme.xLabelMargin, xMargin)
-
   view.addObj @[xLabObj, yLabObj]
 
   if theme.hasSecondary(akX):
