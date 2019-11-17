@@ -37,7 +37,6 @@ install:
   - nimble refresh -y
   - choosenim $CHANNEL
   - nimble install ntangle -y
-  - nimble install shell -y # to make sure recipes don't break...
 
 script:
   - nimble install -y
