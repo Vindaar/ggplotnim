@@ -9,8 +9,11 @@ NOTE: this test depends on imagemagick, since it converts the PNG files to PPM!
 
 suite "Compare recipe output":
   test "Compare recipe output":
+    # first run recipes to make sure we have current recipe plots in
+    # media/recipes which we can compare with media/expected
     let runRecipes = shellVerbose:
-      nimble recipes # currently done in .travis.yml
+      nimble recipes
+    check runRecipes[1] == 0
     let files = @["rStackedMpgHistogram.png",
                   "rNewtonAcceleration.png",
                   "rMpgStackedPointPlot.png",
