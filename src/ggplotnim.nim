@@ -927,17 +927,33 @@ proc legendPosition*(x = 0.0, y = 0.0): Theme =
   result = Theme(legendPosition: some(Coord(x: c1(x),
                                             y: c1(y))))
 
-proc xlab*(label = "", margin = NaN): Theme =
+proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
+  case alignTo.normalize
+  of "none": result = none[TextAlignKind]()
+  of "left": result = some(taLeft)
+  of "right": result = some(taRight)
+  of "center": result = some(taCenter)
+  else: result = none[TextAlignKind]()
+
+proc xlab*(label = "", margin = NaN, rotate = NaN,
+           alignTo = "none"): Theme =
   if label.len > 0:
     result.xlabel = some(label)
   if classify(margin) != fcNaN:
     result.xlabelMargin = some(margin)
+  if classify(rotate) != fcNaN:
+    result.xTicksRotate = some(rotate)
+  result.xTicksTextAlign = parseTextAlignString(alignTo)
 
-proc ylab*(label = "", margin = NaN): Theme =
+proc ylab*(label = "", margin = NaN, rotate = NaN,
+           alignTo = "none"): Theme =
   if label.len > 0:
     result.ylabel = some(label)
   if classify(margin) != fcNaN:
     result.ylabelMargin = some(margin)
+  if classify(rotate) != fcNaN:
+    result.yTicksRotate = some(rotate)
+  result.yTicksTextAlign = parseTextAlignString(alignTo)
 
 proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ## applies all elements of `theme`, which are `Some` to
@@ -948,8 +964,16 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
     pltTheme.ylabelMargin = theme.ylabelMargin
   if theme.xlabel.isSome:
     pltTheme.xlabel = theme.xlabel
+  if theme.xTicksTextAlign.isSome:
+    pltTheme.xTicksTextAlign = theme.xTicksTextAlign
   if theme.ylabel.isSome:
     pltTheme.ylabel = theme.ylabel
+  if theme.xTicksRotate.isSome:
+    pltTheme.xTicksRotate = theme.xTicksRotate
+  if theme.yTicksTextAlign.isSome:
+    pltTheme.yTicksTextAlign = theme.yTicksTextAlign
+  if theme.yTicksRotate.isSome:
+    pltTheme.yTicksRotate = theme.yTicksRotate
   if theme.legendPosition.isSome:
     pltTheme.legendPosition = theme.legendPosition
 
@@ -1780,7 +1804,8 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
 
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                          scale: Scale,
-                         isSecondary = false): seq[GraphObject] =
+                         isSecondary = false,
+                         theme = Theme()): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -1809,12 +1834,22 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
     let scale = (low: 0.0, high: 1.0)
     tickLocs.add Coord1D(pos: pos,
                          kind: ukRelative)
-  let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind)
+  var rotate: Option[float]
+  var alignTo: Option[TextAlignKind]
+  case axKind
+  of akX:
+    rotate = theme.xTicksRotate
+    alignTo = theme.xTicksTextAlign
+  of akY:
+    rotate = theme.yTicksRotate
+    alignTo = theme.yTicksTextAlign
+  let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind, rotate = rotate,
+                                            alignToOverride = alignTo)
   view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
 proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
-                 axKind: AxisKind): seq[GraphObject] =
+                 axKind: AxisKind, theme: Theme): seq[GraphObject] =
   ## This handles the creation of the tick positions and tick labels.
   ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
   var scale: Scale
@@ -1829,10 +1864,11 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
   if scale.col.len > 0:
     case scale.dcKind
     of dcDiscrete:
-      result = view.handleDiscreteTicks(p, axKind, scale)
+      result = view.handleDiscreteTicks(p, axKind, scale, theme = theme)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
-        result.add view.handleDiscreteTicks(p, axKind, scale, isSecondary = true)
+        result.add view.handleDiscreteTicks(p, axKind, scale, isSecondary = true,
+                                            theme = theme)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, scale, numTicks)
       if hasSecondary(filledScales, axKind):
@@ -1889,7 +1925,7 @@ proc handleLabels(view: var Viewport, theme: Theme) =
                     Coord1D(pos: 0.3, kind: ukCentimeter)
 
   template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
-                       isSecond = false): untyped =
+                       isSecond = false, rot = none[float]()): untyped =
     if themeField.isSome:
       label = labproc(view,
                       labTxt,
@@ -1901,7 +1937,6 @@ proc handleLabels(view: var Viewport, theme: Theme) =
                       labTxt,
                       margin = marginVal,
                       isSecondary = isSecond)
-
   getMargin(xMargin, theme.xlabelMargin, "xtickLabel", akX)
   getMargin(yMargin, theme.ylabelMargin, "ytickLabel", akY)
   createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
@@ -1946,8 +1981,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     # add the data viewport to the view
     result.children.add pChild
 
-  var xticks = result.handleTicks(filledScales, p, akX)
-  var yticks = result.handleTicks(filledScales, p, akY)
+  var xticks = result.handleTicks(filledScales, p, akX, theme = theme)
+  var yticks = result.handleTicks(filledScales, p, akY, theme = theme)
 
   # TODO: Make sure we still have to do this. I think not!
   result.updateDataScale()

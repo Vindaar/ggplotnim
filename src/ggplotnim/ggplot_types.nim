@@ -149,8 +149,12 @@ type
   Theme* = object
     xlabel*: Option[string]
     xlabelMargin*: Option[float]
+    xTicksRotate*: Option[float]
+    xTicksTextAlign*: Option[TextAlignKind]
     ylabel*: Option[string]
     ylabelMargin*: Option[float]
+    yTicksRotate*: Option[float]
+    yTicksTextAlign*: Option[TextAlignKind]
     xLabelSecondary*: Option[string]
     yLabelSecondary*: Option[string]
     legendPosition*: Option[Coord]
