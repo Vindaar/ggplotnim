@@ -2759,3 +2759,24 @@ proc readCsv*(fname: string,
       parser.rowEntry(col).removePrefix({' '})
       parser.rowEntry(col).removeSuffix({' '})
       result[colHeaders[i]].add parser.rowEntry(col)
+
+proc writeCsv*(df: DataFrame, filename: string, sep = ',', header = "",
+               precision = 4) =
+  ## writes a DataFrame to a "CSV" (separator can be changed) file.
+  ## `sep` is the actual separator to be used. `header` indicates a potential
+  ## symbol marking the header line, e.g. `#`
+  var data = newStringOfCap(df.len * 8) # for some reserved space
+  # add header symbol to first line
+  data.add header
+  let keys = getKeys(df)
+  data.add join(keys, $sep) & "\n"
+  var idx = 0
+  for row in df:
+    idx = 0
+    for x in row:
+      if idx > 0:
+        data.add $sep
+      data.add pretty(x, precision = precision)
+      inc idx
+    data.add "\n"
+  writeFile(filename, data)
