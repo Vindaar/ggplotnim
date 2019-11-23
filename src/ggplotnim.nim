@@ -43,6 +43,20 @@ template unwrap[T](opt: Option[T], raiseIfNil = true): untyped =
     raise newException(Exception, "Option " & $opt & " must exist")
   tmp
 
+# TODO: move elsewhere!
+func font*[T: SomeNumber](
+  size: T = 12.0,
+  color = color(0.0, 0.0, 0.0), # color defined in chroma
+  family = "sans-serif",
+  bold = false,
+  slant: FontSlant = fsNormal # defined in ginger.types
+    ): Font =
+  result = Font(family: family,
+                size: size,
+                bold: bold,
+                slant: slant,
+                color: color)
+
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
   result = s.valueMap[label]
@@ -827,11 +841,20 @@ proc scale_y_continuous*(name: string = "",
                  dcKind: dcContinuous,
                  secondaryAxis: secAxisOpt)
 
-proc ggtitle*(title: string, subtitle = ""): (string, string) = (title, subtitle)
+proc ggtitle*(title: string, subtitle = "",
+              titleFont = font(), subTitleFont = font(8.0)): Theme =
+  result = Theme(title: some(title))
+  if subtitle.len > 0:
+    result.subTitle = some(subTitle)
+  if titleFont != font():
+    result.titleFont = some(titleFont)
+  if subTitleFont != font():
+    result.subTitleFont = some(subTitleFont)
 
 proc genDiscreteLegend(view: var Viewport,
                        cat: Scale,
                        markers: seq[GraphObject]) =
+  # TODO: add support for legend font in Theme / `let label` near botton!
   let startIdx = view.len
   view.layout(1, rows = cat.valueMap.len + 1)
   # iterate only over added children, skip first, because we actual legend first
@@ -936,46 +959,32 @@ proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   else: result = none[TextAlignKind]()
 
 proc xlab*(label = "", margin = NaN, rotate = NaN,
-           alignTo = "none"): Theme =
+           alignTo = "none", font = font(), tickFont = font()): Theme =
   if label.len > 0:
     result.xlabel = some(label)
   if classify(margin) != fcNaN:
     result.xlabelMargin = some(margin)
   if classify(rotate) != fcNaN:
     result.xTicksRotate = some(rotate)
+  if font != font():
+    result.labelFont = some(font)
+  if tickFont != font():
+    result.tickLabelFont = some(tickFont)
   result.xTicksTextAlign = parseTextAlignString(alignTo)
 
 proc ylab*(label = "", margin = NaN, rotate = NaN,
-           alignTo = "none"): Theme =
+           alignTo = "none", font = font(), tickFont = font()): Theme =
   if label.len > 0:
     result.ylabel = some(label)
   if classify(margin) != fcNaN:
     result.ylabelMargin = some(margin)
   if classify(rotate) != fcNaN:
     result.yTicksRotate = some(rotate)
+  if font != font():
+    result.labelFont = some(font)
+  if tickFont != font():
+    result.tickLabelFont = some(font)
   result.yTicksTextAlign = parseTextAlignString(alignTo)
-
-proc applyTheme(pltTheme: var Theme, theme: Theme) =
-  ## applies all elements of `theme`, which are `Some` to
-  ## the same fields of `pltTheme`
-  if theme.xlabelMargin.isSome:
-    pltTheme.xlabelMargin = theme.xlabelMargin
-  if theme.ylabelMargin.isSome:
-    pltTheme.ylabelMargin = theme.ylabelMargin
-  if theme.xlabel.isSome:
-    pltTheme.xlabel = theme.xlabel
-  if theme.xTicksTextAlign.isSome:
-    pltTheme.xTicksTextAlign = theme.xTicksTextAlign
-  if theme.ylabel.isSome:
-    pltTheme.ylabel = theme.ylabel
-  if theme.xTicksRotate.isSome:
-    pltTheme.xTicksRotate = theme.xTicksRotate
-  if theme.yTicksTextAlign.isSome:
-    pltTheme.yTicksTextAlign = theme.yTicksTextAlign
-  if theme.yTicksRotate.isSome:
-    pltTheme.yTicksRotate = theme.yTicksRotate
-  if theme.legendPosition.isSome:
-    pltTheme.legendPosition = theme.legendPosition
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
@@ -992,16 +1001,37 @@ proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
   result = p
   result.aes = p
 
-proc `+`*(p: GgPlot, titleTup: (string, string)): GgPlot =
-  ## adds the given title / subtitle to the GgPlot object
-  result = p
-  result.title = titleTup[0]
-  result.subtitle = titleTup[1]
+proc applyTheme(pltTheme: var Theme, theme: Theme) =
+  ## applies all elements of `theme`, which are `Some` to
+  ## the same fields of `pltTheme`
+  template ifSome(it: untyped): untyped =
+    if theme.it.isSome:
+      pltTheme.it = theme.it
+  ifSome(xlabelMargin)
+  ifSome(ylabelMargin)
+  ifSome(xLabel)
+  ifSome(yLabel)
+  ifSome(xTicksTextAlign)
+  ifSome(yTicksTextAlign)
+  ifSome(xTicksRotate)
+  ifSome(yTicksRotate)
+  ifSome(legendPosition)
+  ifSome(labelFont)
+  ifSome(tickLabelFont)
+  ifSome(titleFont)
+  ifSome(subTitleFont)
+  ifSome(title)
+  ifSome(subTitle)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
   result = p
   applyTheme(result.theme, theme)
+  # TODO: Maybe move these two completely out of `GgPlot` object
+  if result.theme.title.isSome:
+    result.title = result.theme.title.get
+  if result.theme.subTitle.isSome:
+    result.subTitle = result.theme.subTitle.get
 
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
@@ -1073,6 +1103,7 @@ proc plotLayoutWithLegend(view: var Viewport) =
   ## for a legend. Important indices of the created viewports:
   ## - main plot: idx = 4
   ## - legend: idx = 5
+  # TODO: Make relative to image size!
   view.layout(3, 3, colwidths = @[quant(2.5, ukCentimeter),
                                   quant(0.0, ukRelative),
                                   quant(5.0, ukCentimeter)],
@@ -1769,12 +1800,12 @@ func hasSecondary(theme: Theme, axKind: AxisKind): bool =
       result = true
 
 proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                           scale: Scale, numTicks: int,
+                           scale: Scale, numTicks: int, theme: Theme,
                            isSecondary = false): seq[GraphObject] =
   case scale.scKind
   of scLinearData:
     let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary)
-    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary)
+    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary, font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
@@ -1797,7 +1828,8 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                                         axis: akY))
       view.yScale = (low: log10(minVal), high: log10(maxVal))
 
-    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary)
+    let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary,
+                                              font = theme.tickLabelFont)
     view.addObj concat(tickObjs, labObjs)
     result = tickObjs
   else: discard
@@ -1844,7 +1876,8 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
     rotate = theme.yTicksRotate
     alignTo = theme.yTicksTextAlign
   let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind, rotate = rotate,
-                                            alignToOverride = alignTo)
+                                            alignToOverride = alignTo,
+                                            font = theme.tickLabelFont)
   view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
@@ -1870,16 +1903,17 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
         result.add view.handleDiscreteTicks(p, axKind, scale, isSecondary = true,
                                             theme = theme)
     of dcContinuous:
-      result = view.handleContinuousTicks(p, axKind, scale, numTicks)
+      result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
-        result.add view.handleContinuousTicks(p, axKind, scale, numTicks, isSecondary = true)
+        result.add view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
+                                              isSecondary = true)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
     # in this case don't read into anything and just call ticks / labels
     let ticks = view.initTicks(axKind, numTicks)
-    let tickLabs = view.tickLabels(ticks)
+    let tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
 
@@ -1914,7 +1948,8 @@ proc handleLabels(view: var Viewport, theme: Theme) =
       let labs = view.objects.filterIt(it.name == nameVal)
       let labNames = labs.mapIt(it.txtText)
       let labLens = labNames.argMaxIt(len(it))
-      let font = labs[0].txtFont
+      # TODO: use custom label font for margin calc?
+      let font = if theme.labelFont.isSome: theme.labelFont.get else: labs[0].txtFont
       case axKind
       of akX:
         marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
@@ -1926,17 +1961,20 @@ proc handleLabels(view: var Viewport, theme: Theme) =
 
   template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
                        isSecond = false, rot = none[float]()): untyped =
+    let fnt = if theme.labelFont.isSome: theme.labelFont.get else: font()
     if themeField.isSome:
       label = labproc(view,
                       labTxt,
                       margin = get(themeField),
                       isCustomMargin = true,
-                      isSecondary = isSecond)
+                      isSecondary = isSecond,
+                      font = fnt)
     else:
       label = labproc(view,
                       labTxt,
                       margin = marginVal,
-                      isSecondary = isSecond)
+                      isSecondary = isSecond,
+                      font = fnt)
   getMargin(xMargin, theme.xlabelMargin, "xtickLabel", akX)
   getMargin(yMargin, theme.ylabelMargin, "ytickLabel", akY)
   createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
@@ -2631,9 +2669,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
 
   if p.title.len > 0:
     var titleView = img[1]
-    let font = Font(family: "sans-serif",
-                    size: 16.0,
-                    color: black)
+    let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
     let title = titleView.initText(c(0.0, 0.5),
                                    p.title,
                                    textKind = goText,

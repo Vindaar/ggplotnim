@@ -147,6 +147,14 @@ type
 
   # what might become a theming object
   Theme* = object
+    baseFontSize*: Option[float] # base size for fonts NOT IMPL'd
+    fontSizeScale*: Option[float] # scales all fonts by given value NOT IMPL'd
+    labelFont*: Option[Font]
+    titleFont*: Option[Font]
+    subTitleFont*: Option[Font]
+    tickLabelFont*: Option[Font]
+    title*: Option[string]
+    subTitle*: Option[string]
     xlabel*: Option[string]
     xlabelMargin*: Option[float]
     xTicksRotate*: Option[float]
