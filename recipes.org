@@ -356,6 +356,30 @@ Which then results in the following nicer plot (note that the legend
 now says something more useful as its title):
 [[./media/recipes/rTwoSensorsGoodStyle.png]]
 
+*** Bar plot with many elements, rotate labels
+
+When dealing with discrete data, which contains a large number of
+labels a typical problem is that there's not enough space for all
+labels. In this case we want to rotate the labels and right align
+them. Considering some fake dataset with people who did some shifts
+listed by year and we want a bar plot of the number of shifts each
+person did per year. Also we need a much wider plot for this dataset:
+#+BEGIN_SRC nim :tangle recipes/rBarPlotRotatedLabels.nim
+import ggplotnim
+let df = toDf(readCsv("data/fake_shifter_data.txt"))
+ggplot(df, aes("Shifters", fill = "Year")) +
+  geom_bar() +
+  xlab(rotate = -45.0, margin = 1.75, alignTo = "right") +
+  ggtitle("Number of shifts done by each shifter by year") +
+  ggsave("media/recipes/rBarPlotRotatedLabels.svg", width = 3000, height = 500)
+#+END_SRC
+
+Gives us the following plot. Probably better to look at the original
+instead of the embedded plot, since it's so wide.
+[[./media/recipes/rBarPlotRotatedLabels.png]]
+
+*** TODO Example of changing font size in plot
+
 *** TODO Log(-log) plot
 
 See TMAS section below for now.

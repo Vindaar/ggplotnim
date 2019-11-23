@@ -33,13 +33,16 @@ suite "Compare recipe output":
                   "rMassAttenuationFunction.png",
                   "rAxionMassesLogLog.png",
                   "rStackedMpgFreqpoly.png",
-                  "rMpgStackedBarPlot.png"]
+                  "rMpgStackedBarPlot.png",
+                  "rBarPlotRotatedLabels.nim"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f
+        check fileExists(pathF)
+        let (_, _, fext) = pathF.splitFile
         let res = shellVerbose:
-          convert ($pathF) ($pathF.replace(".png", ".ppm"))
-        let data = readFile(pathF.replace(".png", ".ppm")).splitLines
+          convert ($pathF) ($pathF.replace(fext, ".ppm"))
+        let data = readFile(pathF.replace(fext, ".ppm")).splitLines
         result.add data
     let expected = convertRead("media/expected")
     let isnow = convertRead("media/recipes")
