@@ -376,7 +376,7 @@ ggplot(df, aes("Shifters", fill = "Year")) +
 
 Gives us the following plot. Probably better to look at the original
 instead of the embedded plot, since it's so wide.
-[[./media/recipes/rBarPlotRotatedLabels.png]]
+[[./media/expected/rBarPlotRotatedLabels.svg]]
 
 *** TODO Example of changing font size in plot
 
