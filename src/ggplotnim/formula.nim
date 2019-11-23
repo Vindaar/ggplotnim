@@ -78,7 +78,6 @@ type
       of funcScalar:
         fnS*: proc(s: Value): Value
 
-type
   DataFrameKind = enum
     dfNormal, dfGrouped
 
