@@ -1727,24 +1727,39 @@ proc tail*(df: DataFrame, num: int): DataFrame =
   result = df[^num .. df.high]
 
 proc gather*(df: DataFrame, cols: varargs[string],
-             key = "key", value = "value"): DataFrame =
+             key = "key", value = "value", dropNulls = false): DataFrame =
   ## gathers the `cols` from `df` and merges these columns into two new columns
   ## where the `key` column contains the name of the column from which the `value`
   ## entry is taken. I.e. transforms `cols` from wide to long format.
   let remainCols = getKeys(df).toSet.difference(cols.toSet)
+  var newLen = 0
+  # TODO: improve this...
   for col in cols:
-    for rem in remainCols:
-      if rem notin result:
-        result[rem] = df[rem]
-      else:
-        result[rem] = result[rem].add df[rem]
+    var toAdd = newSeqOfCap[Value](df.len)
+    var idxToKeep = newSeqOfCap[int](df.len)
+    let colVec = df[col]
+    for i in 0 ..< df.len:
+      if not dropNulls or colVec[i].kind != VNull:
+        toAdd.add colVec[i]
+        idxToKeep.add i
     if value notin result:
-      result[value] = df[col]
-      result[key] = toVector(toSeq(0 ..< df.len).mapIt(col))
+      result[value] = toVector(toAdd)
+      result[key] = toVector(toSeq(0 ..< toAdd.len).mapIt(col))
+      newLen = toAdd.len
     else:
-      result[value] = result[value].add df[col]
-      result[key] = result[key].add toVector(toSeq(0 ..< df.len).mapIt(col))
-  result.len = df.len * cols.len
+      result[value] = result[value].add toVector(toAdd)
+      result[key] = result[key].add toVector(toSeq(0 ..< toAdd.len).mapIt(col))
+      newLen += toAdd.len
+    for rem in remainCols:
+      var data = newSeq[Value](idxToKeep.len)
+      let colVec = df[rem]
+      for i in idxToKeep:
+        data[i] = colVec[i]
+      if rem notin result:
+        result[rem] = toVector(data)
+      else:
+        result[rem] = result[rem].add toVector(data)
+  result.len = newLen
 
 ################################################################################
 ####### FORMULA
