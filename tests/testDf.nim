@@ -253,6 +253,27 @@ suite "Data frame tests":
     check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
     check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
 
+  test "Gather - dropping null values":
+    ## check that it works for 3 columns too
+    let x = toSeq(0 ..< 100)
+    var
+      y1: seq[float]
+      y2: seq[Value]
+      x2s: seq[int]
+    for i, val in x:
+      y1.add sin(val.float)
+      if val mod 3 == 0:
+        y2.add (%~ (sin(val.float - PI / 2.0) - 0.5))
+        x2s.add i
+      else:
+        y2.add Value(kind: VNull)
+    let df = seqsToDf(x, y1, y2)
+    let gathered = df.gather(["y1", "y2"], dropNulls = false)
+    let onlyy2 = gathered.filter(f{isNull("value") == false and
+                                   "key" == "y2"})
+    check onlyy2["x"].vToSeq == %~ x2s
+    check onlyy2.len == x2s.len
+
   test "Pretty printing of DFs":
     var
       # need the data as two sequences (well actually as a DataFrame, but that is
