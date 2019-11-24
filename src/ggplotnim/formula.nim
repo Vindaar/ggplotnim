@@ -451,6 +451,10 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
+func isNull*(v: Value): Value =
+  ## returns whether `v` is a `VNull` value as a `VBool`
+  result = %~ (v.kind == VNull)
+
 func almostEqual*(a, b: float, epsilon = 1e-8): bool =
   # taken from
   # https://floating-point-gui.de/errors/comparison/
