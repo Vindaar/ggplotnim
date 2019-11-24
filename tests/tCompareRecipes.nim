@@ -34,7 +34,7 @@ suite "Compare recipe output":
                   "rAxionMassesLogLog.png",
                   "rStackedMpgFreqpoly.png",
                   "rMpgStackedBarPlot.png",
-                  "rBarPlotRotatedLabels.nim"]
+                  "rBarPlotRotatedLabels.svg"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f

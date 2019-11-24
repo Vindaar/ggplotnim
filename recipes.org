@@ -285,7 +285,6 @@ let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("displ", "hwy", color = "cty")) + 
   geom_point() + 
   ggsave("media/recipes/rMpgContinuousColorPoints.png")
-echo "YEAH FUCKKERR"
 #+END_SRC
 See:
 [[./media/recipes/rMpgContinuousColorPoints.png]]
@@ -397,6 +396,7 @@ See TMAS section below for now.
 *** TODO Add lines in a plot to highlight something
 
 See TMAS section below for now.
+
 
 ** TMAS "Tell Me A Story" recipes
 
