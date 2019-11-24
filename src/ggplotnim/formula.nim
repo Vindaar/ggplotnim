@@ -410,11 +410,17 @@ func isInt*(v: Value): bool =
   doAssert v.kind == VString
   result = v.str.isInt
 
-proc toFloat*(v: Value): float =
-  doAssert v.kind in {VInt, VFloat}
+proc toFloat*(v: Value, allowNull: static bool = false): float =
+  when not allowNull:
+    doAssert v.kind in {VInt, VFloat}
+  else:
+    doAssert v.kind in {VInt, VFloat, VNull}
   case v.kind
   of VInt: result = v.num.float
   of VFloat: result = v.fnum
+  of VNull:
+    # This branch is forbidden for `allowNull = false` due to `doAssert` at top!
+    result = 0.0
   else: discard
 
 proc toInt*(v: Value): BiggestInt =
