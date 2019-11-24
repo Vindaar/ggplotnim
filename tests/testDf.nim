@@ -393,3 +393,10 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       for i, row in resDirect:
         resDirectSet.incl (row["cyl"].toInt.int, row["n"].toInt.int)
       check resDirectSet == exp
+
+  test "isNull":
+    # tests removal of VNull elements in a column with VNull
+    let x1 = toSeq(0 .. 100)
+    let x2 = toSeq(0 .. 10)
+    let df = seqsToDf(x1, x2)
+    check df.filter(f{isNull("x2") == false})["x2"].vToSeq == %~ x2
