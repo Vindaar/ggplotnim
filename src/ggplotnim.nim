@@ -932,6 +932,7 @@ proc createLegend(view: var Viewport,
   # get the first viewport for the header
   if startIdx < view.len:
     var header = view[startIdx]
+    # TODO: add support to change font of legend
     var label = header.initText(
       Coord(x: header.origin.x,
             y: c1(0.5)),
@@ -1564,7 +1565,6 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
       for i in 0 ..< styleIn.high: # last element covered by i + 1
         result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styleIn[i]))
-
 
 proc stackDraw[T: Style | seq[Style]](view: var Viewport,
                                       prevVals: var seq[float],
