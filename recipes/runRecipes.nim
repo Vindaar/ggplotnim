@@ -21,3 +21,4 @@ shell:
   nim c "-r recipes/rAxionMassesLogLog.nim"
   nim c "-r recipes/rStackedMpgFreqpoly.nim"
   nim c "-r recipes/rMpgStackedBarPlot.nim"
+  nim c "-r recipes/rBarPlotRotatedLabels.nim"
