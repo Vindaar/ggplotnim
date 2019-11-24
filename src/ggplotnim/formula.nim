@@ -584,7 +584,7 @@ proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string
   for i in 0 ..< num:
     result.add align($i, alignBy)
     for k in keys(df):
-      let element = pretty(df[k][i], precision = precision)
+      let element = pretty(df[k, i], precision = precision)
       if element.len < alignBy - 1:
         result.add align(element,
                          alignBy)
@@ -666,12 +666,29 @@ proc toVector*(s: seq[Value]): PersistentVector[Value] =
   ## the overload of `toVector`, which simply calls `toPersistentVector` directly
   result = toPersistentVector(s)
 
+func nullVector(num: int): PersistentVector[Value] =
+  ## returns a `PersistentVector[Value]` with `N` values, which are
+  ## all `VNull`
+  var nullseq = newSeq[Value](num)
+  for i in 0 ..< num:
+    nullseq[i] = Value(kind: VNull)
+  result = toVector(nullseq)
+
 proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
   ## creates a data frame from a table of `seq[Value]`. Simply have to convert
   ## the `seq[Value]` to a `PersistentVector[Value]` and add to DF.
   result = DataFrame(len: 0)
   for k, v in t:
     result[k] = v.toVector
+
+proc extendShortColumns*(df: var DataFrame) =
+  ## initial calls to `seqsToDf` and other procs may result in a ragged DF, which
+  ## has less entries in certain columns than the data frame length.
+  ## This proc fills up the mutable dataframe in those columns
+  for k in keys(df):
+    if df[k].len < df.len:
+      let nFill = df.len - df[k].len
+      df[k] = df[k].add nullVector(nFill)
 
 macro toTab*(args: varargs[untyped]): untyped =
   expectKind(args, nnkArglist)
@@ -692,18 +709,20 @@ macro toTab*(args: varargs[untyped]): untyped =
       let key = a.strVal
       result.add quote do:
         `data`[`key`] = `a`.toVector
-        `data`.len = `a`.len
+        `data`.len = max(`data`.len, `a`.len)
     of nnkExprColonExpr:
       let nameCh = a[0]
       let seqCh = a[1]
       result.add quote do:
         `data`[`nameCh`] = `seqCh`.toVector
-        `data`.len = `seqCh`.len
+        `data`.len = max(`data`.len, `seqCh`.len)
     else:
       error("Unsupported kind " & $a.kind)
   result = quote do:
     block:
       `result`
+      # finally fill up possible columns shorter than df.len
+      `data`.extendShortColumns()
       `data`
   #echo result.treerepr
   #echo result.repr
@@ -1644,7 +1663,7 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
       if k notin result:
         # create this new column consisting of `VNull` up to current size
         if result.len > 0:
-          result[k] = toVector(toSeq(0 ..< result.len).mapIt(Value(kind: VNull)))
+          result[k] = nullVector(result.len)
         else:
           result[k] = initVector[Value]()
       # now add the current vector
@@ -1660,8 +1679,7 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
   for k in keys(result):
     if result[k].len < result.len:
       # extend this by `VNull`
-      result[k] = result[k].add toVector(toSeq(result[k].len ..< result.len)
-          .mapIt(Value(kind: VNull)))
+      result[k] = result[k].add nullVector(result.len - result[k].len)
   doAssert totLen == result.len, " totLen was: " & $totLen & " and result.len " & $result.len
 
 template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
