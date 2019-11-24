@@ -124,6 +124,11 @@ iterator mpairs*(df: var DataFrame): (string, var PersistentVector[Value]) =
   for k, mval in mpairs(df.data):
     yield (k, mval)
 
+iterator items*(row: Value): Value =
+  doAssert row.kind == VObject
+  for v in values(row.fields):
+    yield v
+
 iterator keys*(row: Value): string =
   doAssert row.kind == VObject
   for k in keys(row.fields):
