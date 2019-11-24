@@ -1494,9 +1494,9 @@ func readOrCalcBinWidth(df: DataFrame, idx: int,
   ## DataFrame. So make sure the DF contains the right bin edge
   ## (we assume bins are actually left edge) is included in the DF.
   if col in df:
-    result = df[col][idx].toFloat
+    result = df[col, idx].toFloat(allowNull = true)
   elif idx < df.high:
-    result = (df[dataCol][idx + 1].toFloat - df[dataCol][idx].toFloat)
+    result = (df[dataCol, idx + 1].toFloat - df[dataCol, idx].toFloat)
 
 proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
   ## moves `x` by half the bin width, if required by `bpKind`
@@ -1526,8 +1526,10 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn
     else:
       let style = styleIn[i]
-    var x = df[fg.xcol][i].toFloat
-    let y = df[fg.ycol][i].toFloat
+    # allow VNull values. Those should ``only`` appear at the end of columns if the
+    # filling of scales works correctly!
+    var x = df[fg.xcol, i].toFloat(allowNull = true)
+    let y = df[fg.ycol, i].toFloat(allowNull = true)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
@@ -1572,8 +1574,6 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
   # TODO: add support for decision what bin columns means (for results of
   # TODO: add support for stacking in X rather than Y
   # TODO: unify with identityDraw? Lots of similar code!
-  # statBin that is! Left edge, center or right edge!
-  # needed for gkLine, gkPolyLine
   var linePoints = newSeqOfCap[Point](df.len)
   var binWidth: float
   for i in 0 ..< df.len:
@@ -1581,8 +1581,10 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn
     else:
       let style = styleIn[i]
-    var x = df[fg.xcol][i].toFloat
-    let y = df[fg.ycol][i].toFloat
+    # allow VNull values. Those should ``only`` appear at the end of columns if the
+    # filling of scales works correctly!
+    var x = df[fg.xcol, i].toFloat(allowNull = true)
+    let y = df[fg.ycol, i].toFloat(allowNull = true)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
