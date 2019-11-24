@@ -2513,27 +2513,26 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
     g.xScale = finalXScale
     g.yScale = finalyScale
 
+template collect(p: GgPlot, f: untyped): untyped =
+  var sds = newSeq[ScaleData]()
+  if isSome(p.aes.f):
+    # NOTE: the dataframe of GgPlot is always given individually to
+    # the fill* procs, hence we give a none here
+    sds.add (data: none(DataFrame), scale: p.aes.f.get,
+             statKind: stIdentity)
+  for g in p.geoms:
+    if isSome(g.aes.f):
+      sds.add (data: g.data, scale: g.aes.f.get,
+               statKind: g.statKind)
+  sds
+
 proc collectScales(p: GgPlot): FilledScales =
   ## Collects all scales required to draw the plot. This means comparing each
   ## possible aesthetic scale of the `GgPlot p` itself with its geoms and
   ## building the final `Scale` for each.
   # TODO: clean up
-  macro collect(f: static string): untyped =
-    let field = ident(f)
-    result = quote do:
-      block:
-        var sds = newSeq[ScaleData]()
-        if p.aes.`field`.isSome:
-          # NOTE: the dataframe of `GgPlot` is always given individually to
-          # the `fill*` procs, hence we give a `none` here
-          sds.add (data: none(DataFrame), scale: p.aes.`field`.get,
-                   statKind: stIdentity)
-        for g in p.geoms:
-          if g.aes.`field`.isSome:
-            sds.add (data: g.data, scale: g.aes.`field`.get,
-                     statKind: g.statKind)
-        sds
-
+  # if we either put `collect` as template in here or `fillField` as template
+  # (even outside) we get undeclared identifier errors
   macro fillField(f: static string, arg: typed): untyped =
     let field = ident(f)
     let argId = ident(arg.strVal)
@@ -2542,24 +2541,24 @@ proc collectScales(p: GgPlot): FilledScales =
         result.`field` = (main: some(`argId`[0]), more: `argId`[1 .. ^1])
       else:
         result.`field` = (main: none[Scale](), more: `argId`)
-  let xs = collect("x")
+  let xs = collect(p, x)
   # NOTE: transformed data handled from this in `callFillScale`!
   let xFilled = callFillScale(p.data, xs, scLinearData)
   fillField("x", xFilled)
-  let ys = collect("y")
+  let ys = collect(p, y)
   # NOTE: transformed data handled from this in `callFillScale`!
   let yFilled = callFillScale(p.data, ys, scLinearData)
   fillField("y", yFilled)
-  let colors = collect("color")
+  let colors = collect(p, color)
   let colorFilled = callFillScale(p.data, colors, scColor)
   fillField("color", colorFilled)
-  let fills = collect("fill")
+  let fills = collect(p, fill)
   let fillFilled = callFillScale(p.data, fills, scFillColor)
   fillField("fill", fillFilled)
-  let sizes = collect("size")
+  let sizes = collect(p, size)
   let sizeFilled = callFillScale(p.data, sizes, scSize)
   fillField("size", sizeFilled)
-  let shapes = collect("shape")
+  let shapes = collect(p, shape)
   let shapeFilled = callFillScale(p.data, shapes, scShape)
   fillField("shape", shapeFilled)
 
