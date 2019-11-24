@@ -628,6 +628,33 @@ proc `$`*(node: FormulaNode): string =
   result = newStringOfCap(1024)
   toUgly(result, node)
 
+proc toVector*[T: not Value](s: openArray[T]): PersistentVector[Value] =
+  var valSeq = newSeq[Value](s.len)
+  for i, x in s:
+    valSeq[i] = %~ x
+  result = valSeq.toPersistentVector
+
+proc toVector*(s: seq[Value]): PersistentVector[Value] =
+  ## the overload of `toVector`, which simply calls `toPersistentVector` directly
+  result = toPersistentVector(s)
+
+func nullVector(num: int): PersistentVector[Value] =
+  ## returns a `PersistentVector[Value]` with `N` values, which are
+  ## all `VNull`
+  var nullseq = newSeq[Value](num)
+  for i in 0 ..< num:
+    nullseq[i] = Value(kind: VNull)
+  result = toVector(nullseq)
+
+proc extendShortColumns*(df: var DataFrame) =
+  ## initial calls to `seqsToDf` and other procs may result in a ragged DF, which
+  ## has less entries in certain columns than the data frame length.
+  ## This proc fills up the mutable dataframe in those columns
+  for k in keys(df):
+    if df[k].len < df.len:
+      let nFill = df.len - df[k].len
+      df[k] = df[k].add nullVector(nFill)
+
 proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## creates a data frame from a table of seq[string]
   ## NOTE: This proc assumes that the given entries in the `seq[string]`
@@ -663,26 +690,8 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
         else:
           data[i] = %~ x
     result.data[k] = data.toPersistentVector
-    if result.len == 0:
-      result.len = result.data[k].len
-
-proc toVector*[T: not Value](s: openArray[T]): PersistentVector[Value] =
-  var valSeq = newSeq[Value](s.len)
-  for i, x in s:
-    valSeq[i] = %~ x
-  result = valSeq.toPersistentVector
-
-proc toVector*(s: seq[Value]): PersistentVector[Value] =
-  ## the overload of `toVector`, which simply calls `toPersistentVector` directly
-  result = toPersistentVector(s)
-
-func nullVector(num: int): PersistentVector[Value] =
-  ## returns a `PersistentVector[Value]` with `N` values, which are
-  ## all `VNull`
-  var nullseq = newSeq[Value](num)
-  for i in 0 ..< num:
-    nullseq[i] = Value(kind: VNull)
-  result = toVector(nullseq)
+    result.len = max(result.data[k].len, result.len)
+  result.extendShortColumns()
 
 proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
   ## creates a data frame from a table of `seq[Value]`. Simply have to convert
@@ -690,15 +699,8 @@ proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
   result = DataFrame(len: 0)
   for k, v in t:
     result[k] = v.toVector
-
-proc extendShortColumns*(df: var DataFrame) =
-  ## initial calls to `seqsToDf` and other procs may result in a ragged DF, which
-  ## has less entries in certain columns than the data frame length.
-  ## This proc fills up the mutable dataframe in those columns
-  for k in keys(df):
-    if df[k].len < df.len:
-      let nFill = df.len - df[k].len
-      df[k] = df[k].add nullVector(nFill)
+    result.len = max(v.len, result.len)
+  result.extendShortColumns()
 
 macro toTab*(args: varargs[untyped]): untyped =
   expectKind(args, nnkArglist)
