@@ -94,6 +94,7 @@ ggplot(df, aes("cty", fill = "class")) +
   ggsave("media/recipes/rStackedMpgHistogram.png")
 #+END_SRC
 This generates:
+
 [[./media/recipes/rStackedMpgHistogram.png]]
 
 *** Stacked lines colored by some class
@@ -109,6 +110,7 @@ ggplot(df, aes("cty", color = "class")) +
   ggsave("media/recipes/rStackedMpgFreqpoly.png")
 #+END_SRC
 This generates:
+
 [[./media/recipes/rStackedMpgFreqpoly.png]]
 
 *** Simple histogram with N bins
@@ -123,6 +125,7 @@ ggplot(df, aes("hwy")) +
   ggsave("media/recipes/rMpgHistoNumBins.png")
 #+END_SRC
 This generates:
+
 [[./media/recipes/rMpgHistoNumBins.png]]
 
 *** Simple histogram with specific bin width
@@ -138,6 +141,7 @@ ggplot(df, aes("hwy")) +
   ggsave("media/recipes/rMpgHistoBinWidth.png")
 #+END_SRC
 This generates:
+
 [[./media/recipes/rMpgHistoBinWidth.png]]
 
 *** Histogram with specific bin edges
@@ -155,6 +159,7 @@ ggplot(df, aes("hwy")) +
   ggsave("media/recipes/rMpgHistoCustomBreaks.png")
 #+END_SRC
 This generates:
+
 [[./media/recipes/rMpgHistoCustomBreaks.png]]
 
 *** Bin with =geom_point= and overlay on histogram with specific bin edges
@@ -183,6 +188,7 @@ draw the points not where the binning data is located (read: left bin
 edge), but rather in the center of the bins.
 
 This generates:
+
 [[./media/recipes/rMpgHistoPlusPoints.png]]
 
 *** Scatter plot with different point color
@@ -200,6 +206,7 @@ ggplot(df, aes("displ", "cty")) +
   ggsave("media/recipes/rMpgCustomColorPoint.png")
 #+END_SRC
 Gives:
+
 [[./media/recipes/rMpgCustomColorPoint.png]]
 
 *** Histogram from already binned data
@@ -236,6 +243,7 @@ the bin width of the last bin. So if that is the case for your data,
 feel free to only hand =N - 1= elements. 
 
 Which generates the following:
+
 [[./media/recipes/rPrebinnedHisto.png]]
 
 *** Simple bar plot for N categories
@@ -254,6 +262,7 @@ ggplot(df, aes("class")) +
   ggsave("media/recipes/rMpgSimpleBarPlot.png")
 #+END_SRC
 Giving us the following result:
+
 [[./media/recipes/rMpgSimpleBarPlot.png]]
 
 *** Stacked bar plot for N categories split by some other category
@@ -269,6 +278,7 @@ ggplot(df, aes("class", fill = "drv")) +
   ggsave("media/recipes/rMpgStackedBarPlot.png")
 #+END_SRC
 Results in:
+
 [[./media/recipes/rMpgStackedBarPlot.png]]
 
 *** Points colored by some continuous scale
@@ -287,6 +297,7 @@ ggplot(df, aes("displ", "hwy", color = "cty")) +
   ggsave("media/recipes/rMpgContinuousColorPoints.png")
 #+END_SRC
 See:
+
 [[./media/recipes/rMpgContinuousColorPoints.png]]
 
 *** Using points to show discrete counts
@@ -302,6 +313,7 @@ ggplot(df, aes("class", fill = "drv")) +
   ggsave("media/recipes/rMpgStackedPointPlot.png")
 #+END_SRC
 Results in:
+
 [[./media/recipes/rMpgStackedPointPlot.png]]
 
 *** Plotting column Y1 and Y2 against X
@@ -330,6 +342,7 @@ ggplot(df) +
   ggsave("media/recipes/rTwoSensorsBadStyle.png")
 #+END_SRC
 This generates the following:
+
 [[./media/recipes/rTwoSensorsBadStyle.png]]
 
 Which means that we specify the =x= and =y= aesthetics only in the two
@@ -353,6 +366,7 @@ ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
 #+END_SRC
 Which then results in the following nicer plot (note that the legend
 now says something more useful as its title):
+
 [[./media/recipes/rTwoSensorsGoodStyle.png]]
 
 *** Bar plot with many elements, rotate labels
@@ -375,6 +389,7 @@ ggplot(df, aes("Shifters", fill = "Year")) +
 
 Gives us the following plot. Probably better to look at the original
 instead of the embedded plot, since it's so wide.
+
 [[./media/expected/rBarPlotRotatedLabels.svg]]
 
 *** TODO Example of changing font size in plot
@@ -478,6 +493,7 @@ ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   ggsave("media/recipes/rNewtonAcceleration.png")
 #+END_SRC
 The resulting plot is the following:
+
 [[./media/recipes/rNewtonAcceleration.png]]
 
 and shows what we expect. A linear increase in acceleration up to the
@@ -579,6 +595,7 @@ makePlot(-6.0, 2.0, "media/recipes/rAxionMassesLogLog.png")
 #+END_SRC
 
 This creates the following plot:
+
 [[./media/recipes/rAxionMassesLogLog.png]]
 
 *** "Another one of the quiet stories" story 
@@ -629,6 +646,7 @@ ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) +
 #+END_SRC
 
 Gives:
+
 [[./media/recipes/rMassAttenuationFunction.png]]
 
 *** TODO Add lines in a plot to highlight something
@@ -726,6 +744,7 @@ m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,
 #+END_SRC
 
 Which gives us the following annotated plot:
+
 [[./media/recipes/rAxionMassVsDensity.png]]
 
 ** Other resources
