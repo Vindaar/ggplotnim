@@ -153,6 +153,40 @@ proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVec
     for x in w:
       result = result.add x
 
+proc `%~`*(c: char): Value =
+  ## we convert a `char` to a `string`!
+  result = Value(kind: VString, str: $c)
+
+proc `%~`*(v: string): Value =
+  result = Value(kind: VString, str: v)
+
+proc `%~`*(v: SomeFloat): Value =
+  result = Value(kind: VFloat, fnum: v.float)
+
+proc `%~`*(v: SomeInteger): Value =
+  result = Value(kind: VInt, num: v.int)
+
+proc `%~`*(v: bool): Value =
+  result = Value(kind: VBool, bval: v)
+
+#proc `%~`*(v: Table[string, Value]): Value =
+#  result = Value(kind: VObject, fields: v.toOrderedTable)
+
+proc `%~`*(v: OrderedTable[string, Value]): Value =
+  result = Value(kind: VObject, fields: v)
+
+proc newVObject*(): Value =
+  result = Value(kind: VObject)
+  result.fields = initOrderedTable[string, Value]()
+
+proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
+  ## converts a `seq[T]` to a `seq[Value]`
+  result = newSeq[Value](s.len)
+  for i, x in s:
+    result[i] = %~ x
+
+template `%~`*(s: openArray[Value]): seq[Value] = @s
+
 proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] {.inline.} =
   result = df.data[k]
 
@@ -168,6 +202,18 @@ proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): seq[Value] {.inline.} =
 
 proc `[]=`*(df: var DataFrame, k: string, vec: PersistentVector[Value]) {.inline.} =
   df.data[k] = vec
+
+proc `[]=`*[T](df: var DataFrame, k: string, data: openArray[T]) {.inline.} =
+  ## Extends the given DataFrame by the column `k` with the `data`.
+  ## This proc raises if the given data length if not the same as the
+  ## DataFrames' length. In case `k` already exists, `data` will override
+  ## the current content!
+  if data.len == df.len:
+    df.data[k] = toPersistentVector(%~ data)
+  else:
+    raise newException(ValueError, "Given `data` length of " & $data.len &
+      " does not match DF length of: " & $df.len & "!")
+
 
 proc `[]=`*(df: var DataFrame, k: string, idx: int, val: Value) {.inline.} =
   df.data[k] = df.data[k].update(idx, val)
@@ -364,40 +410,6 @@ proc hash*(x: Value): Hash =
   of VNull:
     result = 0
   result = !$result
-
-proc `%~`*(c: char): Value =
-  ## we convert a `char` to a `string`!
-  result = Value(kind: VString, str: $c)
-
-proc `%~`*(v: string): Value =
-  result = Value(kind: VString, str: v)
-
-proc `%~`*(v: SomeFloat): Value =
-  result = Value(kind: VFloat, fnum: v.float)
-
-proc `%~`*(v: SomeInteger): Value =
-  result = Value(kind: VInt, num: v.int)
-
-proc `%~`*(v: bool): Value =
-  result = Value(kind: VBool, bval: v)
-
-#proc `%~`*(v: Table[string, Value]): Value =
-#  result = Value(kind: VObject, fields: v.toOrderedTable)
-
-proc `%~`*(v: OrderedTable[string, Value]): Value =
-  result = Value(kind: VObject, fields: v)
-
-proc newVObject*(): Value =
-  result = Value(kind: VObject)
-  result.fields = initOrderedTable[string, Value]()
-
-proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
-  ## converts a `seq[T]` to a `seq[Value]`
-  result = newSeq[Value](s.len)
-  for i, x in s:
-    result[i] = %~ x
-
-template `%~`*(s: openArray[Value]): seq[Value] = @s
 
 func isInt*(s: string): bool =
   ## simple "most likely int" check. If the string only contains digits and

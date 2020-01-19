@@ -25,6 +25,89 @@ suite "Data frame tests":
       check "three" in df
       check "four" in df
 
+  test "Extending a DF by a column":
+    let a = [1, 2, 3]
+    let b = [3, 4, 5]
+    let c = [4, 5, 6]
+    let d = [8, 9, 10]
+    block:
+      ## NOTE: This "manual" way of adding a column to an existing data frame
+      ## is sort of "low level" at the moment. What this means is that the
+      ## size of the given sequence is ``not`` checked at the moment. So take
+      ## care that you actually hand a sequence of the same length as the DF!
+      # create DF of the first 3 seqs
+      var df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c })
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "four" notin df
+      # and now add fourth manually
+      df["four"] = toVector(%~ d)
+      check "four" in df
+
+    block:
+      ## This version checks the length and fails if they don't match
+      # create DF of the first 3 seqs
+      var df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c })
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "four" notin df
+      # and now add fourth manually
+      df["four"] = d
+      check "four" in df
+    block:
+      # check fails if length is longer
+      let e = [1, 2, 3, 4, 5]
+      # create DF of the first 3 seqs
+      var df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c })
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "five" notin df
+      # and now add fourth manually
+      expect(ValueError):
+        df["five"] = e
+    block:
+      # check fails if length is shorter
+      let e = [1, 2]
+      # create DF of the first 3 seqs
+      var df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c })
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "five" notin df
+      # and now add last manually
+      expect(ValueError):
+        df["five"] = e
+
+    block:
+      # check if we can override existing column
+      let e = [11, 22, 33]
+      # create DF of the first 3 seqs
+      var df = seqsToDf({ "one" : a,
+                          "two" : b,
+                          "three" : c,
+                          "four" : c}) # assign four as `c`
+      check "one" in df
+      check "two" in df
+      check "three" in df
+      check "four" in df
+      # check `"four"` is `c`
+      check df["four"].vToSeq == %~ c
+      # assign actual `"four"`
+      df["four"] = e
+      # check `"four"` is now `d`
+      check df["four"].vToSeq == %~ e
+
   test "Testing `bind_rows`":
     let a = [1, 2, 3]
     let b = [3, 4, 5]
