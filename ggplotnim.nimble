@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.3"
+version       = "0.2.4"
 author        = "Sebastian Schmidt"
 description   = "A port of ggplot2 for Nim"
 license       = "MIT"
@@ -14,13 +14,18 @@ requires "ginger >= 0.1.6"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
 
-task test, "Run tests":
+task test, "Run standard tests":
+  exec "nim c -r tests/testDf.nim"
+  exec "nim c -r tests/tests.nim"
+  exec "nim c -r tests/test_issue2.nim"
+  exec "nim c -r tests/test_issue20.nim"
+
+task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/test_issue20.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
-
 
 import ospaths, strutils, strformat
 const
