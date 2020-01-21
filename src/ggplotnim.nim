@@ -2760,6 +2760,7 @@ proc readCsv*(fname: string,
       parser.rowEntry(col).removePrefix({' '})
       parser.rowEntry(col).removeSuffix({' '})
       result[colHeaders[i]].add parser.rowEntry(col)
+  parser.close()
 
 proc writeCsv*(df: DataFrame, filename: string, sep = ',', header = "",
                precision = 4) =
