@@ -41,3 +41,4 @@ install:
 script:
   - nimble install -y
   - nimble -y fulltest
+  - nimble -y testCI
