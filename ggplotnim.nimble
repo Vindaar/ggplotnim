@@ -10,9 +10,17 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.3"
-requires "ginger >= 0.1.6"
+requires "ginger >= 0.1.7"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
+
+task testCI, "Run standard tests w/o cairo dependency":
+  # This runs all tests suitable for a CI environment, which does not provide
+  # cairo. Most tests are independent of cairo anyways
+  exec "nim c -d:noCairo -r tests/testDf.nim"
+  exec "nim c -d:noCairo -r tests/tests.nim"
+  exec "nim c -d:noCairo -r tests/test_issue2.nim"
+  exec "nim c -d:noCairo -r tests/test_issue20.nim"
 
 task test, "Run standard tests":
   exec "nim c -r tests/testDf.nim"
