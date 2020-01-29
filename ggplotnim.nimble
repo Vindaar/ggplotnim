@@ -21,18 +21,21 @@ task testCI, "Run standard tests w/o cairo dependency":
   exec "nim c -d:noCairo -r tests/tests.nim"
   exec "nim c -d:noCairo -r tests/test_issue2.nim"
   exec "nim c -d:noCairo -r tests/test_issue20.nim"
+  exec "nim c -d:noCairo -r tests/test_issue28.nim"
 
 task test, "Run standard tests":
   exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/test_issue20.nim"
+  exec "nim c -r tests/test_issue28.nim"
 
 task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/test_issue20.nim"
+  exec "nim c -r tests/test_issue28.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
 
 import ospaths, strutils, strformat
