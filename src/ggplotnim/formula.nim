@@ -1282,9 +1282,14 @@ proc buildFormula(n: NimNode): NimNode =
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
 
-macro `{}`*(x, y: untyped): untyped =
-  if x.repr == "f":
+macro `{}`*(x: untyped{ident}, y: untyped): untyped =
+  if x.strVal == "f":
     result = buildFormula(y)
+
+macro `fn`*(x: untyped): untyped =
+  let arg = if x.kind == nnkStmtList: x[0] else: x
+  expectKind arg, nnkCurly
+  result = buildFormula(arg[0])
 
 proc unique*(v: PersistentVector[Value]): seq[Value] =
   ## returns a seq of all unique values in `v`
