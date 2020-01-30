@@ -13,7 +13,7 @@ suite "Compare recipe output":
     # media/recipes which we can compare with media/expected
     let runRecipes = shellVerbose:
       nimble recipes
-    check runRecipes[1] == 0
+    require runRecipes[1] == 0
     let files = @["rStackedMpgHistogram.png",
                   "rNewtonAcceleration.png",
                   "rMpgStackedPointPlot.png",
