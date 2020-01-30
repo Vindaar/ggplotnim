@@ -1,6 +1,6 @@
 import shell
 
-shell:
+let res = shellVerbose:
   nim c "-r recipes/rStackedMpgHistogram.nim"
   nim c "-r recipes/rNewtonAcceleration.nim"
   nim c "-r recipes/rMpgStackedPointPlot.nim"
@@ -22,3 +22,5 @@ shell:
   nim c "-r recipes/rStackedMpgFreqpoly.nim"
   nim c "-r recipes/rMpgStackedBarPlot.nim"
   nim c "-r recipes/rBarPlotRotatedLabels.nim"
+if res[1] != 0:
+  raise newException(Exception, "Failed to build or run at least one recipe!")
