@@ -47,5 +47,11 @@ suite "Compare recipe output":
     let expected = convertRead("media/expected")
     let isnow = convertRead("media/recipes")
     check isnow.len == expected.len
+    template checkFiles(f1, f2, fname: untyped): untyped =
+      # store in `comp` to avoid check obliterating our terminal with the diff
+      let comp = f1 == f2
+      check comp
+      if not comp:
+        echo "Comparison failed for file: ", fname
     for i in 0 ..< files.len:
-      check expected[i] == isnow[i]
+      checkFiles(expected[i], isnow[i], files[i])
