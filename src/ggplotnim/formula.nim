@@ -239,6 +239,19 @@ proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
   # add 1, because it's an ``inclusive`` slice!
   result.len = (b - a) + 1
 
+proc row*(df: DataFrame, idx: int, cols: varargs[string]): Value {.inline.} =
+  ## Returns the row `idx` of the DataFrame `df` as a `Value` of kind `VObject`.
+  ## If `cols` are given, only those columns will appear in the resulting `Value`.
+  result = Value(kind: VObject)
+  let mcols = if cols.len == 0: getKeys(df) else: @cols
+  for col in mcols:
+    result[col] = df[col][idx]
+
+template `[]`*(df: DataFrame, idx: int): Value =
+  ## convenience template around `row` to access the `idx`-th row of the
+  ## DF as a `VObject Value`.
+  df.row(idx)
+
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
   ## a column in the `DataFrame`
@@ -762,18 +775,12 @@ proc hasKey(df: DataFrame, key: string): bool =
 iterator items*(df: DataFrame): Value =
   # returns each row of the dataframe as a Value of kind VObject
   for i in 0 ..< df.len:
-    var res = Value(kind: VObject)
-    for k in keys(df):
-      res[k] = df[k][i]
-    yield res
+    yield df.row(i)
 
 iterator pairs*(df: DataFrame): (int, Value) =
   # returns each row of the dataframe as a Value of kind VObject
   for i in 0 ..< df.len:
-    var res = Value(kind: VObject)
-    for k in keys(df):
-      res[k] = df[k][i]
-    yield (i, res)
+    yield (i, df.row(i))
 
 proc toSeq(v: PersistentVector[Value]): seq[Value] =
   result = v[0 ..< v.len]
