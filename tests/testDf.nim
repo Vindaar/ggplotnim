@@ -502,3 +502,35 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let x2 = toSeq(0 .. 10)
     let df = seqsToDf(x1, x2)
     check df.filter(f{isNull("x2") == false})["x2"].vToSeq == %~ x2
+
+  test "Unique - duplicates using all columns":
+    # given some data containing duplicates
+    let dataDuplStream = newStringStream("""
+t_in_s,  C1_in_V,  C2_in_V,  type
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+-2.9976E-06,  1.025E-03,  -2.930E-04 ,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+-2.9976E-06,  1.025E-03,  -2.930E-04 ,  T1
+-2.9968E-06,  9.277E-04,  2.930E-04  ,  T2
+""")
+    let df = toDf(readCsv(dataDuplStream))
+    check df.len == 8
+    let dfUnique = df.unique
+    check dfUnique.len == 5
+
+  test "Unique - duplicates using subset of columns":
+    let s1 = @[1, 2, 3, 4, 5]
+    let s2 = @["A", "E", "A", "D", "E"]
+    let s3 = @["B", "G", "B", "G", "X"]
+    let df = seqsToDF({ "id" : s1,
+                        "Start" : s2,
+                        "Stop" : s3 })
+    check df.len == 5
+    let dfUniqueAll = df.unique
+    check dfUniqueAll.len == 5
+    # now only use columns start and stop
+    let dfUnique = df.unique("Start", "Stop")
+    check dfUnique.len == 4
