@@ -1519,9 +1519,10 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   for k in keys(seqTab):
     result[k] = seqTab[k].toPersistentVector
 
-proc setDiff*(df1, df2: DataFrame): DataFrame =
+proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
   ## returns a `DataFrame` with all elements in `df1` that are not found in
-  ## `df2`
+  ## `df2`. If `symmetric` is true, the symmetric difference of the dataset is
+  ## returned, i.e. elements which are either not in `df1` ``or`` not in `df2`.
   ## NOTE: Currently simple implementation based on `HashSet`. Iterates
   ## both dataframes once to generate sets, calcualtes intersection and returns
   ## difference as new `DataFrame`
@@ -1531,7 +1532,11 @@ proc setDiff*(df1, df2: DataFrame): DataFrame =
     for row in df:
       rowSet.incl row
     rowSet
-  let diff = dfToSet(df1) - dfToSet(df2)
+  var diff: HashSet[Value]
+  if symmetric:
+    diff = symmetricDifference(dfToSet(df1), dfToSet(df2))
+  else:
+    diff = dfToSet(df1) - dfToSet(df2)
   for row in diff:
     result.add row
   result.len = diff.card
