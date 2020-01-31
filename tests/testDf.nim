@@ -534,3 +534,31 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     # now only use columns start and stop
     let dfUnique = df.unique("Start", "Stop")
     check dfUnique.len == 4
+
+  test "setDiff":
+    # remove duplicates of `mpg` (for some reason there are 9 duplicates..)
+    let mpg = toDf(readCsv("data/mpg.csv")).unique
+    let mpgS1 = mpg[0 .. 25]
+    let mpgS2 = mpg[20 .. 29]
+    block:
+      # S1 is primary
+      let exp = mpg[0 .. 19].arrange(toSeq(keys(mpg)))
+      let res = setDiff(mpgS1, mpgS2).arrange(toSeq(keys(mpg)))
+      check exp.len == res.len
+      for i in 0 ..< exp.len:
+        check exp[i] == res[i]
+    block:
+      # S2 is primary
+      let exp = mpg[26 .. 29].arrange(toSeq(keys(mpg)))
+      let res = setDiff(mpgS2, mpgS1).arrange(toSeq(keys(mpg)))
+      check exp.len == res.len
+      for i in 0 ..< exp.len:
+        check exp[i] == res[i]
+    block:
+      # symmetric difference
+      let exp = bind_rows(mpg[0 .. 19], mpg[26 .. 29], id = "")
+        .arrange(toSeq(keys(mpg)))
+      let res = setDiff(mpgS1, mpgS2, symmetric = true).arrange(toSeq(keys(mpg)))
+      check exp.len == res.len
+      for i in 0 ..< exp.len:
+        check exp[i] == res[i]
