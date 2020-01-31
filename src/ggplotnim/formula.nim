@@ -1787,6 +1787,34 @@ proc gather*(df: DataFrame, cols: varargs[string],
         result[rem] = result[rem].add toVector(data)
   result.len = newLen
 
+proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
+  ## returns a DF with only distinct rows. If one or more `cols` are given
+  ## the uniqueness of a row is only determined based on those columns. By
+  ## default all columns are considered.
+  ## NOTE: The corresponding `dplyr` function is `distinct`. The choice for
+  ## `unique` was made, since `distinct` is a keyword in Nim!
+  var mcols = @cols
+  if mcols.len == 0:
+    mcols = getKeys(df)
+  # `rowSet` will contain all rows as `VObjects` of the given `cols`. These
+  # are used to determine if a row is distinct or not
+  var rowSet = initHashSet[Value]()
+  # `seqTab` will store all elements that remain in the DF
+  var seqTab = initOrderedTable[string, seq[Value]]()
+  for i in 0 ..< df.len:
+    # get a VObject of all `mcols`
+    let row = df.row(i, mcols)
+    if row notin rowSet:
+      # add whole row to `seqTab`
+      for k in keys(df):
+        if k notin seqTab:
+          seqTab[k] = newSeqOfCap[Value](df.len)
+        seqTab[k].add df[k][i]
+      rowSet.incl row
+  result.len = rowSet.card
+  for k in keys(seqTab):
+    result[k] = seqTab[k].toPersistentVector
+
 ################################################################################
 ####### FORMULA
 ################################################################################
