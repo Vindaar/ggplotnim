@@ -2174,8 +2174,11 @@ func isEmpty(s: ginger.Scale): bool =
 
 func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
   ## merges the two data scales and returns a version encompassing both
-  result = (low: min(s1.low, s2.low),
-            high: max(s1.high, s2.high))
+  if s1.low != s1.high:
+    result = (low: min(s1.low, s2.low),
+              high: max(s1.high, s2.high))
+  else:
+    result = s2
 
 proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## Given a sequence of scales applies all transformations of the `scales`.
