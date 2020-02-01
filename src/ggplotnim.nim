@@ -668,10 +668,12 @@ proc geom_point*(aes: Aesthetics = aes(),
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
 proc geom_bar*(aes: Aesthetics = aes(),
+               data = DataFrame(),
                color: Color = grey20, # color of the bars
                position = "stack",
                stat = "count",
               ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let style = Style(lineType: ltSolid,
@@ -681,6 +683,7 @@ proc geom_bar*(aes: Aesthetics = aes(),
                     fillColor: color)
   let gid = incId()
   result = Geom(gid: gid,
+                data: dfOpt,
                 kind: gkBar,
                 aes: aes.fillIds({gid}),
                 style: some(style),
@@ -716,6 +719,7 @@ proc geom_line*(aes: Aesthetics = aes(),
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
 proc geom_histogram*(aes: Aesthetics = aes(),
+                     data = DataFrame(),
                      binWidth = 0.0, bins = 30,
                      breaks: seq[float] = @[],
                      color: Color = grey20, # color of the bars
@@ -723,6 +727,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      stat = "bin",
                      binPosition = "left",
                     ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
@@ -733,6 +738,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                     fillColor: color)
   let gid = incId()
   result = Geom(gid: gid,
+                data: dfOpt,
                 kind: gkHistogram,
                 aes: aes.fillIds({gid}),
                 style: some(style),
@@ -742,6 +748,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
+                    data = DataFrame(),
                     color: Color = grey20, # color of the line
                     size: float = 1.0, # line width of the line
                     lineType: LineType = ltSolid,
@@ -752,6 +759,7 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     stat = "bin",
                     binPosition = "center"
                    ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
@@ -761,6 +769,7 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     fillColor: transparent,)
   let gid = incId()
   result = Geom(gid: gid,
+                data: dfOpt,
                 kind: gkFreqPoly,
                 aes: aes.fillIds({gid}),
                 style: some(style),
