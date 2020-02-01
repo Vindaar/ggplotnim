@@ -2292,6 +2292,20 @@ proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
   let zeroVals = zeroKeys.mapIt(0)
   df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
 
+proc determineDataScale(s: Scale, df: DataFrame): ginger.Scale =
+  ## returns the data scale given a filled `Scale s` and the corresponding data,
+  ## while differentiating between continuous and discrete scales
+  if s.dcKind == dcContinuous and s.dataScale.isEmpty:
+    # use the data to determine min and max
+    result = (low: min(df[s.col]).toFloat, high: max(df[s.col]).toFloat)
+  elif s.dcKind == dcContinuous:
+    # use the existing scale
+    result = s.dataScale
+  else:
+    # for discrete case assign default [0, 1] scale
+    # TODO: assign somewhere else?
+    result = (low: 0.0, high: 1.0)
+
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
@@ -2303,14 +2317,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       ycol: y.col,
                       dcKindX: x.dcKind,
                       dcKindY: y.dcKind)
-  if x.dataScale.isEmpty:
-    result.xScale = (low: min(df[x.col]).toFloat, high: max(df[x.col]).toFloat)
-  else:
-    result.xScale = x.dataScale
-  if y.dataScale.isEmpty:
-    result.yScale = (low: min(df[y.col]).toFloat, high: max(df[y.col]).toFloat)
-  else:
-    result.yScale = y.dataScale
+  result.xScale = determineDataScale(x, df)
+  result.yScale = determineDataScale(y, df)
   # w/ all groupings
   doAssert g.style.isSome
   var style = g.style.get
