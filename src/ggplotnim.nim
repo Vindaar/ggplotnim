@@ -1412,7 +1412,8 @@ proc getDiscreteData(view: var Viewport,
   var labData = initOrderedTable[int, (seq[float], Style)]()
   var numLabel = 0
   for (styles, subDf) in enumerateData(fg):
-    let counts = dataTo(subDf, fg.ycol, float)
+    # extract `y` data from `subDf` sorted by the discrete `x` column values
+    let counts = dataTo(subDf.arrange(fg.xcol), fg.ycol, float)
     if styles.len == 1:
       let style = styles[0]
       labData[numLabel] = (counts, style)
