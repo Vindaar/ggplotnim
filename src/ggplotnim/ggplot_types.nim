@@ -75,6 +75,7 @@ type
     name*: string
     ids*: set[uint16]
     vKind*: ValueKind # the value kind of the data of `col`
+    hasDiscreteness*: bool # TODO: set default dcKind, make option whatever instead of this
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
