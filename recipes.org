@@ -386,6 +386,10 @@ ggplot(df, aes("Shifters", fill = "Year")) +
   ggtitle("Number of shifts done by each shifter by year") +
   ggsave("media/recipes/rBarPlotRotatedLabels.png", width = 5000, height = 1000)
 #+END_SRC
+NOTE: It's recommended to generate a plot as this as a vector graphic
+(svg, pdf) instead of a png. However, since these recipe plots are
+part of the CI, we generate PNGs for all of them, since conversion
+from svg, pdf yields bad results on travis.
 
 Gives us the following plot. Probably better to look at the original
 instead of the embedded plot, since it's so wide.
