@@ -265,6 +265,45 @@ Giving us the following result:
 
 [[./media/recipes/rMpgSimpleBarPlot.png]]
 
+*** Bar plot with already computed statistics, manually set scale as discrete
+
+Consider a case in which we have a datafile for N sensors, where each
+row corresponds to one measurement per minute. In that case we might
+want to plot the mean value measured for all channels in a bar
+plot. To achieve this, we can do the following. 
+
+We start by putting the table into long form and parsing the channel
+numbers to integers. Then we compute the mean by grouping by channel
+and finally we create the plot.
+
+Note: Parsing the channel numbers and thus having to set the x scale
+as `dcDiscrete` is of course not required. But this way we combine two
+examples into one. :)
+
+#+BEGIN_SRC nim :tangle recipes/rBarPlotCompStats.nim
+import ggplotnim, sequtils, seqmath, strutils
+let cols = toSeq(0 .. 7).mapIt($it)
+# make `parseInt` work on Values, so we can parse the long form 
+# `Channel` column
+liftScalarStringProc(parseInt)
+let df = toDf(readCsv("data/szinti_channel_counts.txt", 
+                      sep = '\t',
+                      colNames = cols))
+  .gather(cols, key = "Channel", value = "Count")
+  .mutate(f{"Channel" ~ parseInt("Channel")})
+let dfMean = df.group_by("Channel").summarize(f{"Mean counts / min" ~ mean("Count")})
+# calculate mean for each channel
+ggplot(dfMean, aes("Channel", "Mean counts / min")) +
+  geom_bar(stat = "identity", position = "identity") +
+  scale_x_continuous(name = "Channel number", dcKind = dcDiscrete) +
+  ggtitle("Mean counts per channel") +
+  ggsave("media/recipes/rBarPlotCompStats.png")
+#+END_SRC
+
+Gives the following plot:
+
+[[./media/recipes/rBarPlotCompStats.png]]
+
 *** Stacked bar plot for N categories split by some other category
 
 Sometimes the above classes may be part of some other class though,
