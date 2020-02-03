@@ -219,13 +219,20 @@ proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
   of VObject:
      raise newException(Exception, "A VObject can neither be discrete nor continuous!")
 
-proc discreteAndType(df: DataFrame, col: string):
+proc discreteAndType(df: DataFrame, col: string,
+                     dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
     tuple[isDiscrete: bool, vKind: ValueKind] =
   ## deteremines both the `ValueKind` of the given column as well whether that
   ## data is discrete.
   let indices = drawSampleIdx(df.high)
   let data = indices.mapIt(df[col][it])
-  result = (isDiscrete: isDiscreteData(data, drawSamples = false),
+  let isDiscrete = block:
+    if dcKind.isSome:
+      let dc = dcKind.get
+      dc == dcDiscrete
+    else:
+      isDiscreteData(data, drawSamples = false)
+  result = (isDiscrete: isDiscrete,
             vKind: guessType(data, drawSamples = false))
 
 proc discreteAndType(data: seq[Value]):
@@ -530,7 +537,11 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # geom.
   var dataScaleOpt: Option[ginger.Scale]
   var labelSeqOpt: Option[seq[Value]]
+  var dcKindOpt: Option[DiscreteKind]
   for s in scales:
+    # check if scale predefined discreteness
+    if s.hasDiscreteness:
+      dcKindOpt = some(s.dcKind)
     case scKind
     of scLinearData:
       axKindOpt = some(s.axKind)
@@ -541,7 +552,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     else: discard
 
     # now determine labels, data scale from `data`
-    let (isDiscrete, vKind) = discreteAndType(data, rawCol)
+    let (isDiscrete, vKind) = discreteAndType(data, rawCol, dcKindOpt)
     if vKind == VNull:
       echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
@@ -817,7 +828,8 @@ func sec_axis*(trans: FormulaNode = nil, name: string = ""): SecondaryAxis =
                          name: name)
 
 proc scale_x_continuous*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis()): Scale =
+                         secAxis: SecondaryAxis = sec_axis(),
+                         dcKind: DiscreteKind = dcContinuous): Scale =
   ## creates a continuous x axis with a possible secondary axis.
   # NOTE: See note for y axis below
   var msecAxis: SecondaryAxis
@@ -829,11 +841,13 @@ proc scale_x_continuous*(name: string = "",
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
-                 dcKind: dcContinuous,
+                 dcKind: dcKind,
+                 hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
 proc scale_y_continuous*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis()): Scale =
+                         secAxis: SecondaryAxis = sec_axis(),
+                         dcKind: DiscreteKind = dcContinuous): Scale =
   ## creates a continuous y axis with a possible secondary axis.
   # NOTE: so far this only allows to set the name (read label) of the
   # axis. Also the possible transformation for the secondary axis
@@ -847,7 +861,8 @@ proc scale_y_continuous*(name: string = "",
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akY,
-                 dcKind: dcContinuous,
+                 dcKind: dcKind,
+                 hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
 proc ggtitle*(title: string, subtitle = "",

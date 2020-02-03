@@ -214,7 +214,6 @@ proc `[]=`*[T](df: var DataFrame, k: string, data: openArray[T]) {.inline.} =
     raise newException(ValueError, "Given `data` length of " & $data.len &
       " does not match DF length of: " & $df.len & "!")
 
-
 proc `[]=`*(df: var DataFrame, k: string, idx: int, val: Value) {.inline.} =
   df.data[k] = df.data[k].update(idx, val)
 
