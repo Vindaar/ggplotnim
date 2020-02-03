@@ -562,3 +562,33 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check exp.len == res.len
       for i in 0 ..< exp.len:
         check exp[i] == res[i]
+
+  test "Custom column names when reading CSV like data":
+    # given some data without a header and column names
+    let dataDuplStream = newStringStream("""
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+""")
+    # define columns
+    let cols = @["V1", "V2", "V3", "Channel"]
+    let df = toDf(readCsv(dataDuplStream, colNames = cols))
+    check df.len == 3
+    check df.getKeys == cols
+
+  test "Column names containing numbers":
+    # given some data without a header and column names
+    let dataDuplStream = newStringStream("""
+-3.0000E-06,  -2.441E-04,  -6.836E-04,  T1
+-2.9992E-06,  2.441E-04,  -6.836E-04 ,  T1
+-2.9984E-06,  1.025E-03,  -8.789E-04 ,  T1
+""")
+    # define columns
+    let cols = @["0", "1", "2", "3"]
+    let colsNot = @["\"0\"", "\"1\"", "\"2\"", "\"3\""]
+    let df = toDf(readCsv(dataDuplStream, colNames = cols))
+    check df.len == 3
+    check df.getKeys == cols
+    # redundant but a showcase what happened previously
+    for k in zip(df.getKeys, colsNot):
+      check k[0] != k[1]
