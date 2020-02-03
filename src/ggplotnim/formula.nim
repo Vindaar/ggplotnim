@@ -380,9 +380,12 @@ proc formatFloatValue(v: Value, precision: int): string =
                                   precision = precision)
   result.trimZeros()
 
-proc pretty*(v: Value, precision = 4): string =
+proc pretty*(v: Value, precision = 4, emphStrNumber = true): string =
   ## converts the given value to its value as a string. For `VFloat` the
   ## precision can be given.
+  ## If `emphStrNumber` is true, a number stored as a string will be emphasized
+  ## by enclosing it with explicit `"`. This is mainly for printing DFs to show
+  ## the user if a number is a number or a string.
   case v.kind
   of VInt:
     result = $v.num
@@ -392,7 +395,7 @@ proc pretty*(v: Value, precision = 4): string =
     result = $v.bval
   of VString:
     let vstr = v.str
-    if vstr.len == 0 or vstr.isNumber:
+    if emphStrNumber and (vstr.len == 0 or vstr.isNumber):
       result = "\"" & vstr & "\""
     else:
       result = vstr
@@ -1306,7 +1309,12 @@ proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Va
   ## calculates a new column based on the `fn` given
   doAssert fn.lhs.kind == fkVariable, " was " & $fn
   doAssert fn.lhs.val.kind == VString, " was " & $fn
-  let colName = $fn.lhs.val
+  # for column names we don't want explicit highlighting of string numbers, since
+  # we are dealing with strings anyways (`emphStrNumber = false`).
+  let colName = if fn.lhs.val.kind == VString:
+                  fn.lhs.val.str
+                else:
+                  pretty(fn.lhs.val, emphStrNumber = false)
   # mutable copy so that we can cache the result of `fn(arg)` if such a
   # function call is involved
   var mfn = fn
