@@ -2745,7 +2745,7 @@ proc countLines(s: var FileStream): int =
     inc result
   s.setPosition(0)
 
-proc checkHeader(s: Stream, fname, header: string): bool =
+proc checkHeader(s: Stream, fname, header: string, colNames: seq[string]): bool =
   ## checks whether the given file contains the header `header`
   result = true
   if header.len > 0:
@@ -2754,6 +2754,11 @@ proc checkHeader(s: Stream, fname, header: string): bool =
       result = headerBuf.startsWith(header)
     else:
       raise newException(IOError, "The input file " & $fname & " seems to be empty.")
+  elif colNames.len > 0:
+    # given some column names and a "header" without a symbol means we assume
+    # there is no real header. If there is a real header in addition, user has
+    # to use `skipLines = N` to skip it.
+    result = false
 
 proc readCsv*(s: Stream,
               sep = ',',
@@ -2765,10 +2770,13 @@ proc readCsv*(s: Stream,
   ## values, where idx 0 corresponds to the first data value
   ## The `header` field can be used to designate the symbol used to
   ## differentiate the `header`. By default `#`.
-  ## If `colNames` has values, the real header of the CSV file will be skipped
-  ## (if it exists).
+  ## `colNames` can be used to provide custom names for the columns.
+  ## If any are given and a header is present with a character indiciating
+  ## the header, it is automatically skipped. ``However``, if custom names are
+  ## desired and there is a real header without any starting symbol (i.e.
+  ## `header.len == 0`), please use `skipLines = N` to skip it manually!
   # first check if the file even has a header of type `header`
-  let hasHeader = checkHeader(s, fname, header)
+  let hasHeader = checkHeader(s, fname, header, colNames)
 
   var parser: CsvParser
   open(parser, s, fname, separator = sep, skipInitialSpace = true)
@@ -2819,8 +2827,11 @@ proc readCsv*(fname: string,
   ## values, where idx 0 corresponds to the first data value
   ## The `header` field can be used to designate the symbol used to
   ## differentiate the `header`. By default `#`.
-  ## If `colNames` has values, the real header of the CSV file will be skipped
-  ## (if it exists).
+  ## `colNames` can be used to provide custom names for the columns.
+  ## If any are given and a header is present with a character indiciating
+  ## the header, it is automatically skipped. ``However``, if custom names are
+  ## desired and there is a real header without any starting symbol (i.e.
+  ## `header.len == 0`), please use `skipLines = N` to skip it manually!
   var s = newFileStream(fname, fmRead)
   if s == nil:
     quit("cannot open the file" & fname)
