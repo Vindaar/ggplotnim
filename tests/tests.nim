@@ -173,6 +173,18 @@ suite "Value":
     check $n21 == "\"2.441E-04\""
     check $n22 == "\"-2.441E-04\""
 
+    # check that `emphStrNumber` can be disabled
+    echo n16.pretty(emphStrNumber = false).repr
+    echo n16.str.repr
+    check n16.pretty(emphStrNumber = false) == "6.084E+01"
+    check n17.pretty(emphStrNumber = false) == "1.676E+01"
+    check n18.pretty(emphStrNumber = false) == "6.863E+00"
+    check n19.pretty(emphStrNumber = false) == "2.007E+00"
+    check n20.pretty(emphStrNumber = false) == "9.329E-01"
+    check n21.pretty(emphStrNumber = false) == "2.441E-04"
+    check n22.pretty(emphStrNumber = false) == "-2.441E-04"
+
+
   test "Math with Values":
     check (v1 * v2).kind == VFloat
     check (v1 + v1).kind == VFloat
