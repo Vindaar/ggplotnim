@@ -457,6 +457,7 @@ proc fillScaleImpl(
   ## NOTE: The given `col` arg is not necessarily exactly a DF key anymore, since
   ## it might contain two or more columns as its basis
   # get the data column we scale by
+  result = new Scale
   if isDiscrete:
     # convert to set to filter duplicates, back to seq and sort
     # TODO: we could also use `sequtils.deduplicate` here
@@ -1061,7 +1062,7 @@ proc `+`*(p: GgPlot, theme: Theme): GgPlot =
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
   ## `aes`
-  var mscale = scale
+  var mscale = deepCopy(scale)
   result = aes
   case mscale.scKind
   of scLinearData, scTransformedData:
@@ -1340,6 +1341,7 @@ macro genGetScale(field: untyped): untyped =
   let name = ident("get" & $field.strVal & "Scale")
   result = quote do:
     proc `name`(filledScales: FilledScales, geom = Geom(gid: 0)): Scale =
+      result = new Scale
       if filledScales.`field`.main.isSome:
         # use main
         result = filledScales.`field`.main.get
