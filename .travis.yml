@@ -39,6 +39,8 @@ install:
   - nimble install ntangle -y
 
 script:
+  # limit our stack size to avoid regressing after PR #36 w/o noticing
+  - ulimit -s 1024
   - nimble install -y
   - nimble -y fulltest
   - nimble -y testCI
