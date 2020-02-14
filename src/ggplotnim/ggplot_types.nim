@@ -69,7 +69,7 @@ type
   # e.g. `xaxis`, `<name of geom>.xaxis` etc.?
   ScaleTransform* = proc(v: Value): Value
 
-  Scale* = object
+  Scale* = ref object
     # the column which this scale corresponds to
     col*: string
     name*: string
@@ -288,6 +288,7 @@ proc hash*(x: Scale): Hash =
     result = result !& hash(x.dataScale)
   result = !$result
 
+proc `$`*(s: Scale): string
 proc `$`*(f: Facet): string =
   result = "(columns: "
   for i, x in f.columns:
