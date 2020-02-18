@@ -511,3 +511,30 @@ suite "GgPlot":
                       height(view).toPoints(some(view.hView)).val + quant(xMargin, ukCentimeter).toPoints.val,
                       epsilon = 1e-6)
     plt.ggdraw("exp2.pdf")
+
+suite "Theme":
+  test "Canvas background color":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    let white = color(1.0, 1.0, 1.0)
+    proc checkPlt(plt: GgPlot) =
+      check plt.theme.canvasColor.isSome
+      check plt.theme.canvasColor.unsafeGet == white
+      let pltGinger = ggcreate(plt)
+      # don't expect root viewport to have more than 1 element here
+      check pltGinger.view.objects.len == 1
+      let canvas = pltGinger.view.objects[0]
+      check canvas.kind == goRect
+      check canvas.style.isSome
+      let canvasStyle = canvas.style.get
+      check canvasStyle.fillColor == white
+
+    block:
+      let plt = ggplot(mpg, aes("hwy", "cty")) +
+        geom_point() +
+        canvasColor(color = white)
+      checkPlt(plt)
+    block:
+      let plt = ggplot(mpg, aes("hwy", "cty")) +
+        geom_point() +
+        theme_opaque()
+      checkPlt(plt)
