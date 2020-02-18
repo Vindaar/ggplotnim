@@ -167,6 +167,8 @@ type
     xLabelSecondary*: Option[string]
     yLabelSecondary*: Option[string]
     legendPosition*: Option[Coord]
+    canvasColor*: Option[Color] # background color of the whole canvas
+    plotBackgroundColor*: Option[Color] # background color of a plot
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
 
   GgPlot*[T] = object

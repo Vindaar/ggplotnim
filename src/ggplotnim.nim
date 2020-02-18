@@ -976,6 +976,15 @@ proc legendPosition*(x = 0.0, y = 0.0): Theme =
   result = Theme(legendPosition: some(Coord(x: c1(x),
                                             y: c1(y))))
 
+proc canvasColor*(color: Color): Theme =
+  ## sets the canvas color of the plot to the given color
+  result = Theme(canvasColor: some(color))
+
+func theme_opaque*(): Theme =
+  ## returns the "opaque" theme. For the time being this only means the
+  ## canvas of the plot is white instead of transparent
+  result = Theme(canvasColor: some(white))
+
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
   of "none": result = none[TextAlignKind]()
@@ -1048,6 +1057,8 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(subTitleFont)
   ifSome(title)
   ifSome(subTitle)
+  ifSome(plotBackgroundColor)
+  ifSome(canvasColor)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -2023,12 +2034,32 @@ proc handleLabels(view: var Viewport, theme: Theme) =
                 true)
     view.addObj @[labSec]
 
+proc getPlotBackground(theme: Theme): Style =
+  ## returns a suitable style (or applies default) for the background of
+  ## the plot area
+  result = Style(color: color(0.0, 0.0, 0.0, 0.0))
+  if theme.plotBackgroundColor.isSome:
+    result.fillColor = theme.plotBackgroundColor.unsafeGet
+  else:
+    # default color: `grey92`
+    result.fillColor = grey92
+
+proc getCanvasBackground(theme: Theme): Style =
+  ## returns a suitable style (or applies default) for the background color of
+  ## the whole plot canvas. By default it is transparent
+  result = Style(color: transparent)
+  if theme.canvasColor.isSome:
+    result.fillColor = theme.canvasColor.unsafeGet
+  else:
+    # default background: transparent
+    result.fillColor = transparent
+
 proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
                   theme: Theme,
                   addLabels = true): Viewport =
   # first write all plots into dummy viewport
   result = view
-  result.background()
+  result.background(style = some(getPlotBackground(theme)))
 
   # set the data scale for the result
   result.xScale = filledScales.xScale
@@ -2651,6 +2682,9 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var img = initViewport(name = "root",
                          wImg = width,
                          hImg = height)
+
+  # set color of canvas background
+  img.background(style = some(getCanvasBackground(theme)))
 
   let drawLegend = filledScales.requiresLegend
   if drawLegend:
