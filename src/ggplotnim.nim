@@ -580,6 +580,11 @@ proc orNone(s: string): Option[string] =
   if s.len == 0: none[string]()
   else: some(s)
 
+proc orNone(f: float): Option[float] =
+  ## returns either a `some(f)` if `classify(f) != NaN` or none[float]()
+  if classify(f) != fcNaN: some(f)
+  else: none[float]()
+
 proc orNoneScale(s: string, scKind: static ScaleKind, axKind = akX): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
@@ -1021,6 +1026,40 @@ proc ylab*(label = "", margin = NaN, rotate = NaN,
     result.tickLabelFont = some(font)
   result.yTicksTextAlign = parseTextAlignString(alignTo)
 
+proc annotate*(text: string,
+               left = NaN,
+               bottom = NaN,
+               x = NaN,
+               y = NaN,
+               font = font(12.0),
+               backgroundColor = white): Annotation =
+  ## creates an annotation of `text` with a background
+  ## `backgroundColor` (by default white) using the given
+  ## `font`. Line breaks are supported.
+  ## It is placed either at:
+  ## - `(left, bottom)`, where these correspond to relative coordinates
+  ##   mapping out the plot area as (0.0, 1.0). NOTE: smaller and larger
+  ##   values than 0.0 and 1.0 are supported and will put the annotation outside
+  ##   the plot area.
+  ## - `(x, y)` where `x` and `y` are values in the scale of the data
+  ##   being plotted. This is useful if the annotation is to be placed relative
+  ##   to specific data points. NOTE: for a discrete axis data scale is not
+  ##   well defined, thus we fall back to relative scaling on that axis!
+  ## In principle you can mix and match left/x and bottom/y! If both are given
+  ## the former will be prioritized.
+  result = Annotation(left: left.orNone,
+                      bottom: bottom.orNone,
+                      x: x.orNone,
+                      y: y.orNone,
+                      text: text,
+                      font: font,
+                      backgroundColor: backgroundColor)
+  if result.x.isNone and result.left.isNone or
+     result.y.isNone and result.bottom.isNone:
+    raise newException(ValueError, "Both an x/left and y/bottom position has to " &
+      "given to `annotate`!")
+
+
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
@@ -1034,7 +1073,14 @@ proc `+`*(p: GgPlot, facet: Facet): GgPlot =
 proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
   ## adds the given aesthetics to the GgPlot object
   result = p
+  # TODO: this is surely wrong and should be
+  # `result.aes = aes`???
   result.aes = p
+
+proc `+`*(p: GgPlot, annot: Annotation): GgPlot =
+  ## adds the given Annotation to the GgPlot object
+  result = p
+  result.annotations.add annot
 
 proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ## applies all elements of `theme`, which are `Some` to
@@ -2668,6 +2714,86 @@ proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
   if result.yLabelSecondary.isNone and filledScales.hasSecondary(akY):
     result.yLabelSecondary = some(filledScales.getSecondaryAxis(akY).name)
 
+proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom: float] =
+  ## Given an annotation this proc returns the relative `(left, bottom)`
+  ## coordinates of either the `(x, y)` values in data space converted
+  ## using the `x, y: ginger.Scale` of the viewport or directly using
+  ## the annotations `(left, bottom)` pair if available
+  if annot.left.isSome:
+    result.left = annot.left.unsafeGet
+  else:
+    # NOTE: we make sure in during `annotate` that either `left` or
+    # `x` is defined!
+    result.left = toRelative(Coord1D(pos: annot.x.unsafeGet,
+                                     kind: ukData,
+                                     axis: akX,
+                                     scale: view.xScale)).pos
+  if annot.bottom.isSome:
+    result.bottom = annot.bottom.unsafeGet
+  else:
+    # NOTE: we make sure in during `annotate` that either `bottom` or
+    # `y` is defined!
+    result.bottom = toRelative(Coord1D(pos: annot.y.unsafeGet,
+                                       kind: ukData,
+                                       axis: akY,
+                                       scale: view.yScale)).pos
+
+
+proc drawAnnotations*(view: var Viewport, p: GgPlot) =
+  ## draws all annotations from `p` onto the mutable view `view`.
+  # this is 0.5 times the string height. Margin between text and
+  # the background rectangle
+  const AnnotRectMargin = 0.5
+  for annot in p.annotations:
+    # style to use for this annotation
+    let rectStyle = Style(fillColor: annot.backgroundColor,
+                          color: annot.backgroundColor)
+    let (left, bottom) = view.getLeftBottom(annot)
+    ## TODO: Fix ginger calculations / figure out if / why cairo text extents
+    # are bad in width direction
+    let marginH = toRelative(strHeight(AnnotRectMargin, annot.font),
+                            length = some(pointHeight(view)))
+    let marginW = toRelative(strHeight(AnnotRectMargin, annot.font),
+                            length = some(pointWidth(view)))
+    let totalHeight = quant(
+      toRelative(getStrHeight(annot.text, annot.font),
+                 length = some(view.hView)).val +
+      marginH.pos * 2.0,
+      unit = ukRelative)
+    # find longest line of annotation to base background on
+    let maxLine = annot.text.strip.splitLines.sortedByIt(
+      getStrWidth(it, annot.font).val
+    )[^1]
+    let maxWidth = getStrWidth(maxLine, annot.font)
+    # calculate required width for background rectangle. string width +
+    # 2 * margin
+    let rectWidth = quant(
+      toRelative(maxWidth, length = some(pointWidth(view))).val +
+      marginW.pos * 2.0,
+      unit = ukRelative
+    )
+    # left and bottom positions, shifted each by one margin
+    let rectX = left - marginW.pos
+    let rectY = bottom - totalHeight.toRelative(
+      length = some(view.hView)
+    ).val + marginH.pos
+    # create background rectangle
+    let annotRect = view.initRect(
+      Coord(x: Coord1D(pos: rectX, kind: ukRelative),
+            y: Coord1D(pos: rectY, kind: ukRelative)),
+      rectWidth,
+      totalHeight,
+      style = some(rectStyle),
+      name = "annotationBackground")
+    # create actual annotation
+    let annotText = view.initMultiLineText(
+      origin = c(left, bottom),
+      text = annot.text,
+      textKind = goText,
+      alignKind = taLeft,
+      fontOpt = some(annot.font))
+    view.addObj concat(@[annotRect], annotText)
+
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns a `PlotView`. The `PlotView` contains
@@ -2739,6 +2865,9 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
       lg.createLegend(scale, markers)
       img[5] = lg
       drawnLegends.incl (scale.dcKind, scale.scKind)
+
+  # draw available annotations,
+  img[4].drawAnnotations(p)
 
   if p.title.len > 0:
     var titleView = img[1]

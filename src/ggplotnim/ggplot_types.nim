@@ -171,6 +171,17 @@ type
     plotBackgroundColor*: Option[Color] # background color of a plot
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
 
+  # dummy annotation, which puts `text` at bottom left corner
+  # of `(left, height)`
+  Annotation* = object
+    left*: Option[float]
+    bottom*: Option[float]
+    x*: Option[float]
+    y*: Option[float]
+    text*: string
+    font*: Font
+    backgroundColor*: Color
+
   GgPlot*[T] = object
     data*: T
     title*: string
@@ -182,6 +193,7 @@ type
     numYticks*: int
     facet*: Option[Facet]
     geoms*: seq[Geom]
+    annotations*: seq[Annotation]
     theme*: Theme
 
   # A filled geom is a geom plus a closure to yield the
