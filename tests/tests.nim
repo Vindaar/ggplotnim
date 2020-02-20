@@ -556,40 +556,54 @@ suite "Annotations":
     var count = 0
     for gobj in actPlot.objects:
       if "multiLineText" in gobj.name:
-        check almostEqual(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
+        when not defined(noCairo):
+          ## text extent based calcs are not supported without cairo!
+          check almostEqual(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
         # we don't check y because it depends on the line
         inc count
       elif "annotationBackground" in gobj.name:
         # rough position check. Values should align with bottom left of
         # the rectangle, placed in the plot viewport. Takes into
         # account the margin we use:
-        check almostEqual(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
-        check almostEqual(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
+        when not defined(noCairo):
+          check almostEqual(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
+          check almostEqual(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
+        else:
+          discard
     # check number of lines
     check count == annot.strip.splitLines.len
 
   test "Annotation using data coordinates":
     let df = toDf(readCsv("data/mpg.csv"))
     let annot = "A simple\nAnnotation\nMulti\nLine"
+    let font = font(size = 12.0,
+                    family = "monospace")
     let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
       geom_point() +
       annotate(annot,
                x = 10.0,
                y = 20.0,
-               font = font(size = 12.0,
-                           family = "monospace")))
+               font = font))
     let view = plt.view
     # get actual plot view
     let actPlot = view[4]
     var count = 0
     for gobj in actPlot.objects:
       if "multiLineText" in gobj.name:
-        check almostEqual(gobj.txtPos.x.pos, 0.0, epsilon = 1e-6)
+        when not defined(noCairo):
+          ## text extent based calcs are not supported without cairo!
+          check almostEqual(gobj.txtPos.x.pos, 0.0, epsilon = 1e-6)
         # we don't check y because it depends on the line
+        check gobj.txtFont == font
+        check gobj.txtText == annot.strip.splitLines[count]
         inc count
       elif "annotationBackground" in gobj.name:
         # rough position check
-        check almostEqual(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
-        check almostEqual(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
+        when not defined(noCairo):
+          check almostEqual(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
+          check almostEqual(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
+        check gobj.style.isSome
+        check gobj.style.unsafeGet.color == color(1.0, 1.0, 1.0, 1.0)
+        check gobj.style.unsafeGet.fillColor == color(1.0, 1.0, 1.0, 1.0)
     # check number of lines
     check count == annot.strip.splitLines.len
