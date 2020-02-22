@@ -10,8 +10,8 @@ The dataframe library was a necessity achieve a ggplot2 like syntax
 and provide ways to manipulate the data in the desired fashion. 
 
 For successful usage three major things have to be known:
-- the =DataFrame= and the procs working on it (see formula.nim
-  documentation)
+- the =DataFrame= and the procs working on it (*see:* [[./formula.html][formula.nim]]
+  documentation!)
 - the =f{}= macro to create =FormulaNodes=, which are needed for the
   DF procs
 - the =ggplot= syntax

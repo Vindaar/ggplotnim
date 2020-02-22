@@ -15,8 +15,8 @@ provide ways to manipulate the data in the desired fashion.
 
 For successful usage three major things have to be known:
 
--  the ``DataFrame`` and the procs working on it (see formula.nim
-   documentation)
+-  the ``DataFrame`` and the procs working on it (**see:**
+   `formula.nim <./formula.html>`__ documentation!)
 -  the ``f{}`` macro to create ``FormulaNodes``, which are needed for
    the DF procs
 -  the ``ggplot`` syntax
