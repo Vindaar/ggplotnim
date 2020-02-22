@@ -1466,6 +1466,36 @@ proc addPointCentered[T](view: var Viewport, val: T, style: Style): GraphObject 
                           color = style.color,
                           size = style.size)
 
+proc drawStackedPolyLine(view: var Viewport,
+                         prevVals: seq[float],
+                         linePoints: seq[Point],
+                         style: Style): GraphObject =
+  ## used both for `gkLine` as well as `gkPolyLine`!
+  # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
+  # each line disconnected by more than 1 empty bin
+  # This is somewhat complicated.
+  var polyLines: seq[seq[Point]]
+  let nElems = linePoints.len
+  for i, p in linePoints:
+    let (x, y) = p
+    # add the current value to the current bin value
+    let binVal = prevVals[i] + y
+    if y > 0 or # has data int it, add
+       binVal == 0 or # nothing in the bin yet, add
+       polyLines[^1].len == 0 or # current polyLine is empty, add
+      (polyLines[^1].len > 0 and i > 0 and # sanity checks
+        (linePoints[i - 1].y > 0 and y == 0) # this element is empty, but last
+                                             # was not, so add to draw back to 0
+      ):
+      polyLines[^1].add (x: x, y: binVal)
+    elif polyLines[^1].len > 0 and i != nElems - 1 and linePoints[i + 1].y == 0:
+      # only create new seq, if has content and next element is 0
+      polyLines.add newSeq[Point]()
+  # now create the poly lines from the data
+  for line in polyLines:
+    if line.len > 0:
+      result = view.initPolyLine(line, some(style))
+
 proc addGeomCentered(view: var Viewport,
                      fg: FilledGeom,
                      viewMap: Table[Value, int],
@@ -1540,37 +1570,6 @@ proc addGeomCentered(view: var Viewport,
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
       for i in 0 ..< styles.high: # last element covered by i + 1
         result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styles[i]))
-
-
-proc drawStackedPolyLine(view: var Viewport,
-                         prevVals: seq[float],
-                         linePoints: seq[Point],
-                         style: Style): GraphObject =
-  ## used both for `gkLine` as well as `gkPolyLine`!
-  # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
-  # each line disconnected by more than 1 empty bin
-  # This is somewhat complicated.
-  var polyLines: seq[seq[Point]]
-  let nElems = linePoints.len
-  for i, p in linePoints:
-    let (x, y) = p
-    # add the current value to the current bin value
-    let binVal = prevVals[i] + y
-    if y > 0 or # has data int it, add
-       binVal == 0 or # nothing in the bin yet, add
-       polyLines[^1].len == 0 or # current polyLine is empty, add
-      (polyLines[^1].len > 0 and i > 0 and # sanity checks
-        (linePoints[i - 1].y > 0 and y == 0) # this element is empty, but last
-                                             # was not, so add to draw back to 0
-      ):
-      polyLines[^1].add (x: x, y: binVal)
-    elif polyLines[^1].len > 0 and i != nElems - 1 and linePoints[i + 1].y == 0:
-      # only create new seq, if has content and next element is 0
-      polyLines.add newSeq[Point]()
-  # now create the poly lines from the data
-  for line in polyLines:
-    if line.len > 0:
-      result = view.initPolyLine(line, some(style))
 
 func readOrCalcBinWidth(df: DataFrame, idx: int,
                         dataCol: string,
@@ -2134,8 +2133,6 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     var pChild = result.addViewport(name = "data")
     # DF here not needed anymore!
     let gobjs = pChild.createGobjFromGeom(fg, theme)
-    echo "SCALE ", pChild.xScale
-    echo "SS ", pChild.yScale
     # add the data to the child
     pChild.addObj gobjs
     # add the data viewport to the view
