@@ -150,13 +150,6 @@ iterator enumerateData(geom: FilledGeom): (seq[Style], DataFrame) =
   for (style, df) in values(geom.yieldData):
     yield (style, df)
 
-iterator reversedEnumerateData(geom: FilledGeom): (seq[Style], DataFrame) =
-  ## yields the pairs of continuous styles for the current discrete style and
-  ## its data from `yieldData` in reversed form
-  let revKeys = toSeq(keys(geom.yieldData)).reversed
-  for k in revKeys:
-    yield geom.yieldData[k]
-
 proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
   var r = initRand(seed) # for now just set a local state
@@ -1779,7 +1772,6 @@ proc createGobjFromGeom(view: var Viewport,
         else:
           result.add view.identityDraw(fg, styles, subDf)
     of pkStack:
-      # yield data in reversed order, so that "higehst value" appears at bottom
       var prevVals = newSeq[float](fg.numX)
       for (styles, subDf) in enumerateData(fg):
         if styles.len == 1:
