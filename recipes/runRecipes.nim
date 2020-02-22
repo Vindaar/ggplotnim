@@ -24,5 +24,7 @@ let res = shellVerbose:
   nim c "-r recipes/rBarPlotRotatedLabels.nim"
   nim c "-r recipes/rBarPlotCompStats.nim"
   nim c "-r recipes/rCustomAnnotations.nim"
+  nim c "-r recipes/rMpgDiscreteXScale.nim"
+  nim c "-r recipes/rDiscreteXLine.nim"
 if res[1] != 0:
   raise newException(Exception, "Failed to build or run at least one recipe!")
