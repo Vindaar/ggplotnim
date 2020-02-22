@@ -668,11 +668,16 @@ proc geom_point*(aes: Aesthetics = aes(),
                  bins = -1,
                  binWidth = 0.0,
                  breaks: seq[float] = @[],
-                 binPosition = "none"
+                 binPosition = "none",
+                 position = "identity", # the position kind, "identity", "stack" etc.
                 ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -681,7 +686,8 @@ proc geom_point*(aes: Aesthetics = aes(),
                                   size: size)),
                 aes: aes.fillIds({gid}),
                 binPosition: bpKind,
-                statKind: stKind)
+                statKind: stKind,
+                position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
 proc geom_bar*(aes: Aesthetics = aes(),
@@ -1410,9 +1416,10 @@ macro genGetScale(field: untyped): untyped =
 
 genGetScale(x)
 genGetScale(y)
-genGetScale(color)
-genGetScale(size)
-genGetScale(shape)
+# not used at the moment
+#genGetScale(color)
+#genGetScale(size)
+#genGetScale(shape)
 
 proc addHistoRect[T](view: var Viewport, val: T, style: Style,
                      yPos: Coord1D = c1(1.0),
@@ -1444,7 +1451,6 @@ proc addHistoCentered[T](view: var Viewport, val: T, style: Style,
                           quant(width, ukRelative),
                           quant(-val.float, ukData),
                           style = some(style))
-    #view.addObj result
 
 proc addPointCentered[T](view: var Viewport, val: T, style: Style): GraphObject =
   ## creates a rectangle for a histogram and adds it to the viewports object
@@ -1460,84 +1466,81 @@ proc addPointCentered[T](view: var Viewport, val: T, style: Style): GraphObject 
                           color = style.color,
                           size = style.size)
 
-proc getDiscreteData(view: var Viewport,
-                     fg: FilledGeom,
-                     theme: Theme):
-                       tuple[data: OrderedTable[int, (seq[float], Style)],
-                             toIgnore: HashSet[int]] =
-  ## creates the GraphObjects required for a bar plot
-  let numElements = fg.numX
-  let toIgnore = toSet([0, numElements + 1])
-  var labData = initOrderedTable[int, (seq[float], Style)]()
-  var numLabel = 0
-  for (styles, subDf) in enumerateData(fg):
-    # extract `y` data from `subDf` sorted by the discrete `x` column values
-    let counts = dataTo(subDf.arrange(fg.xcol), fg.ycol, float)
-    if styles.len == 1:
-      let style = styles[0]
-      labData[numLabel] = (counts, style)
-    else:
-      # what's this supposed to be? continuously colored bins?
-      raise newException(Exception, "Does this make sense?")
-    inc numLabel
-  # reverse the order of `labData`, so that the element class with highest string
-  # value is located at the bottom of the histogram (to match `ggplot2`)
-  labData.sort(
-    cmp = (
-      proc(a, b: (int, (seq[float], Style))): int =
-        result = system.cmp(a[0], b[0])
-    ),
-    order = SortOrder.Descending)
-  result = (data: labData, toIgnore: toIgnore)
-
 proc addGeomCentered(view: var Viewport,
-                     fg: FilledGeom): seq[GraphObject] =
+                     fg: FilledGeom,
+                     viewMap: Table[Value, int],
+                     styles: seq[Style],
+                     df: DataFrame,
+                     prevVals: var Table[int, float],
+                     prevTops: var Table[int, Coord1D]): seq[GraphObject] =
   ## given N(xM soon) viewports, will add the `data` at index `i` for viewport
   ## `i` in the center using the given GeomKind
   doAssert fg.dcKindX == dcDiscrete or fg.dcKindY == dcDiscrete, "at least one axis must be discrete!"
   # TODO: can both be discrete? Yes.
   # TODO: can identity and stack be unified?
-  let (data, toIgnore) = getDiscreteData(view, fg, Theme())
-  var i = 0
-  var idx = 0
-  for p in mitems(view):
-    if i in toIgnore:
-      inc i
-      continue
+  # TODO: we should combine the `prevVals`, `prevTops`.
+  var linePoints = newSeq[(float, float)](df.len)
+
+  for i in 0 ..< df.len:
+    let styleIdx = if styles.len == 1: 0 else: i
+    # allow VNull values. Those should ``only`` appear at the end of columns if the
+    # filling of scales works correctly!
+    let x = df[fg.xcol, i]
+    let y = df[fg.ycol, i].toFloat(allowNull = true)
+    let viewIdx = viewMap[x]
+    var viewPort = view[viewIdx]
+    # given x value, get correct viewport
     case fg.geom.position
     of pkIdentity:
-      for label, (val, style) in data:
-        case fg.geom.kind
-        of gkBar:
-          result.add p.addHistoCentered(val[idx], style, width = 0.8) # geom.barWidth
-        of gkPoint:
-          result.add p.addPointCentered(val[idx], style)
-        of gkLine:
-          raise newException(Exception, "Need two points for line!")
-        else:
-          raise newException(Exception, "Implement me: " & $fg.geom.kind)
+      case fg.geom.kind
+      of gkBar:
+        result.add viewPort.addHistoCentered(y, styles[styleIdx], width = 0.8) # geom.barWidth
+      of gkPoint:
+        result.add viewPort.addPointCentered(y, styles[styleIdx])
+      of gkLine:
+        #raise newException(Exception, "Need two points for line!")
+        linePoints[i] = (x: viewPort.getCenter()[0], y: y)
+      else:
+        raise newException(Exception, "Implement me: " & $fg.geom.kind)
     of pkStack:
       # create one rectangle for each label, each successive starting at the
       # top of the previous
-      var prevTop = c1(1.0)
-      var prevVal = 0.0
-      for label, (val, style) in data:
-        case fg.geom.kind
-        of gkBar:
-          result.add p.addHistoCentered(val[idx], style, prevTop, width = 0.8) # geom.barWidth
-        of gkPoint:
-          result.add p.addPointCentered(val[idx] + prevVal, style)
-        else:
-          raise newException(Exception, "Implement me: " & $fg.geom.kind)
-        prevVal = val[idx]
-        prevTop = prevTop - Coord1D(pos: fg.yScale.high - val[idx].float, kind: ukData,
-                                    scale: fg.yScale, axis: akY)
+      if viewIdx notin prevTops:
+        prevTops[viewIdx] = c1(1.0, ukRelative)
+      if viewIdx notin prevVals:
+        prevVals[viewIdx] = 0.0
+
+      case fg.geom.kind
+      of gkBar:
+        result.add viewPort.addHistoCentered(y, styles[styleIdx], prevTops[viewIdx], width = 0.8) # geom.barWidth
+      of gkPoint:
+        result.add viewPort.addPointCentered(y + prevVals[viewIdx], styles[styleIdx])
+      of gkLine:
+        linePoints[i] = (x: viewPort.getCenter()[0], y: y + prevVals[viewIdx])
+      else:
+        raise newException(Exception, "Implement me: " & $fg.geom.kind)
+      # now update the previous values
+      prevVals[viewIdx] += y
+      prevTops[viewIdx] = prevTops[viewIdx] - Coord1D(pos: fg.yScale.high - y, kind: ukData,
+                                                      scale: fg.yScale, axis: akY)
     of pkDodge:
       raise newException(Exception, "Not implemented yet :)")
     of pkFill:
       raise newException(Exception, "Not implemented yet :)")
-    inc i
-    inc idx
+    view[viewIdx] = viewPort
+
+  if fg.geom.kind in {gkLine, gkFreqPoly}:
+    if styles.len == 1:
+      result.add view.initPolyLine(linePoints, some(styles[0]))
+      echo result[^1]
+    else:
+      # since `ginger` doesn't support gradients on lines atm, we just draw from
+      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
+      # of styles between the two, but we don't atm!
+      echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      for i in 0 ..< styles.high: # last element covered by i + 1
+        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styles[i]))
+
 
 proc drawStackedPolyLine(view: var Viewport,
                          prevVals: seq[float],
@@ -1740,20 +1743,31 @@ proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
                                  indWidths,
                                  @[discrMargin]))
 
+proc calcViewMap(fg: FilledGeom): Table[Value, int] =
+  ## maps a given label (`Value`) of a discrete axis to an `int` index,
+  ## which corresponds to the `Viewport` the label has to be drawn to
+  result = initTable[Value, int]()
+  case fg.dcKindX
+  of dcDiscrete:
+    for i, l in fg.xLabelSeq:
+      # skip first empty viewport
+      result[l] = i + 1
+  else: discard
+
 proc createGobjFromGeom(view: var Viewport,
                         fg: FilledGeom,
                         theme: Theme): seq[GraphObject] =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
   view.prepareViews(fg, theme)
-  # TODO: some geoms are by (our) definition discrete, e.g. geom_bar!
-  # should we case on those first?
+  # if discretes, calculate mapping from labels to viewport
+  var viewMap = calcViewMap(fg)
   case fg.dcKindX
   of dcDiscrete:
-    # draw discrete along x
-    # doAssert fg.dcKindY == dcContinuous
-    # TODO: make sure all procs return correct stuff...!
-    result = view.addGeomCentered(fg)
+    var prevVals = initTable[int, float]()
+    var prevTops = initTable[int, Coord1D]()
+    for (styles, subDf) in enumerateData(fg):
+      result.add view.addGeomCentered(fg, viewMap, styles, subDf, prevVals, prevTops)
   of dcContinuous:
     # draw continuous both axes
     case fg.geom.position
@@ -2120,6 +2134,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     var pChild = result.addViewport(name = "data")
     # DF here not needed anymore!
     let gobjs = pChild.createGobjFromGeom(fg, theme)
+    echo "SCALE ", pChild.xScale
+    echo "SS ", pChild.yScale
     # add the data to the child
     pChild.addObj gobjs
     # add the data viewport to the view
@@ -2334,6 +2350,27 @@ proc setCountXScaleByType(xScale: var ginger.Scale, vKind: ValueKind,
     else:
       xScale = mergeScales(xScale, dfXScale)
 
+proc setXAttributes(fg: var FilledGeom,
+                    df: DataFrame,
+                    scale: Scale) =
+  ## sets the X related attributes taking into account the discrete kind and the current
+  ## number of elements. Mainly this means to set the `xScale` either according to
+  ## the current DF and the last one (given discrete classification) and determine
+  ## the number of elements in X
+  case scale.dcKind
+  of dcDiscrete:
+    # for discrete scales the number of elements is the number of unique elements
+    # (consider mpg w/ gkPoint using aes("cyl", "hwy") gives N entries for each "cyl"
+    fg.numX = df[scale.col].unique.len
+    # for a discrete scale an X scale isn't needed and makes it harder to produce
+    # gkLine plots with a discrete scale
+    fg.xScale = (low: 0.0, high: 1.0)
+    # and assign the label sequence
+    fg.xLabelSeq = scale.labelSeq
+  else:
+    fg.xScale.setCountXScaleByType(scale.vKind, scale.col, df)
+    fg.numX = max(fg.numX, df.len)
+
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          fullDf: DataFrame,
                          scales: seq[Scale], baseStyle: Style): (seq[Style], DataFrame) =
@@ -2414,6 +2451,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       dcKindY: y.dcKind)
   result.xScale = determineDataScale(x, df)
   result.yScale = determineDataScale(y, df)
+
   # w/ all groupings
   doAssert g.style.isSome
   var style = g.style.get
@@ -2425,14 +2463,17 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       var yieldDf = subDf.select(concat(@[x.col, y.col], contCols))
-      result.numX = max(result.numX, yieldDf.len)
+      result.setXAttributes(yieldDf, x)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
   else:
     # is select here even useful? Just makes the df given smaller, but...
     var yieldDf = df.select(concat(@[x.col, y.col], contCols))
-    result.numX = yieldDf.len
+    result.setXAttributes(yieldDf, x)
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
 
+  case y.dcKind
+  of dcDiscrete: result.yLabelSeq = y.labelSeq
+  else: discard
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
@@ -2507,10 +2548,14 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     result.numX = yieldDf.len
     result.xScale = (low: bins.min.float, high: bins.max.float)
     result.yScale = (low: 0.0, high: hist.max.float)
-
   # `numY` for `bin` stat is just max of the y scale. Since `histogram` counts the
   # number of values in a binned continuous scale the maximum value is always an `int`!
   result.numY = result.yScale.high.round.int
+  # set the label sequence manually, since we don't use `setXAttributes`
+  case x.dcKind
+  of dcDiscrete: result.xLabelSeq = x.labelSeq
+  else: discard
+
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
@@ -2537,7 +2582,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     # sumCounts used to calculate height of stacked histogram
     # TODO: can be simplified by implementing `count` of `grouped` DFs!
     var sumCounts = DataFrame()
-    for keys, subDf in groups(df):
+    for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       var yieldDf = subDf.count(x.col, name = countCol)
@@ -2548,16 +2593,15 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       yieldDf = yieldDf.arrange(x.col)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
-      result.numX = max(result.numX, yieldDf.len)
-      result.xScale.setCountXScaleByType(x.vKind, x.col, yieldDf)
+      result.setXAttributes(yieldDf, x)
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0,
                                    high: max(sumCounts[countCol]).toFloat))
   else:
     let yieldDf = df.count(x.col, name = countCol)
-    result.numX = yieldDf.len
+    #result.numX = yieldDf.len
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
-    result.xScale.setCountXScaleByType(x.vKind, x.col, yieldDf)
+    result.setXAttributes(yieldDf, x)
     result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the

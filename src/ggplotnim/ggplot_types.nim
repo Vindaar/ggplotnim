@@ -208,8 +208,14 @@ type
     # `Style` stores base style for each value of the discrete (!) scales
     yieldData*: OrderedTable[Style, (seq[Style], DataFrame)]
     # whether X or Y is discrete or continuous. Has direct implication for drawing
-    dcKindX*: DiscreteKind
-    dcKindY*: DiscreteKind
+    case dcKindX*: DiscreteKind
+    of dcDiscrete:
+      xLabelSeq*: seq[Value]
+    else: discard
+    case dcKindY*: DiscreteKind
+    of dcDiscrete:
+      yLabelSeq*: seq[Value]
+    else: discard
     # the number of max elements for each dimensions found for this geom
     # if x or y is discrete the following will store the number of classes
     # if continuous just the max number of elements the largest style

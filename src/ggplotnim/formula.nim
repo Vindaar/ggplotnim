@@ -1567,7 +1567,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   for key in by:
     result.groupMap[key] = toSet(toSeq(result[key]))
 
-iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
+iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Value)], DataFrame) =
   ## yields the subgroups of a grouped DataFrame `df` and the `(key, Value)`
   ## pairs that were used to create the subgroup. If `df` has more than
   ## one grouping, a subgroup is defined by the pair of the groupings!
@@ -1578,7 +1578,7 @@ iterator groups*(df: DataFrame): (seq[(string, Value)], DataFrame) =
   # sort by keys
   let keys = getKeys(df.groupMap)
   # arrange by all keys in ascending order
-  let dfArranged = df.arrange(keys)
+  let dfArranged = df.arrange(keys, order = order)
   # having the data frame in a sorted order, walk it and return each combination
   var
     currentKeys = newSeq[(string, Value)](keys.len)
