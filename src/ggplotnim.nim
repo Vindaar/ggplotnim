@@ -1559,6 +1559,7 @@ proc addGeomCentered(view: var Viewport,
       raise newException(Exception, "Not implemented yet :)")
     view[viewIdx] = viewPort
 
+  # TODO: this is essentially the same as the code in the other 2 draw procs!
   if fg.geom.kind in {gkLine, gkFreqPoly}:
     if styles.len == 1:
       result.add view.initPolyLine(linePoints, some(styles[0]))
@@ -1745,6 +1746,7 @@ proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
 proc calcViewMap(fg: FilledGeom): Table[Value, int] =
   ## maps a given label (`Value`) of a discrete axis to an `int` index,
   ## which corresponds to the `Viewport` the label has to be drawn to
+  # TODO: extend to discrete y scales!
   result = initTable[Value, int]()
   case fg.dcKindX
   of dcDiscrete:
@@ -1779,7 +1781,7 @@ proc createGobjFromGeom(view: var Viewport,
     of pkStack:
       # yield data in reversed order, so that "higehst value" appears at bottom
       var prevVals = newSeq[float](fg.numX)
-      for (styles, subDf) in reversedEnumerateData(fg):
+      for (styles, subDf) in enumerateData(fg):
         if styles.len == 1:
           result.add view.stackDraw(prevVals, fg, styles[0], subDf)
         else:
@@ -2358,7 +2360,7 @@ proc setXAttributes(fg: var FilledGeom,
   of dcDiscrete:
     # for discrete scales the number of elements is the number of unique elements
     # (consider mpg w/ gkPoint using aes("cyl", "hwy") gives N entries for each "cyl"
-    fg.numX = df[scale.col].unique.len
+    fg.numX = max(fg.numX, df[scale.col].unique.len)
     # for a discrete scale an X scale isn't needed and makes it harder to produce
     # gkLine plots with a discrete scale
     fg.xScale = (low: 0.0, high: 1.0)
@@ -2456,7 +2458,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
-    for keys, subDf in groups(df):
+    for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       var yieldDf = subDf.select(concat(@[x.col, y.col], contCols))
@@ -2520,7 +2522,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     df = df.group_by(mapDiscCols)
     # sumHist used to calculate height of stacked histogram
     var sumHist: seq[int]
-    for keys, subDf in groups(df):
+    for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
