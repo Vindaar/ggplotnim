@@ -1511,18 +1511,18 @@ proc addGeomCentered(view: var Viewport,
     let x = df[fg.xcol, i]
     let y = df[fg.ycol, i].toFloat(allowNull = true)
     let viewIdx = viewMap[x]
-    var viewPort = view[viewIdx]
+    var labelView = view[viewIdx]
     # given x value, get correct viewport
     case fg.geom.position
     of pkIdentity:
       case fg.geom.kind
       of gkBar:
-        result.add viewPort.addHistoCentered(y, styles[styleIdx], width = 0.8) # geom.barWidth
+        result.add labelView.addHistoCentered(y, styles[styleIdx], width = 0.8) # geom.barWidth
       of gkPoint:
-        result.add viewPort.addPointCentered(y, styles[styleIdx])
+        result.add labelView.addPointCentered(y, styles[styleIdx])
       of gkLine:
         #raise newException(Exception, "Need two points for line!")
-        linePoints[i] = (x: viewPort.getCenter()[0], y: y)
+        linePoints[i] = (x: labelView.getCenter()[0], y: y)
       else:
         raise newException(Exception, "Implement me: " & $fg.geom.kind)
     of pkStack:
@@ -1535,11 +1535,11 @@ proc addGeomCentered(view: var Viewport,
 
       case fg.geom.kind
       of gkBar:
-        result.add viewPort.addHistoCentered(y, styles[styleIdx], prevTops[viewIdx], width = 0.8) # geom.barWidth
+        result.add labelView.addHistoCentered(y, styles[styleIdx], prevTops[viewIdx], width = 0.8) # geom.barWidth
       of gkPoint:
-        result.add viewPort.addPointCentered(y + prevVals[viewIdx], styles[styleIdx])
+        result.add labelView.addPointCentered(y + prevVals[viewIdx], styles[styleIdx])
       of gkLine:
-        linePoints[i] = (x: viewPort.getCenter()[0], y: y + prevVals[viewIdx])
+        linePoints[i] = (x: labelView.getCenter()[0], y: y + prevVals[viewIdx])
       else:
         raise newException(Exception, "Implement me: " & $fg.geom.kind)
       # now update the previous values
@@ -1550,7 +1550,7 @@ proc addGeomCentered(view: var Viewport,
       raise newException(Exception, "Not implemented yet :)")
     of pkFill:
       raise newException(Exception, "Not implemented yet :)")
-    view[viewIdx] = viewPort
+    view[viewIdx] = labelView
 
   # TODO: this is essentially the same as the code in the other 2 draw procs!
   if fg.geom.kind in {gkLine, gkFreqPoly}:
