@@ -360,7 +360,7 @@ Results in:
 *** Using a discrete X scale with points
 
 It's also just possible to draw a point (or line, see below) with an x
-axis that contains discrete data while providing a continous y axis.
+axis that contains discrete data while providing a continuous y axis.
 
 #+BEGIN_SRC nim :tangle recipes/rMpgDiscreteXScale.nim
 import ggplotnim
@@ -378,7 +378,7 @@ Results in:
 
 Inspired by https://github.com/Vindaar/ggplotnim/issues/40. 
 
-A plot with a discrete X scale (using string values) and continous y
+A plot with a discrete X scale (using string values) and continuous y
 scale.
 
 #+BEGIN_SRC nim :tangle recipes/rDiscreteXLine.nim
