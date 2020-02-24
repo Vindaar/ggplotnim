@@ -170,6 +170,12 @@ type
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
+    xRange*: Option[ginger.Scale]
+    yRange*: Option[ginger.Scale]
+    xMargin*: Option[float] # additional margin to show
+    xMarginRange*: ginger.Scale # final range taking into account margin, always calculated
+    yMargin*: Option[float]
+    yMarginRange*: ginger.Scale # final range taking into account margin
 
   # dummy annotation, which puts `text` at bottom left corner
   # of `(left, height)`

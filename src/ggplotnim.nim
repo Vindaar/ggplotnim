@@ -554,8 +554,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     if isDiscrete:
       labelSeqOpt = some(data[rawCol].unique.sorted)
     else:
-      dataScaleOpt = some((low: min(data[rawCol]).toFloat,
-                           high: max(data[rawCol]).toFloat))
+      dataScaleOpt = some((low: colMin(data, rawCol),
+                           high: colMax(data, rawCol)))
 
     # now have to call `fillScaleImpl` with this information
     # note that data given to proc is a DF of only this scales column
@@ -1025,6 +1025,18 @@ proc ylab*(label = "", margin = NaN, rotate = NaN,
     result.tickLabelFont = some(font)
   result.yTicksTextAlign = parseTextAlignString(alignTo)
 
+func xRange*[T, U: SomeNumber](low: T, high: U): Theme =
+  result = Theme(xRange: some((low: low.float, high: high.float)))
+
+func yRange*[T, U: SomeNumber](low: T, high: U): Theme =
+  result = Theme(yRange: some((low: low.float, high: high.float)))
+
+func xMargin*[T: SomeNumber](margin: T): Theme =
+  result = Theme(xMargin: some(margin.float))
+
+func yMargin*[T: SomeNumber](margin: T): Theme =
+  result = Theme(yMargin: some(margin.float))
+
 proc annotate*(text: string,
                left = NaN,
                bottom = NaN,
@@ -1057,7 +1069,6 @@ proc annotate*(text: string,
      result.y.isNone and result.bottom.isNone:
     raise newException(ValueError, "Both an x/left and y/bottom position has to " &
       "given to `annotate`!")
-
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
@@ -1104,6 +1115,10 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(subTitle)
   ifSome(plotBackgroundColor)
   ifSome(canvasColor)
+  ifSome(xRange)
+  ifSome(yRange)
+  ifSome(xMargin)
+  ifSome(yMargin)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -1489,13 +1504,29 @@ proc drawStackedPolyLine(view: var Viewport,
     if line.len > 0:
       result = view.initPolyLine(line, some(style))
 
+template getXY(view, df, fg, i, theme: untyped): untyped =
+  var x = df[fg.xcol, i].toFloat(allowNull = true)
+  var y = df[fg.ycol, i].toFloat(allowNull = true)
+  # modify according to ranges of viewport (may be different from real data ranges, assigned
+  # to `FilledGeom`, due to user choice!
+  if x < view.xScale.low:
+    x = theme.xMarginRange.low #view.xScale.low
+  if x > view.xScale.high:
+    x = theme.xMarginRange.high #view.xScale.high
+  if y < view.yScale.low:
+    y = theme.yMarginRange.low #view.yScale.low
+  if y > view.yScale.high:
+    y = theme.yMarginRange.high #view.yScale.high
+  (x, y)
+
 proc addGeomCentered(view: var Viewport,
                      fg: FilledGeom,
                      viewMap: Table[Value, int],
                      styles: seq[Style],
                      df: DataFrame,
                      prevVals: var Table[int, float],
-                     prevTops: var Table[int, Coord1D]): seq[GraphObject] =
+                     prevTops: var Table[int, Coord1D],
+                     theme: Theme): seq[GraphObject] =
   ## given N(xM soon) viewports, will add the `data` at index `i` for viewport
   ## `i` in the center using the given GeomKind
   doAssert fg.dcKindX == dcDiscrete or fg.dcKindY == dcDiscrete, "at least one axis must be discrete!"
@@ -1508,9 +1539,8 @@ proc addGeomCentered(view: var Viewport,
     let styleIdx = if styles.len == 1: 0 else: i
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    let x = df[fg.xcol, i]
-    let y = df[fg.ycol, i].toFloat(allowNull = true)
-    let viewIdx = viewMap[x]
+    let (x, y) = getXY(view, df, fg, i, theme)
+    let viewIdx = viewMap[%~ x]
     var labelView = view[viewIdx]
     # given x value, get correct viewport
     case fg.geom.position
@@ -1595,7 +1625,8 @@ proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
 proc identityDraw[T: Style | seq[Style]](view: var Viewport,
                                          fg: FilledGeom,
                                          styleIn: T,
-                                         df: DataFrame): seq[GraphObject] =
+                                         df: DataFrame,
+                                         theme: Theme): seq[GraphObject] =
   # TODO: add support for decision what bin columns means (for results of
   # statBin that is! Left edge, center or right edge!
   # needed for gkLine, gkPolyLine
@@ -1609,8 +1640,7 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn[i]
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    var x = df[fg.xcol, i].toFloat(allowNull = true)
-    let y = df[fg.ycol, i].toFloat(allowNull = true)
+    var (x, y) = getXY(view, df, fg, i, theme)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
@@ -1650,7 +1680,8 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
                                       prevVals: var seq[float],
                                       fg: FilledGeom,
                                       styleIn: T,
-                                      df: DataFrame): seq[GraphObject] =
+                                      df: DataFrame,
+                                      theme: Theme): seq[GraphObject] =
   # TODO: add support for decision what bin columns means (for results of
   # TODO: add support for stacking in X rather than Y
   # TODO: unify with identityDraw? Lots of similar code!
@@ -1663,8 +1694,7 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn[i]
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    var x = df[fg.xcol, i].toFloat(allowNull = true)
-    let y = df[fg.ycol, i].toFloat(allowNull = true)
+    var (x, y) = getXY(view, df, fg, i, theme)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
@@ -1761,23 +1791,29 @@ proc createGobjFromGeom(view: var Viewport,
     var prevVals = initTable[int, float]()
     var prevTops = initTable[int, Coord1D]()
     for (styles, subDf) in enumerateData(fg):
-      result.add view.addGeomCentered(fg, viewMap, styles, subDf, prevVals, prevTops)
+      result.add view.addGeomCentered(fg, viewMap, styles, subDf,
+                                      prevVals, prevTops,
+                                      theme)
   of dcContinuous:
     # draw continuous both axes
     case fg.geom.position
     of pkIdentity:
       for (styles, subDf) in enumerateData(fg):
         if styles.len == 1:
-          result.add view.identityDraw(fg, styles[0], subDf)
+          result.add view.identityDraw(fg, styles[0], subDf,
+                                       theme)
         else:
-          result.add view.identityDraw(fg, styles, subDf)
+          result.add view.identityDraw(fg, styles, subDf,
+                                       theme)
     of pkStack:
       var prevVals = newSeq[float](fg.numX)
       for (styles, subDf) in enumerateData(fg):
         if styles.len == 1:
-          result.add view.stackDraw(prevVals, fg, styles[0], subDf)
+          result.add view.stackDraw(prevVals, fg, styles[0], subDf,
+                                    theme)
         else:
-          result.add view.stackDraw(prevVals, fg, styles, subDf)
+          result.add view.stackDraw(prevVals, fg, styles, subDf,
+                                    theme)
     else:
       raise newException(Exception, $fg.geom.position & " not implemented yet. :)")
 
@@ -2114,9 +2150,10 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
   result = view
   result.background(style = some(getPlotBackground(theme)))
 
-  # set the data scale for the result
-  result.xScale = filledScales.xScale
-  result.yScale = filledScales.yScale
+  # change scales to user defined if desired
+  result.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
+  result.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+
   for fg in filledScales.geoms:
     # for each geom, we create a child viewport of `result` covering
     # the whole resultport, which will house the data we just created.
@@ -2134,6 +2171,12 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
 
   var xticks = result.handleTicks(filledScales, p, akX, theme = theme)
   var yticks = result.handleTicks(filledScales, p, akY, theme = theme)
+
+  # after creating all GraphObjects and determining tick positions based on
+  # (possibly) user defined plot range, set the final range of the plot to
+  # the range taking into account the given margin
+  result.xScale = theme.xMarginRange
+  result.yScale = theme.yMarginRange
 
   # TODO: Make sure we still have to do this. I think not!
   result.updateDataScale()
@@ -2334,8 +2377,8 @@ proc setCountXScaleByType(xScale: var ginger.Scale, vKind: ValueKind,
   of VString, VBool, VNull, VObject:
     xScale = (low: 0.0, high: 1.0)
   of VInt, VFloat:
-    let dfXScale = (low: min(df[xCol]).toFloat,
-                    high: max(df[xCol]).toFloat)
+    let dfXScale = (low: colMin(df, xCol),
+                    high: colMax(df, xCol))
     if xScale.isEmpty:
       xScale = dfXScale
     else:
@@ -2420,7 +2463,7 @@ proc determineDataScale(s: Scale, df: DataFrame): ginger.Scale =
   ## while differentiating between continuous and discrete scales
   if s.dcKind == dcContinuous and s.dataScale.isEmpty:
     # use the data to determine min and max
-    result = (low: min(df[s.col]).toFloat, high: max(df[s.col]).toFloat)
+    result = (low: colMin(df, s.col), high: colMax(df, s.col))
   elif s.dcKind == dcContinuous:
     # use the existing scale
     result = s.dataScale
@@ -2748,6 +2791,18 @@ proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
     result.xLabelSecondary = some(filledScales.getSecondaryAxis(akX).name)
   if result.yLabelSecondary.isNone and filledScales.hasSecondary(akY):
     result.yLabelSecondary = some(filledScales.getSecondaryAxis(akY).name)
+
+  # calculate `xMarginRange`, `yMarginRange` if any
+  let xScale = if result.xRange.isSome: result.xRange.unsafeGet else: filledScales.xScale
+  let xM = if result.xMargin.isSome: result.xMargin.unsafeGet else: 0.0
+  let xdiff = xScale.high - xScale.low
+  result.xMarginRange = (low: xScale.low - xdiff * xM,
+                         high: xScale.high + xdiff * xM)
+  let yScale = if result.yRange.isSome: result.yRange.unsafeGet else: filledScales.yScale
+  let yM = if result.yMargin.isSome: result.yMargin.unsafeGet else: 0.0
+  let ydiff = yScale.high - yScale.low
+  result.yMarginRange = (low: yScale.low - ydiff * yM,
+                         high: yScale.high + ydiff * yM)
 
 proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom: float] =
   ## Given an annotation this proc returns the relative `(left, bottom)`
