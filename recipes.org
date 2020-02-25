@@ -569,10 +569,10 @@ ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
 Gives us this (somewhat ugly, but that's not the point) plot:
 [[./media/recipes/rCustomAnnotations.png]]
 
-*** Setting plot limits using =xlims=, =ylims=
+*** Setting plot limits using =xlim=, =ylim=
 
-It's also possible to limit / enlarge the plotting range using =xlims=
-and =ylims=. The behavior of points which possibly lie outside the
+It's also possible to limit / enlarge the plotting range using =xlim=
+and =ylim=. The behavior of points which possibly lie outside the
 plotting range is determined by the =outsideRange= argument, which can
 take the values:
 - "clip" (default): clip them to the maximum range of the limit
@@ -588,7 +588,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
-  xlims(10.0, 60.0) +
+  xlim(10.0, 60.0) +
   ggsave("media/recipes/rEnlargeXRange.png")
 #+END_SRC
 which gives us:
@@ -601,7 +601,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
-  xlims(10.0, 30.0) +
+  xlim(10.0, 30.0) +
   ggsave("media/recipes/rLimitXRange.png")
 #+END_SRC
 
@@ -615,7 +615,7 @@ being clipped to =30.0=.
 Sometimes it might be nice to have an explicit area in the plot, which
 is used to designate data points, which lie outside a desired data
 range (or are =Inf=). In this case the =xMargin= or =yMargin= procs
-can be used (possibly in combination with =xlims=, =ylims= above).
+can be used (possibly in combination with =xlim=, =ylim= above).
 
 Assuming we want to create the same plot as above, but for some reason
 are only interested in y values up to =25=, but we want to be easily
@@ -627,7 +627,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
-  ylims(5.0, 25.0) +
+  ylim(5.0, 25.0) +
   yMargin(0.1) +
   ggsave("media/recipes/rCreateMarginBuffer.png")
 #+END_SRC

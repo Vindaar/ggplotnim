@@ -1025,7 +1025,7 @@ proc ylab*(label = "", margin = NaN, rotate = NaN,
     result.tickLabelFont = some(font)
   result.yTicksTextAlign = parseTextAlignString(alignTo)
 
-func xlims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
+func xlim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## Sets the limits of the plot range in data scale. This overrides the
   ## calculation of the data range, which by default is just
   ## `(min(dataX), max(dataX))` while ignoring `inf` values.
@@ -1034,7 +1034,7 @@ func xlims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ##
   ## Supported values are `"clip"`, `"drop"` and `"none"`:
   ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
-  ##   user defined `xlims`) to limit + xMargin (see below).
+  ##   user defined `xlim`) to limit + xMargin (see below).
   ## - `"drop"`: remove all values larger than range
   ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
   ##   values may be shown as large positive values. This is up to the drawing backend!
@@ -1054,7 +1054,7 @@ func xlims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   result = Theme(xRange: some((low: low.float, high: high.float)),
                  xOutsideRange: orOpt)
 
-func ylims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
+func ylim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## Sets the limits of the plot range in data scale. This overrides the
   ## calculation of the data range, which by default is just
   ## `(min(dataY), max(dataY))` while ignoring `inf` values.
@@ -1063,7 +1063,7 @@ func ylims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ##
   ## Supported values are `"clip"`, `"drop"` and `"none"`:
   ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
-  ##   user defined `ylims`) to limit + yMargin (see below).
+  ##   user defined `ylim`) to limit + yMargin (see below).
   ## - `"drop"`: remove all values larger than range
   ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
   ##   values may be shown as large positive values. This is up to the drawing backend!
@@ -1086,14 +1086,14 @@ func ylims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
 proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   ## Sets a margin on the ``plot data scale`` for the X axis relative to the
   ## full data range. `margin = 0.05` extends the data range by 5 % of the
-  ## difference of `xlims.high - xlims.low` (see `xlims` proc) on the left
+  ## difference of `xlim.high - xlim.low` (see `xlim` proc) on the left
   ## and right side.
   ## `outsideRange` determines the behavior of all points which lie outside the
-  ## plot data range. If not set via `xlims` the plot data range is simply the
+  ## plot data range. If not set via `xlim` the plot data range is simply the
   ## full range of all x values, ignoring all `inf` values.
   ## Supported values are `"clip"`, `"drop"` and `"none"`:
   ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
-  ##   user defined `xlims`) to limit + xMargin.
+  ##   user defined `xlim`) to limit + xMargin.
   ## - `"drop"`: remove all values larger than range
   ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
   ##   values may be shown as large positive values. This is up to the drawing backend!
@@ -1103,7 +1103,7 @@ proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   ## ticks and labels outside the plot area.
   if margin.float < 0.0:
     raise newException(ValueError, "Margins must be positive! To make the plot " &
-      "range smaller use `xlims`!")
+      "range smaller use `xlim`!")
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
   result = Theme(xMargin: some(margin.float),
@@ -1112,14 +1112,14 @@ proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
 proc yMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   ## Sets a margin on the ``plot data scale`` for the Y axis relative to the
   ## full data range. `margin = 0.05` extends the data range by 5 % of the
-  ## difference of `ylims.high - ylims.low` (see `ylims` proc) on the top
+  ## difference of `ylim.high - ylim.low` (see `ylim` proc) on the top
   ## and bottom side.
   ## `outsideRange` determines the behavior of all points which lie outside the
-  ## plot data range. If not set via `ylims` the plot data range is simply the
+  ## plot data range. If not set via `ylim` the plot data range is simply the
   ## full range of all y values, ignoring all `inf` values.
   ## Supported values are `"clip"`, `"drop"` and `"none"`:
   ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
-  ##   user defined `ylims`) to limit + yMargin.
+  ##   user defined `ylim`) to limit + yMargin.
   ## - `"drop"`: remove all values larger than range
   ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
   ##   values may be shown as large positive values. This is up to the drawing backend!
@@ -1129,7 +1129,7 @@ proc yMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   ## ticks and labels outside the plot area.
   if margin.float < 0.0:
     raise newException(ValueError, "Margins must be positive! To make the plot " &
-      "range smaller use `ylims`!")
+      "range smaller use `ylim`!")
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
   result = Theme(yMargin: some(margin.float),

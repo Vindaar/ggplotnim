@@ -42,9 +42,9 @@ suite "Compare recipe output":
                   #"rCustomAnnotations.png" # not compared, because it's too finicky
                   "rMpgDiscreteXScale.png",
                   "rDiscreteXLine.png",
-                  "rEnlargeXRange.nim",
-                  "rLimitXRange.nim",
-                  "rCreateMarginBuffer.nim"]
+                  "rEnlargeXRange.png",
+                  "rLimitXRange.png",
+                  "rCreateMarginBuffer.png"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f
