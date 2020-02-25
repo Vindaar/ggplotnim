@@ -616,7 +616,7 @@ suite "Annotations":
     block:
       let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
         geom_point() +
-        ylims(5, 30)) # will cut off two values at hwy = 44, clip them to `30`, since
+        ylim(5, 30)) # will cut off two values at hwy = 44, clip them to `30`, since
                       # default is `outsideRange = "clip"` (`orkClip`)
       let view = plt.view[4]
       check view.yScale == (low: 5.0, high: 30.0)
@@ -629,7 +629,7 @@ suite "Annotations":
     block:
       let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
         geom_point() +
-        ylims(5, 30, outsideRange = "drop")) # will drop 2 values at `hwy = 44`
+        ylim(5, 30, outsideRange = "drop")) # will drop 2 values at `hwy = 44`
       let view = plt.view
       check view.yScale == (low: 5.0, high: 30.0)
       var count = 0
@@ -643,7 +643,7 @@ suite "Annotations":
     block:
       let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
         geom_point() +
-        ylims(5, 30, outsideRange = "none")) # will leave two values at `hwy = 44` somewhere
+        ylim(5, 30, outsideRange = "none")) # will leave two values at `hwy = 44` somewhere
                                              # outside the plot
       let view = plt.view
       check view.yScale == (low: 5.0, high: 30.0)
@@ -678,7 +678,7 @@ suite "Annotations":
         geom_point())
     let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
         geom_point() +
-        xlims(0.0, 30.0) +
+        xlim(0.0, 30.0) +
         xMargin(marg))
     ## the interesting aspect here is that the points are not clipped to `30.0` as given
     ## by the limit, but rather to limit + margin. This allows to create a sort of
