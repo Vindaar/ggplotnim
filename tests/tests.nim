@@ -607,3 +607,103 @@ suite "Annotations":
         check gobj.style.unsafeGet.fillColor == color(1.0, 1.0, 1.0, 1.0)
     # check number of lines
     check count == annot.strip.splitLines.len
+
+  test "Manually set x and y limits":
+    let df = toDf(readCsv("data/mpg.csv"))
+    let dfAt44 = df.filter(f{"hwy" == 44})
+    check dfAt44.len == 2
+    check dfAt44["cty"].vToSeq == %~ @[33.0, 35.0]
+    block:
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        ylims(5, 30)) # will cut off two values at hwy = 44, clip them to `30`, since
+                      # default is `outsideRange = "clip"` (`orkClip`)
+      let view = plt.view[4]
+      check view.yScale == (low: 5.0, high: 30.0)
+      for gobj in view[0].objects:
+        case gobj.kind
+        of goPoint:
+          if gobj.ptPos.x.pos == 44.0:
+            check almostEqual(gobj.ptPos.y.pos, 30.0, 1e-8)
+        else: discard
+    block:
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        ylims(5, 30, outsideRange = "drop")) # will drop 2 values at `hwy = 44`
+      let view = plt.view
+      check view.yScale == (low: 5.0, high: 30.0)
+      var count = 0
+      for gobj in view[4][0].objects:
+        case gobj.kind
+        of goPoint:
+          if gobj.ptPos.x.pos == 44.0:
+            inc count
+        else: discard
+      check count == 0
+    block:
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        ylims(5, 30, outsideRange = "none")) # will leave two values at `hwy = 44` somewhere
+                                             # outside the plot
+      let view = plt.view
+      check view.yScale == (low: 5.0, high: 30.0)
+      for gobj in view[4][0].objects:
+        case gobj.kind
+        of goPoint:
+          if gobj.ptPos.x.pos == 44.0:
+            check (almostEqual(gobj.ptPos.y.pos, 33.0, 1e-8) or
+                   almostEqual(gobj.ptPos.y.pos, 35.0, 1e-8))
+        else: discard
+
+  test "Set custom plot data margins":
+    let df = toDf(readCsv("data/mpg.csv"))
+    const marg = 0.05
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        xMargin(marg))
+    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point())
+    let pltRefXScale = pltRef.view[4].xScale
+    let view = plt.view[4]
+    # naive `xScale` is low to high
+    let xScale = (low: colMin(df, "hwy"), high: colMax(df, "hwy"))
+    check pltRefXScale != xScale # scale is adjusted by calculation of tick positions!
+    check view.xScale == (low: pltRefXScale.low - marg * (pltRefXScale.high - pltRefXScale.low),
+                          high: pltRefXScale.high + marg * (pltRefXScale.high - pltRefXScale.low))
+
+  test "Margin plus limit using orkClip clips to range + margin":
+    let df = toDf(readCsv("data/mpg.csv"))
+    const marg = 0.1
+    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point())
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        xlims(0.0, 30.0) +
+        xMargin(marg))
+    ## the interesting aspect here is that the points are not clipped to `30.0` as given
+    ## by the limit, but rather to limit + margin. This allows to create a sort of
+    ## buffer area where points show up, which are outside the desired range (e.g. to
+    ## highlight `inf`, `-inf`). However, ``all`` values > 30.0 are clipped to `33`!
+    let view = plt.view[4]
+    echo view.xScale
+    # results in range +- (range.high - range.low) * marg
+    check view.xScale == (low: -3.0, high: 33.0)
+    for gobj in view[0].objects:
+      case gobj.kind
+      of goPoint:
+        if gobj.ptPos.x.pos > 30.0:
+          check almostEqual(gobj.ptPos.x.pos, 33.0, 1e-8)
+      else: discard
+
+  test "Negative margins raise ValueError":
+    let df = toDf(readCsv("data/mpg.csv"))
+    expect(ValueError):
+      ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        xMargin(-0.5) +
+        ggsave("raisesInstead")
+    expect(ValueError):
+      ggplot(df, aes("hwy", "cty")) +
+        geom_point() +
+        yMargin(-0.5) +
+        ggsave("raisesInstead")
