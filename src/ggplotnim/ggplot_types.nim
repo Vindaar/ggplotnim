@@ -146,6 +146,16 @@ type
     else:
       discard
 
+  ## `OutsideRangeKind` determines what is done to values, which lay outside of the
+  ## plot's data range (its associated `ginger.Scale`).
+  OutsideRangeKind* = enum
+    orkNone = "none" ## leave points where they are. Will be drawn somewhere outside the plot area,
+                     ## unless so much larger than plot range that they don't fit canvas at all
+    orkDrop = "drop" ## remove points outside of plot range
+    orkClip = "clip" ## clip outside points either to max value along the range or, if any is set
+                     ## to the `*MarginRange`. That is the data range + the `*Margin`. See the
+                     ## `*Margin` procs for more information.
+
   # what might become a theming object
   Theme* = object
     baseFontSize*: Option[float] # base size for fonts NOT IMPL'd
@@ -176,6 +186,8 @@ type
     xMarginRange*: ginger.Scale # final range taking into account margin, always calculated
     yMargin*: Option[float]
     yMarginRange*: ginger.Scale # final range taking into account margin
+    xOutsideRange*: Option[OutsideRangeKind]
+    yOutsideRange*: Option[OutsideRangeKind]
 
   # dummy annotation, which puts `text` at bottom left corner
   # of `(left, height)`

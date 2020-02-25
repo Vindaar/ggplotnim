@@ -1025,17 +1025,115 @@ proc ylab*(label = "", margin = NaN, rotate = NaN,
     result.tickLabelFont = some(font)
   result.yTicksTextAlign = parseTextAlignString(alignTo)
 
-func xRange*[T, U: SomeNumber](low: T, high: U): Theme =
-  result = Theme(xRange: some((low: low.float, high: high.float)))
+func xlims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
+  ## Sets the limits of the plot range in data scale. This overrides the
+  ## calculation of the data range, which by default is just
+  ## `(min(dataX), max(dataX))` while ignoring `inf` values.
+  ## If the given range is smaller than the actual underlying data range,
+  ## `outsideRange` decides how data outside the range is treated.
+  ##
+  ## Supported values are `"clip"`, `"drop"` and `"none"`:
+  ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
+  ##   user defined `xlims`) to limit + xMargin (see below).
+  ## - `"drop"`: remove all values larger than range
+  ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
+  ##   values may be shown as large positive values. This is up to the drawing backend!
+  ## It defaults to `"clip"`.
+  ##
+  ## Be aware however that the given limit is still subject to calculation of
+  ## sensible tick values. The algorithm tries to make the plot start and end
+  ## at "nice" values (either 1/10 or 1/4 steps). Setting the limit to some
+  ## arbitrary number may not result in the expected plot. If a limit is to be
+  ## forced, combine this with `xMargin`! (Note: if for some reason you want more
+  ## control over the precise limits, please open an issue).
+  ##
+  ## NOTE: for a discrete axis the "data scale" is (0.0, 1.0). You can change
+  ## it here, but it will probably result in an ugly plot!
+  let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
+              else: none[OutsideRangeKind]()
+  result = Theme(xRange: some((low: low.float, high: high.float)),
+                 xOutsideRange: orOpt)
 
-func yRange*[T, U: SomeNumber](low: T, high: U): Theme =
-  result = Theme(yRange: some((low: low.float, high: high.float)))
+func ylims*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
+  ## Sets the limits of the plot range in data scale. This overrides the
+  ## calculation of the data range, which by default is just
+  ## `(min(dataY), max(dataY))` while ignoring `inf` values.
+  ## If the given range is smaller than the actual underlying data range,
+  ## `outsideRange` decides how data outside the range is treated.
+  ##
+  ## Supported values are `"clip"`, `"drop"` and `"none"`:
+  ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
+  ##   user defined `ylims`) to limit + yMargin (see below).
+  ## - `"drop"`: remove all values larger than range
+  ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
+  ##   values may be shown as large positive values. This is up to the drawing backend!
+  ## It defaults to `"clip"`.
+  ##
+  ## Be aware however that the given limit is still subject to calculation of
+  ## sensible tick values. The algorithm tries to make the plot start and end
+  ## at "nice" values (either 1/10 or 1/4 steps). Setting the limit to some
+  ## arbitrary number may not result in the expected plot. If a limit is to be
+  ## forced, combine this with `yMargin`! (Note: if for some reason you want more
+  ## control over the precise limits, please open an issue).
+  ##
+  ## NOTE: for a discrete axis the "data scale" is (0.0, 1.0). You can change
+  ## it here, but it will probably result in an ugly plot!
+  let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
+              else: none[OutsideRangeKind]()
+  result = Theme(yRange: some((low: low.float, high: high.float)),
+                 yOutsideRange: orOpt)
 
-func xMargin*[T: SomeNumber](margin: T): Theme =
-  result = Theme(xMargin: some(margin.float))
+proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
+  ## Sets a margin on the ``plot data scale`` for the X axis relative to the
+  ## full data range. `margin = 0.05` extends the data range by 5 % of the
+  ## difference of `xlims.high - xlims.low` (see `xlims` proc) on the left
+  ## and right side.
+  ## `outsideRange` determines the behavior of all points which lie outside the
+  ## plot data range. If not set via `xlims` the plot data range is simply the
+  ## full range of all x values, ignoring all `inf` values.
+  ## Supported values are `"clip"`, `"drop"` and `"none"`:
+  ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
+  ##   user defined `xlims`) to limit + xMargin.
+  ## - `"drop"`: remove all values larger than range
+  ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
+  ##   values may be shown as large positive values. This is up to the drawing backend!
+  ## It defaults to `"clip"`.
+  ##
+  ## NOTE: negative margins are not supported at the moment! They would result in
+  ## ticks and labels outside the plot area.
+  if margin.float < 0.0:
+    raise newException(ValueError, "Margins must be positive! To make the plot " &
+      "range smaller use `xlims`!")
+  let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
+              else: none[OutsideRangeKind]()
+  result = Theme(xMargin: some(margin.float),
+                 xOutsideRange: orOpt)
 
-func yMargin*[T: SomeNumber](margin: T): Theme =
-  result = Theme(yMargin: some(margin.float))
+proc yMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
+  ## Sets a margin on the ``plot data scale`` for the Y axis relative to the
+  ## full data range. `margin = 0.05` extends the data range by 5 % of the
+  ## difference of `ylims.high - ylims.low` (see `ylims` proc) on the top
+  ## and bottom side.
+  ## `outsideRange` determines the behavior of all points which lie outside the
+  ## plot data range. If not set via `ylims` the plot data range is simply the
+  ## full range of all y values, ignoring all `inf` values.
+  ## Supported values are `"clip"`, `"drop"` and `"none"`:
+  ## - `"clip"`: clip all larger values (e.g. `inf` or all values larger than a
+  ##   user defined `ylims`) to limit + yMargin.
+  ## - `"drop"`: remove all values larger than range
+  ## - `"none"`: leave as is. Might result in values outside the plot area. Also `-inf`
+  ##   values may be shown as large positive values. This is up to the drawing backend!
+  ## It defaults to `"clip"`.
+  ##
+  ## NOTE: negative margins are not supported at the moment! They would result in
+  ## ticks and labels outside the plot area.
+  if margin.float < 0.0:
+    raise newException(ValueError, "Margins must be positive! To make the plot " &
+      "range smaller use `ylims`!")
+  let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
+              else: none[OutsideRangeKind]()
+  result = Theme(yMargin: some(margin.float),
+                 yOutsideRange: orOpt)
 
 proc annotate*(text: string,
                left = NaN,
@@ -1119,6 +1217,8 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(yRange)
   ifSome(xMargin)
   ifSome(yMargin)
+  ifSome(xOutsideRange)
+  ifSome(yOutsideRange)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -1504,19 +1604,30 @@ proc drawStackedPolyLine(view: var Viewport,
     if line.len > 0:
       result = view.initPolyLine(line, some(style))
 
-template getXY(view, df, fg, i, theme: untyped): untyped =
-  var x = df[fg.xcol, i].toFloat(allowNull = true)
+template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
+               xMaybeString: static bool = true): untyped =
+  ## this template retrieves the current x and y values at index `i` from the `df`
+  ## taking into account the view's scale and theme settings.
+  when xMaybeString:
+    # x may be a string! TODO: y at some point too.
+    var x = df[fg.xcol, i]
+  else:
+    var x = df[fg.xcol, i].toFloat(allowNull = true)
   var y = df[fg.ycol, i].toFloat(allowNull = true)
   # modify according to ranges of viewport (may be different from real data ranges, assigned
   # to `FilledGeom`, due to user choice!
-  if x < view.xScale.low:
-    x = theme.xMarginRange.low #view.xScale.low
-  if x > view.xScale.high:
-    x = theme.xMarginRange.high #view.xScale.high
-  if y < view.yScale.low:
-    y = theme.yMarginRange.low #view.yScale.low
-  if y > view.yScale.high:
-    y = theme.yMarginRange.high #view.yScale.high
+  # NOTE: We use templates here so that we can easily inject a `continue` to skip a data point!
+  template maybeChange(cond, ax, axMarginRange, axORK: untyped): untyped =
+    if cond:
+      case axORK
+      of orkDrop: continue
+      of orkClip: ax = axMarginRange
+      of orkNone: discard # leave as isp
+  when not xMaybeString:
+    maybeChange(x < view.xScale.low, x, theme.xMarginRange.low, xORK)
+    maybeChange(x > view.xScale.high, x, theme.xMarginRange.high, xORK)
+  maybeChange(y < view.yScale.low, y, theme.yMarginRange.low, yORK)
+  maybeChange(y > view.yScale.high, y, theme.yMarginRange.high, yORK)
   (x, y)
 
 proc addGeomCentered(view: var Viewport,
@@ -1535,12 +1646,16 @@ proc addGeomCentered(view: var Viewport,
   # TODO: we should combine the `prevVals`, `prevTops`.
   var linePoints = newSeq[(float, float)](df.len)
 
+  # get behavior for elements outside the plot range
+  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
+  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   for i in 0 ..< df.len:
     let styleIdx = if styles.len == 1: 0 else: i
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    let (x, y) = getXY(view, df, fg, i, theme)
-    let viewIdx = viewMap[%~ x]
+    # `x` is `Value`!
+    let (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = true)
+    let viewIdx = viewMap[x]
     var labelView = view[viewIdx]
     # given x value, get correct viewport
     case fg.geom.position
@@ -1631,6 +1746,9 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
   # statBin that is! Left edge, center or right edge!
   # needed for gkLine, gkPolyLine
   var linePoints = newSeqOfCap[(float, float)](df.len)
+  # get behavior for elements outside the plot range
+  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
+  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   # needed for histogram
   var binWidth: float
   for i in 0 ..< df.len:
@@ -1640,7 +1758,8 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn[i]
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    var (x, y) = getXY(view, df, fg, i, theme)
+    # `x` is a float!
+    var (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = false)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
@@ -1686,6 +1805,9 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
   # TODO: add support for stacking in X rather than Y
   # TODO: unify with identityDraw? Lots of similar code!
   var linePoints = newSeqOfCap[Point](df.len)
+  # get behavior for elements outside the plot range
+  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
+  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   var binWidth: float
   for i in 0 ..< df.len:
     when T is Style:
@@ -1694,7 +1816,8 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
       let style = styleIn[i]
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
-    var (x, y) = getXY(view, df, fg, i, theme)
+    # `x` is a float!
+    var (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = false)
     binWidth = readOrCalcBinWidth(df, i, fg.xcol)
     # potentially move `x` by half of the `binWidth`
     x.moveBinPosition(fg.geom.binPosition, binWidth)
