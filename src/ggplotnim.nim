@@ -374,7 +374,9 @@ proc fillContinuousTransformedScale(col: string,
                                     df: DataFrame): Scale =
   result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
                  dcKind: dcContinuous,
-                 dataScale: dataScale)
+                 # apply transformation to data scale
+                 dataScale: (low: trans(%~ dataScale.low).toFloat,
+                             high: trans(%~ dataScale.high).toFloat))
   result.axKind = axKind
   result.trans = trans
   result.mapData = (
@@ -2006,19 +2008,31 @@ proc largestPow(x: float): float =
     while result < x and not result.almostEqual(x):
       result *= 10.0
 
-proc tickposlog(minv, maxv: float): (seq[string], seq[float]) =
+proc tickposlog(minv, maxv: float,
+                boundScale: ginger.Scale): (seq[string], seq[float]) =
+  ## Calculates the positions and labels of a log10 data scale given
+  ## a min and max value. Takes into account a final bound scale outside
+  ## of which no ticks may lie.
   let numTicks = 10 * (log10(maxv) - log10(minv)).round.int
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
   for i in 0 ..< numTicks div 10:
     let base = (minv * pow(10, i.float))
-    let test = linspace(base, 9 * base, 9)
     labs.add formatTickValue(base)
+    let minors = linspace(base, 9 * base, 9)
+    labPos.add minors.mapIt(it.log10)
     labs.add toSeq(0 ..< 8).mapIt("")
-    labPos.add test.mapIt(it.log10)
   labs.add $maxv
   labPos.add log10(maxv)
+  # for simplicity apply removal afterwards
+  let filterIdx = toSeq(0 ..< labPos.len).filterIt(
+    labPos[it] >= boundScale.low and
+    labPos[it] <= boundScale.high
+  )
+  # apply filters to `labs` and `labPos`
+  labs = filterIdx.mapIt(labs[it])
+  labPos = filterIdx.mapIt(labPos[it])
   result = (labs, labPos)
 
 func getSecondaryAxis(filledScales: FilledScales, axKind: AxisKind): SecondaryAxis =
@@ -2054,17 +2068,20 @@ func hasSecondary(theme: Theme, axKind: AxisKind): bool =
 proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                            scale: Scale, numTicks: int, theme: Theme,
                            isSecondary = false): seq[GraphObject] =
+  let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
   case scale.scKind
   of scLinearData:
-    let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary)
-    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary, font = theme.tickLabelFont)
+    let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary,
+                               boundScale = some(boundScale))
+    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
+                                   font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
     # for now assume log10 scale
-    let minVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).min.toFloat.smallestPow
-    let maxVal = p.data[scale.col].toSeq.filterIt(it.toFloat > 0.0).max.toFloat.largestPow
-    let (labs, labelpos) = tickposlog(minVal, maxVal)
+    let minVal = pow(10, scale.dataScale.low).smallestPow
+    let maxVal = pow(10, scale.dataScale.high).largestPow
+    let (labs, labelpos) = tickposlog(minVal, maxVal, boundScale)
     var tickLocs: seq[Coord1D]
     case axKind
     of akX:
@@ -2088,8 +2105,8 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
 
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                          scale: Scale,
-                         isSecondary = false,
-                         theme = Theme()): seq[GraphObject] =
+                         theme: Theme,
+                         isSecondary = false): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -2152,8 +2169,8 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
       result = view.handleDiscreteTicks(p, axKind, scale, theme = theme)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
-        result.add view.handleDiscreteTicks(p, axKind, scale, isSecondary = true,
-                                            theme = theme)
+        result.add view.handleDiscreteTicks(p, axKind, scale, theme = theme,
+                                            isSecondary = true)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme)
       if hasSecondary(filledScales, axKind):
@@ -2164,7 +2181,8 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
     # in this case don't read into anything and just call ticks / labels
-    let ticks = view.initTicks(axKind, numTicks)
+    let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
+    let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
     let tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
@@ -2450,7 +2468,7 @@ func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
 
 proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## Given a sequence of scales applies all transformations of the `scales`.
-  ## That is for each `scTransformedData` scale the accroding transformation
+  ## That is for each `scTransformedData` scale the according transformation
   ## is applied its column
   var fns: seq[FormulaNode]
   for s in scales:
@@ -2608,7 +2626,6 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       dcKindY: y.dcKind)
   result.xScale = determineDataScale(x, df)
   result.yScale = determineDataScale(y, df)
-
   # w/ all groupings
   doAssert g.style.isSome
   var style = g.style.get
