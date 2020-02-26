@@ -382,18 +382,18 @@ suite "GgPlot":
     check y2v == y2
 
   test "Application of log scale works as expected":
-    let x = linspace(0.0, 10.0, 500)
-    let y1 = x.mapIt(cos(it))
-    let y2 = x.mapIt(sin(it))
-    let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
+    let x = linspace(1.0, 10.0, 500)
+    let y1 = x.mapIt(pow(it, 2))
+    let y2 = x.mapIt(pow(it, 4))
+    let df = seqsToDf({"x" : x, "xSquare" : y1, "x4" : y2})
     block:
-      let plt = ggplot(df, aes("x", "cos")) +
+      let plt = ggplot(df, aes("x", "xSquare")) +
         geom_line() +
         scale_x_log10()
       check plt.aes.x.isSome
       check plt.aes.y.isSome
       check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "cos"
+      check plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scTransformedData
@@ -401,38 +401,39 @@ suite "GgPlot":
 
     # check also applied to another geom added before
     block:
-      let plt = ggplot(df, aes("x", "cos")) +
-        geom_line(aes(y = "sin")) +
-        geom_point(aes(y = "sin")) +
+      let plt = ggplot(df, aes("x", "xSquare")) +
+        geom_line(aes(y = "x4")) +
+        geom_point(aes(y = "x4")) +
         scale_y_log10()
       check plt.aes.x.isSome
       check plt.aes.y.isSome
       check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "cos"
+      check plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scLinearData
       check plt.aes.y.get.scKind == scTransformedData
-      check plt.geoms[0].aes.y.get.col == "sin"
+      check plt.geoms[0].aes.y.get.col == "x4"
       check plt.geoms[0].aes.y.get.axKind == akY
       check plt.geoms[0].aes.y.get.scKind == scTransformedData
       plt.ggsave("sin_log.pdf")
+
     # check that it is ``not`` applied to a geom that is added ``after``
     # the call to `scale_*` (this is in contrast to `ggplot2` where the
     # order does not matter
     block:
-      let plt = ggplot(df, aes("x", "cos")) +
+      let plt = ggplot(df, aes("x", "xSquare")) +
         scale_x_log10() +
-        geom_line(aes(y = "sin"))
+        geom_line(aes(y = "x4"))
       check plt.aes.x.isSome
       check plt.aes.y.isSome
       check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "cos"
+      check plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scTransformedData
       check plt.aes.y.get.scKind == scLinearData
-      check plt.geoms[0].aes.y.get.col == "sin"
+      check plt.geoms[0].aes.y.get.col == "x4"
       check plt.geoms[0].aes.y.get.axKind == akY
       check plt.geoms[0].aes.y.get.scKind == scLinearData
 
@@ -685,7 +686,6 @@ suite "Annotations":
     ## buffer area where points show up, which are outside the desired range (e.g. to
     ## highlight `inf`, `-inf`). However, ``all`` values > 30.0 are clipped to `33`!
     let view = plt.view[4]
-    echo view.xScale
     # results in range +- (range.high - range.low) * marg
     check view.xScale == (low: -3.0, high: 33.0)
     for gobj in view[0].objects:
