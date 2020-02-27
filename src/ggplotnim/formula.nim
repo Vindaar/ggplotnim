@@ -979,7 +979,7 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
   result.len = filterIdx.len
 
 template liftVectorFloatProc*(name: untyped,
-                             toExport: static bool = true): untyped =
+                              toExport: static bool = true): untyped =
   ## Lifts a proc, which takes a `seq[float]` to act on a `PersistentVector[Value]`
   ## so that it can be used in a formula to act on a whole DF column.
   ## `toExport` can be set to `false` so that the resulting proc is not exported.
@@ -1097,6 +1097,12 @@ liftVectorFloatProc(sum)
 liftScalarFloatProc(abs)
 liftVectorFloatProc(min)
 liftVectorFloatProc(max)
+
+# lifted procs from `stats` module
+liftVectorFloatProc(variance)
+liftVectorFloatProc(standardDeviation)
+liftVectorFloatProc(skewness)
+liftVectorFloatProc(kurtosis)
 
 # The following lifted procs are all lifted from the stdlib and the lifting to
 # work on seqs is done in seqmath. Not all work atm, since some take additional args
