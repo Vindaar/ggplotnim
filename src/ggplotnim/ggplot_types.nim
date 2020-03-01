@@ -125,12 +125,23 @@ type
     bpLeft = "left"
     bpRight = "right"
 
+  ## `GgStyle` object is an `Option` wrapper around `ginger.Style`.
+  ## This allows us to differentiate between user settings of styles
+  ## and mappings. Settings take higher priority!
+  GgStyle* = object
+    color*: Option[Color]
+    size*: Option[float]
+    lineType*: Option[LineType]
+    lineWidth*: Option[float]
+    fillColor*: Option[Color]
+    marker*: Option[MarkerKind]
+
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
-    style*: Option[Style] # if set, apply this style instead of parent's
+    userStyle*: GgStyle # if set, apply this style instead of parent's
     position*: PositionKind
     aes*: Aesthetics # a geom can have its own aesthetics. Needs to be part of
                     # the `Geom`, because if we add it to `GgPlot` we lose track
@@ -224,7 +235,7 @@ type
     xScale*: ginger.Scale
     yScale*: ginger.Scale
     # `Style` stores base style for each value of the discrete (!) scales
-    yieldData*: OrderedTable[Style, (seq[Style], DataFrame)]
+    yieldData*: OrderedTable[GgStyle, (seq[GgStyle], DataFrame)]
     # whether X or Y is discrete or continuous. Has direct implication for drawing
     case dcKindX*: DiscreteKind
     of dcDiscrete:
@@ -269,6 +280,27 @@ proc `==`*(s1, s2: Scale): bool =
     result = true
   else:
     result = false
+
+proc hash*(s: GgStyle): Hash =
+  if s.color.isSome:
+    let c = s.color.unsafeGet
+    result = hash(c.r)
+    result = result !& hash(c.g)
+    result = result !& hash(c.b)
+  if s.size.isSome:
+    result = result !& hash(s.size.unsafeGet)
+  if s.lineType.isSome:
+    result = result !& hash(s.lineType.unsafeGet)
+  if s.lineWidth.isSome:
+    result = result !& hash(s.lineWidth.unsafeGet)
+  if s.fillColor.isSome:
+    let fc = s.fillColor.unsafeGet
+    result = result !& hash(fc.r)
+    result = result !& hash(fc.g)
+    result = result !& hash(fc.b)
+  if s.marker.isSome:
+    result = result !& hash(s.marker.unsafeGet)
+  result = !$result
 
 # Workaround. For some reason `hash` for `Style` isn't found if defined in
 # ginger..
@@ -356,8 +388,7 @@ proc `$`*(g: Geom): string =
   result.add &"kind: {g.kind}, "
   result.add &"gid: {g.gid}, "
   result.add &"data.isSome?: {g.data.isSome}, "
-  if g.style.isSome:
-    result.add &"style: {g.style.get}, "
+  result.add &"style: {g.userStyle}, "
   result.add &"aes: {g.aes}, "
   result.add &"position: {g.position}, "
   result.add &"binPosition: {g.binPosition}, "

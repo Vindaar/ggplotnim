@@ -2,6 +2,8 @@
 
 import sequtils, tables, sets, algorithm, strutils
 import ginger except Scale
+export ginger.types
+
 import parsecsv, streams, strutils, hashes, sugar
 
 import random
@@ -26,6 +28,9 @@ import chroma
 export chroma
 
 import ggplotnim / colormaps / viridisRaw
+
+import options
+export options
 
 # Ids start at 1, because `0` is our magic value for cases where the
 # id does not matter!
@@ -56,6 +61,58 @@ func font*[T: SomeNumber](
                 bold: bold,
                 slant: slant,
                 color: color)
+
+## The default styles we use for each geom in case neither the user provides
+## a setting nor a mapping
+const PointDefaultStyle = Style(size: 3.0,
+                                marker: mkCircle,
+                                color: black,
+                                fillColor: black)
+const LineDefaultStyle = Style(lineWidth: 1.0,
+                               lineType: ltSolid,
+                               color: grey20,
+                               fillColor: black)
+const BarDefaultStyle = Style(lineWidth: 1.0,
+                              lineType: ltSolid,
+                              color: grey20,
+                              fillColor: grey20)
+const HistoDefaultStyle = Style(lineWidth: 0.2,
+                                lineType: ltSolid,
+                                color: grey20,
+                                fillColor: grey20)
+
+func defaultStyle(geomKind: GeomKind): Style =
+  case geomKind
+  of gkPoint:
+    result = PointDefaultStyle
+  of gkLine, gkFreqPoly:
+    result = LineDefaultStyle
+  of gkBar:
+    result = BarDefaultStyle
+  of gkHistogram:
+    result = HistoDefaultStyle
+  of gkTile:
+    discard
+
+func mergeUserStyle(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
+  ## merges the given `Style` with the desired `userStyle`.
+  # Have to differentiate between 3 cases of priority:
+  # 1. `uStyle`
+  # 2. `s`
+  # 3. default style for a given geom
+  template fillField(field: untyped): untyped =
+    if uStyle.field.isSome:
+      result.field = uStyle.field.unsafeGet
+    elif s.field.isSome:
+      result.field = s.field.unsafeGet
+    else:
+      result.field = defaultStyle(geomKind).field
+  fillField(color)
+  fillField(size)
+  fillField(lineType)
+  fillField(lineWidth)
+  fillField(fillColor)
+  fillField(marker)
 
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
@@ -109,7 +166,7 @@ iterator enumerateScales(filledScales: FilledScales, geom: Geom): Scale =
       yieldedSet.incl s
       yield s
 
-iterator enumerateData(geom: FilledGeom): (seq[Style], DataFrame) =
+iterator enumerateData(geom: FilledGeom): (seq[GgStyle], DataFrame) =
   ## yields the pairs of continuous styles for the current discrete style and
   ## its data from `yieldData`
   for (style, df) in values(geom.yieldData):
@@ -620,10 +677,24 @@ template assignBinFields(res: var Geom, stKind, bins,
       result.numBins = bins
   else: discard
 
+func initGgStyle(color = none[Color](),
+                 size = none[float](),
+                 marker = none[MarkerKind](),
+                 lineType = none[LineType](),
+                 lineWidth = none[float](),
+                 fillColor = none[Color]()): GgStyle =
+  result = GgStyle(color: color,
+                   size: size,
+                   marker: marker,
+                   lineType: lineType,
+                   lineWidth: lineWidth,
+                   fillColor: fillColor)
+
 proc geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
-                 color: Color = black,
-                 size: float = 3.0,
+                 color = none[Color](),
+                 size = none[float](),
+                 marker = none[MarkerKind](),
                  stat = "identity",
                  bins = -1,
                  binWidth = 0.0,
@@ -638,12 +709,12 @@ proc geom_point*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let style = initGgStyle(color = color, size = size, marker = marker)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkPoint,
-                style: some(Style(color: color,
-                                  size: size)),
+                userStyle: style,
                 aes: aes.fillIds({gid}),
                 binPosition: bpKind,
                 statKind: stKind,
@@ -652,33 +723,33 @@ proc geom_point*(aes: Aesthetics = aes(),
 
 proc geom_bar*(aes: Aesthetics = aes(),
                data = DataFrame(),
-               color: Color = grey20, # color of the bars
+               color = none[Color](), # color of the bars
                position = "stack",
                stat = "count",
               ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
-  let style = Style(lineType: ltSolid,
-                    lineWidth: 1.0, # draw 1 pt wide black line to avoid white pixels
-                                    # between bins at size of exactly 1.0 bin width
-                    color: color, # default color
-                    fillColor: color)
+  let style = initGgStyle(lineType = some(ltSolid),
+                          lineWidth = some(1.0), # draw 1 pt wide black line to avoid white pixels
+                                                 # between bins at size of exactly 1.0 bin width
+                          color = color,
+                          fillColor = color)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkBar,
                 aes: aes.fillIds({gid}),
-                style: some(style),
+                userStyle: style,
                 position: pkKind,
                 binPosition: bpNone,
                 statKind: stKind)
 
 proc geom_line*(aes: Aesthetics = aes(),
                 data = DataFrame(),
-                color: Color = grey20,
-                size: float = 1.0,
-                lineType: LineType = ltSolid,
+                color = none[Color](), # color of the line
+                size = none[float](), # width of the line
+                lineType = none[LineType](), # type of line
                 stat = "identity",
                 bins = -1,
                 binWidth = 0.0,
@@ -688,14 +759,13 @@ proc geom_line*(aes: Aesthetics = aes(),
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
+  let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
+                          fillColor = some(transparent))
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkLine,
-                style: some(Style(color: color,
-                                  lineWidth: size,
-                                  lineType: lineType,
-                                  fillColor: transparent)),
+                userStyle: style,
                 aes: aes.fillIds({gid}),
                 binPosition: bpKind,
                 statKind: stKind)
@@ -705,7 +775,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
                      binWidth = 0.0, bins = 30,
                      breaks: seq[float] = @[],
-                     color: Color = grey20, # color of the bars
+                     color = none[Color](), # color of the bars
                      position = "stack",
                      stat = "bin",
                      binPosition = "left",
@@ -714,17 +784,17 @@ proc geom_histogram*(aes: Aesthetics = aes(),
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
-  let style = Style(lineType: ltSolid,
-                    lineWidth: 0.2, # draw 1 pt wide black line to avoid white pixels
-                                    # between bins at size of exactly 1.0 bin width
-                    color: color, # default color
-                    fillColor: color)
+  let style = initGgStyle(lineType = some(ltSolid),
+                          lineWidth = some(0.2), # draw 0.2 pt wide black line to avoid white pixels
+                                                 # between bins at size of exactly 1.0 bin width
+                          color = color, # default color
+                          fillColor = color)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkHistogram,
                 aes: aes.fillIds({gid}),
-                style: some(style),
+                userStyle: style,
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
@@ -732,9 +802,9 @@ proc geom_histogram*(aes: Aesthetics = aes(),
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
                     data = DataFrame(),
-                    color: Color = grey20, # color of the line
-                    size: float = 1.0, # line width of the line
-                    lineType: LineType = ltSolid,
+                    color = none[Color](), # color of the line
+                    size = none[float](), # line width of the line
+                    lineType = none[LineType](),
                     bins = 30,
                     binWidth = 0.0,
                     breaks: seq[float] = @[],
@@ -746,16 +816,16 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
-  let style = Style(lineType: lineType,
-                    lineWidth: size,
-                    color: color,
-                    fillColor: transparent,)
+  let style = initGgStyle(lineType = lineType,
+                          lineWidth = size,
+                          color = color,
+                          fillColor = some(transparent))
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkFreqPoly,
                 aes: aes.fillIds({gid}),
-                style: some(style),
+                userStyle: style,
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
@@ -1364,26 +1434,26 @@ proc dataTo[T: Table | OrderedTable | DataFrame; U](
         raise newException(Exception, "Column " & $col & " has no data!")
       else: discard
 
-proc changeStyle(s: Style, scVal: ScaleValue): Style =
+proc changeStyle(s: GgStyle, scVal: ScaleValue): GgStyle =
   ## returns a modified style with the appropriate field replaced
   result = s
   case scVal.kind
   of scColor:
-    result.color = scVal.color
+    result.color = some(scVal.color)
   of scFillColor:
     # for FillColor we set both the stroke and fill color to the
     # same value
-    result.color = scVal.color
-    result.fillColor = scVal.color
+    result.color = some(scVal.color)
+    result.fillColor = some(scVal.color)
   of scSize:
-    result.size = scVal.size
+    result.size = some(scVal.size)
   of scShape:
-    result.marker = scVal.marker
+    result.marker = some(scVal.marker)
   else:
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
 
-proc applyStyle(style: var Style, df: DataFrame, scales: seq[Scale], keys: seq[(string, Value)]) =
+proc applyStyle(style: var GgStyle, df: DataFrame, scales: seq[Scale], keys: seq[(string, Value)]) =
   var styleVal: ScaleValue
   for (col, val) in keys:
     for s in scales:
@@ -1509,7 +1579,7 @@ template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
 proc addGeomCentered(view: var Viewport,
                      fg: FilledGeom,
                      viewMap: Table[Value, int],
-                     styles: seq[Style],
+                     styles: seq[GgStyle],
                      df: DataFrame,
                      prevVals: var Table[int, float],
                      prevTops: var Table[int, Coord1D],
@@ -1527,6 +1597,7 @@ proc addGeomCentered(view: var Viewport,
   let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   for i in 0 ..< df.len:
     let styleIdx = if styles.len == 1: 0 else: i
+    let style = mergeUserStyle(styles[styleIdx], fg.geom.userStyle, fg.geom.kind)
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
     # `x` is `Value`!
@@ -1538,9 +1609,9 @@ proc addGeomCentered(view: var Viewport,
     of pkIdentity:
       case fg.geom.kind
       of gkBar:
-        result.add labelView.addHistoCentered(y, styles[styleIdx], width = 0.8) # geom.barWidth
+        result.add labelView.addHistoCentered(y, style, width = 0.8) # geom.barWidth
       of gkPoint:
-        result.add labelView.addPointCentered(y, styles[styleIdx])
+        result.add labelView.addPointCentered(y, style)
       of gkLine:
         #raise newException(Exception, "Need two points for line!")
         linePoints[i] = (x: labelView.getCenter()[0], y: y)
@@ -1556,9 +1627,9 @@ proc addGeomCentered(view: var Viewport,
 
       case fg.geom.kind
       of gkBar:
-        result.add labelView.addHistoCentered(y, styles[styleIdx], prevTops[viewIdx], width = 0.8) # geom.barWidth
+        result.add labelView.addHistoCentered(y, style, prevTops[viewIdx], width = 0.8) # geom.barWidth
       of gkPoint:
-        result.add labelView.addPointCentered(y + prevVals[viewIdx], styles[styleIdx])
+        result.add labelView.addPointCentered(y + prevVals[viewIdx], style)
       of gkLine:
         linePoints[i] = (x: labelView.getCenter()[0], y: y + prevVals[viewIdx])
       else:
@@ -1576,7 +1647,8 @@ proc addGeomCentered(view: var Viewport,
   # TODO: this is essentially the same as the code in the other 2 draw procs!
   if fg.geom.kind in {gkLine, gkFreqPoly}:
     if styles.len == 1:
-      result.add view.initPolyLine(linePoints, some(styles[0]))
+      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+      result.add view.initPolyLine(linePoints, some(style))
       echo result[^1]
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
@@ -1584,7 +1656,8 @@ proc addGeomCentered(view: var Viewport,
       # of styles between the two, but we don't atm!
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
       for i in 0 ..< styles.high: # last element covered by i + 1
-        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styles[i]))
+        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
 
 func readOrCalcBinWidth(df: DataFrame, idx: int,
                         dataCol: string,
@@ -1613,11 +1686,11 @@ proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
   of bpRight:
     x = x + binWidth
 
-proc identityDraw[T: Style | seq[Style]](view: var Viewport,
-                                         fg: FilledGeom,
-                                         styleIn: T,
-                                         df: DataFrame,
-                                         theme: Theme): seq[GraphObject] =
+proc identityDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
+                                             fg: FilledGeom,
+                                             styleIn: T,
+                                             df: DataFrame,
+                                             theme: Theme): seq[GraphObject] =
   # TODO: add support for decision what bin columns means (for results of
   # statBin that is! Left edge, center or right edge!
   # needed for gkLine, gkPolyLine
@@ -1628,10 +1701,10 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
   # needed for histogram
   var binWidth: float
   for i in 0 ..< df.len:
-    when T is Style:
-      let style = styleIn
+    when T is GgStyle:
+      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
     else:
-      let style = styleIn[i]
+      let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
     # `x` is a float!
@@ -1661,22 +1734,24 @@ proc identityDraw[T: Style | seq[Style]](view: var Viewport,
       raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
   # for `gkLine`, `gkFreqPoly` now draw the lines
   if fg.geom.kind in {gkLine, gkFreqPoly}:
-    when T is Style:
-      result.add view.initPolyLine(linePoints, some(styleIn))
+    when T is GgStyle:
+      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
+      result.add view.initPolyLine(linePoints, some(style))
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
       # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
       # of styles between the two, but we don't atm!
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
       for i in 0 ..< styleIn.high: # last element covered by i + 1
-        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(styleIn[i]))
+        let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
+        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
 
-proc stackDraw[T: Style | seq[Style]](view: var Viewport,
-                                      prevVals: var seq[float],
-                                      fg: FilledGeom,
-                                      styleIn: T,
-                                      df: DataFrame,
-                                      theme: Theme): seq[GraphObject] =
+proc stackDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
+                                          prevVals: var seq[float],
+                                          fg: FilledGeom,
+                                          styleIn: T,
+                                          df: DataFrame,
+                                          theme: Theme): seq[GraphObject] =
   # TODO: add support for decision what bin columns means (for results of
   # TODO: add support for stacking in X rather than Y
   # TODO: unify with identityDraw? Lots of similar code!
@@ -1686,10 +1761,10 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
   let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   var binWidth: float
   for i in 0 ..< df.len:
-    when T is Style:
-      let style = styleIn
+    when T is GgStyle:
+      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
     else:
-      let style = styleIn[i]
+      let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
     # allow VNull values. Those should ``only`` appear at the end of columns if the
     # filling of scales works correctly!
     # `x` is a float!
@@ -1722,9 +1797,9 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
     prevVals[i] += y
   # for `gkLine`, `gkFreqPoly` now draw the lines
   if fg.geom.kind in {gkLine, gkFreqPoly}:
-    when T is Style:
-      #result.add view.initPolyLine(linePoints, some(styles[0]))
-      result.add view.drawStackedPolyLine(prevVals, linePoints, styleIn)
+    when T is GgStyle:
+      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
+      result.add view.drawStackedPolyLine(prevVals, linePoints, style)
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
       # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
@@ -1735,8 +1810,8 @@ proc stackDraw[T: Style | seq[Style]](view: var Viewport,
       for i in 0 ..< styleIn.high: # last element covered by i + 1
         let start = (x: linePoints[i].x, y: linePoints[i].y + prevVals[i])
         let stop = (x: linePoints[i + 1].x, y: linePoints[i + 1].y + prevVals[i + 1])
-        result.add view.initPolyLine(@[start, stop],
-                                     some(styleIn[i]))
+        let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
+        result.add view.initPolyLine(@[start, stop], some(style))
 
 template colsRows(fg: FilledGeom): (int, int) =
   var
@@ -2422,7 +2497,7 @@ proc setXAttributes(fg: var FilledGeom,
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          fullDf: DataFrame,
-                         scales: seq[Scale], baseStyle: Style): (seq[Style], DataFrame) =
+                         scales: seq[Scale], baseStyle: GgStyle): (seq[GgStyle], DataFrame) =
   ## given continuous `scales` (if any) return the correct scales based
   ## on each of these scales
   ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
@@ -2501,8 +2576,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   result.xScale = determineDataScale(x, df)
   result.yScale = determineDataScale(y, df)
   # w/ all groupings
-  doAssert g.style.isSome
-  var style = g.style.get
+  var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
@@ -2563,8 +2637,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous)
   # w/ all groupings
-  doAssert g.style.isSome
-  var style = g.style.get
+  var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
@@ -2621,8 +2694,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                       dcKindY: dcContinuous)
   let allClasses = df[x.col].unique
   # w/ all groupings
-  doAssert g.style.isSome
-  var style = g.style.get
+  var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
