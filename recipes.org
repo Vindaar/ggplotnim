@@ -202,7 +202,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("displ", "cty")) +
-  geom_point(color = parseHex("F92672")) +
+  geom_point(color = some(parseHex("F92672"))) +
   ggsave("media/recipes/rMpgCustomColorPoint.png")
 #+END_SRC
 Gives:
@@ -636,6 +636,46 @@ ggplot(df, aes("hwy", "cty")) +
 
 Notice how all values that are larger than =25= appear at the top of
 the plot, while values smaller (and equal to 25) appear where they belong.
+
+*** Highlight min / max of data in a plot
+
+If we wish to highlight certain points of a plot with a specific geom
+/ style we can do this in the following way. 
+
+It is based on first filtering an additional dataset to the values to
+be highlighted and then using the optional =color= etc. arguments to
+the =geom_*= procs to set a certain style.
+
+For instance let's highlight the min and max values of the second
+channel from the [[Plotting column Y1 and Y2 against X]] example above.
+#+BEGIN_SRC nim :tangle recipes/rHighlightMinMax.nim
+import ggplotnim, algorithm
+# base this on one of the above examples
+let df = toDf(readCsv("data/50-18004.CSV"))
+  .gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
+# filter to Channel 2 and sort by voltage
+let dfSorted = df.filter(f{"Channel" == "C2_in_V"})
+  .arrange("V", SortOrder.Descending)
+# get min and max
+let dfMax = dfSorted.head(1)
+let dfMin = dfSorted.tail(1)
+ggplot(df, aes("in_s", "V", color = "Channel")) +
+  geom_line() + # the actual data
+  # add additional geom with `data =` arg and set styles. 
+  # NOTE: Style arguments use `Option[T]`!
+  geom_point(data = dfMax,
+             color = some(parseHex("FF0000")),
+             size = some(10.0),
+             marker = some(mkCross)) +
+  geom_point(data = dfMin,
+             color = some(parseHex("0000FF")),
+             size = some(5.0)) +
+  ggsave("media/recipes/rHighlightMinMax.png")
+#+END_SRC
+
+Results in the following plot:
+
+[[./media/recipes/rHighlightMinMax.png]]
 
 
 *** TODO Example of changing font size in plot

@@ -44,7 +44,8 @@ suite "Compare recipe output":
                   "rDiscreteXLine.png",
                   "rEnlargeXRange.png",
                   "rLimitXRange.png",
-                  "rCreateMarginBuffer.png"]
+                  "rCreateMarginBuffer.png",
+                  "rHighlightMinMax.png"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f
