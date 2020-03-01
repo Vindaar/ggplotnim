@@ -348,7 +348,8 @@ suite "GgPlot":
     let gplt = ggplot(df, aes(x ~ cos)) +
       geom_line() + # line for cos
       geom_line(aes(x ~ sin), # line for sin
-                color = color(0.0, 0.0))
+                color = some(color(0.0, 0.0)),
+                size = some(1.0))
     # geoms[0].x and y won't be set, since the aes from ggplot is used
     check (not gplt.geoms[0].aes.x.isSome)
     check (not gplt.geoms[0].aes.y.isSome)
@@ -364,12 +365,15 @@ suite "GgPlot":
     check gplt.geoms[1].aes.y.get.col == "sin"
 
     # bonus check
-    check gplt.geoms[1].style.isSome
-    let style = gplt.geoms[1].style.get
-    check style.color == color(0.0, 0.0)
-    check style.lineWidth == 1.0
-    check style.lineType == ltSolid
-    check style.fillColor == transparent
+    let style = gplt.geoms[1].userStyle
+    check style.color.isSome
+    check style.color.get == color(0.0, 0.0)
+    check style.fillColor.isSome
+    check style.fillColor.get == transparent
+    check style.lineWidth.isSome
+    check style.lineWidth.get == 1.0
+    check style.lineType.isNone
+
 
     # we cannot guarantee in a test whether the order is preserved in the code other
     # than calling the proc, which handles the ordering
