@@ -86,41 +86,6 @@ iterator keys*(s: Scale): Value =
   for k in keys(s.valueMap):
     yield k
 
-iterator enumerateScales(p: GgPlot, geom: Geom): Scale =
-  ## yields each scale that is not `none` found in the `GgPlot` or
-  ## `geom`. If the same scale is found in both `GgPlot` and the `geom`
-  ## the `geom` Scale overrides the `GgPlot` scale!
-  let
-    paes = p.aes
-    gaes = geom.aes
-  template genYield(field: untyped): untyped =
-    if gaes.field.isSome:
-      yield gaes.field.unsafeGet
-    elif paes.field.isSome:
-      yield paes.field.unsafeGet
-  # color Scale
-  genYield(color)
-  # fill Scale
-  genYield(fill)
-  # shape Scale
-  genYield(shape)
-  # size Scale
-  # calling the template does not work ?! Fails with `undelcared identifier: scale`?!
-  # genYield(size)
-  if gaes.size.isSome:
-    yield gaes.size.unsafeGet
-  elif paes.size.isSome:
-    yield paes.size.unsafeGet
-
-iterator enumerateScales(p: GgPlot, geom: seq[Geom]): Scale =
-  ## Overload for above iterator, which allows handing `seq[Geom]`
-  var yieldedSet = initHashSet[Scale]()
-  for g in geom:
-    for scale in enumerateScales(p, g):
-      if scale notin yieldedSet:
-        yieldedSet.incl scale
-        yield scale
-
 iterator enumerateScalesByIds(filledScales: FilledScales): Scale =
   ## yields all scales from the FilledScales
   template genYield(field: untyped): untyped =
@@ -1435,81 +1400,6 @@ proc applyStyle(style: var Style, df: DataFrame, scales: seq[Scale], keys: seq[(
 
         discard
 
-iterator markerStylePairs(df: DataFrame, filledScales: FilledScales, geom: Geom): (int, Style) =
-  ## iterates all scales relevant for `p` and `geom` and yields the
-  ## the `Style` required for ``each datapoint`` as well as the current index.
-  var style = geom.style.unsafeGet
-  # first collect all scales we have to consider for this geom
-  var scales: seq[Scale]
-  for scale in enumerateScales(filledScales, geom):
-    case scale.scKind
-    of scLinearData, scTransformedData:
-      continue
-    else: scales.add scale
-
-  # then walk data frame and extracting correct style for each
-  var lStyle: Style
-  var val: ScaleValue
-  #let df = if geom.data.isSome: geom.data.get else: p.data
-  for i in 0 ..< df.len:
-    lStyle = style
-    for s in scales:
-      # walk all scales and build the correct style
-      case s.dcKind
-      of dcDiscrete:
-        if s.col notin df:
-          # constant value
-          val = s.getValue(%~ s.col)
-        else:
-          val = s.getValue(df[s.col][i])
-        #let val = s.getValue(df[s.col][i])# %~ s.col)
-        lStyle = changeStyle(lStyle, val)
-      else:
-        # get the `i`-th element from the data
-        val = s.mapData(@[i])[0]
-        case val.kind
-        of scLinearData, scTransformedData:
-          continue
-        else:
-          lStyle = changeStyle(lStyle, val)
-    yield (i, lStyle)
-
-iterator enumerateStyles(df: DataFrame, scales: seq[Scale], geom: Geom): (int, Style) =
-  #df: DataFrame, filledScales: FilledScales, geom: Geom): (int, Style) =
-  ## iterates all scales relevant for `p` and `geom` and yields the
-  ## the `Style` required for ``each datapoint`` as well as the current index.
-  var style = geom.style.unsafeGet
-  # first collect all scales we have to consider for this geom
-  # then walk data frame and extracting correct style for each
-  var lStyle: Style
-  var val: ScaleValue
-  for i in 0 ..< df.len:
-    for s in scales:
-      # walk all scales and build the correct style
-      case s.dcKind
-      of dcDiscrete:
-        if s.col notin df:
-          # constant value
-          val = s.getValue(%~ s.col)
-        else:
-          val = s.getValue(df[s.col][i])
-        lStyle = changeStyle(lStyle, val)
-      else:
-        # get the `i`-th element from the data
-        val = s.mapData(@[i])[0]
-        case val.kind
-        of scLinearData, scTransformedData:
-          continue
-        else:
-          lStyle = changeStyle(lStyle, val)
-    yield (i, lStyle)
-
-iterator markerStyles(p: GgPlot, geom: Geom): (MarkerKind, Style) =
-  ## iterates all scales relevant for `p` and `geom` and yields the
-  ## `MarkerKind` and the `Style` required for ``each datapoint``.
-  for _, markerStyle in markerStyles(p, geom):
-    yield markerStyle
-
 macro genGetScale(field: untyped): untyped =
   let name = ident("get" & $field.strVal & "Scale")
   result = quote do:
@@ -1530,22 +1420,6 @@ genGetScale(y)
 #genGetScale(color)
 #genGetScale(size)
 #genGetScale(shape)
-
-proc addHistoRect[T](view: var Viewport, val: T, style: Style,
-                     yPos: Coord1D = c1(1.0),
-                     width = 1.0) =
-  ## creates a rectangle for a histogram and adds it to the viewports object
-  # TODO: replace width argument by float range, so we
-  # only allow values [0.0..1.0]
-  if val.float > 0.0:
-    # calc left side of bar based on width, since we wa t the bar to be centered
-    let left = (1.0 - width) / 2.0
-    let r = view.initRect(Coord(x: c1(left),
-                                y: yPos), # bottom left
-                          quant(width, ukRelative),
-                          quant(-val.float, ukData),
-                          style = some(style))
-    view.addObj r
 
 proc addHistoCentered[T](view: var Viewport, val: T, style: Style,
                          yPos: Coord1D = c1(1.0),
