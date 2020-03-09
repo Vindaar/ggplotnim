@@ -2217,7 +2217,8 @@ proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value =
       if node.val.str in data:
         result = data[node.val.str][idx]
       else:
-        raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
+        # if it's not a key, we use the literal
+        result = node.val
     of VFloat, VInt, VBool:
       # take the literal value of the node
       result = node.val
