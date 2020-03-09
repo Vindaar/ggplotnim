@@ -241,12 +241,14 @@ suite "Formula":
     let df = seqsToDf( { "testCol" : @[1.0, 2.0, 3.0] })
     check toSeq(0 .. 2).mapIt(f3.rhs.evaluate(df, it)) == %~ @[2.0, 4.0, 6.0]
 
-  test "Evaluate ~ formula":
-    let mpg = toDf(readCsv("data/mpg.csv"))
-    let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
-    # Displacement + Cylinders - City mpg. Yeah :D
-    # use RHS of formula for calculation of 0 row.
-    check f.rhs.evaluate(mpg, 0) == %~ -12.2
+  test "Evaluate raw formula (no DF column dependency)":
+    # arithmetic works
+    check evaluate(f{1 + 2}) == %~ 3
+    # parens work in arithmetic
+    check evaluate(f{2 * (5 - 3)}) == %~ 4
+    check evaluate(f{10 / 10}) == %~ 1
+    # strings are evaluated to themseles
+    check evaluate(f{"hwy"}) == %~ "hwy"
 
   test "Formula, literal on RHS":
     let f = f{"from" ~ 0}
