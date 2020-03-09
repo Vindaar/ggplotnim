@@ -196,7 +196,11 @@ proc guessType(s: seq[Value], drawSamples: static bool = true): ValueKind =
       resultSet = true
     else:
       if result != s[i].kind:
-        return VNull
+        case result
+        of VInt, VFloat:
+          result = VFloat
+        else:
+          return VNull
 
 proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
   ## returns an ``estimate`` (!) of whether the given sequence of
