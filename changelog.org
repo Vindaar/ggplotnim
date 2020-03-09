@@ -1,0 +1,18 @@
+* v0.2.14
+
+- starts a changelog :)
+- =formula.evaluate[T](node: FormulaNode, data: T): Value= is now
+  =formula.reduce(node: FormulaNode, data: DataFrame): Value=. Generic usage
+  is just clutter. =reduce= makes the intent clearer and opens up the
+  name for an =evaluate= that returns a full vector
+- adds =formula.evaluate(node: FormulaNode, data: DataFrame):
+  PersistentVector[Value]=. 
+- The =Scale.col= field is now =FormulaNode= instead of =string=. This
+  allows for calculations on the DF to use for scales instead of only
+  columns. 
+- =aes()= is now generic and takes a mix of =string | FormulaNode= to
+  allow to apply formulas to the DF w/o intermediate calculations on
+  the DF manually. E.g. =aes(y = f{"yCol" * 2})= is now valid
+- improve performance for certain plots with many geoms
+- add inplace variants for =select=, =mutate=, =transmute=
+  (=*Inplace=). 
