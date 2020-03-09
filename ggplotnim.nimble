@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.13"
+version       = "0.2.14"
 author        = "Sebastian Schmidt"
 description   = "A port of ggplot2 for Nim"
 license       = "MIT"
@@ -10,7 +10,7 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.3"
-requires "ginger >= 0.1.9"
+requires "ginger >= 0.1.10"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
 
