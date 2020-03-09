@@ -259,80 +259,6 @@ proc discreteAndType(data: seq[Value]):
   result = (isDiscrete: isDiscreteData(data, drawSamples = false),
             vKind: guessType(data, drawSamples = false))
 
-proc mapDataToScale(refVals: seq[Value], val: Value, scale: Scale): ScaleValue =
-  let isDiscrete = refVals.isDiscreteData
-  if isDiscrete:
-    case scale.scKind
-    of scColor, scFillColor, scSize, scShape:
-      result = scale.getValue(val)
-    of scLinearData:
-      # that's just the value itself
-      result = ScaleValue(kind: scLinearData, val: val)
-    else:
-      raise newException(Exception, "`mapDataToScale` not yet implemented for " &
-        "discrete data of kind " & $scale.scKind)
-  else:
-    case scale.scKind
-    of scLinearData:
-      # again, that's still just the value itself
-      result = ScaleValue(kind: scLinearData, val: val)
-    of scSize:
-      # TODO: regardless of continuous or discrete data, bin the
-      # data and determine size by binning!
-      const numSizes = 5
-      const minSize = 2.0
-      const maxSize = 7.0
-      const stepSize = (maxSize - minSize) / numSizes.float
-      let dataRange = (low: min(refVals), high: max(refVals))
-      # calc the actual size for contiuous data
-      result = ScaleValue(kind: scSize, size: minSize + (maxSize - minSize) *
-        (val.toFloat - dataRange.low.toFloat) / (dataRange.high.toFloat - dataRange.low.toFloat))
-    else:
-      raise newException(Exception, "`mapDataToScale` not yet implemented for " &
-        "continuous data of kind " & $scale.scKind)
-
-proc dataTo[T: Table | OrderedTable | DataFrame; U](
-  df: T,
-  col: string,
-  outType: typedesc[U],
-  trans: ScaleTransform = nil): seq[U]
-
-proc getXYcols(p: GgPlot, geom: Geom): tuple[x, y: string] =
-  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
-  ## x, y aesthetics from the two.
-  ## This proc returns the correct column keys respecting the precedence
-  var
-    x: Scale
-    y: Scale
-  # prefer geom x, y over plot x, y
-  if geom.aes.x.isSome: x = geom.aes.x.get
-  else: x = p.aes.x.get
-  if geom.aes.y.isSome: y = geom.aes.y.get
-  else: y = p.aes.y.get
-  result = (x: x.col, y: y.col)
-
-proc getAes(p:GgPlot, geom: Geom, axKind: AxisKind): Aesthetics =
-  case axKind
-  of akX:
-    if geom.aes.x.isSome: result = geom.aes
-    else: result = p.aes
-  of akY:
-    if geom.aes.y.isSome: result = geom.aes
-    else: result = p.aes
-
-proc getXYAes(p: GgPlot, geom: Geom): tuple[x, y: Aesthetics] =
-  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
-  ## x, y aesthetics from the two.
-  result = (x: getAes(p, geom, akX), y: getAes(p, geom, akY))
-
-proc readXYcols(p: GgPlot, geom: Geom, outType: typedesc): tuple[x, y: seq[outType]] =
-  ## given both a `Geom` and a `GgPlot` object we need to choose the correct
-  ## x, y aesthetics from the two.
-  ## The aesthetic of a geom overwrites the aesthetic of the plot!
-  ## Afte this is determined, reads the data and convert to `outType`
-  let (x, y) = getXYCols(p, geom)
-  result = (x: p.data.dataTo(x, outType), y: p.data.dataTo(y, outType))
-
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: string,
                             labelSeq: seq[Value]): Scale =
   result = Scale(scKind: scColor, vKind: vKind, col: col, dcKind: dcDiscrete)
@@ -619,22 +545,6 @@ proc orNoneScale(s: string, scKind: static ScaleKind, axKind = akX): Option[Scal
 proc aes*(x = "", y = "", color = "", fill = "", shape = "", size = ""): Aesthetics =
   result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                       y: y.orNoneScale(scLinearData, akY),
-                      color: color.orNoneScale(scColor),
-                      fill: fill.orNoneScale(scFillColor),
-                      shape: shape.orNoneScale(scShape),
-                      size: size.orNoneScale(scSize))
-
-proc aes*(x: FormulaNode, color = "", fill = "", shape = "", size = ""): Aesthetics =
-  # extract x and y from FormulaNode
-  doAssert x.kind == fkTerm, "Formula must be a term!"
-  doAssert x.lhs.kind == fkVariable, "LHS must be a variable!"
-  doAssert x.rhs.kind == fkVariable, "RHS must be a variable!"
-  result = Aesthetics(x: some(Scale(col: x.lhs.val.toStr,
-                                    scKind: scLinearData,
-                                    axKind: akX)),
-                      y: some(Scale(col: x.rhs.val.toStr,
-                                    scKind: scLinearData,
-                                    axKind: akY)),
                       color: color.orNoneScale(scColor),
                       fill: fill.orNoneScale(scFillColor),
                       shape: shape.orNoneScale(scShape),
@@ -1373,66 +1283,6 @@ proc plotLayoutWithoutLegend(view: var Viewport) =
   view[6].name = "bottomLeft"
   view[7].name = "xLabel"
   view[8].name = "bottomRight"
-
-
-proc dataTo[T: Table | OrderedTable | DataFrame; U](
-  df: T,
-  col: string,
-  outType: typedesc[U],
-  trans: ScaleTransform = nil): seq[U] =
-  ## reads the column `col` from the Table / DataFrame and converts
-  ## it to `outType`, returns it as a `seq[outType]`
-  ## NOTE: This proc may also be used as a means to extract a column from
-  ## a `DataFrame` as a `seq[Value]`, although that is identical to just
-  ## calling `toSeq(df[column])`.
-  ## NOTE: For now we just assume that a Table will be of kind
-  ## `Table[string, seq[string]]`!
-  if df.len == 0:
-    return @[]
-  when type(T) is Table or type(T) is OrderedTable:
-    # well we just assume that the data is a string of numbers
-    # so parse to float and then convert to out type
-    # for proper support of string types etc., need the `Value` type
-    when outType is SomeNumber:
-      result = df[col].mapIt(it.parseFloat.outType)
-    elif outType is string:
-      result = df[col]
-  else:
-    # make a check of the type of the first element of the seq
-    # TODO: replace by call to `guessType`
-    let dkind = df[col][0].kind
-    when outType is SomeNumber:
-      case dkind
-      of VInt:
-        if not trans.isNil:
-          result = df[col].toSeq.mapIt(it.trans.toInt.outType)
-        else:
-          result = df[col].toSeq.mapIt(it.num.outType)
-      of VFloat:
-        if not trans.isNil:
-          result = df[col].toSeq.mapIt(it.trans.fnum.outType)
-        else:
-          result = df[col].toSeq.mapIt(it.fnum.outType)
-      else: discard
-    elif outType is string:
-      case dkind
-      of VString:
-        result = df[col].toSeq.mapIt(it.str.outType)
-      else: discard
-    elif outType is bool:
-      case dking
-      of VBool:
-        result = df[col].toSeq.mapIt(it.bval.outType)
-      else: discard
-    elif outType is Value:
-      result = toSeq(df[col])
-    else:
-      case dkind
-      of VObject:
-        doAssert false, "there cannot be a column with object type!"
-      of VNull:
-        raise newException(Exception, "Column " & $col & " has no data!")
-      else: discard
 
 proc changeStyle(s: GgStyle, scVal: ScaleValue): GgStyle =
   ## returns a modified style with the appropriate field replaced
