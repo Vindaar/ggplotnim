@@ -102,7 +102,7 @@ proc ch2_4() =
 
   # works now
   ggplot(mpg, aes(x = "displ", y = "hwy")) +
-    geom_point(color = parseHex("0000FF")) +
+    geom_point(color = some(parseHex("0000FF"))) +
     ggsave("figs/2.4_5.pdf")
 
 proc ch2_5() =
