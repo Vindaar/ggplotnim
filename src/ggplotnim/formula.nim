@@ -2097,7 +2097,53 @@ makeMathProc(geq, amGeq)
 makeMathProc(`:<=`, amLeq)
 makeMathProc(leq, amLeq)
 
-proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value =
+
+## TODO: We can certainly simplify up the below =evalute=, =reduce= procs below?
+proc evaluate*(node: FormulaNode): Value =
+  ## evaluates the given `FormulaNode`. This requires the node to be
+  ## a pure math node (i.e. does not depend on a data frame column).
+  case node.kind
+  of fkVariable:
+    result = node.val
+  of fkTerm:
+    case node.op
+    of amPlus:
+      result = %~ (node.lhs.evaluate + node.rhs.evaluate)
+    of amMinus:
+      result = %~ (node.lhs.evaluate - node.rhs.evaluate)
+    of amMul:
+      result = %~ (node.lhs.evaluate * node.rhs.evaluate)
+    of amDiv:
+      result = %~ (node.lhs.evaluate / node.rhs.evaluate)
+    of amGreater:
+      result = %~ (node.lhs.evaluate > node.rhs.evaluate)
+    of amLess:
+      result = %~ (node.lhs.evaluate < node.rhs.evaluate)
+    of amGeq:
+      result = %~ (node.lhs.evaluate >= node.rhs.evaluate)
+    of amLeq:
+      result = %~ (node.lhs.evaluate <= node.rhs.evaluate)
+    of amAnd:
+      result = %~ (node.lhs.evaluate.toBool and node.rhs.evaluate.toBool)
+    of amOr:
+      result = %~ (node.lhs.evaluate.toBool or node.rhs.evaluate.toBool)
+    of amXor:
+      result = %~ (node.lhs.evaluate.toBool xor node.rhs.evaluate.toBool)
+    of amEqual:
+      result = %~ (node.lhs.evaluate == node.rhs.evaluate)
+    of amUnequal:
+      result = %~ (node.lhs.evaluate != node.rhs.evaluate)
+    of amDep:
+      raise newException(Exception, "Cannot evaluate `amDep` FormulaNode!")
+  of fkFunction:
+    case node.fnKind
+    of funcScalar:
+      result = node.fnS(evaluate(node.arg))
+    else:
+      raise newException(Exception, "Implement checking compatibility of function " &
+        " and its argument type somehow?")
+
+proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value =
   case node.kind
   of fkVariable:
     case node.val.kind
