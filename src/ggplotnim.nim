@@ -311,25 +311,16 @@ proc fillDiscreteLinearTransScale(
     result.trans = trans.get
 
 proc fillContinuousLinearScale(col: FormulaNode, axKind: AxisKind, vKind: ValueKind,
-                               dataScale: ginger.Scale,
-                               df: DataFrame): Scale =
+                               dataScale: ginger.Scale): Scale =
   result = Scale(scKind: scLinearData, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
   result.axKind = axKind
-  result.mapData = (
-    proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
-      var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
-      else: idxs = idxsIn
-      result = idxs.mapIt(ScaleValue(kind: scLinearData, val: col.evaluate(df, it)))
-  )
 
 proc fillContinuousTransformedScale(col: FormulaNode,
                                     axKind: AxisKind,
                                     vKind: ValueKind,
                                     trans: ScaleTransform,
-                                    dataScale: ginger.Scale,
-                                    df: DataFrame): Scale =
+                                    dataScale: ginger.Scale): Scale =
   result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
                  dcKind: dcContinuous,
                  # apply transformation to data scale
@@ -337,14 +328,6 @@ proc fillContinuousTransformedScale(col: FormulaNode,
                              high: trans(%~ dataScale.high).toFloat))
   result.axKind = axKind
   result.trans = trans
-  result.mapData = (
-    proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
-      var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
-      else: idxs = idxsIn
-      result = idxs.mapIt(ScaleValue(kind: scTransformedData,
-                                     val: trans(col.evaluate(df,it))))
-  )
 
 proc fillContinuousColorScale(scKind: static ScaleKind,
                               col: FormulaNode,
@@ -444,12 +427,12 @@ proc fillScaleImpl(
     of scLinearData:
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
-      result = fillContinuousLinearScale(col, axKind, vKind, dataScale, df)
+      result = fillContinuousLinearScale(col, axKind, vKind, dataScale)
     of scTransformedData:
       doAssert trans.isSome, "Transform data needs a ScaleTransform procedure!"
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
-      result = fillContinuousTransformedScale(col, axKind, vKind, trans.get, dataScale, df)
+      result = fillContinuousTransformedScale(col, axKind, vKind, trans.get, dataScale)
     of scColor:
       result = fillContinuousColorScale(scColor, col, vKind, dataScale, df)
     of scFillColor:
