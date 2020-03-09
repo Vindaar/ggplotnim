@@ -30,5 +30,6 @@ let res = shellVerbose:
   nim c "-r recipes/rLimitXRange.nim"
   nim c "-r recipes/rCreateMarginBuffer.nim"
   nim c "-r recipes/rHighlightMinMax.nim"
+  nim c "-r recipes/rFormulaAesthetic.nim"
 if res[1] != 0:
   raise newException(Exception, "Failed to build or run at least one recipe!")
