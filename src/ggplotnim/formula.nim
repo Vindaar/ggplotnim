@@ -1644,31 +1644,6 @@ iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Valu
   # have a single key
   yield (currentKeys, dfArranged[startIdx .. dfArranged.high])
 
-  when false:
-    # Old implementation based on `filter`. `filter` has to scan the whole data frame once for
-    # each `pair`. This is fine for few pairs, but if we have a lot and the data frame is large
-    # this is very inefficient. The above just scans the data frame only twice. Once to sort it
-    # according to the keys and then to extract the sub data frame
-    if df.groupMap.len > 1:
-      # classes to store the `values` of each group. One sequence of values for each
-      var classes = newSeq[seq[(string, Value)]]()
-      for k, classSet in df.groupMap:
-        classes.add toSeq(classSet).mapIt((k, it))
-      # calculate the cartesian product of the classes
-      let combinations = product(classes)
-      for pair in combinations:
-        var res = df
-        for (key, val) in pair:
-          res = res.filter(f{key == val})
-        # yield if this is a non empty data frame
-        if res.len > 0:
-          yield (pair, res)
-    else:
-      # if only a single group, just filtered by each class
-      for key, classes in df.groupMap:
-        for class in classes:
-          yield (@[(key, class)], df.filter(f{key == class}))
-
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
