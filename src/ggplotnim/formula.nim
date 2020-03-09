@@ -1385,44 +1385,26 @@ proc calcNewColumn(df: DataFrame, fn: FormulaNode): (string, PersistentVector[Va
     newCol[i] = mfn.rhs.evaluate(df, i)
   result = (colName, toPersistentVector(newCol))
 
-proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
-  ## Returns the data frame with an additional mutated column, described
-  ## by the functions `fns`.
-  ## Each formula `fn` given will be used to create a new column in the
-  ## dataframe.
-  ## We assume that the LHS of the formula corresponds to a fkVariable
-  ## that's used to designate the new name.
-  result = df
-  for fn in fns:
-    if fn.kind == fkVariable:
-      doAssert fn.val.kind == VString
-      result[fn.val.str] = df[fn.val.str]
+proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]) =
+  ## Inplace variant of `select` below.
+  var toDrop = toHashSet(df.getKeys)
+  for fn in cols:
+    when type(T) is string:
+      toDrop.excl fn
     else:
-      let (colName, newCol) = result.calcNewColumn(fn)
-      result[colName] = newCol
-
-proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
-  ## Returns the data frame cut to the columns created by `fns`, which
-  ## should involve a calculation. To only cut to one or more columns
-  ## use the `select` proc.
-  ## A function may only contain a `fkVariable` in order to keep the
-  ## column without modification.
-  ## We assume that the LHS of the formula corresponds to a fkVariable
-  ## that's used to designate the new name.
-  # since result dataframe is empty, copy len of input
-  result.len = df.len
-  for fn in fns:
-    if fn.kind == fkVariable:
-      doAssert fn.val.kind == VString
-      result[fn.val.str] = df[fn.val.str]
-    elif fn.kind == fkTerm:
-      doAssert fn.rhs.kind in {fkFunction, fkTerm}
-      let (colName, newCol) = df.calcNewColumn(fn)
-      result[colName] = newCol
-    else:
-      raise newException(Exception, "Function for `transmute` must either be a" &
-        "`fkVariable` (select) or `fkTerm` with `fkVariable` as LHS and `fkFunction` " &
-        "as RHS!")
+      if fn.kind == fkVariable:
+        doAssert fn.val.kind == VString
+        toDrop.excl fn.val.str
+      else:
+        doAssert fn.rhs.kind == fkVariable, "if you wish to perform a calculation " &
+          "of one or more columns, please use `transmute` or `mutate`!"
+        echo fn.lhs
+        doAssert fn.lhs.val.kind == VString
+        doAssert fn.rhs.val.kind == VString
+        df[fn.lhs.val.str] = df[fn.rhs.val.str]
+        toDrop.excl fn.lhs.val.str
+  # now drop all required keys
+  for key in toDrop: df.drop(key)
 
 proc select*[T: string | FormulaNode](df: DataFrame, cols: varargs[T]): DataFrame =
   ## Returns the data frame cut to the names given as `cols`. The argument
@@ -1433,22 +1415,72 @@ proc select*[T: string | FormulaNode](df: DataFrame, cols: varargs[T]): DataFram
   ## it's possible to select and rename a column at the same time.
   ## Note that the columns will be ordered from left to right given by the order
   ## of the `cols` argument!
-  result.len = df.len
-  for fn in cols:
-    when type(T) is string:
-      result[fn] = df[fn]
-    else:
-      if fn.kind == fkVariable:
-        doAssert fn.val.kind == VString
-        result[fn.val.str] = df[fn.val.str]
+  result = df
+  result.selectInplace(cols)
+
+proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
+                dropCols: static bool) =
+  ## implementation of mutation / transmutation. Allows to statically
+  ## decide whether to only keep touched columns or not.
+  var colsToKeep: seq[string]
+  for fn in fns:
+    if fn.kind == fkVariable:
+      doAssert fn.val.kind == VString
+      colsToKeep.add fn.val.str
+    elif fn.kind == fkTerm:
+      case fn.op
+      of amDep:
+        let (colName, newCol) = df.calcNewColumn(fn)
+        df[colName] = newCol
+        colsToKeep.add colName
       else:
-        doAssert fn.rhs.kind == fkVariable, "if you wish to perform a calculation " &
-          "of one or more columns, please use `transmute` or `mutate`!"
-        doAssert fn.lhs.val.kind == VString
-        doAssert fn.rhs.val.kind == VString
-        result[fn.lhs.val.str] = df[fn.rhs.val.str]
-        #let (colName, newCol) = df.calcNewColumn(fn)
-        #result[colName] = newCol
+        df[$fn] = fn.evaluate(df)
+        colsToKeep.add $fn
+    else:
+      df[$fn] = fn.evaluate(df)
+      colsToKeep.add $fn
+  when dropCols:
+    df.selectInplace(colsToKeep)
+
+proc mutateInplace*(df: var DataFrame, fns: varargs[FormulaNode]) =
+  ## Inplace variant of `mutate` below.
+  df.mutateImpl(fns, dropCols = false)
+
+proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame with an additional mutated column, described
+  ## by the functions `fns`.
+  ## Each formula `fn` given will be used to create a new column in the
+  ## dataframe.
+  ## We assume that the LHS of the formula corresponds to a fkVariable
+  ## that's used to designate the new name.
+  ## NOTE: If a given `fn` is a term (`fkTerm`) without an assignment
+  ## (using `~`, kind `amDep`) or a function (`fkFunction`), the resulting
+  ## column will be named after the stringification of the formula.
+  ##
+  ## E.g.: `df.mutate(f{"x" * 2})` will add the column `(* x 2)`.
+  result = df
+  result.mutateInplace(fns)
+
+proc transmuteInplace*(df: var DataFrame, fns: varargs[FormulaNode]) =
+  ## Inplace variant of `transmute` below.
+  df.mutateImpl(fns, dropCols = true)
+
+proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame cut to the columns created by `fns`, which
+  ## should involve a calculation. To only cut to one or more columns
+  ## use the `select` proc.
+  ## A function may only contain a `fkVariable` in order to keep the
+  ## column without modification.
+  ## We assume that the LHS of the formula corresponds to a fkVariable
+  ## that's used to designate the new name.
+  ## NOTE: If a given `fn` is a term (`fkTerm`) without an assignment
+  ## (using `~`, kind `amDep`) or a function (`fkFunction`), the resulting
+  ## column will be named after the stringification of the formula.
+  ##
+  ## E.g.: `df.transmute(f{"x" * 2})` will create the column `(* x 2)`.
+  # since result dataframe is empty, copy len of input
+  result = df
+  result.transmuteInplace(fns)
 
 proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
   ## Returns the data frame with the columns described by `cols` renamed to
