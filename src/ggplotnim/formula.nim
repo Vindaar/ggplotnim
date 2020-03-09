@@ -1080,13 +1080,12 @@ proc length*(v: PersistentVector[Value]): Value =
   ## 2. `length` is the name in R
   result = %~ v.len
 
-proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
-  ## Returns the minimum of a DF column.
+proc colMin*(s: seq[Value], ignoreInf = true): float =
+  ## Returns the minimum of a given `seq[Value]`.
   ## If `ignoreInf` is true `-Inf` values are ignored. This porc
   ## is mainly used to determine the data scales for a plot and not
   ## as a user facing proc!
-  let colVals = df[col].vToSeq
-  for i, x in colVals:
+  for i, x in s:
     let xFloat = x.toFloat
     if i == 0:
       result = xFloat
@@ -1094,19 +1093,34 @@ proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
       continue
     result = min(xFloat, result)
 
-proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
-  ## Returns the maximum of a DF column.
-  ## If `ignoreInf` is true `Inf` values are ignored. This proc
+proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
+  ## Returns the minimum of a DF column.
+  ## If `ignoreInf` is true `-Inf` values are ignored. This porc
   ## is mainly used to determine the data scales for a plot and not
   ## as a user facing proc!
   let colVals = df[col].vToSeq
-  for i, x in colVals:
+  result = colVals.colMin(ignoreInf = ignoreInf)
+
+proc colMax*(s: seq[Value], ignoreInf = true): float =
+  ## Returns the maximum of a given string`seq[Value]`.
+  ## If `ignoreInf` is true `Inf` values are ignored. This proc
+  ## is mainly used to determine the data scales for a plot and not
+  ## as a user facing proc!
+  for i, x in s:
     let xFloat = x.toFloat
     if i == 0:
       result = xFloat
     if ignoreInf and classify(xFloat) == fcInf:
       continue
     result = max(xFloat, result)
+
+proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
+  ## Returns the maximum of a DF column.
+  ## If `ignoreInf` is true `Inf` values are ignored. This proc
+  ## is mainly used to determine the data scales for a plot and not
+  ## as a user facing proc!
+  let colVals = df[col].vToSeq
+  result = colVals.colMax(ignoreInf = ignoreInf)
 
 liftVectorFloatProc(mean)
 liftVectorFloatProc(sum)
