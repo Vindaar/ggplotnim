@@ -1507,7 +1507,7 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     doAssert fn.rhs.val.kind == VString
     result[fn.lhs.val.str] = df[fn.rhs.val.str]
     # remove the column of the old name
-    result.data.del(fn.rhs.val.str)
+    result.drop(fn.rhs.val.str)
 
 proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
   ## Given a dataframe `df` and column keys `keys`, returns a `seq[Value]`
