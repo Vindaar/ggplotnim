@@ -289,7 +289,6 @@ proc fillDiscreteLinearTransScale(
   col: FormulaNode,
   axKind: AxisKind,
   vKind: ValueKind, labelSeq: seq[Value],
-  df: DataFrame,
   trans: Option[ScaleTransform] = none[ScaleTransform]()
      ): Scale =
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
@@ -416,15 +415,14 @@ proc fillScaleImpl(
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
       result = fillDiscreteLinearTransScale(scLinearData, col,
-                                            axKind, vKind, labelSeq,
-                                            df)
+                                            axKind, vKind, labelSeq)
+
     of scTransformedData:
       doAssert trans.isSome, "Transform data needs a ScaleTransform procedure!"
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
       result = fillDiscreteLinearTransScale(scTransformedData, col,
                                             axKind, vKind, labelSeq,
-                                            df,#data,
                                             trans)
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
