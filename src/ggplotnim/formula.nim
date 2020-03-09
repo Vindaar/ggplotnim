@@ -101,8 +101,9 @@ type
     else: discard
     #data: Table[string, seq[Value]]
 
-proc evaluate*[T](node: var FormulaNode, data: T, idx: int): Value
 proc evaluate*[T](node: var FormulaNode, data: T): Value
+proc evaluate*(node: FormulaNode): Value
+proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value
 
 func `high`*(df: DataFrame): int = df.len - 1
 
@@ -2149,18 +2150,8 @@ proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value =
     case node.val.kind
     of VString:
       # the given node corresponds to a key of the data frame
-      # TODO: maybe extend this so that if `node.val` is ``not`` a key of the dataframe
-      # we take the literal string value instead?
-      when type(data) is DataFrame:
-        if node.val.str in data:
-          result = data[node.val.str][idx]
-        else:
-          # if it's not a key, we use the literal
-          result = node.val
-      elif type(data) is Table[string, seq[string]]:
-        result = %~ data[node.val.str][idx].parseFloat
-      elif type(data) is OrderedTable[string, seq[string]]:
-        result = %~ data[node.val.str][idx].parseFloat
+      if node.val.str in data:
+        result = data[node.val.str][idx]
       else:
         raise newException(Exception, "Unsupported type " & $type(data) & " for serialization!")
     of VFloat, VInt, VBool:
@@ -2209,23 +2200,19 @@ proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value =
     # we also convert to float for the time being. Implement a different proc or make this
     # generic, we want to support functions returning e.g. `string` (maybe to change the
     # field name at runtime via some magic proc)
-    when type(data) is DataFrame:
-      case node.fnKind
-      of funcVector:
-        # a function taking a vector. Check if result already computed, else apply
-        # to the column and store the result
-        doAssert node.arg.val.kind == VString
-        if node.res.isSome:
-          result = node.res.unsafeGet
-        else:
-          result = node.fnV(data[node.arg.val.str])
-          node.res = some(result)
-      of funcScalar:
-        # just a function taking a scalar. Apply to current `idx`
-        result = node.fnS(data[node.arg.val.str][idx])
-    else:
-      raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
-        " frame of this type: " & $(type(data).name) & "!")
+    case node.fnKind
+    of funcVector:
+      # a function taking a vector. Check if result already computed, else apply
+      # to the column and store the result
+      doAssert node.arg.val.kind == VString
+      if node.res.isSome:
+        result = node.res.unsafeGet
+      else:
+        result = node.fnV(data[node.arg.val.str])
+        node.res = some(result)
+    of funcScalar:
+      # just a function taking a scalar. Apply to current `idx`
+      result = node.fnS(data[node.arg.val.str][idx])
 
 proc evaluate*[T](node: var FormulaNode, data: T): Value =
   ## evaluation of a data frame under a given `FormulaNode`. This is a reducing
