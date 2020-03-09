@@ -141,6 +141,10 @@ iterator pairs*(row: Value): tuple[key: string, val: Value] =
   for key, val in pairs(row.fields):
     yield (key, val)
 
+proc drop*(df: var DataFrame, key: string) {.inline.} =
+  ## drops the given key from the DataFrame
+  df.data.del(key)
+
 proc add*(v: PersistentVector[Value], w: PersistentVector[Value]): PersistentVector[Value] =
   ## adds all elements of `w` to `v` and returns the resulting vector
   if v.len > 100 or w.len > 100:
