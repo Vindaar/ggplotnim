@@ -709,7 +709,7 @@ Which gives us:
 [[media/recipes/rFormulaAesthetic.png]]
 
 This approach can be used for (almost) arbitrary computations on (even
-more than one) column. Note that if you wish to apply a function to a
+more than one) column. Note that if you wish to apply a =proc= to a
 column, make sure it's lifted and corresponds to one of the types
 explained in the [[README.org][README]].
 
