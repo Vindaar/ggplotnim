@@ -506,9 +506,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
                            high: colMax(data, rawCol)))
 
     # now have to call `fillScaleImpl` with this information
-    # note that data given to proc is a DF of only this scales column
-    let dfSelected = getIdentityData(df, s.col, s.col)
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, dfSelected, scKind,
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
                                labelSeqOpt, dataScaleOpt,
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
@@ -2455,12 +2453,12 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf.select(concat(@[x.col, y.col], contCols))
+      var yieldDf = subDf
       result.setXAttributes(yieldDf, x)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
   else:
     # is select here even useful? Just makes the df given smaller, but...
-    var yieldDf = df.select(concat(@[x.col, y.col], contCols))
+    var yieldDf = df
     result.setXAttributes(yieldDf, x)
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
 
