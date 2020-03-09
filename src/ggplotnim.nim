@@ -3062,9 +3062,8 @@ proc readCsv*(fname: string,
   ## `header.len == 0`), please use `skipLines = N` to skip it manually!
   var s = newFileStream(fname, fmRead)
   if s == nil:
-    s.close()
-    raise newException(IOError, "Input file " & $fname & " does not exist!" &
-      "`readCsv` failed.")
+    raise newException(IOError, "Input file " & $fname & " does not exist! " &
+     "`readCsv` failed.")
   result = s.readCsv(sep, header, skipLines, colNames, fname = fname)
   s.close()
 
