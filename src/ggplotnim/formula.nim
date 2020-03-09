@@ -268,6 +268,14 @@ proc contains*(v: Value, key: string): bool =
   doAssert v.kind == VObject
   result = v.fields.hasKey(key)
 
+func isColumn*(fn: FormulaNode, df: DataFrame): bool =
+  case fn.kind
+  of fkVariable:
+    case fn.val.kind
+    of VString: result = fn.val.str in df
+    else: result = false
+  else: result = false
+
 template `failed?`(cond: untyped): untyped {.used.} =
   # helper template
   debugecho "Failed? ", astToStr(cond), ": ", cond

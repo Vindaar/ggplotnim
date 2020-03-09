@@ -227,21 +227,22 @@ suite "Formula":
     let f2 = f{"min" ~ min("runTimes")}
     check $f2 == "(~ min (min runTimes))"
 
-    let s = Scale(col: "testCol",
+    let s = Scale(col: f{"testCol"},
                   scKind: scTransformedData,
                   dcKind: dcContinuous,
                   trans: (proc(v: Value): Value =
                             result = v * (%~ 2.0)
                   )
     )
-    var f3 = f{ s.col ~ s.trans( s.col )}
+    let col = $s.col
+    var f3 = f{ col ~ s.trans( col )}
     check $f3 == "(~ testCol (s.trans testCol))"
     # test function on DF
     let df = seqsToDf( { "testCol" : @[1.0, 2.0, 3.0] })
     check toSeq(0 .. 2).mapIt(f3.rhs.evaluate(df, it)) == %~ @[2.0, 4.0, 6.0]
 
   test "Evaluate ~ formula":
-    let mpg = readCsv("data/mpg.csv")
+    let mpg = toDf(readCsv("data/mpg.csv"))
     let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
     # Displacement + Cylinders - City mpg. Yeah :D
     # use RHS of formula for calculation of 0 row.
@@ -345,9 +346,9 @@ suite "GgPlot":
     let y2 = x.mapIt(sin(it))
     let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
 
-    let gplt = ggplot(df, aes(x ~ cos)) +
+    let gplt = ggplot(df, aes("x", "cos")) + #aes(x ~ cos)) +
       geom_line() + # line for cos
-      geom_line(aes(x ~ sin), # line for sin
+      geom_line(aes("x", "sin"), #x ~ sin), # line for sin
                 color = some(color(0.0, 0.0)),
                 size = some(1.0))
     # geoms[0].x and y won't be set, since the aes from ggplot is used
@@ -357,12 +358,12 @@ suite "GgPlot":
     check gplt.geoms[1].aes.y.isSome
     check gplt.aes.x.get.scKind == scLinearData
     check gplt.aes.y.get.scKind == scLinearData
-    check gplt.aes.x.get.col == "x"
-    check gplt.aes.y.get.col == "cos"
+    check $gplt.aes.x.get.col == "x"
+    check $gplt.aes.y.get.col == "cos"
     check gplt.geoms[1].aes.x.get.scKind == scLinearData
     check gplt.geoms[1].aes.y.get.scKind == scLinearData
-    check gplt.geoms[1].aes.x.get.col == "x"
-    check gplt.geoms[1].aes.y.get.col == "sin"
+    check $gplt.geoms[1].aes.x.get.col == "x"
+    check $gplt.geoms[1].aes.y.get.col == "sin"
 
     # bonus check
     let style = gplt.geoms[1].userStyle
@@ -373,17 +374,6 @@ suite "GgPlot":
     check style.lineWidth.isSome
     check style.lineWidth.get == 1.0
     check style.lineType.isNone
-
-
-    # we cannot guarantee in a test whether the order is preserved in the code other
-    # than calling the proc, which handles the ordering
-    let (x1v, y1v) = readXYcols(gplt, gplt.geoms[0], float)
-    let (x2v, y2v) = readXYcols(gplt, gplt.geoms[1], float)
-
-    check x1v == x
-    check x2v == x
-    check y1v == y1
-    check y2v == y2
 
   test "Application of log scale works as expected":
     let x = linspace(1.0, 10.0, 500)
@@ -396,8 +386,8 @@ suite "GgPlot":
         scale_x_log10()
       check plt.aes.x.isSome
       check plt.aes.y.isSome
-      check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "xSquare"
+      check $plt.aes.x.get.col == "x"
+      check $plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scTransformedData
@@ -411,13 +401,13 @@ suite "GgPlot":
         scale_y_log10()
       check plt.aes.x.isSome
       check plt.aes.y.isSome
-      check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "xSquare"
+      check $plt.aes.x.get.col == "x"
+      check $plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scLinearData
       check plt.aes.y.get.scKind == scTransformedData
-      check plt.geoms[0].aes.y.get.col == "x4"
+      check $plt.geoms[0].aes.y.get.col == "x4"
       check plt.geoms[0].aes.y.get.axKind == akY
       check plt.geoms[0].aes.y.get.scKind == scTransformedData
       plt.ggsave("sin_log.pdf")
@@ -431,13 +421,13 @@ suite "GgPlot":
         geom_line(aes(y = "x4"))
       check plt.aes.x.isSome
       check plt.aes.y.isSome
-      check plt.aes.x.get.col == "x"
-      check plt.aes.y.get.col == "xSquare"
+      check $plt.aes.x.get.col == "x"
+      check $plt.aes.y.get.col == "xSquare"
       check plt.aes.x.get.axKind == akX
       check plt.aes.y.get.axKind == akY
       check plt.aes.x.get.scKind == scTransformedData
       check plt.aes.y.get.scKind == scLinearData
-      check plt.geoms[0].aes.y.get.col == "x4"
+      check $plt.geoms[0].aes.y.get.col == "x4"
       check plt.geoms[0].aes.y.get.axKind == akY
       check plt.geoms[0].aes.y.get.scKind == scLinearData
 
