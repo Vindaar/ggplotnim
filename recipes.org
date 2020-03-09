@@ -677,6 +677,41 @@ Results in the following plot:
 
 [[./media/recipes/rHighlightMinMax.png]]
 
+*** Applying a formula to an aesthetic
+
+In some cases the data frame one has does not contain exactly the data
+we actually want to plot. 
+
+Take for instance the [[data/mpg.csv][mpg]] dataset where the fuel economoy is (as the
+name implies) given in miler per gallon. People who use a sensible
+unit system will probably want the fuel economy in liters per 100 km. 
+
+There are two ways to plot =L/100km= instead of =mpg=. 
+
+Either (as shown as an example in the [[https://github.io/vindaar/gglotnim][documentation]]) by mutating the
+data frame we have using =transmute= or =mutate= to create a new,
+transformed column.
+
+The other way to achieve this is to provide a =FormulaNode= to the
+=aes= call, like so:
+
+#+BEGIN_SRC nim :tangle recipes/rFormulaAesthetic.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes(f{235 / "cty"}, "displ")) + 
+  geom_point() +
+  xlab("cty [L / 100km]") +
+  ggsave("media/recipes/rFormulaAesthetic.png")
+#+END_SRC
+
+Which gives us:
+
+[[media/recipes/rFormulaAesthetic.png]]
+
+This approach can be used for (almost) arbitrary computations on (even
+more than one) column. Note that if you wish to apply a function to a
+column, make sure it's lifted and corresponds to one of the types
+explained in the [[README.org][README]].
 
 *** TODO Example of changing font size in plot
 
