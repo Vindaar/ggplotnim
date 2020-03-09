@@ -1238,9 +1238,13 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     val = n#.strVal
   of nnkIntLit .. nnkFloat64Lit:
     val = n
-  of nnkDotExpr:
+  of nnkDotExpr, nnkBracketExpr:
     # probably field access of some object
     # echo n.treeRepr
+    val = n
+  of nnkPrefix:
+    doAssert n[0].eqIdent(ident"-")
+    doAssert n[1].kind in {nnkIntLit .. nnkFloat64Lit}
     val = n
   else:
     error("Unsupported kind to construct variable " & $n.kind)
@@ -1312,6 +1316,21 @@ proc handleInfix(n: NimNode): NimNode =
   result = quote do:
     FormulaNode(kind: fkTerm, lhs: `lhs`, rhs: `rhs`, op: `op`)
 
+proc handlePrefix(n: NimNode): NimNode =
+  if n[0].eqIdent(ident"-"):
+    case n[1].kind
+    of nnkStrLit, nnkRStrLit:
+      let rhs = buildFormula(n[1])
+      result = quote do:
+        FormulaNode(kind: fkTerm, lhs: f{-1}, rhs: `rhs`, op: amMul)
+    of nnkIntLit .. nnkFloat64Lit:
+      result = constructVariable(n)
+    else:
+      raise newException(Exception, "Not implemented `nnkPrefix` for " & $n[1].kind)
+  else:
+    raise newException(Exception, "Not implemented `nnkPrefix` other than `-`! " & $n.repr)
+
+
 proc buildFormula(n: NimNode): NimNode =
   ## Builds the formula given by `f{}`
   ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
@@ -1328,8 +1347,10 @@ proc buildFormula(n: NimNode): NimNode =
     result = constructFunction(n)
   of nnkPar:
     result = buildFormula(n[0]) #constructFunction(n[0])
-  of nnkDotExpr:
+  of nnkDotExpr, nnkBracketExpr:
     result = constructVariable(n)
+  of nnkPrefix:
+    result = handlePrefix(n)
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
 
