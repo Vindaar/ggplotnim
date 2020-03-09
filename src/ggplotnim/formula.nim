@@ -101,9 +101,9 @@ type
     else: discard
     #data: Table[string, seq[Value]]
 
-proc evaluate*[T](node: var FormulaNode, data: T): Value
 proc evaluate*(node: FormulaNode): Value
 proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value
+proc reduce*(node: FormulaNode, data: DataFrame): Value
 
 func `high`*(df: DataFrame): int = df.len - 1
 
@@ -2214,11 +2214,13 @@ proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value =
       # just a function taking a scalar. Apply to current `idx`
       result = node.fnS(data[node.arg.val.str][idx])
 
-proc evaluate*[T](node: var FormulaNode, data: T): Value =
-  ## evaluation of a data frame under a given `FormulaNode`. This is a reducing
-  ## operation. It returns a single value from a whole data frame (by working on
+proc reduce*(node: FormulaNode, data: DataFrame): Value =
+  ## Reduces the data frame under a given `FormulaNode`.
+  ## It returns a single value from a whole data frame (by working on
   ## a single column)
   case node.kind
+  of fkVariable:
+    result = node.val
   of fkFunction:
     # for now assert that the argument to the function is just a string
     # Extend this if support for statements like `mean("x" + "y")` (whatever
@@ -2227,17 +2229,21 @@ proc evaluate*[T](node: var FormulaNode, data: T): Value =
     # we also convert to float for the time being. Implement a different proc or make this
     # generic, we want to support functions returning e.g. `string` (maybe to change the
     # field name at runtime via some magic proc)
-    when type(data) is DataFrame:
-      case node.fnKind
-      of funcVector:
-        # here we do ``not`` store the result of the calculation in the `node`, since
-        # we may run the same function on different datasets + we only call this
-        # "once" anyways
-        doAssert node.arg.val.kind == VString
-        result = node.fnV(data[node.arg.val.str])
-      of funcScalar:
-        raise newException(Exception, "The given evaluator function must work on" &
-          " a whole column!")
+    case node.fnKind
+    of funcVector:
+      # here we do ``not`` store the result of the calculation in the `node`, since
+      # we may run the same function on different datasets + we only call this
+      # "once" anyways
+      doAssert node.arg.val.kind == VString
+      result = node.fnV(data[node.arg.val.str])
+    of funcScalar:
+      raise newException(Exception, "The given evaluator function must work on" &
+        " a whole column!")
+  of fkTerm:
+    let lhs = reduce(node.lhs, data)
+    let rhs = reduce(node.rhs, data)
+    result = evaluate FormulaNode(kind: fkTerm, op: node.op, lhs: f{lhs}, rhs: f{rhs})
+
     else:
       raise newException(Exception, "Cannot evaluate a fkFunction for a data " &
         " frame of this type: " & $(type(data).name) & "!")
