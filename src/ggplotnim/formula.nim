@@ -1720,7 +1720,7 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
     case df.kind
     of dfNormal:
       # just apply the function
-      let res = toPersistentVector(@[fnEval.evaluate(df)])
+      let res = toPersistentVector(@[fnEval.reduce(df)])
       result[lhsName] = res
       result.len = res.len
     of dfGrouped:
@@ -1736,7 +1736,7 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
           else:
             result[k] = toPersistentVector(@[class])
           var dfcopy = df.filter(f{k == class})
-          let x = fnEval.evaluate(dfcopy)
+          let x = fnEval.reduce(dfcopy)
           if result.hasKey(lhsName):
             result[lhsName] = result[lhsName].add x
           else:
