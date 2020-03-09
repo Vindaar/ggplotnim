@@ -592,3 +592,32 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     # redundant but a showcase what happened previously
     for k in zip(df.getKeys, colsNot):
       check k[0] != k[1]
+
+  test "Evaluate data frame using FormulaNode":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
+    # Displacement + Cylinders - City mpg. Yeah :D
+    # use RHS of formula for calculation of 0 row.
+    check f.rhs.evaluate(mpg, 0) == %~ -12.2
+
+    # applying negative column results in expected
+    # stringifaction of the formula
+    let dfNeg = mpg.transmute(f{-"hwy"})
+    check "(* -1 hwy)" == getKeys(dfNeg)[0]
+
+    # negative prefix of existing column results in what we expect
+    check evaluate(f{-"hwy"}, mpg).vToSeq == mpg["hwy"].vToSeq.mapIt((%~ -1) * it)
+
+    # evaluate non existant key to vector of constant
+    check evaluate(f{"nonExistant"}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ "nonExistant")
+
+    # evaluate formula without column on DF
+    check evaluate(f{1 + 2}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ 3)
+
+  test "Reduce data frame using FormulaNode":
+    let mpg = toDf(readCsv("data/mpg.csv"))
+    # check reduction via a formula and VectorFloatProc
+    check almostEqual(reduce(f{mean("hwy")}, mpg).toFloat, 23.44017, 1e-3)
+
+    # combine with calculation
+    check almostEqual(reduce(f{235 / mean("hwy")}, mpg).toFloat, 10.0255, 1e-3)
