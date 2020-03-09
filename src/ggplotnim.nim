@@ -234,13 +234,13 @@ proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
   of VObject:
      raise newException(Exception, "A VObject can neither be discrete nor continuous!")
 
-proc discreteAndType(df: DataFrame, col: string,
+proc discreteAndType(df: DataFrame, col: FormulaNode,
                      dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
     tuple[isDiscrete: bool, vKind: ValueKind] =
   ## deteremines both the `ValueKind` of the given column as well whether that
   ## data is discrete.
   let indices = drawSampleIdx(df.high)
-  let data = indices.mapIt(df[col][it])
+  let data = indices.mapIt(col.evaluate(df, it))
   let isDiscrete = block:
     if dcKind.isSome:
       let dc = dcKind.get
@@ -259,7 +259,7 @@ proc discreteAndType(data: seq[Value]):
   result = (isDiscrete: isDiscreteData(data, drawSamples = false),
             vKind: guessType(data, drawSamples = false))
 
-proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: string,
+proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value]): Scale =
   result = Scale(scKind: scColor, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
@@ -272,7 +272,7 @@ proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: str
                          else:
                            ScaleValue(kind: scFillColor, color: colorCs[i])
 
-proc fillDiscreteSizeScale(vKind: ValueKind, col: string,
+proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
                            labelSeq: seq[Value]): Scale =
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
@@ -286,7 +286,7 @@ proc fillDiscreteSizeScale(vKind: ValueKind, col: string,
 
 proc fillDiscreteLinearTransScale(
   scKind: static ScaleKind,
-  col: string,
+  col: FormulaNode,
   axKind: AxisKind,
   vKind: ValueKind, labelSeq: seq[Value],
   df: DataFrame,
@@ -300,7 +300,7 @@ proc fillDiscreteLinearTransScale(
     ## we make  sure `trans` is some in the calling scope!
     result.trans = trans.get
 
-proc fillContinuousLinearScale(col: string, axKind: AxisKind, vKind: ValueKind,
+proc fillContinuousLinearScale(col: FormulaNode, axKind: AxisKind, vKind: ValueKind,
                                dataScale: ginger.Scale,
                                df: DataFrame): Scale =
   result = Scale(scKind: scLinearData, vKind: vKind, col: col, dcKind: dcContinuous,
@@ -311,10 +311,10 @@ proc fillContinuousLinearScale(col: string, axKind: AxisKind, vKind: ValueKind,
       var idxs: seq[int]
       if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
-      result = idxs.mapIt(ScaleValue(kind: scLinearData, val: df[col][it]))
+      result = idxs.mapIt(ScaleValue(kind: scLinearData, val: col.evaluate(df, it)))
   )
 
-proc fillContinuousTransformedScale(col: string,
+proc fillContinuousTransformedScale(col: FormulaNode,
                                     axKind: AxisKind,
                                     vKind: ValueKind,
                                     trans: ScaleTransform,
@@ -333,11 +333,11 @@ proc fillContinuousTransformedScale(col: string,
       if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
       else: idxs = idxsIn
       result = idxs.mapIt(ScaleValue(kind: scTransformedData,
-                                     val: trans(df[col][it])))
+                                     val: trans(col.evaluate(df,it))))
   )
 
 proc fillContinuousColorScale(scKind: static ScaleKind,
-                              col: string,
+                              col: FormulaNode,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
                               df: DataFrame): Scale =
@@ -353,7 +353,7 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
       else: idxs = idxsIn
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
-        var colorIdx = (255.0 * ((df[col][idx].toFloat - dataScale.low) /
+        var colorIdx = (255.0 * ((col.evaluate(df, idx).toFloat - dataScale.low) /
                                  (dataScale.high - dataScale.low))).round.int
         colorIdx = min(255, colorIdx)
         let cVal = ViridisRaw[colorIdx]
@@ -365,7 +365,7 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
         result[i] = scVal
   )
 
-proc fillContinuousSizeScale(col: string, vKind: ValueKind,
+proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
                              dataScale: ginger.Scale,
                              df: DataFrame): Scale =
   const minSize = 2.0
@@ -379,7 +379,7 @@ proc fillContinuousSizeScale(col: string, vKind: ValueKind,
       else: idxs = idxsIn
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
-        let size = (df[col][idx].toFloat - minSize) /
+        let size = (col.evaluate(df, idx).toFloat - minSize) /
                    (maxSize - minSize)
         result[i] = ScaleValue(kind: scSize,
                                size: size)
@@ -388,7 +388,7 @@ proc fillContinuousSizeScale(col: string, vKind: ValueKind,
 proc fillScaleImpl(
   vKind: ValueKind,
   isDiscrete: bool,
-  col: string,
+  col: FormulaNode,
   df: DataFrame,
   scKind: static ScaleKind,
   labelSeqOpt: Option[seq[Value]] = none[seq[Value]](), # for discrete data
@@ -451,12 +451,10 @@ proc fillScaleImpl(
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
 
-proc getIdentityData(df: DataFrame, col, name: string): DataFrame =
-  if col in df:
-    result = df.select(f{name ~ col})
-  else:
-    let d = @[Value(kind: VString, str: col)]
-    result = seqsToDf({name : d})
+proc getIdentityData(df: DataFrame, col: FormulaNode,
+                     name: string): DataFrame =
+  result[name] = col.evaluate(df)
+  result.len = df.len
 
 proc fillScale(df: DataFrame, scales: seq[Scale],
                scKind: static ScaleKind): seq[Scale] =
@@ -496,7 +494,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     else: discard
 
     # now determine labels, data scale from `data`
-    let (isDiscrete, vKind) = discreteAndType(data, rawCol, dcKindOpt)
+    let (isDiscrete, vKind) = discreteAndType(data, f{rawCol}, dcKindOpt)
     if vKind == VNull:
       echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
@@ -528,21 +526,30 @@ proc orNone(f: float): Option[float] =
   if classify(f) != fcNaN: some(f)
   else: none[float]()
 
-proc orNoneScale(s: string, scKind: static ScaleKind, axKind = akX): Option[Scale] =
+proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind = akX): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
-  if s.len > 0:
+  if ($s).len > 0:
+    when T is string:
+      let fs = f{s}
+    else:
+      let fs = s
     case scKind
     of scLinearData:
-      result = some(Scale(scKind: scLinearData, col: s, axKind: axKind))
+      result = some(Scale(scKind: scLinearData, col: fs, axKind: axKind))
     of scTransformedData:
-      result = some(Scale(scKind: scTransformedData, col: s, axKind: axKind))
+      result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind))
     else:
-      result = some(Scale(scKind: scKind, col: s))
+      result = some(Scale(scKind: scKind, col: fs))
   else:
     result = none[Scale]()
 
-proc aes*(x = "", y = "", color = "", fill = "", shape = "", size = ""): Aesthetics =
+proc aes*[A; B; C; D; E; F: string | FormulaNode](x: A = "",
+                                                  y: B = "",
+                                                  color: C = "",
+                                                  fill: D = "",
+                                                  shape: E = "",
+                                                  size: F = ""): Aesthetics =
   result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                       y: y.orNoneScale(scLinearData, akY),
                       color: color.orNoneScale(scColor),
@@ -755,7 +762,7 @@ proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
 
 proc scale_x_log10*(): Scale =
   ## sets the X scale of the plot to a log10 scale
-  result = Scale(col: "", # will be filled when added to GgPlot obj
+  result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akX,
                  dcKind: dcContinuous,
@@ -764,7 +771,7 @@ proc scale_x_log10*(): Scale =
 
 proc scale_y_log10*(): Scale =
   ## sets the Y scale of the plot to a log10 scale
-  result = Scale(col: "", # will be filled when added to GgPlot obj
+  result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akY,
                  dcKind: dcContinuous,
@@ -912,7 +919,7 @@ proc createLegend(view: var Viewport,
     var label = header.initText(
       Coord(x: header.origin.x,
             y: c1(0.5)),
-      cat.col,
+      evaluate(cat.col).toStr,
       textKind = goText,
       alignKind = taLeft,
       name = "legendHeader")
@@ -1303,16 +1310,21 @@ proc changeStyle(s: GgStyle, scVal: ScaleValue): GgStyle =
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
 
-proc applyStyle(style: var GgStyle, df: DataFrame, scales: seq[Scale], keys: seq[(string, Value)]) =
+proc applyStyle[T: string | FormulaNode](style: var GgStyle, df: DataFrame, scales: seq[Scale],
+                                         keys: seq[(T, Value)]) =
   var styleVal: ScaleValue
   for (col, val) in keys:
     for s in scales:
       # walk all scales and build the correct style
       case s.dcKind
       of dcDiscrete:
-        if col notin df:
+        when T is string:
+          let isCol = col in df
+        else:
+          let isCol = col.isColumn(df)
+        if not isCol:
           # constant value
-          styleVal = s.getValue(%~ s.col)
+          styleVal = s.getValue(evaluate(s.col))
         else:
           styleVal = s.getValue(val)
         style = changeStyle(style, styleVal)
@@ -1406,10 +1418,10 @@ template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
   ## taking into account the view's scale and theme settings.
   when xMaybeString:
     # x may be a string! TODO: y at some point too.
-    var x = df[fg.xcol, i]
+    var x = df[$fg.xcol, i]
   else:
-    var x = df[fg.xcol, i].toFloat(allowNull = true)
-  var y = df[fg.ycol, i].toFloat(allowNull = true)
+    var x = df[$fg.xcol, i].toFloat(allowNull = true)
+  var y = df[$fg.ycol, i].toFloat(allowNull = true)
   # modify according to ranges of viewport (may be different from real data ranges, assigned
   # to `FilledGeom`, due to user choice!
   # NOTE: We use templates here so that we can easily inject a `continue` to skip a data point!
@@ -1962,7 +1974,7 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
   of akY:
     scale = filledScales.getYScale()
     numTicks = p.numYTicks
-  if scale.col.len > 0:
+  if not scale.col.isNil:
     case scale.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, scale, theme = theme)
@@ -2269,15 +2281,24 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## Given a sequence of scales applies all transformations of the `scales`.
   ## That is for each `scTransformedData` scale the according transformation
   ## is applied its column
+  # NOTE: This proc is responsible for transforming the input `df` from the
+  # way it's defined by the user to one where the columns of type `FormualNode`
+  # are applied. This changes the columns that are part of the data frame and
+  # the column names. After this procedure we do ``not`` use the columns as
+  # `FormulaNode` anymore, but ``only`` as strings, since all possible
+  # transformations have been applied!
   var fns: seq[FormulaNode]
   for s in scales:
     if s.scKind == scTransformedData:
-      let fn = f{ s.col ~ s.trans( s.col ) }
+      let col = evaluate(s.col)
+      let fn = f{ col ~ s.trans( col ) }
       fns.add fn
-    elif s.col in df:
-      # `s.col` may be pointing to scale which sets constant value
-      fns.add f{ s.col }
-  df = df.transmute(fns)
+    else:
+      # `s.col` may be pointing to scale which sets constant value or involves
+      # a calculation of a column
+      fns.add s.col
+  # apply transformations using inplace mutate
+  df.mutateInplace(fns)
 
 proc separateScalesApplyTrafos(
   df: var DataFrame, gid: uint16,
@@ -2297,28 +2318,28 @@ proc separateScalesApplyTrafos(
   result = (x: x, y: y, discretes: discretes, cont: cont)
 
 proc splitDiscreteSetMap(df: DataFrame,
-                         scales: seq[Scale]): (seq[string], seq[string]) =
+                         scales: seq[Scale]): (seq[FormulaNode], seq[FormulaNode]) =
   ## splits the given discrete (!) columns by whether they set data (i.e.
   ## arg not a DF column) or map data (arg is column)
-  var setDiscCols = newSeq[string]()
-  var mapDiscCols = newSeq[string]()
+  var setDiscCols = newSeq[FormulaNode]()
+  var mapDiscCols = newSeq[FormulaNode]()
   for d in scales:
     # for discrete scales, build the continuous (if any) scales
-    if d.col in df:
+    if d.col.isColumn(df):
       mapDiscCols.add d.col
     else:
       setDiscCols.add d.col
   result = (setDiscCols, mapDiscCols)
 
 proc setCountXScaleByType(xScale: var ginger.Scale, vKind: ValueKind,
-                          xCol: string, df: DataFrame) =
+                          xCol: FormulaNode, df: DataFrame) =
   ## sets the X scale according to the value kind for `"count"` stats
   case vKind
   of VString, VBool, VNull, VObject:
     xScale = (low: 0.0, high: 1.0)
   of VInt, VFloat:
-    let dfXScale = (low: colMin(df, xCol),
-                    high: colMax(df, xCol))
+    let dfXScale = (low: colMin(df, $xCol),
+                    high: colMax(df, $xCol))
     if xScale.isEmpty:
       xScale = dfXScale
     else:
@@ -2335,7 +2356,7 @@ proc setXAttributes(fg: var FilledGeom,
   of dcDiscrete:
     # for discrete scales the number of elements is the number of unique elements
     # (consider mpg w/ gkPoint using aes("cyl", "hwy") gives N entries for each "cyl"
-    fg.numX = max(fg.numX, df[scale.col].unique.len)
+    fg.numX = max(fg.numX, scale.col.evaluate(df).unique.len)
     # for a discrete scale an X scale isn't needed and makes it harder to produce
     # gkLine plots with a discrete scale
     fg.xScale = (low: 0.0, high: 1.0)
@@ -2353,7 +2374,7 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
   result[1] = yieldDf
   for c in scales:
-    result[1][c.col] = fullDf[c.col]
+    result[1][$c.col] = c.col.evaluate(fullDf)
     for el in c.mapData():
       result[0].add baseStyle.changeStyle(el)
   if result[0].len == 0:
@@ -2403,7 +2424,7 @@ proc determineDataScale(s: Scale, df: DataFrame): ginger.Scale =
   ## while differentiating between continuous and discrete scales
   if s.dcKind == dcContinuous and s.dataScale.isEmpty:
     # use the data to determine min and max
-    result = (low: colMin(df, s.col), high: colMax(df, s.col))
+    result = (low: colMin(df, $s.col), high: colMax(df, $s.col))
   elif s.dcKind == dcContinuous:
     # use the existing scale
     result = s.dataScale
@@ -2419,8 +2440,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: x.col,
-                      ycol: y.col,
+                      xcol: $x.col,
+                      ycol: $y.col,
                       dcKindX: x.dcKind,
                       dcKindY: y.dcKind)
   result.xScale = determineDataScale(x, df)
@@ -2430,7 +2451,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols)
+    df = df.group_by(mapDiscCols.mapIt($it))
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
@@ -2482,7 +2503,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: x.col,
+                      xcol: $x.col,
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous)
@@ -2491,17 +2512,17 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols)
+    df = df.group_by(mapDiscCols.mapIt($it))
     # sumHist used to calculate height of stacked histogram
     var sumHist: seq[int]
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      let (hist, bins, binWidths) = g.callHistogram(subDf.dataTo(x.col, float),
+      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
                                                     range = x.dataScale)
       sumHist.addBinCountsByPosition(hist, g.position)
-      var yieldDf = seqsToDf({ x.col : bins,
+      var yieldDf = seqsToDf({ $x.col : bins,
                                countCol: hist })
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
@@ -2510,9 +2531,9 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       result.yScale = mergeScales(result.yScale, (low: 0.0,
                                                   high: sumHist.max.float))
   else:
-    let (hist, bins, binWidths) = g.callHistogram(df.dataTo(x.col, float),
+    let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).vToSeq.mapIt(it.toFloat),
                                                   range = x.dataScale)
-    var yieldDf = seqsToDf({ x.col : bins,
+    var yieldDf = seqsToDf({ $x.col : bins,
                              countCol: hist,
                              widthCol: binWidths})
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
@@ -2538,29 +2559,29 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: x.col,
+                      xcol: $x.col,
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous)
-  let allClasses = df[x.col].unique
+  let allClasses = df[$x.col].unique
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols)
+    df = df.group_by(mapDiscCols.mapIt($it))
     # sumCounts used to calculate height of stacked histogram
     # TODO: can be simplified by implementing `count` of `grouped` DFs!
     var sumCounts = DataFrame()
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf.count(x.col, name = countCol)
+      var yieldDf = subDf.count($x.col, name = countCol)
       # all values, which are zero still have to be accounted for! Add those keys with
       # zero values
-      yieldDf.addZeroKeys(allClasses, x.col, countCol)
+      yieldDf.addZeroKeys(allClasses, $x.col, countCol)
       # now arrange by `x.col` to force correct order
-      yieldDf = yieldDf.arrange(x.col)
+      yieldDf = yieldDf.arrange($x.col)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.setXAttributes(yieldDf, x)
@@ -2568,7 +2589,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                   (low: 0.0,
                                    high: max(sumCounts[countCol]).toFloat))
   else:
-    let yieldDf = df.count(x.col, name = countCol)
+    let yieldDf = df.count($x.col, name = countCol)
     #result.numX = yieldDf.len
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.setXAttributes(yieldDf, x)
@@ -2704,13 +2725,13 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
     if xScale.name.len > 0:
       result = xScale.name
     else:
-      result = xScale.col
+      result = $xScale.col
   of akY:
     let yScale = getYScale(filledScales)
     if yScale.name.len > 0:
       result = yScale.name
-    elif yScale.col.len > 0:
-      result = yScale.col
+    elif not yScale.col.isNil:
+      result = $yScale.col
     else:
       result = "count"
 

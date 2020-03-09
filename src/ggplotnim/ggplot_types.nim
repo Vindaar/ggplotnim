@@ -71,7 +71,7 @@ type
 
   Scale* = ref object
     # the column which this scale corresponds to
-    col*: string
+    col*: FormulaNode
     name*: string
     ids*: set[uint16]
     vKind*: ValueKind # the value kind of the data of `col`
@@ -228,6 +228,9 @@ type
   # A filled geom is a geom plus a closure to yield the
   FilledGeom* = object
     geom*: Geom
+    # NOTE: these are strings, because they are the stringification of the
+    # `FormulaNode` given to `aes`! Potential calculations have already been
+    # done to the data
     xcol*: string
     ycol*: string
     # each geom will fill its own data scales. The filledScale will then
@@ -343,6 +346,25 @@ proc hash*(x: ScaleValue): Hash =
   of scSize:
     result = result !& hash(x.size)
   result = !$result
+
+proc hash*(fn: FormulaNode): Hash =
+  result = hash(fn.kind.int)
+  case fn.kind
+  of fkVariable:
+    result = result !& hash(fn.val)
+  of fkFunction:
+    result = result !& hash(fn.fnName)
+    result = result !& hash(fn.arg)
+    result = result !& hash(fn.fnKind.int)
+    case fn.fnKind
+    of funcVector:
+      result = result !& hash(fn.fnV)
+    of funcScalar:
+      result = result !& hash(fn.fnS)
+  of fkTerm:
+    result = result !& hash(fn.lhs)
+    result = result !& hash(fn.rhs)
+    result = result !& hash(fn.op.int)
 
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)
