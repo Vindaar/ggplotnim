@@ -5,6 +5,8 @@ import persvector, sequtils, seqmath, stats, strformat, algorithm, parseutils
 # for error messages to print types
 import typetraits
 
+from ginger import Scale
+
 type
   ValueKind* = enum
     VNull,
@@ -1121,6 +1123,24 @@ proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
   ## as a user facing proc!
   let colVals = df[col].vToSeq
   result = colVals.colMax(ignoreInf = ignoreInf)
+
+func scaleFromData*(s: seq[Value], ignoreInf: static bool = true): ginger.Scale =
+  ## Combination of `colMin`, `colMax` to avoid running over the data
+  ## twice. For large DFs to plot this makes a big difference.
+  if s.len == 0: return (low: 0.0, high: 0.0)
+  var
+    xFloat = s[0].toFloat
+    minVal = xFloat
+    maxVal = xFloat
+  for i, x in s:
+    xFloat = x.toFloat
+    when ignoreInf:
+      if (classify(xFloat) == fcNegInf or
+          classify(xFloat) == fcInf):
+        continue
+    minVal = min(xFloat, minVal)
+    maxVal = max(xFloat, maxVal)
+  result = (low: minVal, high: maxVal)
 
 liftVectorFloatProc(mean)
 liftVectorFloatProc(sum)
