@@ -6,6 +6,13 @@ import tables, sets, options
 import sequtils, seqmath
 import math
 
+proc almostEq(a, b: float, epsilon = 1e-8): bool =
+  ## version of `almostEqual` for testing, which prints the values, if
+  ## they mismatch
+  result = almostEqual(a, b, epsilon)
+  if not result:
+    echo "Comparison failed: a = ", a, ", b = ", b
+
 suite "Value":
   let
     v1 = %~ 1
@@ -190,8 +197,8 @@ suite "Value":
     check (v1 + v1).kind == VFloat
     check (v1 + v1) == %~ 2
     check (v1 * v1).kind == VFloat
-    check almostEqual((v1 * v2).toFloat, 1.5)
-    check almostEqual((v1 / v2).toFloat, 2.0 / 3.0)
+    check almostEq((v1 * v2).toFloat, 1.5)
+    check almostEq((v1 / v2).toFloat, 2.0 / 3.0)
     check v1 * v6 == Value(kind: VNull)
 
 suite "Formula":
@@ -449,13 +456,13 @@ suite "GgPlot":
       check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
-      check lab.txtPos.y.toRelative.pos.almostEqual(posTup.y.toRelative.pos)
+      check lab.txtPos.y.toRelative.pos.almostEq(posTup.y.toRelative.pos)
       when not defined(noCairo):
         ## This check only works if we compile with the cairo backend. That is because the
         ## placement of the text in y position depends explicitly on the extent of the
         ## text, which is determined using cairo's TTextExtents object. The dummy backend
         ## provides only zeroes for these numbers.
-        check lab.txtPos.x.toRelative.pos.almostEqual(posTup.x.toRelative.pos)
+        check lab.txtPos.x.toRelative.pos.almostEq(posTup.x.toRelative.pos)
 
       check lab.rotate == rot
       check lab.txtFont == Font(family: "sans-serif", size: 12.0, bold: false,
@@ -501,10 +508,10 @@ suite "GgPlot":
                none[float]())
     checkLabel(yLab[0], "yLabel", "More custom!",
                some(-90.0))
-    check almostEqual(yLab[0].txtPos.x.toPoints.pos,
+    check almostEq(yLab[0].txtPos.x.toPoints.pos,
                       -quant(yMargin, ukCentimeter).toPoints.val,
                       epsilon = 1e-6)
-    check almostEqual(xLab[0].txtPos.y.toPoints.pos,
+    check almostEq(xLab[0].txtPos.y.toPoints.pos,
                       height(view).toPoints(some(view.hView)).val + quant(xMargin, ukCentimeter).toPoints.val,
                       epsilon = 1e-6)
     plt.ggdraw("exp2.pdf")
@@ -555,7 +562,7 @@ suite "Annotations":
       if "multiLineText" in gobj.name:
         when not defined(noCairo):
           ## text extent based calcs are not supported without cairo!
-          check almostEqual(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
+          check almostEq(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
         # we don't check y because it depends on the line
         inc count
       elif "annotationBackground" in gobj.name:
@@ -563,8 +570,8 @@ suite "Annotations":
         # the rectangle, placed in the plot viewport. Takes into
         # account the margin we use:
         when not defined(noCairo):
-          check almostEqual(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
-          check almostEqual(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
         else:
           discard
     # check number of lines
@@ -589,7 +596,7 @@ suite "Annotations":
       if "multiLineText" in gobj.name:
         when not defined(noCairo):
           ## text extent based calcs are not supported without cairo!
-          check almostEqual(gobj.txtPos.x.pos, 0.0, epsilon = 1e-6)
+          check almostEq(gobj.txtPos.x.pos, 0.0, epsilon = 1e-6)
         # we don't check y because it depends on the line
         check gobj.txtFont == font
         check gobj.txtText == annot.strip.splitLines[count]
@@ -597,8 +604,8 @@ suite "Annotations":
       elif "annotationBackground" in gobj.name:
         # rough position check
         when not defined(noCairo):
-          check almostEqual(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
-          check almostEqual(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
         check gobj.style.isSome
         check gobj.style.unsafeGet.color == color(1.0, 1.0, 1.0, 1.0)
         check gobj.style.unsafeGet.fillColor == color(1.0, 1.0, 1.0, 1.0)
@@ -621,7 +628,7 @@ suite "Annotations":
         case gobj.kind
         of goPoint:
           if gobj.ptPos.x.pos == 44.0:
-            check almostEqual(gobj.ptPos.y.pos, 30.0, 1e-8)
+            check almostEq(gobj.ptPos.y.pos, 30.0, 1e-8)
         else: discard
     block:
       let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
@@ -648,8 +655,8 @@ suite "Annotations":
         case gobj.kind
         of goPoint:
           if gobj.ptPos.x.pos == 44.0:
-            check (almostEqual(gobj.ptPos.y.pos, 33.0, 1e-8) or
-                   almostEqual(gobj.ptPos.y.pos, 35.0, 1e-8))
+            check (almostEq(gobj.ptPos.y.pos, 33.0, 1e-8) or
+                   almostEq(gobj.ptPos.y.pos, 35.0, 1e-8))
         else: discard
 
   test "Set custom plot data margins":
@@ -688,7 +695,7 @@ suite "Annotations":
       case gobj.kind
       of goPoint:
         if gobj.ptPos.x.pos > 30.0:
-          check almostEqual(gobj.ptPos.x.pos, 33.0, 1e-8)
+          check almostEq(gobj.ptPos.x.pos, 33.0, 1e-8)
       else: discard
 
   test "Negative margins raise ValueError":
