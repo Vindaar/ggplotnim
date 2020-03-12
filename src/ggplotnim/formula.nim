@@ -1447,8 +1447,12 @@ proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
   var colsToKeep: seq[string]
   for fn in fns:
     if fn.kind == fkVariable:
-      doAssert fn.val.kind == VString
-      colsToKeep.add fn.val.str
+      case fn.val.kind
+      of VString:
+        colsToKeep.add fn.val.str
+      else:
+        # ignore this function
+        continue
     elif fn.kind == fkTerm:
       case fn.op
       of amDep:
