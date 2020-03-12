@@ -114,6 +114,7 @@ func mergeUserStyle(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   fillField(lineWidth)
   fillField(fillColor)
   fillField(marker)
+  fillField(errorBarKind)
 
 proc getValue(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
@@ -549,13 +550,15 @@ func initGgStyle(color = none[Color](),
                  marker = none[MarkerKind](),
                  lineType = none[LineType](),
                  lineWidth = none[float](),
-                 fillColor = none[Color]()): GgStyle =
+                 fillColor = none[Color](),
+                 errorBarKind = none[ErrorBarKind]()): GgStyle =
   result = GgStyle(color: color,
                    size: size,
                    marker: marker,
                    lineType: lineType,
                    lineWidth: lineWidth,
-                   fillColor: fillColor)
+                   fillColor: fillColor,
+                   errorBarKind: errorBarKind)
 
 proc geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
@@ -607,7 +610,8 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
-  let style = initGgStyle(color = color, size = size, lineType = lineType)
+  let style = initGgStyle(color = color, size = size, lineType = lineType,
+                          errorBarKind = some(ebLinesT))
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -1581,6 +1585,33 @@ proc identityDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
                            marker = style.marker,
                            color = style.color,
                            size = style.size)
+    of gkErrorBar:
+      # need the min and max values
+      let (xmin, xmax, ymin, ymax) = readErrorData(df, i, fg)
+      if xMin.isSome or xMax.isSome:
+        template toC1(val: float): Coord1D =
+          Coord1D(pos: val,
+                  scale: view.xScale,
+                  axis: akX,
+                  kind: ukData)
+        result.add initErrorBar(view, (x: x, y: y),
+                                errorUp = toC1(xMax.getOrDefault(0.0)),
+                                errorDown = toC1(xMin.getOrDefault(0.0)),
+                                axKind = akX,
+                                ebKind = style.errorBarKind,
+                                style = some(style))
+      if yMin.isSome or yMax.isSome:
+        template toC1(val: float): Coord1D =
+          Coord1D(pos: val,
+                  scale: view.yScale,
+                  axis: akY,
+                  kind: ukData)
+        result.add initErrorBar(view, (x: x, y: y),
+                                errorUp = toC1(yMax.getOrDefault(0.0)),
+                                errorDown = toC1(yMin.getOrDefault(0.0)),
+                                axKind = akY,
+                                ebKind = style.errorBarKind,
+                                style = some(style))
     of gkHistogram:
       let xPos = x # assumes bins are left edges
       let rect = view.initRect(Coord(x: Coord1D(pos: xPos, kind: ukData,
