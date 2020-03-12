@@ -452,62 +452,6 @@ proc addIdentityData(data: var seq[Value], df: DataFrame, col: FormulaNode) =
   for val in col.evaluate(df):
     data.add val
 
-proc fillScale(df: DataFrame, scales: seq[Scale],
-               scKind: static ScaleKind): seq[Scale] =
-  # NOTE: `data` is used to build a seq of data of the given scales. Be aware
-  # that all scales given here belong to the same `aes` field, i.e. the same
-  # "axis" (x, y, color,...) and thus can be considered compatible and part of the
-  # same scale / classes! The actual data given to each filled scale however is not
-  # this DF, but rather the input `df.select(s.col)`, see below.
-  var data = newSeqOfCap[Value](df.len * scales.len)
-  var transOpt: Option[ScaleTransform]
-  var axKindOpt: Option[AxisKind]
-  # in a first loop over the scales read the data required to make decisions about
-  # the appearence of the resulting scale
-  for s in scales:
-    # add this scales data to `data` DF for deduction of labels / data scales
-    data.addIdentityData(df, s.col)
-  # in the second loop for each of the scales add one filled scale to the result
-  # using the combined dataset of all. This way we automatically get the correct
-  # data range / correct number of labels while retaining a single scale per
-  # geom.
-  var dataScaleOpt: Option[ginger.Scale]
-  var labelSeqOpt: Option[seq[Value]]
-  var dcKindOpt: Option[DiscreteKind]
-  for s in scales:
-    # check if scale predefined discreteness
-    if s.hasDiscreteness:
-      dcKindOpt = some(s.dcKind)
-    case scKind
-    of scLinearData:
-      axKindOpt = some(s.axKind)
-    of scTransformedData:
-      axKindOpt = some(s.axKind)
-      # ## we use the last transformation we find!
-      transOpt = some(s.trans)
-    else: discard
-
-    # now determine labels, data scale from `data`
-    let (isDiscrete, vKind) = discreteAndType(data, dcKindOpt)
-    if vKind == VNull:
-      echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
-      continue
-
-    if isDiscrete:
-      labelSeqOpt = some(data.deduplicate.sorted)
-    else:
-      dataScaleOpt = some((low: colMin(data),
-                           high: colMax(data)))
-
-    # now have to call `fillScaleImpl` with this information
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
-                               labelSeqOpt, dataScaleOpt,
-                               axKindOpt, transOpt)
-    if scKind in {scLinearData, scTransformedData}:
-      filled.secondaryAxis = s.secondaryAxis
-    filled.ids = s.ids
-    result.add filled
-
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
   if s.len == 0: none[string]()
@@ -2251,47 +2195,6 @@ proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
   result = t.legendPosition.isSome
 
-type
-  ScaleData = tuple
-    data: Option[DataFrame]
-    scale: Scale
-    statKind: StatKind
-
-proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
-                   scKind: static ScaleKind): seq[Scale] =
-  ## `pData` corresponds to the DataFrame of the `GgPlot` object. This is ``only`` (!!)
-  ## used, if:
-  ## - current scale is ``not`` in `GgPlot.aes`
-  ## - `geom` with this scale has ``no`` `data` field
-  # handle those geoms separately, which have their own data
-  let separateIdxs = toSeq(0 .. scales.high).filterIt(scales[it].data.isSome)
-  var scalesToUse = newSeq[Scale]()
-  for i, s in scales:
-    if i notin separateIdxs:
-      scalesToUse.add s.scale
-  if scalesToUse.len > 0:
-    var filled: seq[Scale]
-    # If the first scale is transformed, the others are too. Transformed handled
-    # here, because `collectScales` uses `scLinearData` for `x` and `y`
-    case scalesToUse[0].scKind
-    of scTransformedData:
-      filled = fillScale(pData, scalesToUse, scTransformedData)
-    else:
-      filled = fillScale(pData, scalesToUse, scKind)
-    for fs in filled:
-      result.add fs
-  # now separates
-  for i in separateIdxs:
-    var additional: seq[Scale]
-    case scales[i].scale.scKind
-    of scTransformedData:
-      additional = fillScale(scales[i].data.get, @[scales[i].scale], scTransformedData)
-    else:
-      additional = fillScale(scales[i].data.get, @[scales[i].scale], scKind)
-    doAssert additional.len <= 1
-    for fs in additional:
-      result.add fs
-
 func getScales(gid: uint16, filledScales: FilledScales,
                yIsNone = false): (Scale, Scale, seq[Scale]) =
   ## Returns the x and y scales individually and the other scales as a
@@ -2751,6 +2654,104 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
   for g in mitems(filledScales.geoms):
     g.xScale = finalXScale
     g.yScale = finalyScale
+
+type
+  ScaleData = tuple
+    data: Option[DataFrame]
+    scale: Scale
+    statKind: StatKind
+
+proc fillScale(df: DataFrame, scales: seq[Scale],
+               scKind: static ScaleKind): seq[Scale] =
+  # NOTE: `data` is used to build a seq of data of the given scales. Be aware
+  # that all scales given here belong to the same `aes` field, i.e. the same
+  # "axis" (x, y, color,...) and thus can be considered compatible and part of the
+  # same scale / classes! The actual data given to each filled scale however is not
+  # this DF, but rather the input `df.select(s.col)`, see below.
+  var data = newSeqOfCap[Value](df.len * scales.len)
+  var transOpt: Option[ScaleTransform]
+  var axKindOpt: Option[AxisKind]
+  # in a first loop over the scales read the data required to make decisions about
+  # the appearence of the resulting scale
+  for s in scales:
+    # add this scales data to `data` DF for deduction of labels / data scales
+    data.addIdentityData(df, s.col)
+  # in the second loop for each of the scales add one filled scale to the result
+  # using the combined dataset of all. This way we automatically get the correct
+  # data range / correct number of labels while retaining a single scale per
+  # geom.
+  var dataScaleOpt: Option[ginger.Scale]
+  var labelSeqOpt: Option[seq[Value]]
+  var dcKindOpt: Option[DiscreteKind]
+  for s in scales:
+    # check if scale predefined discreteness
+    if s.hasDiscreteness:
+      dcKindOpt = some(s.dcKind)
+    case scKind
+    of scLinearData:
+      axKindOpt = some(s.axKind)
+    of scTransformedData:
+      axKindOpt = some(s.axKind)
+      # ## we use the last transformation we find!
+      transOpt = some(s.trans)
+    else: discard
+
+    # now determine labels, data scale from `data`
+    let (isDiscrete, vKind) = discreteAndType(data, dcKindOpt)
+    if vKind == VNull:
+      echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
+      continue
+
+    if isDiscrete:
+      labelSeqOpt = some(data.deduplicate.sorted)
+    else:
+      dataScaleOpt = some(scaleFromData(data))
+      #dataScaleOpt = some((low: colMin(data),
+      #                     high: colMax(data)))
+
+    # now have to call `fillScaleImpl` with this information
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
+                               labelSeqOpt, dataScaleOpt,
+                               axKindOpt, transOpt)
+    if scKind in {scLinearData, scTransformedData}:
+      filled.secondaryAxis = s.secondaryAxis
+    filled.ids = s.ids
+    result.add filled
+
+proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
+                   scKind: static ScaleKind): seq[Scale] =
+  ## `pData` corresponds to the DataFrame of the `GgPlot` object. This is ``only`` (!!)
+  ## used, if:
+  ## - current scale is ``not`` in `GgPlot.aes`
+  ## - `geom` with this scale has ``no`` `data` field
+  # handle those geoms separately, which have their own data
+  let separateIdxs = toSeq(0 .. scales.high).filterIt(scales[it].data.isSome)
+  var scalesToUse = newSeq[Scale]()
+  for i, s in scales:
+    if i notin separateIdxs:
+      scalesToUse.add s.scale
+  if scalesToUse.len > 0:
+    var filled: seq[Scale]
+    # If the first scale is transformed, the others are too. Transformed handled
+    # here, because `collectScales` uses `scLinearData` for `x` and `y`
+    case scalesToUse[0].scKind
+    of scTransformedData:
+      filled = fillScale(pData, scalesToUse, scTransformedData)
+    else:
+      filled = fillScale(pData, scalesToUse, scKind)
+    for fs in filled:
+      result.add fs
+  # now separates
+  for i in separateIdxs:
+    var additional: seq[Scale]
+    case scales[i].scale.scKind
+    of scTransformedData:
+      additional = fillScale(scales[i].data.get, @[scales[i].scale], scTransformedData)
+    else:
+      additional = fillScale(scales[i].data.get, @[scales[i].scale], scKind)
+    doAssert additional.len <= 1
+    for fs in additional:
+      result.add fs
 
 template collect(p: GgPlot, f: untyped): untyped =
   var sds = newSeq[ScaleData]()
