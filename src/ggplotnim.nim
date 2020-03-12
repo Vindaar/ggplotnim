@@ -2295,20 +2295,6 @@ proc splitDiscreteSetMap(df: DataFrame,
       setDiscCols.add d.col
   result = (setDiscCols, mapDiscCols)
 
-proc setCountXScaleByType(xScale: var ginger.Scale, vKind: ValueKind,
-                          xCol: FormulaNode, df: DataFrame) =
-  ## sets the X scale according to the value kind for `"count"` stats
-  case vKind
-  of VString, VBool, VNull, VObject:
-    xScale = (low: 0.0, high: 1.0)
-  of VInt, VFloat:
-    let dfXScale = (low: colMin(df, $xCol),
-                    high: colMax(df, $xCol))
-    if xScale.isEmpty:
-      xScale = dfXScale
-    else:
-      xScale = mergeScales(xScale, dfXScale)
-
 proc setXAttributes(fg: var FilledGeom,
                     df: DataFrame,
                     scale: Scale) =
@@ -2326,8 +2312,7 @@ proc setXAttributes(fg: var FilledGeom,
     fg.xScale = (low: 0.0, high: 1.0)
     # and assign the label sequence
     fg.xLabelSeq = scale.labelSeq
-  else:
-    fg.xScale.setCountXScaleByType(scale.vKind, scale.col, df)
+  of dcContinuous:
     fg.numX = max(fg.numX, df.len)
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
