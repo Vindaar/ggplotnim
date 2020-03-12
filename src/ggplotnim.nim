@@ -70,6 +70,7 @@ const PointDefaultStyle = Style(size: 3.0,
                                 fillColor: black)
 const LineDefaultStyle = Style(lineWidth: 1.0,
                                lineType: ltSolid,
+                               size: 5.0, # used to draw error bar 'T' horizontal
                                color: grey20,
                                fillColor: black)
 const BarDefaultStyle = Style(lineWidth: 1.0,
@@ -85,7 +86,7 @@ func defaultStyle(geomKind: GeomKind): Style =
   case geomKind
   of gkPoint:
     result = PointDefaultStyle
-  of gkLine, gkFreqPoly:
+  of gkLine, gkFreqPoly, gkErrorBar:
     result = LineDefaultStyle
   of gkBar:
     result = BarDefaultStyle
@@ -157,6 +158,10 @@ iterator enumerateScalesByIds(filledScales: FilledScales): Scale =
   genYield(fill)
   genYield(size)
   genYield(shape)
+  genYield(xMin)
+  genYield(xMax)
+  genYield(yMin)
+  genYield(yMax)
 
 iterator enumerateScales(filledScales: FilledScales, geom: Geom): Scale =
   ## Yields all scales, which are allowed for the given geom
@@ -531,18 +536,27 @@ proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F: string | FormulaNode](x: A = "",
-                                                  y: B = "",
-                                                  color: C = "",
-                                                  fill: D = "",
-                                                  shape: E = "",
-                                                  size: F = ""): Aesthetics =
-  result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
-                      y: y.orNoneScale(scLinearData, akY),
-                      color: color.orNoneScale(scColor),
-                      fill: fill.orNoneScale(scFillColor),
-                      shape: shape.orNoneScale(scShape),
-                      size: size.orNoneScale(scSize))
+proc aes*[A; B; C; D; E; F; G; H; I; J: string | FormulaNode](
+  x: A = "",
+  y: B = "",
+  color: C = "",
+  fill: D = "",
+  shape: E = "",
+  size: F = "",
+  xMin: G = "",
+  xMax: H = "",
+  yMin: I = "",
+  yMax: J = ""): Aesthetics =
+    result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
+                        y: y.orNoneScale(scLinearData, akY),
+                        color: color.orNoneScale(scColor),
+                        fill: fill.orNoneScale(scFillColor),
+                        shape: shape.orNoneScale(scShape),
+                        size: size.orNoneScale(scSize),
+                        xMin: xMin.orNoneScale(scLinearData, akX),
+                        xMax: xMax.orNoneScale(scLinearData, akX),
+                        yMin: yMin.orNoneScale(scLinearData, akY),
+                        yMax: yMax.orNoneScale(scLinearData, akY))
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -557,6 +571,11 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.fill)
   fillIt(result.size)
   fillIt(result.shape)
+  fillIt(result.xMin)
+  fillIt(result.xMax)
+  fillIt(result.yMin)
+  fillIt(result.yMax)
+
 
 proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
   result = GgPlot[T](data: data,
@@ -624,6 +643,38 @@ proc geom_point*(aes: Aesthetics = aes(),
                 statKind: stKind,
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
+
+proc geom_errorbar*(aes: Aesthetics = aes(),
+                    data = DataFrame(),
+                    color = none[Color](),
+                    size = none[float](),
+                    lineType = none[LineType](),
+                    stat = "identity",
+                    bins = -1,
+                    binWidth = 0.0,
+                    breaks: seq[float] = @[],
+                    binPosition = "none",
+                    position = "identity", # the position kind, "identity", "stack" etc.
+                   ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
+  let style = initGgStyle(color = color, size = size, lineType = lineType)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkErrorBar,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stKind,
+                position: pKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks)
+
 
 proc geom_bar*(aes: Aesthetics = aes(),
                data = DataFrame(),
@@ -1303,6 +1354,7 @@ proc applyStyle[T: string | FormulaNode](style: var GgStyle, df: DataFrame, scal
   for (col, val) in keys:
     for s in scales:
       # walk all scales and build the correct style
+      if s.scKind in {scLinearData, scTransformedData}: continue
       case s.dcKind
       of dcDiscrete:
         when T is string:
@@ -1534,6 +1586,24 @@ proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
     x = x + binWidth / 2.0
   of bpRight:
     x = x + binWidth
+
+proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
+  tuple[xMin, xMax, yMin, yMax: Option[float]] =
+  ## reads all error data available
+  template getField(field: untyped): untyped =
+    fg.geom.aes.field.unsafeGet.col
+  if fg.geom.aes.xMin.isSome:
+    result.xMin = some(evaluate(getField(xMin), df, idx).toFloat)
+  if fg.geom.aes.xMax.isSome:
+    result.xMax = some(evaluate(getField(xMax), df, idx).toFloat)
+  if fg.geom.aes.yMin.isSome:
+    echo evaluate(getField(yMin), df, idx).toFloat
+    result.yMin = some(evaluate(getField(yMin), df, idx).toFloat)
+  if fg.geom.aes.yMax.isSome:
+    result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
+
+proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
+  result = if val.isSome: val.unsafeGet else: default
 
 proc identityDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
                                              fg: FilledGeom,
@@ -2251,6 +2321,10 @@ func getScales(gid: uint16, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.fill))
   addIfAny(result[2], getScale(filledScales.size))
   addIfAny(result[2], getScale(filledScales.shape))
+  addIfAny(result[2], getScale(filledScales.xMin))
+  addIfAny(result[2], getScale(filledScales.xMax))
+  addIfAny(result[2], getScale(filledScales.yMin))
+  addIfAny(result[2], getScale(filledScales.yMax))
 
 func isEmpty(s: ginger.Scale): bool =
   ## checks if the given scale is empty
@@ -2362,8 +2436,13 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   result[1] = yieldDf
   for c in scales:
     result[1][$c.col] = c.col.evaluate(fullDf)
-    for el in c.mapData():
-      result[0].add baseStyle.changeStyle(el)
+    case c.scKind
+    of scLinearData, scTransformedData:
+      # for linear and transformed data we don't change the style
+      discard
+    else:
+      for el in c.mapData():
+        result[0].add baseStyle.changeStyle(el)
   if result[0].len == 0:
     result = (@[baseStyle], yieldDf)
 
@@ -2406,16 +2485,32 @@ proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
   let zeroVals = zeroKeys.mapIt(0)
   df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
 
-proc determineDataScale(s: Scale, df: DataFrame): ginger.Scale =
+func encompassingDataScale(scales: seq[Scale],
+                           axKind: AxisKind,
+                           baseScale: ginger.Scale = (low: 0.0, high: 0.0)): ginger.Scale =
+  ## calculate the encompassing data scale spanned by all
+  ## given `scales` of kind `scLinearData`, `scTransformedData`.
+  if not baseScale.isEmpty:
+    result = baseScale
+  for s in scales:
+    if s.scKind in {scLinearData, scTransformedData} and
+       s.axKind == axKind:
+      result = mergeScales(result, s.dataScale)
+
+proc determineDataScale(s: Scale,
+                        additional: seq[Scale], df: DataFrame): ginger.Scale =
   ## returns the data scale given a filled `Scale s` and the corresponding data,
   ## while differentiating between continuous and discrete scales
-  if s.dcKind == dcContinuous and s.dataScale.isEmpty:
-    # use the data to determine min and max
-    result = (low: colMin(df, $s.col), high: colMax(df, $s.col))
-  elif s.dcKind == dcContinuous:
-    # use the existing scale
-    result = s.dataScale
-  else:
+  case s.dcKind
+  of dcContinuous:
+    if s.dataScale.isEmpty: doAssert false # (why) can this happen?
+    result = if s.datascale.isEmpty:
+              (low: colMin(df, $s.col), high: colMax(df, $s.col))
+             else:
+               s.datascale
+    # now merge with all additional data scales along the same axis
+    result = encompassingDataScale(additional, s.axKind, result)
+  of dcDiscrete:
     # for discrete case assign default [0, 1] scale
     # TODO: assign somewhere else?
     result = (low: 0.0, high: 1.0)
@@ -2431,8 +2526,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       ycol: $y.col,
                       dcKindX: x.dcKind,
                       dcKindY: y.dcKind)
-  result.xScale = determineDataScale(x, df)
-  result.yScale = determineDataScale(y, df)
+  result.xScale = determineDataScale(x, cont, df)
+  result.yScale = determineDataScale(y, cont, df)
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
@@ -2442,12 +2537,11 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf
+      let yieldDf = subDf
       result.setXAttributes(yieldDf, x)
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
   else:
-    # is select here even useful? Just makes the df given smaller, but...
-    var yieldDf = df
+    let yieldDf = df
     result.setXAttributes(yieldDf, x)
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
 
@@ -2494,6 +2588,11 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous)
+  # for histogram data we don't take into account the raw data, because
+  # due to custom bin breaks there may be more data than we want to plot
+  result.xScale = encompassingDataScale(cont, akX)
+  # y scale is not defined yet, only use continuous scales too
+  result.yScale = encompassingDataScale(cont, akY)
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
@@ -2509,7 +2608,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
                                                     range = x.dataScale)
       sumHist.addBinCountsByPosition(hist, g.position)
-      var yieldDf = seqsToDf({ $x.col : bins,
+      let yieldDf = seqsToDf({ $x.col : bins,
                                countCol: hist })
       result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
@@ -2520,13 +2619,13 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   else:
     let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).vToSeq.mapIt(it.toFloat),
                                                   range = x.dataScale)
-    var yieldDf = seqsToDf({ $x.col : bins,
+    let yieldDf = seqsToDf({ $x.col : bins,
                              countCol: hist,
                              widthCol: binWidths})
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.numX = yieldDf.len
-    result.xScale = (low: bins.min.float, high: bins.max.float)
-    result.yScale = (low: 0.0, high: hist.max.float)
+    result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
+    result.yScale = mergeScales(result.yScale, (low: 0.0, high: hist.max.float))
   # `numY` for `bin` stat is just max of the y scale. Since `histogram` counts the
   # number of values in a binned continuous scale the maximum value is always an `int`!
   result.numY = result.yScale.high.round.int
@@ -2534,7 +2633,6 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   case x.dcKind
   of dcDiscrete: result.xLabelSeq = x.labelSeq
   else: discard
-
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   const countCol = "count" # do not hardcode!
@@ -2550,6 +2648,9 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous)
+  result.xScale = determineDataScale(x, cont, df)
+  # y scale is not yet defined, only use encompassing cont. scales
+  result.yScale = encompassingDataScale(cont, akY)
   let allClasses = df[$x.col].unique
   # w/ all groupings
   var style: GgStyle
@@ -2577,10 +2678,10 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                    high: max(sumCounts[countCol]).toFloat))
   else:
     let yieldDf = df.count($x.col, name = countCol)
-    #result.numX = yieldDf.len
     result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.setXAttributes(yieldDf, x)
-    result.yScale = (low: 0.0, high: yieldDf[countCol].max.toFloat)
+    result.yScale = mergeScales(result.yScale,
+                                (low: 0.0, high: yieldDf[countCol].max.toFloat))
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
   # maximum value is always an `int`!
@@ -2596,7 +2697,7 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
     var df = if g.data.isSome: g.data.get else: p.data
     var filledGeom: FilledGeom
     case g.kind
-    of gkPoint, gkLine:
+    of gkPoint, gkLine, gkErrorBar:
       # can be handled the same
       # need x and y data for sure
       case g.statKind
@@ -2643,6 +2744,7 @@ proc postProcessScales(filledScales: var FilledScales, p: GgPlot) =
     filledScales.geoms.add filledGeom
   let (finalXScale, _, _) = calcTickLocations(xScale, p.numXTicks)
   let (finalYScale, _, _) = calcTickLocations(yScale, p.numYTicks)
+
   filledScales.xScale = finalXScale
   filledScales.yScale = finalYScale
   # With the final scales in place, update all geoms to know about it
@@ -2682,10 +2784,28 @@ proc collectScales(p: GgPlot): FilledScales =
   # NOTE: transformed data handled from this in `callFillScale`!
   let xFilled = callFillScale(p.data, xs, scLinearData)
   fillField("x", xFilled)
-  let ys = collect(p, y)
+
+  let xsMin = collect(p, xMin)
+  let xMinFilled = callFillScale(p.data, xsMin, scLinearData)
+  fillField("xMin", xMinFilled)
+
+  let xsMax = collect(p, xMax)
+  let xMaxFilled = callFillScale(p.data, xsMax, scLinearData)
+  fillField("xMax", xMaxFilled)
+
+  var ys = collect(p, y)
   # NOTE: transformed data handled from this in `callFillScale`!
   let yFilled = callFillScale(p.data, ys, scLinearData)
   fillField("y", yFilled)
+
+  let ysMin = collect(p, yMin)
+  let yMinFilled = callFillScale(p.data, ysMin, scLinearData)
+  fillField("yMin", yMinFilled)
+
+  let ysMax = collect(p, yMax)
+  let yMaxFilled = callFillScale(p.data, ysMax, scLinearData)
+  fillField("yMax", yMaxFilled)
+
   let colors = collect(p, color)
   let colorFilled = callFillScale(p.data, colors, scColor)
   fillField("color", colorFilled)

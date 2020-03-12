@@ -8,7 +8,11 @@ type
     # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
     # possibly `scTranformedData`.
     x*: Option[Scale]
+    xMin*: Option[Scale] # min value for `gkErrorBar`
+    xMax*: Option[Scale] # max value for `gkErrorBar`
     y*: Option[Scale]
+    yMin*: Option[Scale] # min value for `gkErrorBar`
+    yMax*: Option[Scale] # max value for `gkErrorBar`
     # Replace these by e.g. `color: Option[Scale]` and have `Scale` be variant
     # type that stores its kind `kind: scColor` and `key: string`.
     fill*: Option[Scale] # classify by fill color
@@ -135,9 +139,10 @@ type
     lineWidth*: Option[float]
     fillColor*: Option[Color]
     marker*: Option[MarkerKind]
+    errorBarKind*: Option[ErrorBarKind]
 
   GeomKind* = enum
-    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine
+    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
@@ -265,6 +270,10 @@ type
     fill*: MainAddScales
     size*: MainAddScales
     shape*: MainAddScales
+    xMin*: MainAddScales
+    xMax*: MainAddScales
+    yMin*: MainAddScales
+    yMax*: MainAddScales
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.
