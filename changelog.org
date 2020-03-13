@@ -1,3 +1,16 @@
+* v0.2.15
+- *IMPORTANT*: there was a bug in =seqmath.histogram=, which is used
+  in =geom_histogram= / if =stat = "bin"= is used. The bug caused
+  wrong histogram calculations *if and only if* unequal bin widths
+  were used. Equal bin widhts were fine. This was fixed in =seqmath=
+  =v0.1.7=
+- add =geom_errorbar= for plots with error bars in x / y direction
+- add =geom_linerange=, which are either error bars without an
+  orthogonal line at the end (not "T" shaped, "|" like) or just, well,
+  line ranges.
+- slight performance increase for large datasets, due to avoiding
+  running over data twice to determine min / max values.
+
 * v0.2.14
 
 - starts a changelog :)
