@@ -713,6 +713,43 @@ more than one) column. Note that if you wish to apply a =proc= to a
 column, make sure it's lifted and corresponds to one of the types
 explained in the [[README.org][README]].
 
+*** Plotting error bars
+
+Starting from version =v0.2.15= plotting of error bars is
+supported. This is done via =geom_errorbar=.
+
+Error bars are handled by new fields of the =Aesthetics= object,
+namely =xMin=, =xMax=, =yMin= and =yMax=. The important thing to keep
+in mind is that these fields require absolute values. So if you have
+an error of =0.1= you don't set =yMin= to =-0.1= and =yMax= to =0.1=,
+but rather you add and subtract from =y= using a formula. See the
+example below. 
+
+The example below assumes asymmetric, but constant errors of =0.03=
+down and =0.05= up. Note that =xMin= etc. are completely normal
+aesthetic fields. You can also assign a column of your DF with
+precomputed min and max values or even use more complex functionality
+provided by aesthetics via formulas, e.g. compute the square root
+error via =yMax = f{"y" + sqrt("y")}= for instance.
+
+#+BEGIN_SRC nim :tangle recipes/rErrorBar.nim
+import ggplotnim, seqmath, sequtils
+# create some polynomial data 
+let x = linspace(0, 1.0, 10)
+let y = x.mapIt(0.5 * it - 1.2 * it * it + 1.1 * it * it * it)
+let df = seqsToDf(x, y)
+# let's assume we have asymmetric errors, 0.03 down and 0.05 up
+ggplot(df, aes("x", "y")) +
+  geom_point() +
+  # define errors as a formula, which references our "y" scale
+  geom_errorbar(aes(yMin = f{"y" - 0.03}, yMax = f{"y" + 0.05})) +
+  ggsave("media/recipes/rErrorBar.png")
+#+END_SRC
+
+Which results in the following plot:
+
+[[media/recipes/rErrorBar.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
@@ -729,9 +766,9 @@ See TMAS section below for now.
 
 See TMAS section below for now.
 
-*** TODO Add lines in a plot to highlight something
+*NOTE:* starting from version =v0.2.15=, this can also be achieved
+using =geom_linerange=!
 
-See TMAS section below for now.
 
 
 ** TMAS "Tell Me A Story" recipes
