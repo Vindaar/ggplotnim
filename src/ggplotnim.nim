@@ -1530,7 +1530,6 @@ proc addGeomCentered(view: var Viewport,
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
       result.add view.initPolyLine(linePoints, some(style))
-      echo result[^1]
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
       # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
@@ -1577,7 +1576,6 @@ proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   if fg.geom.aes.xMax.isSome:
     result.xMax = some(evaluate(getField(xMax), df, idx).toFloat)
   if fg.geom.aes.yMin.isSome:
-    echo evaluate(getField(yMin), df, idx).toFloat
     result.yMin = some(evaluate(getField(yMin), df, idx).toFloat)
   if fg.geom.aes.yMax.isSome:
     result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
