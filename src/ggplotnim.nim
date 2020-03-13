@@ -623,6 +623,38 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
+proc geom_linerange*(aes: Aesthetics = aes(),
+                     data = DataFrame(),
+                     color = none[Color](),
+                     size = none[float](),
+                     lineType = none[LineType](),
+                     stat = "identity",
+                     bins = -1,
+                     binWidth = 0.0,
+                     breaks: seq[float] = @[],
+                     binPosition = "none",
+                     position = "identity", # the position kind, "identity", "stack" etc.
+                   ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
+  let style = initGgStyle(color = color, size = size, lineType = lineType,
+                          errorBarKind = some(ebLines))
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkErrorBar,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stKind,
+                position: pKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks)
+
 
 proc geom_bar*(aes: Aesthetics = aes(),
                data = DataFrame(),
