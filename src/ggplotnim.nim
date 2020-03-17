@@ -1372,34 +1372,24 @@ genGetScale(y)
 #genGetScale(size)
 #genGetScale(shape)
 
-proc addHistoCentered[T](view: var Viewport, val: T, style: Style,
-                         yPos: Coord1D = c1(1.0),
-                               width = 1.0): GraphObject =
+proc addHistoCentered[T](view: var Viewport, pos: Coord, style: Style,
+                         val: float,
+                         width = 1.0): GraphObject =
   ## creates a rectangle for a histogram and adds it to the viewports object
-  # TODO: replace width argument by float range, so we
-  # only allow values [0.0..1.0]
-  if val.float > 0.0:
-    # calc left side of bar based on width, since we wa t the bar to be centered
-    let left = (1.0 - width) / 2.0
-    view.addObj view.initRect(Coord(x: c1(left),
-                                y: yPos), # bottom left
-                          quant(width, ukRelative),
-                          quant(-val.float, ukData),
-                          style = some(style))
+  view.addObj view.initRect(pos,
+                            quant(width, ukRelative),
+                            quant(-val.float, ukData),
+                            style = some(style))
 
-proc addPointCentered[T](view: var Viewport, val: T, style: Style): GraphObject =
+proc addPointCentered[T](view: var Viewport, pos: Coord, style: Style): GraphObject =
   ## creates a rectangle for a histogram and adds it to the viewports object
-  if val.float > 0.0:
-    # TODO: dispatch on discrete axis!
-    view.addObj initPoint(view,
-                          pos = Coord(
-                            x: c1(0.5, ukRelative),
-                            y: Coord1D(pos: val, kind: ukData,
-                                       axis: akY,
-                                       scale: view.yScale)),
-                          marker = style.marker,
-                          color = style.color,
-                          size = style.size)
+  #if val.float > 0.0:
+  # TODO: dispatch on discrete axis!
+  view.addObj initPoint(view,
+                        pos = pos,
+                        marker = style.marker,
+                        color = style.color,
+                        size = style.size)
 
 proc drawStackedPolyLine(view: var Viewport,
                          prevVals: seq[float],
@@ -1435,12 +1425,11 @@ template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
                xMaybeString: static bool = true): untyped =
   ## this template retrieves the current x and y values at index `i` from the `df`
   ## taking into account the view's scale and theme settings.
-  when xMaybeString:
-    # x may be a string! TODO: y at some point too.
-    var x = df[$fg.xcol, i]
-  else:
-    var x = df[$fg.xcol, i].toFloat(allowNull = true)
-  var y = df[$fg.ycol, i].toFloat(allowNull = true)
+  # x may be a string! TODO: y at some point too.
+  var x = df[$fg.xcol, i]
+  var y = df[$fg.ycol, i]
+  x = if x.kind == VNull: %~ 0.0 else: x
+  y = if y.kind == VNull: %~ 0.0 else: y
   # modify according to ranges of viewport (may be different from real data ranges, assigned
   # to `FilledGeom`, due to user choice!
   # NOTE: We use templates here so that we can easily inject a `continue` to skip a data point!
@@ -1448,99 +1437,19 @@ template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
     if cond:
       case axORK
       of orkDrop: continue
-      of orkClip: ax = axMarginRange
+      of orkClip: ax = %~ axMarginRange
       of orkNone: discard # leave as isp
-  when not xMaybeString:
-    maybeChange(x < view.xScale.low, x, theme.xMarginRange.low, xORK)
-    maybeChange(x > view.xScale.high, x, theme.xMarginRange.high, xORK)
-  maybeChange(y < view.yScale.low, y, theme.yMarginRange.low, yORK)
-  maybeChange(y > view.yScale.high, y, theme.yMarginRange.high, yORK)
+  if fg.dcKindX == dcContinuous:
+    maybeChange(smallerOrFalse(x, view.xScale.low), x, theme.xMarginRange.low, xORK)
+    maybeChange(largerOrFalse(x, view.xScale.high), x, theme.xMarginRange.high, xORK)
+  if fg.dcKindY == dcContinuous:
+    maybeChange(smallerOrFalse(y, view.yScale.low), y, theme.yMarginRange.low, yORK)
+    maybeChange(largerOrFalse(y, view.yScale.high), y, theme.yMarginRange.high, yORK)
   (x, y)
 
-proc addGeomCentered(view: var Viewport,
-                     fg: FilledGeom,
-                     viewMap: Table[Value, int],
-                     styles: seq[GgStyle],
-                     df: DataFrame,
-                     prevVals: var Table[int, float],
-                     prevTops: var Table[int, Coord1D],
-                     theme: Theme): seq[GraphObject] =
-  ## given N(xM soon) viewports, will add the `data` at index `i` for viewport
-  ## `i` in the center using the given GeomKind
-  doAssert fg.dcKindX == dcDiscrete or fg.dcKindY == dcDiscrete, "at least one axis must be discrete!"
-  # TODO: can both be discrete? Yes.
-  # TODO: can identity and stack be unified?
-  # TODO: we should combine the `prevVals`, `prevTops`.
-  var linePoints = newSeq[(float, float)](df.len)
-
-  # get behavior for elements outside the plot range
-  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
-  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
-  for i in 0 ..< df.len:
-    let styleIdx = if styles.len == 1: 0 else: i
-    let style = mergeUserStyle(styles[styleIdx], fg.geom.userStyle, fg.geom.kind)
-    # allow VNull values. Those should ``only`` appear at the end of columns if the
-    # filling of scales works correctly!
-    # `x` is `Value`!
-    let (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = true)
-    let viewIdx = viewMap[x]
-    var labelView = view[viewIdx]
-    # given x value, get correct viewport
-    case fg.geom.position
-    of pkIdentity:
-      case fg.geom.kind
-      of gkBar:
-        result.add labelView.addHistoCentered(y, style, width = 0.8) # geom.barWidth
-      of gkPoint:
-        result.add labelView.addPointCentered(y, style)
-      of gkLine:
-        #raise newException(Exception, "Need two points for line!")
-        linePoints[i] = (x: labelView.getCenter()[0], y: y)
-      else:
-        raise newException(Exception, "Implement me: " & $fg.geom.kind)
-    of pkStack:
-      # create one rectangle for each label, each successive starting at the
-      # top of the previous
-      if viewIdx notin prevTops:
-        prevTops[viewIdx] = c1(1.0, ukRelative)
-      if viewIdx notin prevVals:
-        prevVals[viewIdx] = 0.0
-
-      case fg.geom.kind
-      of gkBar:
-        result.add labelView.addHistoCentered(y, style, prevTops[viewIdx], width = 0.8) # geom.barWidth
-      of gkPoint:
-        result.add labelView.addPointCentered(y + prevVals[viewIdx], style)
-      of gkLine:
-        linePoints[i] = (x: labelView.getCenter()[0], y: y + prevVals[viewIdx])
-      else:
-        raise newException(Exception, "Implement me: " & $fg.geom.kind)
-      # now update the previous values
-      prevVals[viewIdx] += y
-      prevTops[viewIdx] = prevTops[viewIdx] - Coord1D(pos: fg.yScale.high - y, kind: ukData,
-                                                      scale: fg.yScale, axis: akY)
-    of pkDodge:
-      raise newException(Exception, "Not implemented yet :)")
-    of pkFill:
-      raise newException(Exception, "Not implemented yet :)")
-    view[viewIdx] = labelView
-
-  # TODO: this is essentially the same as the code in the other 2 draw procs!
-  if fg.geom.kind in {gkLine, gkFreqPoly}:
-    if styles.len == 1:
-      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
-      result.add view.initPolyLine(linePoints, some(style))
-    else:
-      # since `ginger` doesn't support gradients on lines atm, we just draw from
-      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
-      # of styles between the two, but we don't atm!
-      echo "WARNING: using non-gradient drawing of line with multiple colors!"
-      for i in 0 ..< styles.high: # last element covered by i + 1
-        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
-        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
-
-func readOrCalcBinWidth(df: DataFrame, idx: int,
+proc readOrCalcBinWidth(df: DataFrame, idx: int,
                         dataCol: string,
+                        dcKind: DiscreteKind,
                         col = "binWidths"): float =
   ## either reads the bin width from the DF for element at `idx`
   ## from the bin widths `col` or calculates it from the distance
@@ -1548,12 +1457,24 @@ func readOrCalcBinWidth(df: DataFrame, idx: int,
   ## NOTE: Cannot be calculated for the last element of the DataFrame
   ## DataFrame. So make sure the DF contains the right bin edge
   ## (we assume bins are actually left edge) is included in the DF.
-  if col in df:
-    result = df[col, idx].toFloat(allowNull = true)
-  elif idx < df.high:
-    result = (df[dataCol, idx + 1].toFloat - df[dataCol, idx].toFloat)
+  case dcKind
+  of dcContinuous:
+    if col in df:
+      result = df[col, idx].toFloat(allowNull = true)
+    elif idx < df.high:
+      let highVal = df[dataCol, idx + 1]
+      case highVal.kind
+      of VNull:
+        # use idx - 1
+        doAssert idx > 0
+        result = (df[dataCol, idx].toFloat - df[dataCol, idx - 1].toFloat)
+      else:
+        result = (highVal.toFloat - df[dataCol, idx].toFloat)
+  of dcDiscrete:
+    # default width. TODO: Have to use argument / theme!
+    result = 0.8
 
-proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
+proc moveBinPosition(x: var Value, bpKind: BinPositionKind, binWidth: float) =
   ## moves `x` by half the bin width, if required by `bpKind`
   case bpKind
   of bpLeft, bpNone:
@@ -1562,9 +1483,9 @@ proc moveBinPosition(x: var float, bpKind: BinPositionKind, binWidth: float) =
     discard
   of bpCenter:
     # since our data is given as `bpLeft`, move half to right
-    x = x + binWidth / 2.0
+    x = x + (%~ (binWidth / 2.0))
   of bpRight:
-    x = x + binWidth
+    x = x + (%~ binWidth)
 
 proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   tuple[xMin, xMax, yMin, yMax: Option[float]] =
@@ -1583,168 +1504,14 @@ proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
 
-proc identityDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
-                                             fg: FilledGeom,
-                                             styleIn: T,
-                                             df: DataFrame,
-                                             theme: Theme): seq[GraphObject] =
-  # TODO: add support for decision what bin columns means (for results of
-  # statBin that is! Left edge, center or right edge!
-  # needed for gkLine, gkPolyLine
-  var linePoints = newSeqOfCap[(float, float)](df.len)
-  # get behavior for elements outside the plot range
-  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
-  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
-  # needed for histogram
-  var binWidth: float
-  for i in 0 ..< df.len:
-    when T is GgStyle:
-      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
-    else:
-      let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
-    # allow VNull values. Those should ``only`` appear at the end of columns if the
-    # filling of scales works correctly!
-    # `x` is a float!
-    var (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = false)
-    binWidth = readOrCalcBinWidth(df, i, fg.xcol)
-    # potentially move `x` by half of the `binWidth`
-    x.moveBinPosition(fg.geom.binPosition, binWidth)
-    case fg.geom.kind
-    of gkPoint:
-      result.add initPoint(view, (x: x, y: y),
-                           marker = style.marker,
-                           color = style.color,
-                           size = style.size)
-    of gkErrorBar:
-      # need the min and max values
-      let (xmin, xmax, ymin, ymax) = readErrorData(df, i, fg)
-      if xMin.isSome or xMax.isSome:
-        template toC1(val: float): Coord1D =
-          Coord1D(pos: val,
-                  scale: view.xScale,
-                  axis: akX,
-                  kind: ukData)
-        result.add initErrorBar(view, (x: x, y: y),
-                                errorUp = toC1(xMax.getOrDefault(0.0)),
-                                errorDown = toC1(xMin.getOrDefault(0.0)),
-                                axKind = akX,
-                                ebKind = style.errorBarKind,
-                                style = some(style))
-      if yMin.isSome or yMax.isSome:
-        template toC1(val: float): Coord1D =
-          Coord1D(pos: val,
-                  scale: view.yScale,
-                  axis: akY,
-                  kind: ukData)
-        result.add initErrorBar(view, (x: x, y: y),
-                                errorUp = toC1(yMax.getOrDefault(0.0)),
-                                errorDown = toC1(yMin.getOrDefault(0.0)),
-                                axKind = akY,
-                                ebKind = style.errorBarKind,
-                                style = some(style))
-    of gkHistogram:
-      let xPos = x # assumes bins are left edges
-      let rect = view.initRect(Coord(x: Coord1D(pos: xPos, kind: ukData,
-                                                axis: akX, scale: fg.xScale),
-                                     y: c1(1.0)),
-                                quant(binWidth, ukData),
-                                quant(-y, ukData),
-                                style = some(style))
-      result.add rect
-    of gkLine, gkFreqPoly:
-      # have to accumulate the data first before we draw it
-      linePoints.add (x: x, y: y)
-    else:
-      raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
-  # for `gkLine`, `gkFreqPoly` now draw the lines
-  if fg.geom.kind in {gkLine, gkFreqPoly}:
-    when T is GgStyle:
-      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
-      result.add view.initPolyLine(linePoints, some(style))
-    else:
-      # since `ginger` doesn't support gradients on lines atm, we just draw from
-      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
-      # of styles between the two, but we don't atm!
-      echo "WARNING: using non-gradient drawing of line with multiple colors!"
-      for i in 0 ..< styleIn.high: # last element covered by i + 1
-        let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
-        result.add view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
-
-proc stackDraw[T: GgStyle | seq[GgStyle]](view: var Viewport,
-                                          prevVals: var seq[float],
-                                          fg: FilledGeom,
-                                          styleIn: T,
-                                          df: DataFrame,
-                                          theme: Theme): seq[GraphObject] =
-  # TODO: add support for decision what bin columns means (for results of
-  # TODO: add support for stacking in X rather than Y
-  # TODO: unify with identityDraw? Lots of similar code!
-  var linePoints = newSeqOfCap[Point](df.len)
-  # get behavior for elements outside the plot range
-  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
-  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
-  var binWidth: float
-  for i in 0 ..< df.len:
-    when T is GgStyle:
-      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
-    else:
-      let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
-    # allow VNull values. Those should ``only`` appear at the end of columns if the
-    # filling of scales works correctly!
-    # `x` is a float!
-    var (x, y) = getXY(view, df, fg, i, theme, xOutsideRange, yOutsideRange, xMaybeString = false)
-    binWidth = readOrCalcBinWidth(df, i, fg.xcol)
-    # potentially move `x` by half of the `binWidth`
-    x.moveBinPosition(fg.geom.binPosition, binWidth)
-    case fg.geom.kind
-    of gkPoint:
-      result.add initPoint(view, (x: x, y: y + prevVals[i]), # TODO: is + prevals correct
-                           marker = style.marker,
-                           color = style.color,
-                           size = style.size)
-    of gkHistogram:
-      let newypos = c1(1.0) - Coord1D(pos: fg.yScale.high - prevVals[i], kind: ukData,
-                                      axis: akY, scale: fg.yScale)
-      let rect = view.initRect(Coord(x: Coord1D(pos: x, kind: ukData,
-                                                axis: akX, scale: fg.xScale),
-                                     y: newypos),
-                                quant(binWidth, ukData),
-                                quant(-y.float, ukData),
-                                style = some(style))
-      result.add rect
-    of gkLine, gkFreqPoly:
-      # have to accumulate the data first before we draw it
-      linePoints.add (x: x, y: y)
-    else:
-      raise newException(Exception, "I'm not implemented yet in stackDraw: " & $fg.geom.kind)
-    # now update the previous values
-    prevVals[i] += y
-  # for `gkLine`, `gkFreqPoly` now draw the lines
-  if fg.geom.kind in {gkLine, gkFreqPoly}:
-    when T is GgStyle:
-      let style = mergeUserStyle(styleIn, fg.geom.userStyle, fg.geom.kind)
-      result.add view.drawStackedPolyLine(prevVals, linePoints, style)
-    else:
-      # since `ginger` doesn't support gradients on lines atm, we just draw from
-      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
-      # of styles between the two, but we don't atm!
-      echo "WARNING: using non-gradient drawing of line with multiple colors!"
-      if fg.geom.kind == gkFreqPoly:
-        echo "WARNING: probably doing something weird right now drawing gkFreqPoly!"
-      for i in 0 ..< styleIn.high: # last element covered by i + 1
-        let start = (x: linePoints[i].x, y: linePoints[i].y + prevVals[i])
-        let stop = (x: linePoints[i + 1].x, y: linePoints[i + 1].y + prevVals[i + 1])
-        let style = mergeUserStyle(styleIn[i], fg.geom.userStyle, fg.geom.kind)
-        result.add view.initPolyLine(@[start, stop], some(style))
-
 template colsRows(fg: FilledGeom): (int, int) =
   var
     cols = 1
     rows = 1
   if fg.dcKindX == dcDiscrete:
-    cols = fg.numX
+    cols = fg.xLabelSeq.len
   if fg.dcKindY == dcDiscrete:
-    rows = fg.numY
+    rows = fg.yLabelSeq.len
   (cols, rows)
 
 proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
@@ -1752,68 +1519,388 @@ proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
   ## In each axis x,y will create N children viewports for the number
   ## of discrete labels along that axis. For continuous data no further
   ## children are created.
-  let (cols, rows) = colsRows(fg)
+  var (cols, rows) = colsRows(fg)
+  # modify if discretized
   # view.layout(cols, rows) # TODO: extend for discrete rows
   let discrMarginOpt = theme.discreteScaleMargin
   var discrMargin = quant(0.0, ukRelative)
   if discrMarginOpt.isSome:
     discrMargin = discrMarginOpt.unsafeGet
-  let indWidths = toSeq(0 ..< cols * rows).mapIt(quant(0.0, ukRelative))
-  view.layout(cols * rows + 2, 1,
-              colwidths = concat(@[discrMargin],
-                                 indWidths,
-                                 @[discrMargin]))
+  var
+    widths: seq[Quantity]
+    heights: seq[Quantity]
+  if cols > 1:
+    let indWidths = toSeq(0 ..< cols).mapIt(quant(0.0, ukRelative))
+    cols += 2
+    widths = concat(@[discrMargin],
+                    indWidths,
+                    @[discrMargin])
+  if rows > 1:
+    let indHeights = toSeq(0 ..< rows).mapIt(quant(0.0, ukRelative))
+    rows += 2
+    heights = concat(@[discrMargin],
+                     indHeights,
+                     @[discrMargin])
+  view.layout(cols, rows,
+              colWidths = widths,
+              rowHeights = heights)
 
-proc calcViewMap(fg: FilledGeom): Table[Value, int] =
+proc calcViewMap(fg: FilledGeom): Table[(Value, Value), int] =
   ## maps a given label (`Value`) of a discrete axis to an `int` index,
   ## which corresponds to the `Viewport` the label has to be drawn to
   # TODO: extend to discrete y scales!
-  result = initTable[Value, int]()
-  case fg.dcKindX
+  result = initTable[(Value, Value), int]()
+  let (cols, rows) = colsRows(fg)
+  if cols == 1 and rows == 1: return # nothing discrete, empty table
+  elif rows == 1 and cols > 1:
+    let y = Value(kind: VNull)
+    for j in 0 ..< cols:
+      let x = fg.xLabelSeq[j]
+      result[(x, y)] = j + 1
+  elif cols == 1 and rows > 1:
+    let x = Value(kind: VNull)
+    for i in 0 ..< rows:
+      let y = fg.yLabelSeq[i]
+      result[(x, y)] = i + 1
+  else:
+    for i in 0 ..< rows:
+      let y = fg.yLabelSeq[i]
+      for j in 0 ..< cols:
+        let x = fg.xLabelSeq[j]
+        # skip first row `(i + 1)`, respect margin columns `(cols + 2)` and
+        # skip first column in current row `j + 1`
+        result[(x, y)] = (i + 1) * (cols + 2) + (j + 1)
+
+func getDiscreteHisto(fg: FilledGeom, width: float,
+                      axKind: AxisKind): Coord1D =
+  case axKind
+  of akX:
+    # calc left side of bar based on width, since we want the bar to be centered
+    let left = (1.0 - width) / 2.0
+    result = c1(left)
+  of akY:
+    # calc top side of bar based on width, since we want the bar to be centered
+    let top = (1.0 - width) / 2.0
+    result = c1(top, ukRelative) # TODO: or 1.0 - top??
+
+func getContinuousHisto(view: Viewport, fg: FilledGeom, val: Value,
+                        axKind: AxisKind): Coord1D =
+  # TODO: `coord_flip` will replace behavior of `x` and `y` sort of!
+  const CoordFlipped = false
+  case axKind
+  of akX:
+    when not CoordFlipped:
+      result = Coord1D(pos: val.toFloat, kind: ukData,
+                       axis: akX,
+                       scale: view.xScale)
+    else:
+      result = c1(1.0, ukRelative)
+  of akY:
+    when CoordFlipped:
+      result = Coord1D(pos: val.toFloat, kind: ukData,
+                       axis: akY,
+                       scale: view.yScale)
+    else:
+      result = c1(1.0, ukRelative)
+
+func getDiscretePoint(fg: FilledGeom, axKind: AxisKind): Coord1D =
+  # discrete points are...
+  result = c1(0.5, ukRelative)
+
+func getDiscreteLine(view: Viewport, axKind: AxisKind): Coord1D =
+  # discrete points are...
+  case axKind
+  of akX:
+    result = c1(view.getCenter()[0], ukRelative)
+  of akY:
+    result = c1(view.getCenter()[1], ukRelative)
+
+func getContinuousLP(view: Viewport, fg: FilledGeom, val: Value,
+                     axKind: AxisKind): Coord1D =
+  case axKind
+  of akX:
+    result = Coord1D(pos: val.toFloat, kind: ukData,
+                     axis: akX,
+                     scale: view.xScale)
+  of akY:
+    result = Coord1D(pos: val.toFloat, kind: ukData,
+                     axis: akY,
+                     scale: view.yScale)
+
+proc getDrawPosImpl(
+  view: Viewport, fg: FilledGeom, val: Value,
+  width: float,
+  dcKind: DiscreteKind, axKind: AxisKind): Coord1D =
+  case dcKind
   of dcDiscrete:
-    for i, l in fg.xLabelSeq:
-      # skip first empty viewport
-      result[l] = i + 1
-  else: discard
+    case fg.geom.kind
+    of gkPoint, gkErrorBar:
+      result = getDiscretePoint(fg, axKind)
+    of gkLine, gkFreqPoly:
+      result = view.getDiscreteLine(axKind)
+    of gkHistogram, gkBar:
+      result = getDiscreteHisto(fg, width, axKind)
+    of gkTile:
+      discard
+  of dcContinuous:
+    case fg.geom.kind
+    of gkPoint, gkErrorBar:
+      result = view.getContinuousLP(fg, val, axKind)
+    of gkLine, gkFreqPoly:
+      result = view.getContinuousLP(fg, val, axKind)
+    of gkHistogram, gkBar:
+      result = view.getContinuousHisto(fg, val, axKind)
+    of gkTile:
+      discard
+
+proc getDrawPos[T](view: Viewport, viewIdx: int,
+                   fg: FilledGeom,
+                   p: tuple[x: Value, y: Value],
+                   binWidths: tuple[x, y: float], # bin widths
+                   df: DataFrame, idx: int,
+                   prevVals: var T): Coord =
+  const CoordsFlipped = false # placeholder. Will be part of Theme
+                              # if true, a discrete stacking / bar plot
+                              # will be done parallel to x axis instead
+  case fg.geom.position
+  of pkIdentity:
+    # ignore `prevVals`
+    result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
+    result.y = view.getDrawPosImpl(fg, p.y, binWidths.y, fg.dcKindY, akY)
+  of pkStack:
+    var curStack: Value
+    when T is Table[int, Coord1D]:
+      if viewIdx notin prevVals:
+        prevVals[viewIdx] = c1(1.0, ukRelative)
+      curStack = %~ prevVals[viewIdx].pos
+    elif T is Table[int, float]:
+      if viewIdx notin prevVals:
+        prevVals[viewIdx] = 0.0
+      curStack = %~ prevVals[viewIdx]
+    elif T is seq[float]:
+      if prevVals.len < df.len:
+        prevVals = newSeq[float](df.len)
+      curStack = %~ prevVals[idx]
+    else:
+      curStack = p.y
+    if not CoordsFlipped:
+      # stacking / histograms along the Y axis
+      result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
+      result.y = view.getDrawPosImpl(fg, curStack, binWidths.y, fg.dcKindY, akY)
+    else:
+      # stacking / histograms along the X axis
+      result.x = view.getDrawPosImpl(fg, curStack, binWidths.x, fg.dcKindX, akX)
+      result.y = view.getDrawPosImpl(fg, p.y, binWidths.y, fg.dcKindY, akY)
+    # TODO: extend to coord flipped!
+    when T is Table[int, Coord1D]:
+      prevVals[viewIdx] = prevVals[viewIdx] - Coord1D(pos: fg.yScale.high - p.y.toFloat, kind: ukData,
+                                                      scale: fg.yScale, axis: akY)
+    elif T is Table[int, float]:
+      prevVals[viewIdx] += p.y.toFloat(allowNull = true)
+    elif T is seq[float]:
+      prevVals[idx] += p.y.toFloat(allowNull = true)
+  else:
+    doAssert false, "not implemented yet"
+
+proc drawErrorBar(view: var Viewport, fg: FilledGeom,
+                  pos: Coord,
+                  df: DataFrame, idx: int, style: Style): GraphObject =
+  # need the min and max values
+  let (xmin, xmax, ymin, ymax) = readErrorData(df, idx, fg)
+  if xMin.isSome or xMax.isSome:
+    template toC1(val: float): Coord1D =
+      Coord1D(pos: val,
+              scale: view.xScale,
+              axis: akX,
+              kind: ukData)
+    result = initErrorBar(view, pos,
+                          errorUp = toC1(xMax.getOrDefault(0.0)),
+                          errorDown = toC1(xMin.getOrDefault(0.0)),
+                          axKind = akX,
+                          ebKind = style.errorBarKind,
+                          style = some(style))
+  if yMin.isSome or yMax.isSome:
+    template toC1(val: float): Coord1D =
+      Coord1D(pos: val,
+              scale: view.yScale,
+              axis: akY,
+              kind: ukData)
+    result = initErrorBar(view, pos,
+                          errorUp = toC1(yMax.getOrDefault(0.0)),
+                          errorDown = toC1(yMin.getOrDefault(0.0)),
+                          axKind = akY,
+                          ebKind = style.errorBarKind,
+                          style = some(style))
+
+
+proc drawIdentity(view: var Viewport, fg: FilledGeom, pos: Coord,
+                  y: Value,
+                  df: DataFrame,
+                  idx: int,
+                  style: Style) =
+  case fg.geom.kind
+  of gkPoint:
+    view.addObj view.initPoint(pos, style)
+  of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
+  of gkHistogram, gkBar:
+    let binWidth = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+    view.addObj view.initRect(pos,
+                              quant(binWidth, ukData),
+                              quant(-y.toFloat(allowNull = true), ukData),
+                              style = some(style))
+  of gkLine, gkFreqPoly:
+    doAssert false, "Already handled in `drawSubDf`!"
+  else:
+    raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
+
+proc drawStack(view: var Viewport, fg: FilledGeom, pos: Coord,
+               y: Value, # the actual y value, needed for height of a histogram / bar!
+               df: DataFrame,
+               idx: int,
+               style: Style) =
+  case fg.geom.kind
+  of gkPoint: view.addObj view.initPoint(pos, style)
+  of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
+  of gkHistogram, gkBar:
+    let binWidth = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+    view.addObj view.initRect(pos,
+                              quant(binWidth, ukData),
+                              quant(-y.toFloat(allowNull = true), ukData),
+                              style = some(style))
+  of gkLine, gkFreqPoly:
+    doAssert false, "Already handled in `drawSubDf`!"
+  else:
+    raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
+
+func calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
+  const CoordFlipped = false
+  when not CoordFlipped:
+    result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+  else:
+    result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
+
+func moveBinPositions(x, y: var Value,
+                      binWidths: tuple[x, y: float],
+                      fg: FilledGeom) =
+  const CoordFlipped = false
+  when not CoordFlipped:
+    x.moveBinPosition(fg.geom.binPosition, binWidths.x)
+  else:
+    y.moveBinPosition(fg.geom.binPosition, binWidths.y)
+
+func getView(viewMap: Table[(Value, Value), int], x, y: Value, fg: FilledGeom): int =
+  let px = if fg.dcKindX == dcDiscrete: x else: Value(kind: VNull)
+  let py = if fg.dcKindY == dcDiscrete: y else: Value(kind: VNull)
+  result = viewMap[(px, py)]
+
+proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
+                  viewMap: Table[(Value, Value), int],
+                  df: DataFrame,
+                  prevVals: var T,
+                  styles: seq[GgStyle],
+                  theme: Theme) =
+  ## draws the given sub df
+  var linePoints = newSeqOfCap[Coord](df.len)
+  # get behavior for elements outside the plot range
+  let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
+  let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
+  # needed for histogram
+  var
+    style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+    locView = view # current view, either child of `view` or `view` itself
+    viewIdx = 0
+    x: Value
+    y: Value
+    pos: Coord
+    binWidths: tuple[x, y: float]
+  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram} or
+                      fg.geom.binPosition in {bpCenter, bpRight})
+  for i in 0 ..< df.len:
+    if styles.len > 1:
+      style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+    # allow VNull values. Those should ``only`` appear at the end of columns if the
+    # filling of scales works correctly!
+    # `x` is a float!
+    (x, y) = getXY(view, df, fg, i, theme, xOutsideRange,
+                   yOutsideRange, xMaybeString = true)
+    if needBinWidth:
+      # potentially move the positions according to `binPosition`
+      binWidths = calcBinWidths(df, i, fg)
+      moveBinPositions(x, y, binWidths, fg)
+    if viewMap.len > 0:
+      # get correct viewport if any is discrete
+      viewIdx = getView(viewMap, x, y, fg)
+      locView = view[viewIdx]
+    pos = getDrawPos(locView, viewIdx,
+                     fg,
+                     p = (x: x, y: y),
+                     binWidths = binWidths,
+                     df, i,
+                     prevVals)
+    case fg.geom.position
+    of pkIdentity:
+      case fg.geom.kind
+      of gkLine, gkFreqPoly: linePoints.add pos
+      else: locView.drawIdentity(fg, pos, y, df, i, style)
+    of pkStack:
+      case fg.geom.kind
+      of gkLine, gkFreqPoly: linePoints.add pos
+      else: locView.drawStack(fg, pos, y, df, i, style)
+    of pkDodge:
+      discard
+    of pkFill:
+      discard
+    if viewMap.len > 0:
+      view[viewIdx] = locView
+  if viewMap.len == 0:
+    view = locView
+  # for `gkLine`, `gkFreqPoly` now draw the lines
+  if fg.geom.kind in {gkLine, gkFreqPoly}:
+    if styles.len == 1:
+      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+      view.addObj view.initPolyLine(linePoints, some(style))
+    else:
+      # since `ginger` doesn't support gradients on lines atm, we just draw from
+      # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
+      # of styles between the two, but we don't atm!
+      echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      for i in 0 ..< styles.high: # last element covered by i + 1
+        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+        view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
 
 proc createGobjFromGeom(view: var Viewport,
                         fg: FilledGeom,
-                        theme: Theme): seq[GraphObject] =
+                        theme: Theme) =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
   view.prepareViews(fg, theme)
   # if discretes, calculate mapping from labels to viewport
   var viewMap = calcViewMap(fg)
-  case fg.dcKindX
-  of dcDiscrete:
-    var prevVals = initTable[int, float]()
-    var prevTops = initTable[int, Coord1D]()
-    for (styles, subDf) in enumerateData(fg):
-      result.add view.addGeomCentered(fg, viewMap, styles, subDf,
-                                      prevVals, prevTops,
-                                      theme)
-  of dcContinuous:
-    # draw continuous both axes
-    case fg.geom.position
-    of pkIdentity:
-      for (styles, subDf) in enumerateData(fg):
-        if styles.len == 1:
-          result.add view.identityDraw(fg, styles[0], subDf,
-                                       theme)
-        else:
-          result.add view.identityDraw(fg, styles, subDf,
-                                       theme)
-    of pkStack:
-      var prevVals = newSeq[float](fg.numX)
-      for (styles, subDf) in enumerateData(fg):
-        if styles.len == 1:
-          result.add view.stackDraw(prevVals, fg, styles[0], subDf,
-                                    theme)
-        else:
-          result.add view.stackDraw(prevVals, fg, styles, subDf,
-                                    theme)
+  var prevValsCont = newSeq[float]()
+  var prevValsDiscr = initTable[int, float]()
+  var prevTops = initTable[int, Coord1D]()
+  let anyDiscrete = if viewMap.len == 0: false else: true
+  for (styles, subDf) in enumerateData(fg):
+    if fg.geom.position == pkStack and anyDiscrete and
+       fg.geom.kind in {gkBar, gkHistogram}:
+      view.drawSubDf(fg, viewMap, subDf,
+                     prevTops,
+                     styles, theme)
+    elif fg.geom.position == pkStack and anyDiscrete:
+      view.drawSubDf(fg, viewMap, subDf,
+                     prevValsDiscr,
+                     styles, theme)
+    elif fg.geom.position == pkStack and not anyDiscrete:
+      view.drawSubDf(fg, viewMap, subDf,
+                     prevValsCont,
+                     styles, theme)
     else:
-      raise newException(Exception, $fg.geom.position & " not implemented yet. :)")
+      # no stacking, prevVals arg given as float
+      # TODO: find better data type
+      var dummy = 0.0
+      view.drawSubDf(fg, viewMap, subDf,
+                     dummy,
+                     styles, theme)
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
@@ -2177,9 +2264,7 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     # order of the function calls `geom_*` be preserved
     var pChild = result.addViewport(name = "data")
     # DF here not needed anymore!
-    let gobjs = pChild.createGobjFromGeom(fg, theme)
-    # add the data to the child
-    pChild.addObj gobjs
+    pChild.createGobjFromGeom(fg, theme)
     # add the data viewport to the view
     result.children.add pChild
 
