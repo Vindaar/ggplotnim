@@ -374,6 +374,36 @@ Results in:
 
 [[./media/recipes/rMpgDiscreteXScale.png]]
 
+*** Using a discrete y axis
+
+*NOTE:* the y labels are currently still somewhat broken for discrete
+y axes!
+
+#+BEGIN_SRC nim :tangle recipes/rDiscreteYAxis.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy", "cyl")) +
+  geom_point() +
+  ggsave("media/recipes/rDiscreteYAxis.png")
+#+END_SRC
+
+[[media/recipes/rDiscreteYAxis.png]]
+
+*** Both axes discrete
+
+*NOTE:* the y labels are currently still somewhat broken for discrete
+y axes!
+
+#+BEGIN_SRC nim :tangle recipes/rBothDiscreteAxes.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("class", "cyl", color = "class")) +
+  geom_point() +
+  ggsave("media/recipes/rBothDiscreteAxes.png")
+#+END_SRC
+
+[[media/recipes/rBothDiscreteAxes.png]]
+
 *** Using a discrete X scale with lines
 
 Inspired by https://github.com/Vindaar/ggplotnim/issues/40. 
