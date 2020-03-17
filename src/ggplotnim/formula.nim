@@ -594,6 +594,20 @@ proc `<=`*(v, w: Value): bool =
   elif v < w:
     result = true
 
+proc smallerOrFalse*(v: Value, f: float): bool {.inline.} =
+  ## extension of `<` for `Value` to return `false` if `v` is
+  ## not a valid VInt/VFloat.
+  case v.kind
+  of VInt, VFloat: result = v.toFloat < f
+  else: result = false
+
+proc largerOrFalse*(v: Value, f: float): bool {.inline.} =
+  ## extension of `<` for `Value` to return `false` if `v` is
+  ## not a valid VInt/VFloat.
+  case v.kind
+  of VInt, VFloat: result = v.toFloat > f
+  else: result = false
+
 template makeMath(op: untyped): untyped =
   proc `op`*(v, w: Value): Value =
     ## Adds two Values together, if they are addeable.
