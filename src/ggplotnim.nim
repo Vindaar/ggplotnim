@@ -1372,25 +1372,6 @@ genGetScale(y)
 #genGetScale(size)
 #genGetScale(shape)
 
-proc addHistoCentered[T](view: var Viewport, pos: Coord, style: Style,
-                         val: float,
-                         width = 1.0): GraphObject =
-  ## creates a rectangle for a histogram and adds it to the viewports object
-  view.addObj view.initRect(pos,
-                            quant(width, ukRelative),
-                            quant(-val.float, ukData),
-                            style = some(style))
-
-proc addPointCentered[T](view: var Viewport, pos: Coord, style: Style): GraphObject =
-  ## creates a rectangle for a histogram and adds it to the viewports object
-  #if val.float > 0.0:
-  # TODO: dispatch on discrete axis!
-  view.addObj initPoint(view,
-                        pos = pos,
-                        marker = style.marker,
-                        color = style.color,
-                        size = style.size)
-
 proc drawStackedPolyLine(view: var Viewport,
                          prevVals: seq[float],
                          linePoints: seq[Point],
@@ -1583,26 +1564,6 @@ func getDiscreteHisto(fg: FilledGeom, width: float,
     let top = (1.0 - width) / 2.0
     result = c1(top, ukRelative) # TODO: or 1.0 - top??
 
-func getContinuousHisto(view: Viewport, fg: FilledGeom, val: Value,
-                        axKind: AxisKind): Coord1D =
-  # TODO: `coord_flip` will replace behavior of `x` and `y` sort of!
-  const CoordFlipped = false
-  case axKind
-  of akX:
-    when not CoordFlipped:
-      result = Coord1D(pos: val.toFloat, kind: ukData,
-                       axis: akX,
-                       scale: view.xScale)
-    else:
-      result = c1(1.0, ukRelative)
-  of akY:
-    when CoordFlipped:
-      result = Coord1D(pos: val.toFloat, kind: ukData,
-                       axis: akY,
-                       scale: view.yScale)
-    else:
-      result = c1(1.0, ukRelative)
-
 func getDiscretePoint(fg: FilledGeom, axKind: AxisKind): Coord1D =
   # discrete points are...
   result = c1(0.5, ukRelative)
@@ -1615,8 +1576,8 @@ func getDiscreteLine(view: Viewport, axKind: AxisKind): Coord1D =
   of akY:
     result = c1(view.getCenter()[1], ukRelative)
 
-func getContinuousLP(view: Viewport, fg: FilledGeom, val: Value,
-                     axKind: AxisKind): Coord1D =
+func getContinuous(view: Viewport, fg: FilledGeom, val: Value,
+                   axKind: AxisKind): Coord1D {.inline.} =
   case axKind
   of akX:
     result = Coord1D(pos: val.toFloat, kind: ukData,
@@ -1645,11 +1606,11 @@ proc getDrawPosImpl(
   of dcContinuous:
     case fg.geom.kind
     of gkPoint, gkErrorBar:
-      result = view.getContinuousLP(fg, val, axKind)
+      result = view.getContinuous(fg, val, axKind)
     of gkLine, gkFreqPoly:
-      result = view.getContinuousLP(fg, val, axKind)
+      result = view.getContinuous(fg, val, axKind)
     of gkHistogram, gkBar:
-      result = view.getContinuousHisto(fg, val, axKind)
+      result = view.getContinuous(fg, val, axKind)
     of gkTile:
       discard
 
@@ -1665,15 +1626,14 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
   case fg.geom.position
   of pkIdentity:
     # ignore `prevVals`
-    result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
-    result.y = view.getDrawPosImpl(fg, p.y, binWidths.y, fg.dcKindY, akY)
+    var mp = p
+    when not CoordsFlipped: mp.y = if fg.geom.kind in {gkBar, gkHistogram}: %~ 0.0 else: mp.y
+    else: mp.x = if fg.geom.kind in {gkBar, gkHistogram}: %~ 0.0 else: mp.x
+    result.x = view.getDrawPosImpl(fg, mp.x, binWidths.x, fg.dcKindX, akX)
+    result.y = view.getDrawPosImpl(fg, mp.y, binWidths.y, fg.dcKindY, akY)
   of pkStack:
     var curStack: Value
-    when T is Table[int, Coord1D]:
-      if viewIdx notin prevVals:
-        prevVals[viewIdx] = c1(1.0, ukRelative)
-      curStack = %~ prevVals[viewIdx].pos
-    elif T is Table[int, float]:
+    when T is Table[int, float]:
       if viewIdx notin prevVals:
         prevVals[viewIdx] = 0.0
       curStack = %~ prevVals[viewIdx]
@@ -1683,7 +1643,7 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
       curStack = %~ prevVals[idx]
     else:
       curStack = p.y
-    if not CoordsFlipped:
+    when not CoordsFlipped:
       # stacking / histograms along the Y axis
       result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
       result.y = view.getDrawPosImpl(fg, curStack, binWidths.y, fg.dcKindY, akY)
@@ -1692,10 +1652,7 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
       result.x = view.getDrawPosImpl(fg, curStack, binWidths.x, fg.dcKindX, akX)
       result.y = view.getDrawPosImpl(fg, p.y, binWidths.y, fg.dcKindY, akY)
     # TODO: extend to coord flipped!
-    when T is Table[int, Coord1D]:
-      prevVals[viewIdx] = prevVals[viewIdx] - Coord1D(pos: fg.yScale.high - p.y.toFloat, kind: ukData,
-                                                      scale: fg.yScale, axis: akY)
-    elif T is Table[int, float]:
+    when T is Table[int, float]:
       prevVals[viewIdx] += p.y.toFloat(allowNull = true)
     elif T is seq[float]:
       prevVals[idx] += p.y.toFloat(allowNull = true)
@@ -1779,18 +1736,18 @@ func calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] 
   else:
     result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
 
-func moveBinPositions(x, y: var Value,
+func moveBinPositions(p: var tuple[x, y: Value],
                       binWidths: tuple[x, y: float],
                       fg: FilledGeom) =
   const CoordFlipped = false
   when not CoordFlipped:
-    x.moveBinPosition(fg.geom.binPosition, binWidths.x)
+    p.x.moveBinPosition(fg.geom.binPosition, binWidths.x)
   else:
-    y.moveBinPosition(fg.geom.binPosition, binWidths.y)
+    p.y.moveBinPosition(fg.geom.binPosition, binWidths.y)
 
-func getView(viewMap: Table[(Value, Value), int], x, y: Value, fg: FilledGeom): int =
-  let px = if fg.dcKindX == dcDiscrete: x else: Value(kind: VNull)
-  let py = if fg.dcKindY == dcDiscrete: y else: Value(kind: VNull)
+func getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: FilledGeom): int =
+  let px = if fg.dcKindX == dcDiscrete: p.x else: Value(kind: VNull)
+  let py = if fg.dcKindY == dcDiscrete: p.y else: Value(kind: VNull)
   result = viewMap[(px, py)]
 
 proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
@@ -1809,8 +1766,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
     locView = view # current view, either child of `view` or `view` itself
     viewIdx = 0
-    x: Value
-    y: Value
+    p: tuple[x, y: Value]
     pos: Coord
     binWidths: tuple[x, y: float]
   let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram} or
@@ -1818,22 +1774,20 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   for i in 0 ..< df.len:
     if styles.len > 1:
       style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
-    # allow VNull values. Those should ``only`` appear at the end of columns if the
-    # filling of scales works correctly!
-    # `x` is a float!
-    (x, y) = getXY(view, df, fg, i, theme, xOutsideRange,
-                   yOutsideRange, xMaybeString = true)
+    # get current x, y values, possibly clipping them
+    p = getXY(view, df, fg, i, theme, xOutsideRange,
+              yOutsideRange, xMaybeString = true)
     if needBinWidth:
       # potentially move the positions according to `binPosition`
       binWidths = calcBinWidths(df, i, fg)
-      moveBinPositions(x, y, binWidths, fg)
+      moveBinPositions(p, binWidths, fg)
     if viewMap.len > 0:
       # get correct viewport if any is discrete
-      viewIdx = getView(viewMap, x, y, fg)
+      viewIdx = getView(viewMap, p, fg)
       locView = view[viewIdx]
     pos = getDrawPos(locView, viewIdx,
                      fg,
-                     p = (x: x, y: y),
+                     p = p,
                      binWidths = binWidths,
                      df, i,
                      prevVals)
@@ -1841,11 +1795,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     of pkIdentity:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.drawIdentity(fg, pos, y, df, i, style)
+      else: locView.drawIdentity(fg, pos, p.y, df, i, style)
     of pkStack:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.drawStack(fg, pos, y, df, i, style)
+      else: locView.drawStack(fg, pos, p.y, df, i, style)
     of pkDodge:
       discard
     of pkFill:
@@ -1878,15 +1832,9 @@ proc createGobjFromGeom(view: var Viewport,
   var viewMap = calcViewMap(fg)
   var prevValsCont = newSeq[float]()
   var prevValsDiscr = initTable[int, float]()
-  var prevTops = initTable[int, Coord1D]()
   let anyDiscrete = if viewMap.len == 0: false else: true
   for (styles, subDf) in enumerateData(fg):
-    if fg.geom.position == pkStack and anyDiscrete and
-       fg.geom.kind in {gkBar, gkHistogram}:
-      view.drawSubDf(fg, viewMap, subDf,
-                     prevTops,
-                     styles, theme)
-    elif fg.geom.position == pkStack and anyDiscrete:
+    if fg.geom.position == pkStack and anyDiscrete:
       view.drawSubDf(fg, viewMap, subDf,
                      prevValsDiscr,
                      styles, theme)
