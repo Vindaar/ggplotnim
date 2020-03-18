@@ -1,4 +1,12 @@
-import math
+import math, options
+
+template unwrap*[T](opt: Option[T], raiseIfNil = true): untyped =
+  var tmp: T
+  if isSome opt:
+    tmp = get opt
+  elif raiseIfNil:
+    raise newException(Exception, "Option " & $opt & " must exist")
+  tmp
 
 proc calcRowsColumns*(rows, columns: int, nPlots: int): (int, int) =
   ## Calculates the desired rows and columns for # of `nPlots` given the user's
