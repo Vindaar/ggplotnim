@@ -6,6 +6,13 @@
   discrete)
 - rewrites drawing code to have less duplication. For some kinds of
   plots this might (!) incur a tiny performance regression.
+- refactors out code related to
+  - collection and filling of scales:
+    [[./src/ggplotnim/collect_and_scales.nim]] 
+  - postprocessing of scales:
+    [[./src/ggplotnim/postprocess_scales.nim]] 
+  - (most) drawing code:
+    [[./src/ggplotnim/ggplot_drawing.nim]]
 
 * v0.2.15
 - *IMPORTANT*: there was a bug in =seqmath.histogram=, which is used
