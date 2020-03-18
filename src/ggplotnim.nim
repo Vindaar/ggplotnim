@@ -1689,32 +1689,11 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
                           ebKind = style.errorBarKind,
                           style = some(style))
 
-
-proc drawIdentity(view: var Viewport, fg: FilledGeom, pos: Coord,
-                  y: Value,
-                  df: DataFrame,
-                  idx: int,
-                  style: Style) =
-  case fg.geom.kind
-  of gkPoint:
-    view.addObj view.initPoint(pos, style)
-  of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
-  of gkHistogram, gkBar:
-    let binWidth = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
-    view.addObj view.initRect(pos,
-                              quant(binWidth, ukData),
-                              quant(-y.toFloat(allowNull = true), ukData),
-                              style = some(style))
-  of gkLine, gkFreqPoly:
-    doAssert false, "Already handled in `drawSubDf`!"
-  else:
-    raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
-
-proc drawStack(view: var Viewport, fg: FilledGeom, pos: Coord,
-               y: Value, # the actual y value, needed for height of a histogram / bar!
-               df: DataFrame,
-               idx: int,
-               style: Style) =
+proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
+          y: Value, # the actual y value, needed for height of a histogram / bar!
+          df: DataFrame,
+          idx: int,
+          style: Style) =
   case fg.geom.kind
   of gkPoint: view.addObj view.initPoint(pos, style)
   of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
@@ -1795,11 +1774,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     of pkIdentity:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.drawIdentity(fg, pos, p.y, df, i, style)
+      else: locView.draw(fg, pos, p.y, df, i, style)
     of pkStack:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.drawStack(fg, pos, p.y, df, i, style)
+      else: locView.draw(fg, pos, p.y, df, i, style)
     of pkDodge:
       discard
     of pkFill:
