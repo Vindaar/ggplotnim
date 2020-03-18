@@ -1,3 +1,12 @@
+* v0.2.16
+- =geom_point= with =positoin = "stack"= now draw points at =y = 0= 
+- =geom_histogram/bar= now draw "empty" elements for =position =
+  "stack"= (set =lineWidth= to 0 to make them disappear)
+- y axes may now be discrete (previously only the x axis could be
+  discrete)
+- rewrites drawing code to have less duplication. For some kinds of
+  plots this might (!) incur a tiny performance regression.
+
 * v0.2.15
 - *IMPORTANT*: there was a bug in =seqmath.histogram=, which is used
   in =geom_histogram= / if =stat = "bin"= is used. The bug caused
