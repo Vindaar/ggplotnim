@@ -378,8 +378,7 @@ suite "GgPlot":
     let style = gplt.geoms[1].userStyle
     check style.color.isSome
     check style.color.get == color(0.0, 0.0)
-    check style.fillColor.isSome
-    check style.fillColor.get == transparent
+    check style.fillColor.isNone
     check style.lineWidth.isSome
     check style.lineWidth.get == 1.0
     check style.lineType.isNone
