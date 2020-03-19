@@ -365,6 +365,34 @@ func getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: Fil
   let py = if fg.dcKindY == dcDiscrete: p.y else: Value(kind: VNull)
   result = viewMap[(px, py)]
 
+proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind) =
+  ## extends the given `linePoints` down to the axis given by `axKind`.
+  ## `axKind` refers to what is the ``main`` axis (default is `akX`)!
+  ## so that the line does not start "in the air".
+  var lStart = linePoints[0]
+  var lEnd = linePoints[^1]
+  case axKind
+  of akX:
+    # normal case, main axis is x
+    if not almostEqual(lStart.y.pos, 0.0):
+      lStart.y.pos = 0.0
+      # insert at beginning
+      linePoints.insert(lStart, 0)
+    if not almostEqual(lEnd.y.pos, 0.0):
+      lEnd.y.pos = 0.0
+      # add at the end
+      linePoints.add(lEnd)
+  of akY:
+    # normal case, main axis is x
+    if not almostEqual(lStart.x.pos, 0.0):
+      lStart.x.pos = 0.0
+      # insert at beginning
+      linePoints.insert(lStart, 0)
+    if not almostEqual(lEnd.x.pos, 0.0):
+      lEnd.x.pos = 0.0
+      # add at the end
+      linePoints.add(lEnd)
+
 proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
                   viewMap: Table[(Value, Value), int],
                   df: DataFrame,
@@ -427,12 +455,19 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   if fg.geom.kind in {gkLine, gkFreqPoly}:
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+      # connect line down to axis, if fill color is not transparent
+      if style.fillColor != transparent:
+        ## TODO: check `CoordFlipped` so that we know where "down" is!
+        linePoints.extendLineToAxis(akX)
       view.addObj view.initPolyLine(linePoints, some(style))
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
       # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
       # of styles between the two, but we don't atm!
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
+      if style.fillColor != transparent:
+        ## TODO: check `CoordFlipped` so that we know where "down" is!
+        linePoints.extendLineToAxis(akX)
       for i in 0 ..< styles.high: # last element covered by i + 1
         let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
