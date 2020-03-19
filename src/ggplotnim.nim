@@ -157,14 +157,16 @@ func initGgStyle(color = none[Color](),
                  lineType = none[LineType](),
                  lineWidth = none[float](),
                  fillColor = none[Color](),
-                 errorBarKind = none[ErrorBarKind]()): GgStyle =
+                 errorBarKind = none[ErrorBarKind](),
+                 alpha = none[float]()): GgStyle =
   result = GgStyle(color: color,
                    size: size,
                    marker: marker,
                    lineType: lineType,
                    lineWidth: lineWidth,
                    fillColor: fillColor,
-                   errorBarKind: errorBarKind)
+                   errorBarKind: errorBarKind,
+                   alpha: alpha)
 
 proc geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
@@ -265,6 +267,7 @@ proc geom_linerange*(aes: Aesthetics = aes(),
 proc geom_bar*(aes: Aesthetics = aes(),
                data = DataFrame(),
                color = none[Color](), # color of the bars
+               alpha = none[float](),
                position = "stack",
                stat = "count",
               ): Geom =
@@ -275,7 +278,8 @@ proc geom_bar*(aes: Aesthetics = aes(),
                           lineWidth = some(1.0), # draw 1 pt wide black line to avoid white pixels
                                                  # between bins at size of exactly 1.0 bin width
                           color = color,
-                          fillColor = color)
+                          fillColor = color,
+                          alpha = alpha)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -291,6 +295,8 @@ proc geom_line*(aes: Aesthetics = aes(),
                 color = none[Color](), # color of the line
                 size = none[float](), # width of the line
                 lineType = none[LineType](), # type of line
+                fillColor = none[Color](),
+                alpha = none[float](),
                 stat = "identity",
                 bins = -1,
                 binWidth = 0.0,
@@ -301,7 +307,7 @@ proc geom_line*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
-                          fillColor = some(transparent))
+                          fillColor = fillColor, alpha = alpha)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -317,6 +323,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      binWidth = 0.0, bins = 30,
                      breaks: seq[float] = @[],
                      color = none[Color](), # color of the bars
+                     alpha = none[float](),
                      position = "stack",
                      stat = "bin",
                      binPosition = "left",
@@ -329,7 +336,8 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                           lineWidth = some(0.2), # draw 0.2 pt wide black line to avoid white pixels
                                                  # between bins at size of exactly 1.0 bin width
                           color = color, # default color
-                          fillColor = color)
+                          fillColor = color,
+                          alpha = alpha)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -346,6 +354,8 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     color = none[Color](), # color of the line
                     size = none[float](), # line width of the line
                     lineType = none[LineType](),
+                    fillColor = none[Color](),
+                    alpha = none[float](),
                     bins = 30,
                     binWidth = 0.0,
                     breaks: seq[float] = @[],
@@ -360,7 +370,8 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
   let style = initGgStyle(lineType = lineType,
                           lineWidth = size,
                           color = color,
-                          fillColor = some(transparent))
+                          fillColor = fillColor,
+                          alpha = alpha)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -371,7 +382,6 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
-
 
 proc geom_tile*(aes: Aesthetics = aes()): Geom =
   let gid = incId()

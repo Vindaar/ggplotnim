@@ -140,6 +140,9 @@ type
     fillColor*: Option[Color]
     marker*: Option[MarkerKind]
     errorBarKind*: Option[ErrorBarKind]
+    # the alpha to use for `fillColor` (line colors and point colors
+    # are unaffected by this and have to be set manually via the `color: Color`)
+    alpha*: Option[float]
 
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar
