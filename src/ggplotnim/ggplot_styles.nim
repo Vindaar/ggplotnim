@@ -16,7 +16,7 @@ const LineDefaultStyle = Style(lineWidth: 1.0,
                                lineType: ltSolid,
                                size: 5.0, # used to draw error bar 'T' horizontal
                                color: grey20,
-                               fillColor: black)
+                               fillColor: transparent)
 const BarDefaultStyle = Style(lineWidth: 1.0,
                               lineType: ltSolid,
                               color: grey20,
@@ -59,6 +59,11 @@ func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   fillField(fillColor)
   fillField(marker)
   fillField(errorBarKind)
+  # now apply `alpha` to `fillColor`
+  if uStyle.alpha.isSome:
+    result.fillColor.a = uStyle.alpha.unsafeGet
+  elif s.alpha.isSome:
+    result.fillColor.a = s.alpha.unsafeGet
 
 proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
   ## returns a modified style with the appropriate field replaced
