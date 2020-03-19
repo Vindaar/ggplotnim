@@ -6,16 +6,6 @@ This package, as the name suggests, will become a "sort of" port of
 
 It is based on the [[https://github.com/vindaar/ginger/][ginger]] package. 
 
-It is still in a heavy WIP state, but the features mentioned below at
-least are working. However, some specific use cases of them may be
-broken. The implementation of featuers may still change dramatically.
-
-On the plus side, thanks to Nim's macro system even formula creation
-from raw identifiers is possible. See below for more details. 
-
-For simple examples of some of the current existing features, see
-[[Examples]] below.
-
 If you're unfamiliar with the Grammar of Graphics to create plots, one
 of the best resources is probably Hadley Wickham's book on =ggplot2=,
 for which also an online version exists at:
@@ -32,6 +22,10 @@ For a more nimish approach, check out the [[file:recipes.org][recipes]], which s
 you examples for typical use cases and things I encountered and the
 solutions I found. Please feel free to add examples to this file to
 help other people!
+
+Note that all recipes shown there are part of the test suite. So it's
+guaranteed that the plots shown there for a given version actually
+produce the shown result!
 
 ** Documentation
 
@@ -60,6 +54,12 @@ Geoms:
 - =geom_histogram=
 - =geom_freqpoly=
 - =geom_bar= 
+- =geom_errorbar=
+- =geom_linerange=
+- *soon:*
+  - =geom_tile=
+  - =geom_density=
+  - and possibly =geom_ridgeline=
 
 Facets:
 - =facet_wrap=
@@ -83,15 +83,24 @@ performance is not a priority. Heavy calculations should be done
 before creation of the data frame. Simple arithmetic, filtering, reducing
 etc. is the main aim. 
 
-The data frame provides the "5 verbs" of [[https://dplyr.tidyverse.org/][dplyr]]. Implemented functions:
+The data frame provides the "5 verbs" of [[https://dplyr.tidyverse.org/][dplyr]] and more. Main implemented functions:
 - =filter=
 - =mutate=, =transmute=
 - =select=, =rename=
 - =arrange=
 - =summarize=
-and also =group_by=, which are all based on the =FormulaNode=
+- =group_by=
+- =arrange=
+- =inner_join=
+- =set_diff=
+- =count=
+- =bind_rows=
+- =gather=
+- =unique=,
+which are all based on the =FormulaNode=
 object. Basically they all receive =varargs[FormulaNode]=, which is
 evaluated in context of the given dataframe.
+Other convenience procs 
 
 Creationg of a =FormulaNode= can be done either directly via untyped
 templates acting on =+=, =-=, =*=, =/=, =~=. Using the =mpg= data set
@@ -160,6 +169,19 @@ converted to a =Value= using =%= and stored as a =fkVariable=.
 
 Literal interger and float values are also allowed.
 
+Each formula can be evaluated using =evaluate= and =reduce=. The
+available procs have the following signature
+#+BEGIN_SRC nim
+# for formulas independent of DFs, e.g. `evaluate f{1 + 2} == %~ 3`
+proc evaluate*(node: FormulaNode): Value 
+# evaluate formula at row index `idx`. Possible calculation of a whole row
+proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value 
+# reduce a DF to a single `Value` based on a formula `reduce(f{mean("someCol")}, df)`
+proc reduce*(node: FormulaNode, data: DataFrame): Value 
+# create new DF column based on formula and DF
+proc evaluate*(node: FormulaNode, data: DataFrame): PersistentVector[Value]
+#+END_SRC
+
 **** DF examples
 
 Using a lifted vector valued function and local variables as keys and
@@ -187,7 +209,11 @@ import ggplotnim
 
 let mpg = toDf(readCsv("data/mpg.csv"))
 #+END_SRC
-where it is assumed the current working directory is the =ggplotnim= dir.
+where it is assumed the current working directory is the =ggplotnim=
+dir.
+
+*Consider looking at the [[file:recipes.org][recipes]] in addition to the below to get a
+fuller picture!*
 
 *** Scatter of displ ~ hwy
 
@@ -375,11 +401,6 @@ here:
 
 ** Known issues / limitations
 
-- customization is very limited (font size, point sizes, line widths
-  etc.). ginger provides the functionality, but it's not exposed in
-  gglpotnim atm. Extend =Theme= object for this, add args to procs
-  where applicable.
-- log10 plots force x and y range to be of orders of 10
 - facet wrap layout is quite ugly still
 - ...
 
