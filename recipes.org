@@ -113,6 +113,34 @@ This generates:
 
 [[./media/recipes/rStackedMpgFreqpoly.png]]
 
+*** Change alpha of the fill color
+
+Most geoms (those which allow a =fillColor= argument / being
+classified by =fill=) also allow an =alpha= field since version
+=v0.2.17=.
+
+This allows to change the alpha of the fill without affecting the
+actual color or the normal =color= field.
+
+For instance we can use it to make the above plot a little more
+pretty:
+#+BEGIN_SRC nim :tangle recipes/rFreqPolyWithAlpha.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("cty", fill = "class")) + 
+  geom_freqpoly(alpha = some(0.3)) + 
+  ggsave("media/recipes/rFreqPolyWithAlpha.png")
+#+END_SRC
+Notice how if a fill color is set, the lines are always drawn down to
+0! For instance =subcompact= and =pickup= reach down to the x axis.
+
+This generates:
+
+[[./media/recipes/rFreqPolyWithAlpha.png]]
+
+#+END_SRC
+
+
 *** Simple histogram with N bins
 
 Given a continuous data column we may want to calculate a histogram
