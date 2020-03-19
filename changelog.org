@@ -1,3 +1,9 @@
+* v0.2.17
+- most geoms now take an =alpha= argument to override the alpha of
+  =fillColor= 
+- if a fill color of a line is set, the line is now continued down to
+  the x axis
+
 * v0.2.16
 - =geom_point= with =positoin = "stack"= now draw points at =y = 0= 
 - =geom_histogram/bar= now draw "empty" elements for =position =
