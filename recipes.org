@@ -351,8 +351,6 @@ Results in:
 
 *** Points colored by some continuous scale
 
-*NOTE*: the used colormap still has to receive a legend!
-
 Sometimes a scatter plot is supposed to highlight some continuous
 value of the points. For instance we can color a =geom_point= plot of
 the =mpg= displacement versus the highway efficiency by the city
@@ -404,9 +402,6 @@ Results in:
 
 *** Using a discrete y axis
 
-*NOTE:* the y labels are currently still somewhat broken for discrete
-y axes!
-
 #+BEGIN_SRC nim :tangle recipes/rDiscreteYAxis.nim
 import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
@@ -418,9 +413,6 @@ ggplot(df, aes("hwy", "cyl")) +
 [[media/recipes/rDiscreteYAxis.png]]
 
 *** Both axes discrete
-
-*NOTE:* the y labels are currently still somewhat broken for discrete
-y axes!
 
 #+BEGIN_SRC nim :tangle recipes/rBothDiscreteAxes.nim
 import ggplotnim
