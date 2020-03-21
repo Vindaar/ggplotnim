@@ -16,6 +16,7 @@
   - =rClassifiedGeomText.nim=
   - =rAnnotateUsingGeomText.nim=
   - =rAnnotateMaxValues.nim=
+- update =ginger= dependency to =v0.1.16=
 
 * v0.2.19
 Hotfix release for small regressions introduced in =v0.2.18=
