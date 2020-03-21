@@ -404,9 +404,4 @@ here:
 - facet wrap layout is quite ugly still
 - ...
 
-*** Legends
-- legend is not always centered (easy to fix)
-- plots with two legends produce overlapping legends (easy to fix)
-- plots with continuous color scale produce no legend
-
 
