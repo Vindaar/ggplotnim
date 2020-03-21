@@ -396,7 +396,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
     var df = if g.data.isSome: g.data.get else: p.data
     var filledGeom: FilledGeom
     case g.kind
-    of gkPoint, gkLine, gkErrorBar:
+    of gkPoint, gkLine, gkErrorBar, gkTile:
       # can be handled the same
       # need x and y data for sure
       case g.statKind
@@ -430,9 +430,6 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stBin:
         raise newException(Exception, "For continuous binning of your data use " &
           "`geom_histogram` instead!")
-    else:
-      raise newException(Exception, "Woaah, hey there, I'm just gonna ignore " &
-        "you! " & $g.kind)
 
     if not xScale.isEmpty:
       xScale = mergeScales(xScale, filledGeom.xScale)

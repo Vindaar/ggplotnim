@@ -89,7 +89,7 @@ proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F; G; H; I; J: string | FormulaNode](
+proc aes*[A; B; C; D; E; F; G; H; I; J; K; L: string | FormulaNode](
   x: A = "",
   y: B = "",
   color: C = "",
@@ -99,7 +99,9 @@ proc aes*[A; B; C; D; E; F; G; H; I; J: string | FormulaNode](
   xMin: G = "",
   xMax: H = "",
   yMin: I = "",
-  yMax: J = ""): Aesthetics =
+  yMax: J = "",
+  width: K = "",
+  height: L = ""): Aesthetics =
     result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                         y: y.orNoneScale(scLinearData, akY),
                         color: color.orNoneScale(scColor),
@@ -109,7 +111,9 @@ proc aes*[A; B; C; D; E; F; G; H; I; J: string | FormulaNode](
                         xMin: xMin.orNoneScale(scLinearData, akX),
                         xMax: xMax.orNoneScale(scLinearData, akX),
                         yMin: yMin.orNoneScale(scLinearData, akY),
-                        yMax: yMax.orNoneScale(scLinearData, akY))
+                        yMax: yMax.orNoneScale(scLinearData, akY),
+                        width: width.orNoneScale(scLinearData, akX),
+                        height: height.orNoneScale(scLinearData, akX))
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -384,9 +388,38 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
-proc geom_tile*(aes: Aesthetics = aes()): Geom =
+proc geom_tile*(aes: Aesthetics = aes(),
+                data = DataFrame(),
+                color = none[Color](),
+                fillColor = none[Color](),
+                alpha = none[float](),
+                size = none[float](),
+                stat = "identity",
+                bins = 30,
+                binWidth = 0.0,
+                breaks: seq[float] = @[],
+                binPosition = "none",
+                position = "identity", # the position kind, "identity", "stack" etc.
+                ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
+  let style = initGgStyle(color = color, fillColor = fillColor, size = size,
+                          alpha = alpha)
   let gid = incId()
-  result = Geom(gid: gid, kind: gkTile, aes: aes.fillIds({gid}))
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkTile,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stKind,
+                position: pKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks)
 
 proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
   result = Facet()

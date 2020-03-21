@@ -25,6 +25,10 @@ const HistoDefaultStyle = Style(lineWidth: 0.2,
                                 lineType: ltSolid,
                                 color: grey20,
                                 fillColor: grey20)
+const TileDefaultStyle = Style(lineWidth: 0.05,
+                               lineType: ltSolid,
+                               color: grey20,
+                               fillColor: grey20)
 
 func defaultStyle(geomKind: GeomKind): Style =
   case geomKind
@@ -37,7 +41,7 @@ func defaultStyle(geomKind: GeomKind): Style =
   of gkHistogram:
     result = HistoDefaultStyle
   of gkTile:
-    discard
+    result = TileDefaultStyle
 
 func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   ## merges the given `Style` with the desired `userStyle`.

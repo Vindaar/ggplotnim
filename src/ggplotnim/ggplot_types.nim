@@ -19,6 +19,8 @@ type
     color*: Option[Scale] # classify by color
     size*: Option[Scale] # classify by size
     shape*: Option[Scale] # classify by shape
+    width*: Option[Scale] # width of tile / rect / raster
+    height*: Option[Scale] # height of tile / rect / raster
 
   ScaleKind* = enum
     scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize
