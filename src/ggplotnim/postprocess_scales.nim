@@ -139,7 +139,7 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
       # for linear and transformed data we don't change the style
       discard
     else:
-      for el in c.mapData():
+      for el in c.mapData(yieldDf):
         result[0].add baseStyle.changeStyle(el)
   if result[0].len == 0:
     result = (@[baseStyle], yieldDf)

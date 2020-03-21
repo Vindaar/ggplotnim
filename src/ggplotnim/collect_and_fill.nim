@@ -180,10 +180,8 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
   # for now just take viridis as default
   # map all values to values between 0-255 and get the correct idx of viridis map
   result.mapData = (
-    proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
-      var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
-      else: idxs = idxsIn
+    proc(df: DataFrame): seq[ScaleValue] =
+      let idxs = toSeq(0 .. df.high)
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
         var colorIdx = (255.0 * ((col.evaluate(df, idx).toFloat - dataScale.low) /
@@ -206,10 +204,8 @@ proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
   result.mapData = (
-    proc(idxsIn: seq[int] = @[]): seq[ScaleValue] =
-      var idxs: seq[int]
-      if idxsIn.len == 0: idxs = toSeq(0 .. df.high)
-      else: idxs = idxsIn
+    proc(df: DataFrame): seq[ScaleValue] =
+      let idxs = toSeq(0 .. df.high)
       result = newSeq[ScaleValue](idxs.len)
       for i, idx in idxs:
         let size = (col.evaluate(df, idx).toFloat - minSize) /
@@ -334,8 +330,6 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       labelSeqOpt = some(data.deduplicate.sorted)
     else:
       dataScaleOpt = some(scaleFromData(data))
-      #dataScaleOpt = some((low: colMin(data),
-      #                     high: colMax(data)))
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
