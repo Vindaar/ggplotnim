@@ -308,7 +308,7 @@ suite "GgPlot":
       ## commit (b1a3a155587d4ee54e6581ac99f3a428eea37c1f) that it produces the
       ## desired result.
       let discrMargin = quant(0.2, ukCentimeter).toRelative(
-        length = some(plotview.wView)
+        length = some(pointWidth(plotView))
       ).val
       let nclass = classes.len
       let barViewWidth = (1.0 - 2 * discrMargin) / nclass.float
