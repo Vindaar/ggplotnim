@@ -468,90 +468,146 @@ proc ggtitle*(title: string, subtitle = "",
   if subTitleFont != font():
     result.subTitleFont = some(subTitleFont)
 
+proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject]
 proc genDiscreteLegend(view: var Viewport,
-                       cat: Scale,
-                       markers: seq[GraphObject]) =
+                       cat: Scale) =
   # TODO: add support for legend font in Theme / `let label` near botton!
-  let startIdx = view.len
-  view.layout(1, rows = cat.valueMap.len + 1)
+  # _______________________
+  # |   | Headline        |
+  # |______________________
+  # |1cm| 1cm |  | space  |
+  # |   |grad.|.5| for    |
+  # |   |     |cm| leg.   |
+  # |   |     |  | labels |
+  # -----------------------
+  let markers = view.generateLegendMarkers(cat)
+  let numElems = cat.valueMap.len
+  view.layout(2, 2,
+              colWidths = @[quant(0.5, ukCentimeter), # for space to plot
+                            quant(0.0, ukRelative)], # for legend. incl header
+              rowHeights = @[quant(1.0, ukCentimeter), # for header
+                             quant(1.05 * numElems.float, ukCentimeter)]) # for act. legend
+  var i = 0
+  # now set the `height` according to the real legend height. This important
+  # to get proper alignment of the scale / multiple scales in `finalizeLegend`!
+  view.height = quant(1.0 + 1.05 * numElems.float, ukCentimeter)
+  var leg = view[3]
+
+  let rH = toSeq(0 ..< numElems).mapIt(quant(1.05, ukCentimeter))
+
+  leg.layout(3, rows = numElems,
+             colWidths = @[quant(1.0, ukCentimeter),
+                           quant(0.3, ukCentimeter),
+                           quant(0.0, ukRelative)],
+             rowHeights = rH)
   # iterate only over added children, skip first, because we actual legend first
   var j = 0
-  for i in startIdx + 1 ..< view.len:
+  for i in countup(0, leg.children.len - 1, 3):
     # create rectangle showing style of data points
-    var ch = view[i]
-    let viewRatio = ch.hView.val / ch.wView.val
-    let sizeY = ch.height.toPoints(some(ch.hView))
+    var legBox = leg[i]
+    var legLabel = leg[i + 2]
+    #let viewRatio = ch.hView.val / ch.wView.val
     let style = Style(lineType: ltSolid,
                       lineWidth: 1.0,
                       color: color(1.0, 1.0, 1.0),
                       fillColor: grey92)
-    let rect = ch.initRect(c(0.0, 0.0),
-                           quant(ch.height.val * viewRatio, ukRelative),
-                           quant(1.0, ukRelative),
-                           style = some(style),
-                           name = "markerRectangle")
+    let rect = legBox.initRect(Coord(x: c1(0.0),
+                                     y: c1(0.0) + legBox.c1(0.025, akY, ukCentimeter)),
+                               quant(1.0, ukCentimeter),
+                               quant(1.0, ukCentimeter),
+                               style = some(style),
+                               name = "markerRectangle")
     # add marker ontop of rect
-    # TODO: the markers given must contain all information already, that is:
-    # - marker kind
-    # - marker size
-    # - marker color
-    # then here we should just pop those in. Also need to differentiate between legends
-    # made of markers and color bars!
-    let point = ch.initPoint(Coord(x: c1(ch.height.val / 2.0 * viewRatio),
-                                   y: c1(0.5)),
-                             marker = markers[j].ptMarker,
-                             size = markers[j].ptSize,
-                             color = markers[j].ptColor,
-                             name = "markerPoint")
+    ## TODO: choose marker type based on geom!
+    let point = legBox.initPoint(Coord(x: c1(0.5),
+                                       y: c1(0.5)),
+                                 marker = markers[j].ptMarker,
+                                 size = markers[j].ptSize,
+                                 color = markers[j].ptColor,
+                                 name = "markerPoint")
     var labelText = ""
     case cat.scKind
     of scColor, scFillColor, scShape, scSize:
       labelText = $cat.getLabelKey(j)
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $cat.scKind)
-
-    let label = ch.initText(
+    let label = legLabel.initText(
       Coord(
-        x: c1(ch.height.val * viewRatio) +
-           c1(quant(0.3, ukCentimeter).toRelative(some(ch.wImg)).val),
+        x: c1(0.0),
         y: c1(0.5)),
       labelText,
       textKind = goText,
       alignKind = taLeft,
       name = "markerText"
     )
-    ch.addObj [rect, point, label]
-    view[i] = ch
+    legBox.addObj [rect, point]
+    legLabel.addObj label
+    leg[i] = legBox
+    leg[i + 2] = legLabel
     inc j
+  view[3] = leg
 
 proc genContinuousLegend(view: var Viewport,
-                         cat: Scale,
-                         markers: seq[GraphObject]) =
+                         cat: Scale) =
   case cat.scKind
   of scSize:
     view.layout(1, rows = 5 + 1)
+  of scColor, scFillColor:
+    # create following legend layout
+    # _______________________
+    # |   | Headline        |
+    # |______________________
+    # |1cm| 1cm |  | space  |
+    # |   |grad.|.5| for    |
+    # |   |     |cm| leg.   |
+    # |   |     |  | labels |
+    # -----------------------
+    view.layout(2, 2,
+                colWidths = @[quant(0.5, ukCentimeter), # for space to plot
+                              quant(0.0, ukRelative)], # for legend. incl header
+                rowHeights = @[quant(1.0, ukCentimeter), # for header
+                               quant(4.5, ukCentimeter)]) # for act. legend
+    var legView = view[3]
+    legView.yScale = cat.dataScale
+    legView.layout(3, 1, colWidths = @[quant(1.0, ukCentimeter),
+                                       quant(0.5, ukCentimeter),
+                                       quant(0.0, ukRelative)])
+    var legGrad = legView[0]
+    # add markers
+    let markers = legGrad.generateLegendMarkers(cat)
+    legGrad.addObj markers
+    let viridis = ViridisRaw.mapIt(color(it[0], it[1], it[2]))
+    let cc = some(Gradient(colors: viridis))
+    let gradRect = legGrad.initRect(c(0.0, 0.0),
+                                    quant(1.0, ukRelative),
+                                    quant(1.0, ukRelative),
+                                    name = "legendGradientBackground",
+                                    gradient = cc)
+    legGrad.addObj gradRect
+    legView[0] = legGrad
+    view[3] = legView
+    view.height = quant(5.5, ukCentimeter)
   else:
     discard
 
 proc createLegend(view: var Viewport,
-                  cat: Scale,
-                  markers: seq[GraphObject]) =
+                  cat: Scale) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
   case cat.dcKind
   of dcDiscrete:
-    view.genDiscreteLegend(cat, markers)
+    view.genDiscreteLegend(cat)
   of dcContinuous:
     # for now 5 sizes...
-    view.genContinuousLegend(cat, markers)
+    view.genContinuousLegend(cat)
 
   # get the first viewport for the header
   if startIdx < view.len:
-    var header = view[startIdx]
+    var header = view[1]
     # TODO: add support to change font of legend
     var label = header.initText(
-      Coord(x: header.origin.x,
+      Coord(x: c1(0.0),
             y: c1(0.5)),
       evaluate(cat.col).toStr,
       textKind = goText,
@@ -560,7 +616,41 @@ proc createLegend(view: var Viewport,
     # set to bold
     label.txtFont.bold = true
     header.addObj label
-    view[startIdx] = header
+    view[1] = header
+
+proc finalizeLegend(view: var Viewport,
+                    legends: seq[Viewport]) =
+  ## finalizes the full legend from the given seq of legends
+  ## such that the spacing between them is even
+  # generate such layout
+  # _________________
+  # | relative space |
+  # ------------------
+  # | Legend 1       |
+  # ------------------
+  # | 1 cm spacing   |
+  # ------------------
+  # | Legend 2       |
+  # ------------------
+  # ...
+  # | relative space |
+  # ------------------
+  # calc number of spacings between legends
+  let numSpace = legends.len - 1
+  var rowHeights = @[quant(0.0, ukRelative)]
+  for i, l in legends:
+    rowHeights.add l.height
+    if i < numSpace:
+      rowHeights.add quant(1.0, ukCentimeter)
+  rowHeights.add quant(0.0, ukRelative)
+  view.layout(1, rowHeights.len, rowHeights = rowHeights)
+  var idx = 0
+  for i in countup(1, rowHeights.len - 1, 2):
+    var ml = legends[idx]
+    ml.origin = view[i].origin
+    let c = ggColorHue(6)
+    view[i] = ml
+    inc idx
 
 proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## puts the legend at position `(x, y)` in relative coordinates of
@@ -954,7 +1044,7 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## Thus also put the rectangle drawing here.
   # TODO: rewrite this either via a template, proc or macro!
   case scale.sckind
-  of scColor:
+  of scColor, scFillColor:
     case scale.dcKind
     of dcDiscrete:
       for i in 0 ..< scale.valueMap.len:
@@ -964,15 +1054,16 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
                              marker = mkCircle,
                              color = color) # assign same marker as above
     of dcContinuous:
-      # TODO: replace by a creation of a colormap display
-      discard
-  of scFillColor:
-    for i in 0 ..< scale.valueMap.len:
-      let color = scale.getValue(scale.getLabelKey(i)).color
-      result.add initPoint(plt,
-                           (0.0, 0.0), # dummy coordinates
-                           marker = mkCircle,
-                           color = color) # assign same marker as above
+      # replace yScale by scale of `scale`
+      var mplt = plt
+      mplt.yScale = scale.dataScale
+      # use 5 ticks by default
+      # define as "secondary" because then ticks will be on the RHS
+      let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
+                                 isSecondary = true)
+      let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
+                                     margin = some(plt.c1(0.3, akX, ukCentimeter)))
+      result = concat(tickLabs, ticks)
   of scShape:
     for i in 0 ..< scale.valueMap.len:
       result.add initPoint(plt,
@@ -1337,7 +1428,7 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     result.handleLabels(theme)
   result.addObj @[grdLines]
 
-proc generateFacetPlots(view: Viewport, p: GgPlot, plotScales: FilledScales,
+proc generateFacetPlots(view: Viewport, p: GgPlot,
                         theme: Theme): Viewport =
   # first perform faceting by creating subgroups
   # doAssert p.facet.isSome
@@ -1366,7 +1457,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot, plotScales: FilledScales,
   #   headerView.name = "facetHeader"
   #   var plotView = viewFacet[1]
   #   # now add dummy plt to pltSeq
-  #   plotView = plotView.generatePlot(mplt, addLabels = false)
+  #   let filledScales = collectScales(mplt)
+  #   plotView = plotView.generatePlot(mplt, filledScales, theme, addLabels = false)
   #   plotView.name = "facetPlot"
   #   viewFacet[0] = headerView
   #   viewFacet[1] = plotView
@@ -1539,7 +1631,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var pltBase = img[4]
 
   if p.facet.isSome:
-    pltBase = pltBase.generateFacetPlots(p, filledScales, theme)
+    pltBase = pltBase.generateFacetPlots(p, theme)
     # TODO :clean labels up, combine with handleLabels!
     # Have to consider what should happen for that though.
     # Need flag to disable auto subtraction, because we don't have space or
@@ -1562,27 +1654,22 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   # draw legends
   # store each type of drawn legend. only one type for each kind
   var drawnLegends = initHashSet[(DiscreteKind, ScaleKind)]()
+  var legends: seq[Viewport]
   for scale in enumerateScalesByIds(filledScales):
     if scale.scKind notin {scLinearData, scTransformedData} and
        (scale.dcKind, scale.scKind) notin drawnLegends:
       # handle color legend
       var lg = img[5]
-      let markers = lg.generateLegendMarkers(scale)
-      # TODO: The following currently creates stacked legends for each Scale that
-      # requires one. Need to create a `seq[Viewport]` or something to first build
-      # all legends and then calculate the sizes required.
-      # set height to number of markers + 1 centimeter
-      lg.height = quant((markers.len + 1).float, ukCentimeter)
-      if customPosition(p.theme):
-        let pos = p.theme.legendPosition.get
-        lg.origin.x = pos.x
-        lg.origin.y = pos.y
-      else:
-        lg.origin.y = lg.origin.y + c1(img[4].height.val / 8.0)
-        lg.origin.x = lg.origin.x + img.c1(0.5, akX, ukCentimeter)
-      lg.createLegend(scale, markers)
-      img[5] = lg
+      lg.createLegend(scale)
+      legends.add lg
       drawnLegends.incl (scale.dcKind, scale.scKind)
+  # now create final legend
+  if legends.len > 0:
+    img[5].finalizeLegend(legends)
+    if customPosition(p.theme):
+      let pos = p.theme.legendPosition.get
+      img[5].origin.x = pos.x
+      img[5].origin.y = pos.y
 
   # draw available annotations,
   img[4].drawAnnotations(p)
