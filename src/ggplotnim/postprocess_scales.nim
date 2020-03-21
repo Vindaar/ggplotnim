@@ -202,8 +202,7 @@ proc determineDataScale(s: Scale,
   ## while differentiating between continuous and discrete scales
   case s.dcKind
   of dcContinuous:
-    if s.dataScale.isEmpty: doAssert false # (why) can this happen?
-    result = if s.datascale.isEmpty:
+    result = if s.datascale.isEmpty: # happens for input DFs with 1-2 elements
               (low: colMin(df, $s.col), high: colMax(df, $s.col))
              else:
                s.datascale
