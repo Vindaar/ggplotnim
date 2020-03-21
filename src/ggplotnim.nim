@@ -28,6 +28,7 @@ import ggplotnim / [
   vega_utils
 ]
 export ggplot_types
+export ggplot_utils
 
 import ggplotnim / colormaps / viridisRaw
 
@@ -46,20 +47,6 @@ template incId(): uint16 =
   let old = IdCounter
   inc IdCounter
   old
-
-# TODO: move elsewhere!
-func font*[T: SomeNumber](
-  size: T = 12.0,
-  color = color(0.0, 0.0, 0.0), # color defined in chroma
-  family = "sans-serif",
-  bold = false,
-  slant: FontSlant = fsNormal # defined in ginger.types
-    ): Font =
-  result = Font(family: family,
-                size: size,
-                bold: bold,
-                slant: slant,
-                color: color)
 
 proc orNone(s: string): Option[string] =
   ## returns either a `some(s)` if s.len > 0 or none[string]()
