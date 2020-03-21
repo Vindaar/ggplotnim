@@ -51,7 +51,8 @@ suite "Compare recipe output":
                   "rDiscreteYAxis.png",
                   "rBothDiscreteAxes.png",
                   "rFreqPolyWithAlpha.png",
-                  "rMultipleLegends.png"]
+                  "rMultipleLegends.png",
+                  "rSimpleTile.png"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f
