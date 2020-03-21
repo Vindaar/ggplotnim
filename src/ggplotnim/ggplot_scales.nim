@@ -7,8 +7,6 @@ import ginger except Scale
 Contains procs dealing with `ggplot.Scale`.
 ]#
 
-
-
 proc getValue*(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
   result = s.valueMap[label]

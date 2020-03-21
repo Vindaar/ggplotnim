@@ -395,7 +395,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
     var df = if g.data.isSome: g.data.get else: p.data
     var filledGeom: FilledGeom
     case g.kind
-    of gkPoint, gkLine, gkErrorBar, gkTile:
+    of gkPoint, gkLine, gkErrorBar, gkTile, gkText:
       # can be handled the same
       # need x and y data for sure
       case g.statKind

@@ -21,6 +21,7 @@ type
     shape*: Option[Scale] # classify by shape
     width*: Option[Scale] # width of tile / rect / raster
     height*: Option[Scale] # height of tile / rect / raster
+    text*: Option[Scale] # text to display
 
   ScaleKind* = enum
     scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize
@@ -145,9 +146,10 @@ type
     # the alpha to use for `fillColor` (line colors and point colors
     # are unaffected by this and have to be set manually via the `color: Color`)
     alpha*: Option[float]
+    font*: Option[Font]
 
   GeomKind* = enum
-    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar
+    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar, gkText
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
@@ -279,6 +281,9 @@ type
     xMax*: MainAddScales
     yMin*: MainAddScales
     yMax*: MainAddScales
+    width*: MainAddScales
+    height*: MainAddScales
+    text*: MainAddScales
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.
