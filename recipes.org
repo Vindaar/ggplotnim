@@ -932,7 +932,7 @@ This generates:
 
 This is still pretty messy and usually not what one might use
 =geom_text= for. Instead let's consider a similar example where we
-want to annotate the car models with the largest engine displacement:
+want to annotate the car model with the best fuel economy:
 #+BEGIN_SRC nim :tangle recipes/rAnnotateMaxValues.nim
 import ggplotnim 
 let df = toDf(readCsv("data/mpg.csv"))
