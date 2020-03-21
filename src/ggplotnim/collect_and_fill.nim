@@ -442,4 +442,12 @@ proc collectScales*(p: GgPlot): FilledScales =
   let shapeFilled = callFillScale(p.data, shapes, scShape)
   fillField("shape", shapeFilled)
 
+  let widths = collect(p, width)
+  let widthFilled = callFillScale(p.data, widths, scLinearData)
+  fillField("width", widthFilled)
+
+  let heights = collect(p, height)
+  let heightFilled = callFillScale(p.data, heights, scLinearData)
+  fillField("height", heightFilled)
+
   postProcessScales(result, p)
