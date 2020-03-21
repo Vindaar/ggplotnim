@@ -1454,7 +1454,6 @@ proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]
       else:
         doAssert fn.rhs.kind == fkVariable, "if you wish to perform a calculation " &
           "of one or more columns, please use `transmute` or `mutate`!"
-        echo fn.lhs
         doAssert fn.lhs.val.kind == VString
         doAssert fn.rhs.val.kind == VString
         df[fn.lhs.val.str] = df[fn.rhs.val.str]

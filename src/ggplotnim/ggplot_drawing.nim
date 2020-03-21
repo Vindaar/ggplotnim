@@ -118,6 +118,20 @@ proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   if fg.geom.aes.yMax.isSome:
     result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
 
+proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
+  tuple[width, height: float] =
+  ## reads all error data available
+  template getField(field: untyped): untyped =
+    fg.geom.aes.field.unsafeGet.col
+  if fg.geom.aes.width.isSome:
+    result.width = evaluate(getField(width), df, idx).toFloat
+  else:
+    result.width = 1.0
+  if fg.geom.aes.width.isSome:
+    result.height = evaluate(getField(height), df, idx).toFloat
+  else:
+    result.height = 1.0
+
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
 
@@ -238,7 +252,7 @@ proc getDrawPosImpl(
     of gkHistogram, gkBar:
       result = getDiscreteHisto(fg, width, axKind)
     of gkTile:
-      discard
+      result = getDiscretePoint(fg, axKind)
   of dcContinuous:
     case fg.geom.kind
     of gkPoint, gkErrorBar:
@@ -248,7 +262,7 @@ proc getDrawPosImpl(
     of gkHistogram, gkBar:
       result = view.getContinuous(fg, val, axKind)
     of gkTile:
-      discard
+      result = view.getContinuous(fg, val, axKind)
 
 proc getDrawPos[T](view: Viewport, viewIdx: int,
                    fg: FilledGeom,
@@ -327,6 +341,7 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
 
 proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
           y: Value, # the actual y value, needed for height of a histogram / bar!
+          binWidths: tuple[x, y: float],
           df: DataFrame,
           idx: int,
           style: Style) =
@@ -335,30 +350,43 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
   of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
   of gkHistogram, gkBar:
     let binWidth = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+    doAssert binWidth == binWidths.x
     view.addObj view.initRect(pos,
                               quant(binWidth, ukData),
                               quant(-y.toFloat(allowNull = true), ukData),
                               style = some(style))
   of gkLine, gkFreqPoly:
     doAssert false, "Already handled in `drawSubDf`!"
-  else:
-    raise newException(Exception, "I'm not implemented yet in identityDraw: " & $fg.geom.kind)
+  of gkTile:
+    view.addObj view.initRect(pos,
+                              quant(binWidths.x, ukData),
+                              quant(-binWidths.y, ukData),
+                              style = some(style))
 
-func calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
+proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
   const CoordFlipped = false
-  when not CoordFlipped:
-    result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
-  else:
-    result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
+  case fg.geom.kind
+  of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar:
+    when not CoordFlipped:
+      result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+    else:
+      result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
+  of gkTile:
+    (result.x, result.y) = readWidthHeight(df, idx, fg)
 
 func moveBinPositions(p: var tuple[x, y: Value],
                       binWidths: tuple[x, y: float],
                       fg: FilledGeom) =
   const CoordFlipped = false
-  when not CoordFlipped:
+  case fg.geom.kind
+  of gkTile:
     p.x.moveBinPosition(fg.geom.binPosition, binWidths.x)
-  else:
     p.y.moveBinPosition(fg.geom.binPosition, binWidths.y)
+  else:
+    when not CoordFlipped:
+      p.x.moveBinPosition(fg.geom.binPosition, binWidths.x)
+    else:
+      p.y.moveBinPosition(fg.geom.binPosition, binWidths.y)
 
 func getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: FilledGeom): int =
   let px = if fg.dcKindX == dcDiscrete: p.x else: Value(kind: VNull)
@@ -412,7 +440,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     p: tuple[x, y: Value]
     pos: Coord
     binWidths: tuple[x, y: float]
-  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram} or
+  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile} or
                       fg.geom.binPosition in {bpCenter, bpRight})
   for i in 0 ..< df.len:
     if styles.len > 1:
@@ -438,11 +466,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     of pkIdentity:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.draw(fg, pos, p.y, df, i, style)
+      else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkStack:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
-      else: locView.draw(fg, pos, p.y, df, i, style)
+      else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkDodge:
       discard
     of pkFill:
