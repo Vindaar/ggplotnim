@@ -211,8 +211,8 @@ func getDiscreteHisto(fg: FilledGeom, width: float,
     result = c1(left)
   of akY:
     # calc top side of bar based on width, since we want the bar to be centered
-    let top = (1.0 - width) / 2.0
-    result = c1(top, ukRelative) # TODO: or 1.0 - top??
+    let top = 1.0
+    result = c1(top, ukRelative)
 
 func getDiscretePoint(fg: FilledGeom, axKind: AxisKind): Coord1D =
   # discrete points are...
@@ -252,7 +252,7 @@ proc getDrawPosImpl(
     of gkHistogram, gkBar:
       result = getDiscreteHisto(fg, width, axKind)
     of gkTile:
-      result = getDiscretePoint(fg, axKind)
+      result = getDiscreteHisto(fg, width, axKind)
   of dcContinuous:
     case fg.geom.kind
     of gkPoint, gkErrorBar:
