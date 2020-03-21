@@ -104,7 +104,7 @@ type
       # the data to the correct `ScaleKind`. This is `nil` for `scLinearData` and
       # `scTransformedData`, but contains the correct style calculations for the
       # other `ScaleKinds`
-      mapData*: proc(idxs: seq[int] = @[]): seq[ScaleValue]
+      mapData*: proc(df: DataFrame): seq[ScaleValue]
 
   Facet* = object
     columns*: seq[string]
