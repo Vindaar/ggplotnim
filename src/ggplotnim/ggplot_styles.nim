@@ -1,4 +1,4 @@
-import ggplot_types, formula, ggplot_scales
+import ggplot_types, formula, ggplot_scales, ggplot_utils
 import ginger except Scale
 
 #[
@@ -29,6 +29,9 @@ const TileDefaultStyle = Style(lineWidth: 0.05,
                                lineType: ltSolid,
                                color: grey20,
                                fillColor: grey20)
+const TextDefaultStyle = Style(font: font(12.0),
+                               size: 12.0,
+                               color: black)
 
 func defaultStyle(geomKind: GeomKind): Style =
   case geomKind
@@ -42,6 +45,8 @@ func defaultStyle(geomKind: GeomKind): Style =
     result = HistoDefaultStyle
   of gkTile:
     result = TileDefaultStyle
+  of gkText:
+    result = TextDefaultStyle
 
 func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   ## merges the given `Style` with the desired `userStyle`.
@@ -63,11 +68,21 @@ func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   fillField(fillColor)
   fillField(marker)
   fillField(errorBarKind)
+  fillField(font)
   # now apply `alpha` to `fillColor`
   if uStyle.alpha.isSome:
     result.fillColor.a = uStyle.alpha.unsafeGet
   elif s.alpha.isSome:
     result.fillColor.a = s.alpha.unsafeGet
+
+  # apply `color`, `size` to font
+  ## TODO: This will overwrite a user style!!
+  if result.color != result.fillColor:
+    result.font.color = result.color
+  let defSize = defaultStyle(geomKind).size
+  if result.size != defSize:
+    debugecho "result. size ", result.size
+    result.font.size = result.size * 2.5
 
 proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
   ## returns a modified style with the appropriate field replaced

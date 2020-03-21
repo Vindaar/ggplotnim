@@ -76,7 +76,7 @@ proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F; G; H; I; J; K; L: string | FormulaNode](
+proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
   x: A = "",
   y: B = "",
   color: C = "",
@@ -88,7 +88,8 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L: string | FormulaNode](
   yMin: I = "",
   yMax: J = "",
   width: K = "",
-  height: L = ""): Aesthetics =
+  height: L = "",
+  text: M = ""): Aesthetics =
     result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                         y: y.orNoneScale(scLinearData, akY),
                         color: color.orNoneScale(scColor),
@@ -100,7 +101,10 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L: string | FormulaNode](
                         yMin: yMin.orNoneScale(scLinearData, akY),
                         yMax: yMax.orNoneScale(scLinearData, akY),
                         width: width.orNoneScale(scLinearData, akX),
-                        height: height.orNoneScale(scLinearData, akX))
+                        height: height.orNoneScale(scLinearData, akX),
+                        # TODO: should we fix this axis here?... :| Use something
+                        # other than `scLinearData`?
+                        text: text.orNoneScale(scLinearData, akX))
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -150,7 +154,8 @@ func initGgStyle(color = none[Color](),
                  lineWidth = none[float](),
                  fillColor = none[Color](),
                  errorBarKind = none[ErrorBarKind](),
-                 alpha = none[float]()): GgStyle =
+                 alpha = none[float](),
+                 font = none[Font]()): GgStyle =
   result = GgStyle(color: color,
                    size: size,
                    marker: marker,
@@ -158,7 +163,8 @@ func initGgStyle(color = none[Color](),
                    lineWidth: lineWidth,
                    fillColor: fillColor,
                    errorBarKind: errorBarKind,
-                   alpha: alpha)
+                   alpha: alpha,
+                   font: font)
 
 proc geom_point*(aes: Aesthetics = aes(),
                  data = DataFrame(),
@@ -407,6 +413,43 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 statKind: stKind,
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
+
+proc geom_text*(aes: Aesthetics = aes(),
+                data = DataFrame(),
+                color = none[Color](),
+                size = none[float](),
+                marker = none[MarkerKind](),
+                font = none[Font](),
+                alignKind = taCenter,
+                stat = "identity",
+                bins = -1,
+                binWidth = 0.0,
+                breaks: seq[float] = @[],
+                binPosition = "none",
+                position = "identity", # the position kind, "identity", "stack" etc.
+                ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
+  let fontOpt = if font.isSome: font
+                else: some(font(12.0, alignKind = alignKind))
+  let style = initGgStyle(color = color, size = size,
+                          marker = marker, font = fontOpt)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkText,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stKind,
+                position: pKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks)
+
 
 proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
   result = Facet()

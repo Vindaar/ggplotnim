@@ -132,6 +132,13 @@ proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
   else:
     result.height = 1.0
 
+proc readText(df: DataFrame, idx: int, fg: FilledGeom): Value =
+  ## reads all error data available
+  template getField(field: untyped): untyped =
+    fg.geom.aes.field.unsafeGet.col
+  doAssert fg.geom.aes.text.isSome, "text has to be `some` for `geom_text`!"
+  result = evaluate(getField(text), df, idx)
+
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
 
@@ -253,6 +260,8 @@ proc getDrawPosImpl(
       result = getDiscreteHisto(fg, width, axKind)
     of gkTile:
       result = getDiscreteHisto(fg, width, axKind)
+    of gkText:
+      result = getDiscretePoint(fg, axKind)
   of dcContinuous:
     case fg.geom.kind
     of gkPoint, gkErrorBar:
@@ -262,6 +271,8 @@ proc getDrawPosImpl(
     of gkHistogram, gkBar:
       result = view.getContinuous(fg, val, axKind)
     of gkTile:
+      result = view.getContinuous(fg, val, axKind)
+    of gkText:
       result = view.getContinuous(fg, val, axKind)
 
 proc getDrawPos[T](view: Viewport, viewIdx: int,
@@ -362,11 +373,17 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
                               quant(binWidths.x, ukData),
                               quant(-binWidths.y, ukData),
                               style = some(style))
+  of gkText:
+    view.addObj view.initText(pos,
+                              text = $readText(df, idx, fg),
+                              textKind = goText,
+                              alignKind = style.font.alignKind,
+                              font = some(style.font))
 
 proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
   const CoordFlipped = false
   case fg.geom.kind
-  of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar:
+  of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar, gkText:
     when not CoordFlipped:
       result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
     else:
