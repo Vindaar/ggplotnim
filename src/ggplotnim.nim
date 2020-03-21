@@ -26,9 +26,10 @@ import ggplotnim / [
   ggplot_drawing, # third stage: the actual drawing
   # vega backend
   vega_utils
-
 ]
 export ggplot_types
+
+import ggplotnim / colormaps / viridisRaw
 
 import chroma
 export chroma
