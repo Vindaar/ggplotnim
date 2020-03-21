@@ -649,29 +649,22 @@ proc finalizeLegend(view: var Viewport,
   # ------------------
   # | Legend 1       |
   # ------------------
-  # | 1 cm spacing   |
-  # ------------------
   # | Legend 2       |
   # ------------------
   # ...
   # | relative space |
   # ------------------
   # calc number of spacings between legends
-  let numSpace = legends.len - 1
   var rowHeights = @[quant(0.0, ukRelative)]
   for i, l in legends:
     rowHeights.add l.height
-    if i < numSpace:
-      rowHeights.add quant(1.0, ukCentimeter)
   rowHeights.add quant(0.0, ukRelative)
-  view.layout(1, rowHeights.len, rowHeights = rowHeights)
-  var idx = 0
-  for i in countup(1, rowHeights.len - 1, 2):
-    var ml = legends[idx]
+  view.layout(1, rowHeights.len, rowHeights = rowHeights,
+              ignoreOverflow = true)
+  for i in countup(1, rowHeights.len - 2):
+    var ml = legends[i - 1]
     ml.origin = view[i].origin
-    let c = ggColorHue(6)
     view[i] = ml
-    inc idx
 
 proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## puts the legend at position `(x, y)` in relative coordinates of
