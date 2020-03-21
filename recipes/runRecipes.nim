@@ -37,5 +37,9 @@ let res = shellVerbose:
   nim c "-r recipes/rFreqPolyWithAlpha.nim"
   nim c "-r recipes/rMultipleLegends.nim"
   nim c "-r recipes/rSimpleTile.nim"
+  nim c "-r recipes/rSimpleGeomText.nim"
+  nim c "-r recipes/rClassifiedGeomText.nim"
+  nim c "-r recipes/rAnnotateUsingGeomText.nim"
+  nim c "-r recipes/rAnnotateMaxValues.nim"
 if res[1] != 0:
   raise newException(Exception, "Failed to build or run at least one recipe!")
