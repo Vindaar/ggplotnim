@@ -56,8 +56,9 @@ Geoms:
 - =geom_bar= 
 - =geom_errorbar=
 - =geom_linerange=
+- =geom_tile=
+- =geom_text=
 - *soon:*
-  - =geom_tile=
   - =geom_density=
   - and possibly =geom_ridgeline=
 
