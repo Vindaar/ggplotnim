@@ -10,7 +10,7 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.7"
-requires "ginger = 0.1.14"
+requires "ginger >= 0.1.15"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
 
