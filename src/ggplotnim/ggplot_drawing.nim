@@ -448,14 +448,14 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     # get current x, y values, possibly clipping them
     p = getXY(view, df, fg, i, theme, xOutsideRange,
               yOutsideRange, xMaybeString = true)
-    if needBinWidth:
-      # potentially move the positions according to `binPosition`
-      binWidths = calcBinWidths(df, i, fg)
-      moveBinPositions(p, binWidths, fg)
     if viewMap.len > 0:
       # get correct viewport if any is discrete
       viewIdx = getView(viewMap, p, fg)
       locView = view[viewIdx]
+    if needBinWidth:
+      # potentially move the positions according to `binPosition`
+      binWidths = calcBinWidths(df, i, fg)
+      moveBinPositions(p, binWidths, fg)
     pos = getDrawPos(locView, viewIdx,
                      fg,
                      p = p,
