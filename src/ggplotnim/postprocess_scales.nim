@@ -133,7 +133,8 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
   result[1] = yieldDf
   for c in scales:
-    result[1][$c.col] = c.col.evaluate(fullDf)
+    ## TODO: verify this should be `yieldDf`
+    result[1][$c.col] = c.col.evaluate(yieldDf) #fullDf)
     case c.scKind
     of scLinearData, scTransformedData:
       # for linear and transformed data we don't change the style
