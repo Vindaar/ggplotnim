@@ -1,4 +1,21 @@
 import math, options
+import chroma, ginger
+
+# TODO: move elsewhere!
+func font*[T: SomeNumber](
+  size: T = 12.0,
+  color = color(0.0, 0.0, 0.0), # color defined in chroma
+  family = "sans-serif",
+  alignKind = taCenter,
+  bold = false,
+  slant: FontSlant = fsNormal # defined in ginger.types
+    ): Font =
+  result = Font(family: family,
+                size: size,
+                bold: bold,
+                slant: slant,
+                color: color,
+                alignKind: alignKind)
 
 template unwrap*[T](opt: Option[T], raiseIfNil = true): untyped =
   var tmp: T
