@@ -35,5 +35,6 @@ let res = shellVerbose:
   nim c "-r recipes/rDiscreteYAxis.nim"
   nim c "-r recipes/rBothDiscreteAxes.nim"
   nim c "-r recipes/rFreqPolyWithAlpha.nim"
+  nim c "-r recipes/rMultipleLegends.nim"
 if res[1] != 0:
   raise newException(Exception, "Failed to build or run at least one recipe!")

@@ -808,6 +808,22 @@ Which results in the following plot:
 
 [[media/recipes/rErrorBar.png]]
 
+*** Plot with multiple legends
+
+If a plot contains multiple aesthetic scales, which require a legend,
+they will be attempted to be drawn above one another. 
+However, at the time of version =v.0.2.18= they are not made smaller
+so they fit. If too many elements are shown, they won't fit the plot.
+
+An example below in which we classify by color and size:
+#+BEGIN_SRC nim :tangle recipes/rMultipleLegends.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) + #, color = "cty", size = "cyl")) +
+  geom_point() +
+  ggsave("media/recipes/rMultipleLegends.png")
+#+END_SRC
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
