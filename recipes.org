@@ -140,7 +140,6 @@ This generates:
 
 #+END_SRC
 
-
 *** Simple histogram with N bins
 
 Given a continuous data column we may want to calculate a histogram
@@ -861,6 +860,100 @@ This gives us the following plot:
 
 Note to get rid of the spacing on the upper and right side (or get
 even spacing), use =xlim= and =ylim=.
+
+*** Simple =geom_text= example
+
+=geom_text= can be used to represent an additional scale on the plot
+via text. E.g. either to write a classification as a string onto the
+plot, overlay numbers onto points etc.
+
+Take note that by default the text will be centered on the position
+given by the =x= and =y= scales. You can change the alignment using
+the =alignKind= argument to =geom_text= or by providing the optional
+(in the sense of =Option[Font]=) =font= argument, which has an
+=alignKind= field.
+
+There are many ways it can be useful. However, =geom_text= is a
+completely valid =geom=, which means we can replace e.g. a
+=geom_point= by =geom_text= and the resulting plot works as expected
+(although it may be messy):
+#+BEGIN_SRC nim :tangle recipes/rSimpleGeomText.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy", "displ")) + 
+  geom_text(aes(text = "manufacturer")) + 
+  ggsave("media/recipes/rSimpleGeomText.png")
+#+END_SRC
+This generates:
+
+[[./media/recipes/rSimpleGeomText.png]]
+
+*** Text can also be classified! colored and sized =geom_text=
+
+We can take things even further by also applying additional scales to
+the plot, which change the color and size of the shown text. That way
+we can end up showing 5 different scales in a single plot! Again, the
+following may not be the most reasonable example, but well...
+#+BEGIN_SRC nim :tangle recipes/rClassifiedGeomText.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy", "displ", color = "class", size = "cyl")) + 
+  geom_text(aes(text = "manufacturer")) + 
+  ggsave("media/recipes/rClassifiedGeomText.png")
+#+END_SRC
+This generates:
+
+[[./media/recipes/rClassifiedGeomText.png]]
+
+*** Annotating points using =geom_text=
+
+In more practical terms we might want to annotate certain points with
+text in a plot. This can also be done using =geom_text=. 
+
+To avoid the text being drawn on top of the point, we can modify the =x=
+or =y= scale of the aesthetic for =geom_text= to nudge it to the side.
+
+Let's start from a simple combination of =geom_point= and =geom_text=:
+#+BEGIN_SRC nim :tangle recipes/rAnnotateUsingGeomText.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("hwy", "displ")) + 
+  geom_point() +
+  geom_text(aes(x = f{"hwy" + 0.3}, 
+            text = "manufacturer"),
+            alignKind = taLeft, 
+            # font = some(font(10.0, ...)) <- you can also change the font
+            ) + 
+  ggsave("media/recipes/rAnnotateUsingGeomText.png")
+#+END_SRC
+This generates:
+
+[[./media/recipes/rAnnotateUsingGeomText.png]]
+
+This is still pretty messy and usually not what one might use
+=geom_text= for. Instead let's consider a similar example where we
+want to annotate the car models with the largest engine displacement:
+#+BEGIN_SRC nim :tangle recipes/rAnnotateMaxValues.nim
+import ggplotnim 
+let df = toDf(readCsv("data/mpg.csv"))
+let dfMax = df.mutate(f{"mpgMean" ~ ("cty" + "hwy") / 2.0})
+  .arrange("mpgMean")
+  .tail(1)
+ggplot(df, aes("hwy", "displ")) + 
+  geom_point(aes(color = "cty")) + # set point specific color mapping
+  # Add the annotation for the car model below the point
+  geom_text(data = dfMax,
+            aes = aes(y = f{"displ" - 0.2}, 
+                      text = "model")) +
+  # and add another annotation of the mean mpg above the point
+  geom_text(data = dfMax,
+            aes = aes(y = f{"displ" + 0.2}, 
+                      text = "mpgMean")) +
+  ggsave("media/recipes/rAnnotateMaxValues.png")
+#+END_SRC
+This generates:
+
+[[./media/recipes/rAnnotateMaxValues.png]]
 
 *** TODO Example of changing font size in plot
 
