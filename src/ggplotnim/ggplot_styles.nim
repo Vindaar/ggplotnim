@@ -104,8 +104,10 @@ proc applyStyle*[T: string | FormulaNode](style: var GgStyle, df: DataFrame, sca
         if not isCol:
           # constant value
           styleVal = s.getValue(evaluate(s.col))
-        else:
+        elif $col == $s.col:
+          # else only get value if this `col` is the scales column!
           styleVal = s.getValue(val)
+        else: continue
         style = changeStyle(style, styleVal)
       else:
 
