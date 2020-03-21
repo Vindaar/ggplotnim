@@ -1,8 +1,28 @@
+* v0.2.20
+- move =font= helper to =ggplot_utils=
+- remove spacing between multiple legends. Previously there was 1 cm
+  of space if multiple legends were shown. That took too much space
+  and wasn't required imo.
+- fix classification by multiple discrete scales
+- fix issue for discrete scales, which caused index error in
+  =getView=, when a position was moved via =binPosition=
+- add =width=, =height= to scales, which are collected. This was
+  simply missing.
+- add =geom_text=
+- add =font= field to =GgStyle= object
+- update =rMultipleLegends= due to spacing between two legends
+- add recipes:
+  - =rSimpleGeomText.nim=
+  - =rClassifiedGeomText.nim=
+  - =rAnnotateUsingGeomText.nim=
+  - =rAnnotateMaxValues.nim=
+
 * v0.2.19
 Hotfix release for small regressions introduced in =v0.2.18=
 - fixes the layout of plots discrete axes. Due to recent ginger changes
   the position of the ticks and tick labels was wrong.
 - fixes the placement of =geom_tile= for discrete cases.
+- updates all plots with discrete axes
 
 * v0.2.18
 - finally fixes multiple legends. Now automatically evenly spaced and centered
@@ -11,6 +31,7 @@ Hotfix release for small regressions introduced in =v0.2.18=
 - fix distance of tick labels to ticks, now also in fixed absolute
   distances (that's why every plot is updated)
 - add =geom_tile=
+- update *all* plots due to ginger fixes / placement of tick labels
 
 * v0.2.17
 - most geoms now take an =alpha= argument to override the alpha of
