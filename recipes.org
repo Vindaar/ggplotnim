@@ -824,6 +824,52 @@ ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) + #, color = "cty",
   ggsave("media/recipes/rMultipleLegends.png")
 #+END_SRC
 
+*** Simple tile plot
+
+For a simple tile plot, let's generate some data for a 28x28 tiling.
+
+By default tiling will assume that the bin widhts of each tile is 1 in
+each dimension. You can provide custom bin widths by using the 
+- =width= 
+- =height= 
+aesthetic in the =aes= call. Same as with =geom_errorbar= this can
+either be a full column containing widths for each tile or a constant
+value via a formula, e.g. 
+#+BEGIN_SRC nim
+aes(x = ..., ..., width = f{0.95}, height = f{0.95})
+#+END_SRC
+to get tiles which only have a width of 0.95.
+
+Also for tiles it may be (more so than other times) be desirable to
+have each axis be considered discrete despite the data being
+continuous like. In that case use =scale_*_continuous= as shown
+(commented out) below.
+#+BEGIN_SRC nim :tangle recipes/rSimpleTile.nim
+import ggplotnim, random
+var
+  xs = newSeq[float]()
+  ys = newSeq[float]()
+  zs = newSeq[float]()
+for x in 0 ..< 28:
+  for y in 0 ..< 28:
+    xs.add x.float
+    ys.add y.float
+    zs.add random(1.0)
+let df = seqsToDf(xs, ys, zs)
+ggplot(df, aes("xs", "ys", fill = "zs")) +
+  geom_tile() +
+  #scale_x_continuous(dcKind = dcDiscrete) +
+  #scale_y_continuous(dcKind = dcDiscrete) +
+  ggsave("media/recipes/rSimpleTile.png")
+#+END_SRC
+
+This gives us the following plot:
+
+[[media/recipes/rSimpleTile.png]]
+
+Note to get rid of the spacing on the upper and right side (or get
+even spacing), use =xlim= and =ylim=.
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
