@@ -81,7 +81,6 @@ func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
     result.font.color = result.color
   let defSize = defaultStyle(geomKind).size
   if result.size != defSize:
-    debugecho "result. size ", result.size
     result.font.size = result.size * 2.5
 
 proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
