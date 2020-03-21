@@ -1,3 +1,11 @@
+* v0.2.18
+- finally fixes multiple legends. Now automatically evenly spaced and centered
+- distances of legends / labels to legend are now fixed in absolute
+  units (thanks to fix in ginger =v0.1.15=)
+- fix distance of tick labels to ticks, now also in fixed absolute
+  distances (that's why every plot is updated)
+- add =geom_tile=
+
 * v0.2.17
 - most geoms now take an =alpha= argument to override the alpha of
   =fillColor= 
