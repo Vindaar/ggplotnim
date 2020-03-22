@@ -53,9 +53,9 @@ suite "Compare recipe output":
                   "rFreqPolyWithAlpha.png",
                   "rMultipleLegends.png",
                   "rSimpleTile.png",
-                  "rSimpleGeomText.png"
-                  "rClassifiedGeomText.png"
-                  "rAnnotateUsingGeomText.png"
+                  "rSimpleGeomText.png",
+                  "rClassifiedGeomText.png",
+                  "rAnnotateUsingGeomText.png",
                   "rAnnotateMaxValues.png"]
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:

@@ -465,7 +465,8 @@ suite "GgPlot":
 
       check lab.rotate == rot
       check lab.txtFont == Font(family: "sans-serif", size: 12.0, bold: false,
-                                slant: fsNormal, color: color(0.0, 0.0, 0.0, 1.0))
+                                slant: fsNormal, color: color(0.0, 0.0, 0.0, 1.0),
+                                alignKind: taCenter)
     # the default label margin is 1 cm, i.e. ~28.34 pixels at 72 dpi
     checkLabel(xLab[0], "xLabel", "x",
                Coord(x: Coord1D(pos: 0.5, kind: ukRelative),
@@ -501,7 +502,8 @@ suite "GgPlot":
       check lab.txtAlign == taCenter
       check lab.rotate == rot
       check lab.txtFont == Font(family: "sans-serif", size: 12.0, bold: false,
-                                slant: fsNormal, color: color(0.0, 0.0, 0.0, 1.0))
+                                slant: fsNormal, color: color(0.0, 0.0, 0.0, 1.0),
+                                alignKind: taCenter)
     # the default label margin is 1 cm, i.e. ~28.34 pixels at 72 dpi
     checkLabel(xLab[0], "xLabel", "Custom label",
                none[float]())
