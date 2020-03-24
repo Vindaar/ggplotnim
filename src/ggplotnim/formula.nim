@@ -1784,24 +1784,23 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
       result.len = res.len
     of dfGrouped:
       # apply the function to each ``group``
-      # TODO: replace by impl which makes use of `groups` iterator? Check `count` impl
-      # below!
-      for k, classes in df.groupMap:
-        for class in classes:
-          # add current class to `k`, but only if not already done on a
+      var count = 0
+      for class, subDf in groups(df):
+        for (key, label) in class:
+          # add current label to `key`, but only if not already done on a
           # previous function
-          if result.hasKey(k) and result[k].len < classes.len:
-            result[k] = result[k].add class
+          if result.hasKey(key):
+            result[key] = result[key].add label
           else:
-            result[k] = toPersistentVector(@[class])
-          var dfcopy = df.filter(f{k == class})
-          let x = fnEval.reduce(dfcopy)
+            result[key] = toPersistentVector(@[label])
+          let x = fnEval.reduce(subDf)
           if result.hasKey(lhsName):
             result[lhsName] = result[lhsName].add x
           else:
             result[lhsName] = toPersistentVector(@[x])
-        # at some point `k` should have the correct length of the dataframe
-        result.len = result[k].len
+        inc count
+      # set length of resulting DF to number of subgroups
+      result.len = count
 
 proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
   ## counts the number of elements per type in `col` of the data frame.
