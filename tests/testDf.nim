@@ -1,5 +1,6 @@
 import ggplotnim, unittest, sequtils, math, strutils, streams
 import algorithm
+import seqmath
 
 suite "Data frame tests":
   test "Creation of DFs from seqs":
@@ -181,11 +182,9 @@ suite "Data frame tests":
     # TODO: make this to `doAssert`!
     let summary = mpg.summarize(f{"mean_cyl" ~ mean("cyl")},
                                 f{"mean_hwy" ~ mean("hwy")})
-    echo summary
     check almostEqual(summary["mean_cyl"][0].toFloat, 5.88889)
     check almostEqual(summary["mean_hwy"][0].toFloat, 23.4402)
 
-    echo "----"
     let sum_grouped = mpggroup.summarize(f{"mean_displ" ~ mean("displ")},
                                          f{"mean_hwy" ~ mean("hwy")})
       .arrange("cyl")
@@ -472,6 +471,39 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check "(mean cyl)" in resImplicit
       check resImplicit.len == 1
       check almostEqual(resImplicit["(mean cyl)"][0].toFloat, 5.888888889)
+    block:
+      # summarize multiple groups at the same time
+      let res = mpg.group_by(["class", "cyl"]).summarize(f{mean("hwy")})
+      check res.len == 19
+      # expected numbers. They seem reasonable, but ``I did NOT`` check them
+      # manually!!
+      # hence another test below with known numbers and their sum
+      let exp = %~ @[24.8, 24.8, 29.47, 29.47, 29, 29, 25.31, 25.31, 29.19, 29.19, 26.26, 26.26, 24, 24, 24, 24, 22.2, 22.2, 20.67, 20.67, 17.9, 17.9, 15.8, 15.8, 30.81, 30.81, 28.5, 28.5, 24.71, 24.71, 21.6, 21.6, 23.75, 23.75, 18.5, 18.5, 16.79, 16.79]
+      for i, el in res[$f{mean("hwy")}].vToSeq:
+        # very rough check
+        check almostEqual(el.toFloat, exp[i].toFloat, 1e-1)
+    block:
+      # generate numbers
+      let num = toSeq(1 .. 100)
+      let numVec = repeat(num, 26).flatten
+      let sumNum = num.sum
+      let lab1 = toSeq({'a'..'z'}).mapIt($it)
+      let lab2 = toSeq({'A'..'Z'}).mapIt($it)
+      var l1 = newSeq[string]()
+      var l2 = newSeq[string]()
+      var count = 0
+      for j in 0 ..< lab1.len:
+        for i in 0 ..< num.len:
+          l1.add lab1[j]
+          l2.add lab2[j]
+          inc count
+      check count == 2600
+      let df = seqsToDf(l1, l2, numVec)
+      let dfG = df.group_by(["l1", "l2"]).summarize(f{sum("numVec")})
+      check dfG.len == 26
+      check sumNum == 5050
+      for i, el in dfG[$f{sum("numVec")}].vToSeq:
+        check el == %~ sumNum
 
   test "Count":
     # count elements by group. Useful combination of group_by and summarize(len)
