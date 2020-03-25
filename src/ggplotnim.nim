@@ -1922,7 +1922,11 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
     if scale.scKind notin {scLinearData, scTransformedData} and
        (scale.dcKind, scale.scKind) notin drawnLegends:
       # create deep copy of the original legend pane
-      var lg = deepCopy(img[5])
+      var lg: Viewport
+      when defined(gcDestructors):
+        lg[] = img[5][]
+      else:
+        lg = deepCopy(img[5])
       lg.createLegend(scale)
       legends.add lg
       drawnLegends.incl (scale.dcKind, scale.scKind)
