@@ -8,9 +8,12 @@ import persvector
 
 import ginger except Scale
 
-proc addIdentityData(data: var seq[Value], df: DataFrame, col: FormulaNode) =
-  for val in col.evaluate(df):
-    data.add val
+proc addIdentityData(data: var seq[Value], df: DataFrame, s: Scale) =
+  let colVec = s.col.evaluate(df)
+  var startIdx = data.len
+  data.setLen(data.len + colVec.len)
+  for i, val in colVec:
+    data[startIdx + i] = val
 
 proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
@@ -301,7 +304,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # the appearence of the resulting scale
   for s in scales:
     # add this scales data to `data` DF for deduction of labels / data scales
-    data.addIdentityData(df, s.col)
+    data.addIdentityData(df, s)
   # in the second loop for each of the scales add one filled scale to the result
   # using the combined dataset of all. This way we automatically get the correct
   # data range / correct number of labels while retaining a single scale per
