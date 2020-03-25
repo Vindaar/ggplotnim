@@ -38,6 +38,10 @@ func getScales(gid: uint16, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.xMax))
   addIfAny(result[2], getScale(filledScales.yMin))
   addIfAny(result[2], getScale(filledScales.yMax))
+  addIfAny(result[2], getScale(filledScales.width))
+  addIfAny(result[2], getScale(filledScales.height))
+  #addIfAny(result[2], getScale(filledScales.text)) # not required
+  addIfAny(result[2], getScale(filledScales.yRidges))
 
 func isEmpty(s: ginger.Scale): bool =
   ## checks if the given scale is empty

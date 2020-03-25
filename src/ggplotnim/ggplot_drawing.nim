@@ -1,5 +1,5 @@
 import sequtils, tables
-import ggplot_types, formula, ggplot_styles
+import ggplot_types, formula, ggplot_styles, ggplot_scales
 import ginger
 
 iterator enumerateData(geom: FilledGeom): (StyleLabel, seq[GgStyle], DataFrame) =
@@ -519,7 +519,9 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
 
 proc createGobjFromGeom*(view: var Viewport,
                          fg: FilledGeom,
-                         theme: Theme) =
+                         theme: Theme,
+                         col = none[FormulaNode](),
+                         label = none[Value]()) =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
   view.prepareViews(fg, theme)
@@ -529,6 +531,12 @@ proc createGobjFromGeom*(view: var Viewport,
   var prevValsDiscr = initTable[int, float]()
   let anyDiscrete = if viewMap.len == 0: false else: true
   for (styleLabel, styles, subDf) in enumerateData(fg):
+    if col.isSome:
+      let lab = styleLabel.label
+      let colStr = $(col.unsafeGet)
+      if not (colStr in lab and lab[colStr] == label.unsafeGet):
+        # skip this label
+        continue
     if fg.geom.position == pkStack and anyDiscrete:
       view.drawSubDf(fg, viewMap, subDf,
                      prevValsDiscr,
