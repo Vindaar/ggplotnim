@@ -127,7 +127,7 @@ proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
     result.width = evaluate(getField(width), df, idx).toFloat
   else:
     result.width = 1.0
-  if fg.geom.aes.width.isSome:
+  if fg.geom.aes.height.isSome:
     result.height = evaluate(getField(height), df, idx).toFloat
   else:
     result.height = 1.0
