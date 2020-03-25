@@ -101,7 +101,7 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
                         yMin: yMin.orNoneScale(scLinearData, akY),
                         yMax: yMax.orNoneScale(scLinearData, akY),
                         width: width.orNoneScale(scLinearData, akX),
-                        height: height.orNoneScale(scLinearData, akX),
+                        height: height.orNoneScale(scLinearData, akY),
                         # TODO: should we fix this axis here?... :| Use something
                         # other than `scLinearData`?
                         text: text.orNoneScale(scLinearData, akX))
@@ -1274,7 +1274,9 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   let discrMarginOpt = p.theme.discreteScaleMargin
   var discrMargin = 0.0
   if discrMarginOpt.isSome:
-    discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(pointWidth(view))).val
+    case axKind
+    of akX: discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(pointWidth(view))).val
+    of akY: discrMargin = discrMarginOpt.unsafeGet.toRelative(length = some(pointHeight(view))).val
   # NOTE: the following only holds if def. of `wview` changed in ginger
   # doAssert view.wview != view.wimg
   let barViewWidth = (1.0 - 2 * discrMargin) / numTicks.float
