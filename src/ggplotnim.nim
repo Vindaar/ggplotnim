@@ -76,7 +76,7 @@ proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
+proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | FormulaNode](
   x: A = "",
   y: B = "",
   color: C = "",
@@ -89,7 +89,8 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
   yMax: J = "",
   width: K = "",
   height: L = "",
-  text: M = ""): Aesthetics =
+  text: M = "",
+  yRidges: N = ""): Aesthetics =
     result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                         y: y.orNoneScale(scLinearData, akY),
                         color: color.orNoneScale(scColor),
@@ -105,6 +106,7 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
                         # TODO: should we fix this axis here?... :| Use something
                         # other than `scLinearData`?
                         text: text.orNoneScale(scText),
+                        yRidges: yRidges.orNoneScale(scLinearData, akY))
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -123,6 +125,10 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.xMax)
   fillIt(result.yMin)
   fillIt(result.yMax)
+  fillIt(result.width)
+  fillIt(result.height)
+  fillIt(result.text)
+  fillIt(result.yRidges)
 
 proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
   result = GgPlot[T](data: data,
@@ -450,6 +456,20 @@ proc geom_text*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
+
+proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
+                                        showTicks = false,
+                                        labelOrder = initTable[Value, int]()): Ridges =
+  ## `showTicks` decides whether we show ticks and labels along the y
+  ## axis in between the ridge labels. This is disabled by default, because
+  ## it makes the plot very busy.
+  when T is string:
+    let col = f{col}
+  else:
+    let col = col
+  result = Ridges(col: col, overlap: overlap,
+                  showTicks: showTicks,
+                  labelOrder: labelOrder)
 
 proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
   result = Facet()
@@ -926,12 +946,10 @@ proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   result = p
   result.facet = some(facet)
 
-proc `+`*(p: GgPlot, aes: Aesthetics): GgPlot =
-  ## adds the given aesthetics to the GgPlot object
+proc `+`*(p: GgPlot, ridges: Ridges): GgPlot =
+  ## adds the given ridges to the GgPlot object
   result = p
-  # TODO: this is surely wrong and should be
-  # `result.aes = aes`???
-  result.aes = p
+  result.ridges = some(ridges)
 
 proc `+`*(p: GgPlot, annot: Annotation): GgPlot =
   ## adds the given Annotation to the GgPlot object
@@ -1102,26 +1120,6 @@ proc plotLayoutWithoutLegend(view: var Viewport,
   view[7].name = "xLabel"
   view[8].name = "bottomRight"
 
-macro genGetScale(field: untyped): untyped =
-  let name = ident("get" & $field.strVal & "Scale")
-  result = quote do:
-    proc `name`(filledScales: FilledScales, geom = Geom(gid: 0)): Scale =
-      result = new Scale
-      if filledScales.`field`.main.isSome:
-        # use main
-        result = filledScales.`field`.main.get
-      else:
-        # find scale matching `gid`
-        for s in filledScales.`field`.more:
-          if geom.gid == 0 or geom.gid in s.ids:
-            return s
-
-genGetScale(x)
-genGetScale(y)
-# not used at the moment
-#genGetScale(color)
-#genGetScale(size)
-#genGetScale(shape)
 proc createLayout(view: var Viewport,
                   filledScales: FilledScales, theme: Theme) =
   let drawLegend = filledScales.requiresLegend
@@ -1511,57 +1509,164 @@ proc getCanvasBackground(theme: Theme): Style =
     # default background: transparent
     result.fillColor = transparent
 
+proc calcRidgeViewMap(ridge: Ridges,
+                      labelSeq: var seq[Value]): Table[Value, int] =
+  ## calculates the table mapping label `Values` to viewport
+  ## indices of the ridges. Also modifies the sequence of
+  ## labels to be sorted by the viewport indices.
+  ## Takes into account the possible user map provided as
+  ## `ridge.labelOrder`.
+  ## TODO: better handle invalid `labelOrder` tables! Duplicates
+  ## holes etc.
+  let numLabels = labelSeq.len
+  if ridge.labelOrder.len == 0:
+    for i, label in labelSeq:
+      result[label] = i + 1
+  else:
+    # add 1 to the label order given by the user
+    # override labelSeq
+    labelSeq.setLen(0)
+    let pairIdx = block:
+      var res: seq[(Value, int)]
+      for label, idx in ridge.labelOrder:
+        res.add (label, idx)
+      res.sortedByIt(it[1])
+    for (label, idx) in pairIdx:
+      if idx >= numLabels:
+        raise newException(ValueError, "Given `labelOrder` indices must not exceed the " &
+          "number of labels! Max index: " & $idx & ", number of labels: " & $numLabels)
+      result[label] = idx + 1
+      labelSeq.add label
+
+proc createRidgeLayout(view: var Viewport, theme: Theme, numLabels: int) =
+  ## creates the layout for ridgeline plots
+  # The layout is essentially the user defined margin for
+  # discrete scales + equal spacing for each ridge
+  let discrMarginOpt = theme.discreteScaleMargin
+  var discrMargin = quant(0.0, ukRelative)
+  if discrMarginOpt.isSome:
+    discrMargin = discrMarginOpt.unsafeGet
+  var indHeights = toSeq(0 ..< numLabels).mapIt(quant(0.0, ukRelative))
+  view.layout(cols = 1, rows = numLabels + 2,
+                     rowHeights = concat(@[discrMargin],
+                                         indHeights,
+                                         @[discrMargin]),
+                     ignoreOverflow = true)
+
+proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: FilledScales,
+                    theme: Theme,
+                    hideLabels = false,
+                    hideTicks = false) =
+  let yRidgeScale = getYRidgesScale(filledScales)
+  var yLabelSeq = yRidgeScale.labelSeq
+  let numLabels = yLabelSeq.len
+  var yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+  # set `yScale` to overlap
+  yScale = (low: yScale.low, high: yScale.high / ridge.overlap)
+  view.yScale = yScale
+  let viewMap = calcRidgeViewMap(ridge, yLabelSeq)
+  view.createRidgeLayout(theme, numLabels)
+  for label, idx in pairs(viewMap):
+    var viewLabel = view[idx]
+    for fg in filledScales.geoms:
+      var pChild = viewLabel.addViewport(name = "data")
+      # create a theme, which ignores points outside the scale (which happens
+      # due to overlap!)
+      var mtheme = theme
+      mtheme.xOutsideRange = some(orkNone)
+      mtheme.yOutsideRange = some(orkNone)
+      pChild.createGobjFromGeom(fg, mtheme, col = some(ridge.col), label = some(label))
+      # add the data viewport to the view
+      viewLabel.children.add pChild
+    if ridge.showTicks:
+      ## TODO: fix the hack using `1e-5`!
+      let ytickView = viewLabel.handleTicks(filledScales, p, akY, theme = theme,
+                                            numTicksOpt = some(5),
+                                            boundScaleOpt = some(
+                                              (low: yScale.low + 1e-5,
+                                               high: yScale.high - 1e-5)))
+
+  if not hideTicks:
+    var xticks = view.handleTicks(filledScales, p, akX, theme = theme)
+    # we create the ticks manually with `discreteTickLabels` to set the labels
+    var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
+                                          theme = theme, centerTicks = false)
+  view.xScale = theme.xMarginRange
+  #view.updateDataScale()
+  if not hideTicks:
+    let grdLines = view.initGridLines(some(xticks), some(yticks))
+    view.addObj @[grdLines]
+  if not hideLabels:
+    view.handleLabels(theme)
+
+  #result[3].yScale = (low: 0.0, high: 1.0)
+  #result[3].updateDataScale()
+
 proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
                   theme: Theme,
-                  addLabels = true): Viewport =
+                  hideLabels = false,
+                  hideTicks = false) =
   # first write all plots into dummy viewport
-  result = view
-  result.background(style = some(getPlotBackground(theme)))
+  view.background(style = some(getPlotBackground(theme)))
 
   # change scales to user defined if desired
-  result.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
-  result.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+  view.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
+  if p.ridges.isSome:
+    let ridge = p.ridges.unsafeGet
+    view.generateRidge(ridge, p, filledScales, theme, hideLabels, hideTicks)
+  else:
+    view.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+    for fg in filledScales.geoms:
+      # for each geom, we create a child viewport of `view` covering
+      # the whole viewport, which will house the data we just created.
+      # Due to being a child, if will be drawn *after* its parent. This way things like
+      # ticks will be below the data.
+      # On the other hand this allows us to draw several geoms in on a plot and have the
+      # order of the function calls `geom_*` be preserved
+      var pChild = view.addViewport(name = "data")
+      # DF here not needed anymore!
+      pChild.createGobjFromGeom(fg, theme)
+      # add the data viewport to the view
+      view.children.add pChild
 
-  for fg in filledScales.geoms:
-    # for each geom, we create a child viewport of `result` covering
-    # the whole resultport, which will house the data we just created.
-    # Due to being a child, if will be drawn *after* its parent. This way things like
-    # ticks will be below the data.
-    # On the other hand this allows us to draw several geoms in on a plot and have the
-    # order of the function calls `geom_*` be preserved
-    var pChild = result.addViewport(name = "data")
-    # DF here not needed anymore!
-    pChild.createGobjFromGeom(fg, theme)
-    # add the data viewport to the view
-    result.children.add pChild
+    var
+      xticks: seq[GraphObject]
+      yticks: seq[GraphObject]
+    if not hideTicks:
+      xticks = view.handleTicks(filledScales, p, akX, theme = theme)
+      yticks = view.handleTicks(filledScales, p, akY, theme = theme)
 
-  var xticks = result.handleTicks(filledScales, p, akX, theme = theme)
-  var yticks = result.handleTicks(filledScales, p, akY, theme = theme)
+    # after creating all GraphObjects and determining tick positions based on
+    # (possibly) user defined plot range, set the final range of the plot to
+    # the range taking into account the given margin
+    view.xScale = theme.xMarginRange
+    view.yScale = theme.yMarginRange
 
-  # after creating all GraphObjects and determining tick positions based on
-  # (possibly) user defined plot range, set the final range of the plot to
-  # the range taking into account the given margin
-  result.xScale = theme.xMarginRange
-  result.yScale = theme.yMarginRange
+    #if filledScales.reversedX:
+    #  view.xScale = (low: view.xScale.high, high: view.xScale.low)
+    #
+    if false: #filledScales.reversedY:
+      view.yScale = (low: view.yScale.high, high: view.yScale.low)
 
-  # TODO: Make sure we still have to do this. I think not!
-  result.updateDataScale()
+    # TODO: Make sure we still have to do this. I think not!
+    view.updateDataScale()
+    if not hideTicks:
+      view.updateDataScale(xticks)
+      view.updateDataScale(yticks)
 
-  result.updateDataScale(xticks)
-  result.updateDataScale(yticks)
-  let grdLines = result.initGridLines(some(xticks), some(yticks))
+    let grdLines = view.initGridLines(some(xticks), some(yticks))
 
-  # given the just created plot and tick labels, have to check
-  # whether we should enlarge the column / row for the y / x label and
-  # move the label
-  if addLabels:
-    # TODO: why do we add labels to child 4 and not directly into the viewport we
-    # use to provide space for it, i.e. 3?
-    result.handleLabels(theme)
-  result.addObj @[grdLines]
+    # given the just created plot and tick labels, have to check
+    # whether we should enlarge the column / row for the y / x label and
+    # move the label
+    if not hideLabels:
+      # TODO: why do we add labels to child 4 and not directly into the viewport we
+      # use to provide space for it, i.e. 3?
+      view.handleLabels(theme)
+    view.addObj @[grdLines]
 
 proc generateFacetPlots(view: Viewport, p: GgPlot,
-                        theme: Theme): Viewport =
+                        theme: Theme) =
   # first perform faceting by creating subgroups
   # doAssert p.facet.isSome
   # var mplt = p
@@ -1736,6 +1841,19 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       fontOpt = some(annot.font))
     view.addObj concat(@[annotRect], annotText)
 
+func updateAesRidges(p: GgPlot): GgPlot =
+  ## Adds the `ridges` information to the `GgPlot` object by assigning
+  ## the `yRidges` aesthetic to the global aesthetic and forcing its
+  ## scale to be discrete.
+  doAssert p.ridges.isSome
+  let ridge = p.ridges.unsafeGet
+  let scale = some(Scale(scKind: scLinearData, col: ridge.col, axKind: akY,
+                         hasDiscreteness: true, # force scale to be discrete!
+                         dcKind: dcDiscrete,
+                         ids: {0'u16 .. high(uint16)}))
+  result = p
+  result.aes.yRidges = scale
+
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## applies all calculations to the `GgPlot` object required to draw
   ## the plot with cairo and returns a `PlotView`. The `PlotView` contains
@@ -1744,7 +1862,12 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## plot.
   ## This proc is useful to investigate the final Scales or the Viewport
   ## that will actually be drawn.
-  let filledScales = collectScales(p)
+  var filledScales: FilledScales
+  if p.ridges.isSome:
+    # update all aesthetics to include the `yRidges` scale
+    filledScales = collectScales(updateAesRidges(p))
+  else:
+    filledScales = collectScales(p)
   let theme = buildTheme(filledScales, p)
   let hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
                    else: false

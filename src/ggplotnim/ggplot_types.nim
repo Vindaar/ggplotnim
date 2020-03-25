@@ -22,6 +22,7 @@ type
     width*: Option[Scale] # width of tile / rect / raster
     height*: Option[Scale] # height of tile / rect / raster
     text*: Option[Scale] # text to display
+    yRidges*: Option[Scale]
 
   ScaleKind* = enum
     scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize, scText
@@ -112,6 +113,14 @@ type
 
   Facet* = object
     columns*: seq[string]
+
+  Ridges* = object
+    col*: FormulaNode
+    overlap*: float # overlap between ridges
+    showTicks*: bool
+    # allows to define a custom order for the labels of the
+    # ridge scale
+    labelOrder*: Table[Value, int]
 
   # helper object to compose `ggsave` via `+` with `ggplot`
   # Uses the default ``cairo`` backend
@@ -237,6 +246,7 @@ type
     numXticks*: int
     numYticks*: int
     facet*: Option[Facet]
+    ridges*: Option[Ridges] # creates a ridgeline plot where `y` scale becomes ridge
     geoms*: seq[Geom]
     annotations*: seq[Annotation]
     theme*: Theme
@@ -291,7 +301,8 @@ type
     yMax*: MainAddScales
     width*: MainAddScales
     height*: MainAddScales
-    text*: MainAddScales
+    #text*: MainAddScales # not needed, since we don't collect text
+    yRidges*: MainAddScales
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.

@@ -434,6 +434,10 @@ proc collectScales*(p: GgPlot): FilledScales =
   let yMaxFilled = callFillScale(p.data, ysMax, scLinearData)
   fillField("yMax", yMaxFilled)
 
+  let ysRidges = collect(p, yRidges)
+  let yRidgesFilled = callFillScale(p.data, ysRidges, scLinearData)
+  fillField("yRidges", yRidgesFilled)
+
   let colors = collect(p, color)
   let colorFilled = callFillScale(p.data, colors, scColor)
   fillField("color", colorFilled)
