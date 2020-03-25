@@ -237,11 +237,13 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
       applyStyle(style, subDf, discretes, keys)
       let yieldDf = subDf
       result.setXAttributes(yieldDf, x)
-      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+      let styleLabel = StyleLabel(style: style, label: toObject(keys))
+      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
   else:
     let yieldDf = df
     result.setXAttributes(yieldDf, x)
-    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
 
   case y.dcKind
   of dcDiscrete: result.yLabelSeq = y.labelSeq
@@ -308,7 +310,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       sumHist.addBinCountsByPosition(hist, g.position)
       let yieldDf = seqsToDf({ $x.col : bins,
                                countCol: hist })
-      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+      let styleLabel = StyleLabel(style: style, label: toObject(keys))
+      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.numX = max(result.numX, yieldDf.len)
       result.xScale = mergeScales(result.xScale, (low: bins.min.float,
                                                   high: bins.max.float))
@@ -320,7 +323,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     let yieldDf = seqsToDf({ $x.col : bins,
                              countCol: hist,
                              widthCol: binWidths})
-    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.numX = yieldDf.len
     result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
     result.yScale = mergeScales(result.yScale, (low: 0.0, high: hist.max.float))
@@ -369,14 +373,16 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange($x.col)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
-      result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+      let styleLabel = StyleLabel(style: style, label: toObject(keys))
+      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.setXAttributes(yieldDf, x)
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0,
                                    high: max(sumCounts[countCol]).toFloat))
   else:
     let yieldDf = df.count($x.col, name = countCol)
-    result.yieldData[style] = applyContScaleIfAny(yieldDf, df, cont, style)
+    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.setXAttributes(yieldDf, x)
     result.yScale = mergeScales(result.yScale,
                                 (low: 0.0, high: yieldDf[countCol].max.toFloat))

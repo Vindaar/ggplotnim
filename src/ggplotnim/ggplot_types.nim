@@ -237,6 +237,10 @@ type
     annotations*: seq[Annotation]
     theme*: Theme
 
+  StyleLabel* = object
+    style*: GgStyle
+    label*: Value
+
   # A filled geom is a geom plus a closure to yield the
   FilledGeom* = object
     geom*: Geom
@@ -249,8 +253,8 @@ type
     # select the correct scale for the whole plot
     xScale*: ginger.Scale
     yScale*: ginger.Scale
-    # `Style` stores base style for each value of the discrete (!) scales
-    yieldData*: OrderedTable[GgStyle, (seq[GgStyle], DataFrame)]
+    # `GgStyle` stores base style for each value of the discrete (!) scales
+    yieldData*: OrderedTable[StyleLabel, (seq[GgStyle], DataFrame)]
     # whether X or Y is discrete or continuous. Has direct implication for drawing
     case dcKindX*: DiscreteKind
     of dcDiscrete:
@@ -407,6 +411,10 @@ proc `$`*(f: Facet): string =
       result.add x & ")"
     else:
       result.add x & ", "
+
+proc hash*(x: StyleLabel): Hash =
+  result = hash(x.style)
+  result = result !& hash(x.label)
 
 proc `$`*(aes: Aesthetics): string =
   result = "("
