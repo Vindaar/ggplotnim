@@ -1307,7 +1307,7 @@ func hasSecondary(theme: Theme, axKind: AxisKind): bool =
     if theme.yLabelSecondary.isSome:
       result = true
 
-proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            scale: Scale, numTicks: int, theme: Theme,
                            isSecondary = false,
                            hideTickLabels = false): seq[GraphObject] =
@@ -1349,7 +1349,7 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
     result = tickObjs
   else: discard
 
-proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
+proc handleDiscreteTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                          labelSeq: seq[Value],
                          theme: Theme,
                          isSecondary = false,
@@ -1404,7 +1404,7 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
-proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
+proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
                  axKind: AxisKind, theme: Theme,
                  hideTickLabels = false,
                  numTicksOpt = none[int](),
@@ -1467,7 +1467,7 @@ template argMaxIt(s, arg: untyped): untyped =
         maxVal = arg
     maxId
 
-proc handleLabels(view: var Viewport, theme: Theme) =
+proc handleLabels(view: Viewport, theme: Theme) =
   ## potentially moves the label positions and enlarges the areas (not yet)
   ## potentially moves the label positions and enlarges the areas (not yet)
   ## for the y label / tick label column or x row.
@@ -1580,7 +1580,7 @@ proc calcRidgeViewMap(ridge: Ridges,
       result[label] = idx + 1
       labelSeq.add label
 
-proc createRidgeLayout(view: var Viewport, theme: Theme, numLabels: int) =
+proc createRidgeLayout(view: Viewport, theme: Theme, numLabels: int) =
   ## creates the layout for ridgeline plots
   # The layout is essentially the user defined margin for
   # discrete scales + equal spacing for each ridge
