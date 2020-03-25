@@ -2,11 +2,11 @@ import sequtils, tables
 import ggplot_types, formula, ggplot_styles
 import ginger
 
-iterator enumerateData(geom: FilledGeom): (seq[GgStyle], DataFrame) =
+iterator enumerateData(geom: FilledGeom): (StyleLabel, seq[GgStyle], DataFrame) =
   ## yields the pairs of continuous styles for the current discrete style and
   ## its data from `yieldData`
-  for (style, df) in values(geom.yieldData):
-    yield (style, df)
+  for (styleLabel, tup) in pairs(geom.yieldData):
+    yield (styleLabel, tup[0], tup[1])
 
 proc drawStackedPolyLine(view: var Viewport,
                          prevVals: seq[float],
@@ -528,7 +528,7 @@ proc createGobjFromGeom*(view: var Viewport,
   var prevValsCont = newSeq[float]()
   var prevValsDiscr = initTable[int, float]()
   let anyDiscrete = if viewMap.len == 0: false else: true
-  for (styles, subDf) in enumerateData(fg):
+  for (styleLabel, styles, subDf) in enumerateData(fg):
     if fg.geom.position == pkStack and anyDiscrete:
       view.drawSubDf(fg, viewMap, subDf,
                      prevValsDiscr,
