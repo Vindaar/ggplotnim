@@ -1633,13 +1633,12 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
     # we create the ticks manually with `discreteTickLabels` to set the labels
     var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
                                           theme = theme, centerTicks = false)
-  view.xScale = theme.xMarginRange
-  #view.updateDataScale()
-  if not hideTicks:
     let grdLines = view.initGridLines(some(xticks), some(yticks))
     view.addObj @[grdLines]
   if not hideLabels:
     view.handleLabels(theme)
+  view.xScale = theme.xMarginRange
+  #view.updateDataScale()
 
   #result[3].yScale = (low: 0.0, high: 1.0)
   #result[3].updateDataScale()
