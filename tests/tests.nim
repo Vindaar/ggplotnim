@@ -470,10 +470,10 @@ suite "GgPlot":
     # the default label margin is 1 cm, i.e. ~28.34 pixels at 72 dpi
     checkLabel(xLab[0], "xLabel", "x",
                Coord(x: Coord1D(pos: 0.5, kind: ukRelative),
-                     y: Coord1D(pos: 423.0944881889764, kind: ukPoint, length: some((val: 480.0, unit: ukPoint)))),
+                     y: Coord1D(pos: 423.0944881889764, kind: ukPoint, length: some(pointHeight(plt.children[4])))),
                none[float]())
     checkLabel(yLab[0], "yLabel", "exp",
-               Coord(x: Coord1D(pos: -0.07931594488188977, kind: ukRelative),
+               Coord(x: Coord1D(pos: -0.09393183283490754, kind: ukRelative),
                      y: Coord1D(pos: 0.5, kind: ukRelative)),
                some(-90.0))
     check yLab[0].txtPos.x.toPoints.pos != quant(1.0, ukCentimeter).toPoints.val
