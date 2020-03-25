@@ -50,10 +50,15 @@ iterator enumerateScalesByIds*(filledScales: FilledScales): Scale =
   genYield(fill)
   genYield(size)
   genYield(shape)
-  genYield(xMin)
-  genYield(xMax)
-  genYield(yMin)
-  genYield(yMax)
+  # theses don't have to be yielded. They are only accessed
+  # for the specific geoms that use them
+  #genYield(xMin)
+  #genYield(xMax)
+  #genYield(yMin)
+  #genYield(yMax)
+  #genYield(width)
+  #genYield(height)
+  #genYield(text)
 
 iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
   ## Yields all scales, which are allowed for the given geom
