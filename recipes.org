@@ -955,6 +955,81 @@ This generates:
 
 [[./media/recipes/rAnnotateMaxValues.png]]
 
+*** Annotated heat map
+
+=geom_text= and =geom_tile= can be nicely combined to create annotated
+heatmaps.
+
+Let's calculate the mean of highway fuel economy for each pair of
+=(car class, number of cylinder)= in the =mpg= dataset and create an
+annotated heatmap from the combination.
+#+BEGIN_SRC nim :tangle recipes/rAnnotatedHeatmap.nim
+import ggplotnim, random, math
+
+let df = toDf(readCsv("data/mpg.csv"))
+let dfRed = df.group_by(["class", "cyl"]).summarize(f{mean("hwy")})
+# stringification of formula is default name
+let meanHwyCol = $f{mean("hwy")}
+ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
+  geom_tile() +
+  geom_text(aes(text = meanHwyCol)) +
+  scale_y_continuous(dcKind = dcDiscrete) +
+  ggsave("media/recipes/rAnnotatedHeatmap.png")
+#+END_SRC
+
+Which results in:
+[[media/recipes/rAnnotatedHeatmap.png]]
+
+*** Plot consisting of multiple subplots
+
+In certain domains one often ends up with the desire to create a plot
+from multiple subplots. This is supported already, but requires
+explicit use of =ginger= functinoality at the moment.
+
+See for an example, inspired by here:
+https://staff.fnwi.uva.nl/r.vandenboomgaard/SP20162017/SystemsSignals/plottingsignals.html
+below.
+
+The major point is to create two plots (but not draw them) using
+=ggcreate= with custom defined =width= and =height=. Then create a
+viewport, which will hold the two plots, with width and height such
+that the two plots fit. Then create a layout of rows / columns
+(theoretically custom sizes can be set, but for an equal sized
+subplot not required) and embed the plots.
+#+BEGIN_SRC nim :tangle recipes/rMultiSubplots.nim
+import ggplotnim, seqmath, math, sequtils, complex, ginger
+let t = linspace(-0.02, 0.05, 1000)
+let y1 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).re)
+let y2 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).im)
+let df = seqsToDf({ "t" : t,
+                    "Re x(t)" : y1,
+                    "Im x(t)" : y2 })
+let plt1 = ggcreate(
+  ggplot(df, aes("t", "Re x(t)")) + 
+    geom_line() + 
+    xlim(-0.02, 0.05) + 
+    ggtitle("Real part of x(t)=e^{j 100 π t}"),
+  width = 800, height = 300
+)
+let plt2 = ggcreate(
+  ggplot(df, aes("t", "Im x(t)")) + 
+    geom_line() + 
+    xlim(-0.02, 0.05) + 
+    ggtitle("Imaginary part of x(t)=e^{j 100 π t}"),
+  width = 800, height = 300
+)
+# combine both into a single viewport to draw as one image
+var plt = initViewport(wImg = 800, hImg = 600)#wImg = 800.0, hImg = 800)
+plt.layout(1, rows = 2)
+# embed the finished plots into the the new viewport
+plt.embedAt(0, plt1.view)
+plt.embedAt(1, plt2.view)
+plt.draw("media/recipes/rMultiSubplots.png")
+#+END_SRC
+
+Which gives us:
+[[media/recipes/rMultiSubplots.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
@@ -981,6 +1056,123 @@ using =geom_linerange=!
 This section goes for a more cohesive, explanatory and hopefully more
 fun introduction to different kinds of plots. Also possible
 alternatives might be discussed.
+
+*** Fun with elements
+
+WRITE ME
+
+#+BEGIN_SRC nim :tangle recipes/rPeriodicTable.nim
+import ggplotnim, sequtils, seqmath, strutils
+
+##
+## This is a straight up adaptation from the genius `plotnine` example
+## here:
+## https://plotnine.readthedocs.io/en/stable/generated/plotnine.geoms.geom_tile.html
+##
+
+var elements = toDf(readCsv("data/elements.csv"))
+echo elements.pretty(5)
+
+elements["group"] = elements["group"].vToSeq.mapIt(
+  if it == %~ "-":
+    %~ -1
+  elif it.kind == VString:
+    %~ parseInt(it.toStr)
+  else:
+    it)
+
+# convert atomic mass floats to strings without explicit `"`
+elements["atomic mass"] = elements["atomic mass"].vToSeq.mapIt(
+  try:
+    %~ parseFloat(pretty(it, emphStrNumber = false))
+  except ValueError:
+    it
+)
+
+var top = elements.filter(f{"group" != -1})
+var bottom = elements.filter(f{"group" == -1})
+top["x"] = top["group"]
+top["y"] = top["period"]
+echo top["x"]
+echo top["y"]
+
+const nrows = 2
+const hshift = 3.5
+const vshift = 3
+bottom["x"] = cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
+bottom["y"] = bottom["period"].vToSeq.mapIt(it.toFloat + vshift)
+echo bottom
+const tile_width = 0.95
+const tile_height = 0.95
+
+# replace `elements` by stacked top and bottom
+elements = bind_rows([top, bottom])
+
+let splitDf = seqsToDf({
+  "y": @[6, 7],
+  "metal": @["lanthanoid", "actinoid"]
+})
+
+func cycle[T](s: openArray[T]; nums: seq[int]): seq[T] =
+  result = newSeq[T](nums.foldl(a + b))
+  var idx = 0
+  for i in 0 ..< nums.len:
+    for j in 0 ..< nums[i]:
+      result[idx] = s[i]
+      inc idx
+# finally define rows and cols
+let groupdf= seqsToDf({
+    "group": arange(1, 19),
+    "y": cycle(@[1, 2, 4, 2, 1], @[1, 1, 10, 5, 1])})
+let periodDf = seqsToDf({
+    "period": arange(1, 8),
+    "x": cycle(@[0.5], @[7])})
+
+ggplot(elements, aes("x", "y", fill = "metal")) +
+  geom_tile(aes = aes(width = f{tileWidth},
+                      height = f{tileHeight})) +
+  geom_tile(data = splitDf,
+            aes = aes(x = f{3 - tileWidth/4.0 + 0.25},
+                      width = f{tileWidth / 2.0},
+                      height = f{tileHeight})) +
+  scale_y_continuous(dcKind = dcContinuous) +
+  geom_text(aes(x = f{"x" + 0.15},
+                y = f{"y" + 0.15},
+                text="atomic number"),
+            font = some(font(6.0))) +
+  geom_text(aes(x = f{"x" + 0.5},
+                y = f{"y" + 0.4},
+                text="symbol"),
+            font = some(font(9.0))) +
+  geom_text(aes(x = f{"x" + 0.5},
+                y = f{"y" + 0.6},
+                text="name"),
+            font = some(font(4.5))) +
+  geom_text(aes(x = f{"x" + 0.5},
+                y = f{"y" + 0.8},
+                text="atomic mass"),
+            font = some(font(4.5))) +
+  geom_text(data = groupdf,
+            aes = aes(x = f{"group" + 0.5},
+                      y = f{"y" - 0.2},
+                      text = "group"),
+            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+  geom_text(data = periodDf,
+            aes = aes(x = f{"x" + 0.3},
+                      y = f{"period" + 0.5},
+                      text = "period"),
+            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+  legendPosition(0.82, 0.1) +
+  theme_void() +
+  scale_y_reverse() +
+  scale_x_continuous(dcKind = dcContinuous) +
+  ggsave("media/recipes/rPeriodicTable.png",
+         width = 1000,
+         height = 500)
+#+END_SRC
+
+which gives the following amazing result (better to look at a PDF!):
+[[media/recipes/rPeriodicTable.png]]
 
 *** Plot a function
 
