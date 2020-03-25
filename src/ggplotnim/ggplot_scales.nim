@@ -1,4 +1,4 @@
-import tables, sets, algorithm
+import tables, sets, algorithm, macros
 
 import ggplot_types, formula
 import ginger except Scale
@@ -59,6 +59,7 @@ iterator enumerateScalesByIds*(filledScales: FilledScales): Scale =
   #genYield(width)
   #genYield(height)
   #genYield(text)
+  genYield(yRidges)
 
 iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
   ## Yields all scales, which are allowed for the given geom
@@ -67,3 +68,25 @@ iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
     if geom.gid in s.ids and s notin yieldedSet:
       yieldedSet.incl s
       yield s
+
+macro genGetScale(field: untyped): untyped =
+  let name = ident("get" & $field.strVal & "Scale")
+  result = quote do:
+    proc `name`*(filledScales: FilledScales, geom = Geom(gid: 0)): Scale =
+      result = new Scale
+      if filledScales.`field`.main.isSome:
+        # use main
+        result = filledScales.`field`.main.get
+      else:
+        # find scale matching `gid`
+        for s in filledScales.`field`.more:
+          if geom.gid == 0 or geom.gid in s.ids:
+            return s
+
+genGetScale(x)
+genGetScale(y)
+genGetScale(yRidges)
+# not used at the moment
+#genGetScale(color)
+#genGetScale(size)
+#genGetScale(shape)
