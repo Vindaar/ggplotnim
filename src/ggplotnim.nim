@@ -140,11 +140,11 @@ template assignBinFields(res: var Geom, stKind, bins,
   case stKind
   of stBin:
     if breaks.len > 0:
-      result.binEdges = some(breaks)
+      res.binEdges = some(breaks)
     if binWidth > 0.0:
-      result.binWidth = some(binWidth)
+      res.binWidth = some(binWidth)
     if bins > 0:
-      result.numBins = bins
+      res.numBins = bins
   else: discard
 
 func initGgStyle(color = none[Color](),
