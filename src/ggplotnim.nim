@@ -1050,13 +1050,18 @@ proc requiresLegend(filledScales: FilledScales): bool =
   else:
     result = false
 
-proc plotLayoutWithLegend(view: var Viewport) =
+proc plotLayoutWithLegend(view: var Viewport,
+                          tightLayout = false) =
   ## creates a layout for a plot in the current viewport that leaves space
   ## for a legend. Important indices of the created viewports:
+  ## If `tightLayout` is `true`, the left hand side will only have 0.2 cm
+  ## of spacing.
   ## - main plot: idx = 4
   ## - legend: idx = 5
   # TODO: Make relative to image size!
-  view.layout(3, 3, colwidths = @[quant(2.5, ukCentimeter),
+  let leftSpace = if tightLayout: quant(0.2, ukCentimeter)
+                  else: quant(2.5, ukCentimeter)
+  view.layout(3, 3, colwidths = @[leftSpace,
                                   quant(0.0, ukRelative),
                                   quant(5.0, ukCentimeter)],
               rowheights = @[quant(1.25, ukCentimeter),
@@ -1072,11 +1077,16 @@ proc plotLayoutWithLegend(view: var Viewport) =
   view[7].name = "xLabel"
   view[8].name = "bottomRight"
 
-proc plotLayoutWithoutLegend(view: var Viewport) =
+proc plotLayoutWithoutLegend(view: var Viewport,
+                             tightLayout = false) =
   ## creates a layout for a plot in the current viewport without a legend
+  ## If `tightLayout` is `true`, the left hand side will only have 0.2 cm
+  ## of spacing.
   ## Main plot viewport will be:
   ## idx = 4
-  view.layout(3, 3, colwidths = @[quant(2.5, ukCentimeter),
+  let leftSpace = if tightLayout: quant(0.2, ukCentimeter)
+                  else: quant(2.5, ukCentimeter)
+  view.layout(3, 3, colwidths = @[leftSpace,
                                   quant(0.0, ukRelative),
                                   quant(1.0, ukCentimeter)],
               rowheights = @[quant(1.0, ukCentimeter),
@@ -1112,6 +1122,23 @@ genGetScale(y)
 #genGetScale(color)
 #genGetScale(size)
 #genGetScale(shape)
+proc createLayout(view: var Viewport,
+                  filledScales: FilledScales, theme: Theme) =
+  let drawLegend = filledScales.requiresLegend
+  let  hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
+                   else: false
+  let hideTickLabels = if theme.hideTickLabels.isSome: theme.hideTickLabels.unsafeGet
+                       else: false
+  let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
+                   else: false
+  if drawLegend and not hideLabels and not hideTicks:
+    view.plotLayoutWithLegend()
+  elif drawLegend and hideLabels and hideTicks:
+    view.plotLayoutWithLegend(tightLayout = true)
+  elif not drawLegend and not hideLabels and not hideTicks:
+    view.plotLayoutWithoutLegend()
+  else:
+    view.plotLayoutWithoutLegend(tightLayout = true)
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
@@ -1718,11 +1745,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   # set color of canvas background
   img.background(style = some(getCanvasBackground(theme)))
 
-  let drawLegend = filledScales.requiresLegend
-  if drawLegend:
-    img.plotLayoutWithLegend()
-  else:
-    img.plotLayoutWithoutLegend()
+  img.createLayout(filledScales, theme)
   # get viewport of plot
   var pltBase = img[4]
 
