@@ -1407,7 +1407,7 @@ proc handleLabels(view: var Viewport, theme: Theme) =
       let labNames = labs.mapIt(it.txtText)
       let labLens = labNames.argMaxIt(len(it))
       # TODO: use custom label font for margin calc?
-      let font = if theme.labelFont.isSome: theme.labelFont.get else: labs[0].txtFont
+      let font = if theme.labelFont.isSome: theme.labelFont.get else: font(8.0)
       case axKind
       of akX:
         marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
