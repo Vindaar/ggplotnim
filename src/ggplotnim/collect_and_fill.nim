@@ -257,6 +257,7 @@ proc fillScaleImpl(
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
         "discrete scales!")
+    of scText: result = Scale(scKind: scText) # nothing required but the column
   else:
     let dataScale = dataScaleOpt.unwrap()
     case scKind
@@ -278,6 +279,7 @@ proc fillScaleImpl(
     of scShape:
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
+    of scText: result = Scale(scKind: scText)
 
 type
   ScaleData = tuple

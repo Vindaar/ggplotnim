@@ -104,7 +104,7 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M: string | FormulaNode](
                         height: height.orNoneScale(scLinearData, akY),
                         # TODO: should we fix this axis here?... :| Use something
                         # other than `scLinearData`?
-                        text: text.orNoneScale(scLinearData, akX))
+                        text: text.orNoneScale(scText),
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -1015,6 +1015,9 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   of scShape:
     mscale.ids = aes.shape.get.ids
     result.shape = some(mscale)
+  of scText:
+    mscale.ids = aes.text.get.ids
+    result.text = some(mscale)
 
 proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   ## adds the given Scale to the GgPlot object.
