@@ -724,6 +724,19 @@ func theme_opaque*(): Theme =
   ## canvas of the plot is white instead of transparent
   result = Theme(canvasColor: some(white))
 
+func theme_void*(): Theme =
+  ## returns the "void" theme. This means:
+  ## - white background
+  ## - no grid lines
+  ## - no ticks
+  ## - no tick labels
+  ## - no labels
+  result = Theme(canvasColor: some(white),
+                 plotBackgroundColor: some(white),
+                 hideTicks: some(true),
+                 hideTickLabels: some(true),
+                 hideLabels: some(true))
+
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
   of "none": result = none[TextAlignKind]()
@@ -944,6 +957,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(tickLabelFont)
   ifSome(titleFont)
   ifSome(subTitleFont)
+  ifSome(tickLabelFont)
   ifSome(title)
   ifSome(subTitle)
   ifSome(plotBackgroundColor)
@@ -954,6 +968,9 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(yMargin)
   ifSome(xOutsideRange)
   ifSome(yOutsideRange)
+  ifSome(hideTicks)
+  ifSome(hideTickLabels)
+  ifSome(hideLabels)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -1161,7 +1178,8 @@ proc largestPow(x: float): float =
       result *= 10.0
 
 proc tickposlog(minv, maxv: float,
-                boundScale: ginger.Scale): (seq[string], seq[float]) =
+                boundScale: ginger.Scale,
+                hideTickLabels = false): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
@@ -1171,11 +1189,13 @@ proc tickposlog(minv, maxv: float,
     labPos = newSeq[float]()
   for i in 0 ..< numTicks div 10:
     let base = (minv * pow(10, i.float))
-    labs.add formatTickValue(base)
+    if not hideTickLabels:
+      labs.add formatTickValue(base)
     let minors = linspace(base, 9 * base, 9)
     labPos.add minors.mapIt(it.log10)
     labs.add toSeq(0 ..< 8).mapIt("")
-  labs.add $maxv
+  if not hideTickLabels: labs.add $maxv
+  else: labs.add ""
   labPos.add log10(maxv)
   # for simplicity apply removal afterwards
   let filterIdx = toSeq(0 ..< labPos.len).filterIt(
@@ -1219,21 +1239,25 @@ func hasSecondary(theme: Theme, axKind: AxisKind): bool =
 
 proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                            scale: Scale, numTicks: int, theme: Theme,
-                           isSecondary = false): seq[GraphObject] =
+                           isSecondary = false,
+                           hideTickLabels = false): seq[GraphObject] =
   let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
   case scale.scKind
   of scLinearData:
     let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary,
                                boundScale = some(boundScale))
-    let tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
-                                   font = theme.tickLabelFont)
+    var tickLabs: seq[GraphObject]
+    if not hideTickLabels:
+      tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
+                                 font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
     # for now assume log10 scale
     let minVal = pow(10, scale.dataScale.low).smallestPow
     let maxVal = pow(10, scale.dataScale.high).largestPow
-    let (labs, labelpos) = tickposlog(minVal, maxVal, boundScale)
+    let (labs, labelpos) = tickposlog(minVal, maxVal, boundScale,
+                                      hideTickLabels = hideTickLabels)
     var tickLocs: seq[Coord1D]
     case axKind
     of akX:
@@ -1258,7 +1282,9 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
                          scale: Scale,
                          theme: Theme,
-                         isSecondary = false): seq[GraphObject] =
+                         isSecondary = false,
+                         hideTickLabels = false,
+                         centerTicks = true): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -1280,9 +1306,14 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   # NOTE: the following only holds if def. of `wview` changed in ginger
   # doAssert view.wview != view.wimg
   let barViewWidth = (1.0 - 2 * discrMargin) / numTicks.float
-  let centerPos = barViewWidth / 2.0
+  var centerPos = barViewWidth / 2.0
+  if not centerTicks:
+    case axKind
+    of akX: centerPos = 0.0
+    of akY: centerPos = barViewWidth
   for i in 0 ..< numTicks:
-    tickLabels.add $scale.labelSeq[i]
+    if not hideTickLabels: tickLabels.add $labelSeq[i]
+    else: tickLabels.add ""
     # in case of a discrete scale we have categories, which are evenly spaced.
     # taking into account the margin of the plot, calculate center of all categories
     let pos = discrMargin + i.float * barViewWidth + centerPos
@@ -1330,14 +1361,17 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
-                                              isSecondary = true)
+                                              isSecondary = true,
+                                              hideTickLabels = hideTickLabels)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
     # in this case don't read into anything and just call ticks / labels
     let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
     let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
-    let tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
+    var tickLabs: seq[GraphObject]
+    if hideTickLabels:
+      tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
 
@@ -1517,7 +1551,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   #   var plotView = viewFacet[1]
   #   # now add dummy plt to pltSeq
   #   let filledScales = collectScales(mplt)
-  #   plotView = plotView.generatePlot(mplt, filledScales, theme, addLabels = false)
+  #   plotView = plotView.generatePlot(mplt, filledScales, theme, hideLabels = true)
   #   plotView.name = "facetPlot"
   #   viewFacet[0] = headerView
   #   viewFacet[1] = plotView
