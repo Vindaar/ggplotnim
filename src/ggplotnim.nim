@@ -1746,6 +1746,13 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## that will actually be drawn.
   let filledScales = collectScales(p)
   let theme = buildTheme(filledScales, p)
+  let hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
+                   else: false
+  let hideTickLabels = if theme.hideTickLabels.isSome: theme.hideTickLabels.unsafeGet
+                       else: false
+  let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
+                   else: false
+
   # create the plot
   var img = initViewport(name = "root",
                          wImg = width,
