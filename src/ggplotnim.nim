@@ -1310,7 +1310,7 @@ proc handleContinuousTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   else: discard
 
 proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
-                         scale: Scale,
+                         labelSeq: seq[Value],
                          theme: Theme,
                          isSecondary = false,
                          hideTickLabels = false,
@@ -1321,10 +1321,9 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   # start with even for all
   if isSecondary:
     raise newException(Exception, "Secondary axis for discrete axis not yet implemented!")
-  let numTicks = scale.labelSeq.len
+  let numTicks = labelSeq.len
   var tickLabels: seq[string]
   var tickLocs: seq[Coord1D]
-  let gScale = if scale.axKind == akX: view.xScale else: view.yScale
 
   # TODO: check if we should use w/hImg here, distinguish the axes
   let discrMarginOpt = p.theme.discreteScaleMargin
@@ -1366,7 +1365,10 @@ proc handleDiscreteTicks(view: var Viewport, p: GgPlot, axKind: AxisKind,
   result = tickObjs
 
 proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
-                 axKind: AxisKind, theme: Theme): seq[GraphObject] =
+                 axKind: AxisKind, theme: Theme,
+                 hideTickLabels = false,
+                 numTicksOpt = none[int](),
+                 boundScaleOpt = none[ginger.Scale]()): seq[GraphObject] =
   ## This handles the creation of the tick positions and tick labels.
   ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
   var scale: Scale
@@ -1374,20 +1376,23 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
   case axKind
   of akX:
     scale = filledScales.getXScale()
-    numTicks = p.numXTicks
+    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numXTicks
   of akY:
     scale = filledScales.getYScale()
-    numTicks = p.numYTicks
+    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
   if not scale.col.isNil:
     case scale.dcKind
     of dcDiscrete:
-      result = view.handleDiscreteTicks(p, axKind, scale, theme = theme)
+      result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
+                                        hideTickLabels = hideTickLabels)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
-        result.add view.handleDiscreteTicks(p, axKind, scale, theme = theme,
-                                            isSecondary = true)
+        result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
+                                            isSecondary = true,
+                                            hideTickLabels = hideTickLabels)
     of dcContinuous:
-      result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme)
+      result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
+                                          hideTickLabels = hideTickLabels)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
