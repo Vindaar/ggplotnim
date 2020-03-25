@@ -542,6 +542,44 @@ proc scale_y_continuous*(name: string = "",
                  hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
+proc scale_x_reverse*(name: string = "",
+                      secAxis: SecondaryAxis = sec_axis(),
+                      dcKind: DiscreteKind = dcContinuous): Scale =
+  ## creates a continuous x axis with a possible secondary axis, which
+  ## is reversed
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akX
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akX,
+                 dcKind: dcKind,
+                 reversed: true,
+                 hasDiscreteness: true,
+                 secondaryAxis: secAxisOpt)
+
+proc scale_y_reverse*(name: string = "",
+                      secAxis: SecondaryAxis = sec_axis(),
+                      dcKind: DiscreteKind = dcContinuous): Scale =
+  ## creates a continuous y axis with a possible secondary axis, which
+  ## is reversed
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akY
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akY,
+                 dcKind: dcKind,
+                 reversed: true,
+                 hasDiscreteness: true,
+                 secondaryAxis: secAxisOpt)
+
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =
   result = Theme(title: some(title))

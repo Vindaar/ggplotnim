@@ -89,6 +89,7 @@ type
     of scLinearData, scTransformedData:
       # which axis does it belong to?
       axKind*: AxisKind
+      reversed*: bool # decides whether the scale will be reversed
       # where `trans` is our assigned transformation function, which is applied
       # to all values associated with this scale
       # For scLinearData the transformation proc is just the identity (or
