@@ -1,3 +1,52 @@
+* v0.2.21
+- =summarize= now works reliably on data frames, which have been grouped
+  by multiple columns
+- fixes a few bugs regarding wrong length scales used
+- fixed a possible assertion error, due to unsafe access of an
+  `Option[T]` (wrong field checked in if)
+- introduce =StyleLabel= to retain information about styles for
+  discrete labels in =FilledGeom.yieldData=. Allows to know which
+  style belongs to which label of a discrete scale.
+- fix =assignBinFields= to actually use given argument instead of
+  =result= from caling scope
+- add theme fields to hide labels, ticks and tick labels
+- add =theme_void=, an empty theme. No labels, ticks, tickLabels, grid
+  lines, white background.
+- use =pretty(Value ...)= for children of =VObject=
+- do not collect text scales anymore. They're not used in the post
+  processing stage. Only care about column (note: this may change, if
+  we want to incorporate the string widths / heights into the plot
+  scales!)
+- do not crash if no label is present in =handleLabels= yet
+- add ScaleKind for text: =scText= to not confuse text with x or y
+  axes
+- plot layout now differs for themes without labels and ticks. Only
+  0.2 cm on LHS of plot instead of 2.5 cm
+- =handleDiscreteTicks= now takes only labels instead of a full
+  =Scale=
+- =handleTicks= respects =hideLabels= and allows custom number of
+  ticks (to call it from elsewhere, e.g. gradients)
+- =handleTicks= can take a custom boundScale. Allows to call it for
+  other uses.
+- only yield scales that show up as legends by =enumerateScalesByIds=
+  iterator
+- =addIdentityData= during collection now preallocates space for data
+- add ridgeline plots; accessed by applying =ggridges= to a
+  plot. Ridges are not really a geom, but rather a specific feature
+  similar to facets. Essentially an aesthetic =yRidges= is added,
+  by which is classified. Each labels gets its own ridge. In that
+  ridge every normal kind of plot is allowed (including more classical
+  ridgeline plots)
+- progress towards supporting --gc:arc. No more =deepCopy= in use.
+- add (not working yet) =scale_*_reverse= to reverse x and y
+  scales. In principle it does work, but how to hand information to
+  where its needed unclear (add to =FilledScales=, =GgPlot=, ... ?)
+- add more recipes:
+  - =rAnnotatedHeatmap.nim=: example of a heatmap overlaid with text
+  - =rMultiSubplots.nim=: an example on how to use =ginger= to combine
+    two plots to one subplot
+  - =rPeriodicTable.nim=: creating a periodic table as a plot!
+
 * v0.2.20
 - move =font= helper to =ggplot_utils=
 - remove spacing between multiple legends. Previously there was 1 cm
