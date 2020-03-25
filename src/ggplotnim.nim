@@ -1003,7 +1003,11 @@ proc `+`*(p: GgPlot, theme: Theme): GgPlot =
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
   ## `aes`
-  var mscale = deepCopy(scale)
+  var mscale: Scale
+  when defined(gcDestructors):
+    mscale[] = scale[]
+  else:
+    mscale = deepCopy(scale)
   result = aes
   case mscale.scKind
   of scLinearData, scTransformedData:
@@ -1889,7 +1893,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var pltBase = img[4]
 
   if p.facet.isSome:
-    pltBase = pltBase.generateFacetPlots(p, theme)
+    pltBase.generateFacetPlots(p, theme)
     # TODO :clean labels up, combine with handleLabels!
     # Have to consider what should happen for that though.
     # Need flag to disable auto subtraction, because we don't have space or
@@ -1898,10 +1902,11 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
     let ylabel = pltBase.ylabel(theme.yLabel.unwrap())
     pltBase.addObj @[xlabel, ylabel]
   else:
-    pltBase = pltBase.generatePlot(p, filledScales, theme)
+    pltBase.generatePlot(p, filledScales, theme,
+                         hideLabels = hideLabels,
+                         hideTicks = hideTicks)
   let xScale = pltBase.xScale
   let yScale = pltBase.yScale
-  img[4] = pltBase
   img.xScale = xScale
   img.yScale = yScale
   #img.updateDataScale()
@@ -1916,8 +1921,8 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   for scale in enumerateScalesByIds(filledScales):
     if scale.scKind notin {scLinearData, scTransformedData} and
        (scale.dcKind, scale.scKind) notin drawnLegends:
-      # handle color legend
-      var lg = img[5]
+      # create deep copy of the original legend pane
+      var lg = deepCopy(img[5])
       lg.createLegend(scale)
       legends.add lg
       drawnLegends.incl (scale.dcKind, scale.scKind)
@@ -1941,7 +1946,6 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
                                    alignKind = taLeft,
                                    font = some(font))
     titleView.addObj title
-    img[1] = titleView
 
   result.filledScales = filledScales
   result.view = img
