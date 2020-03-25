@@ -197,6 +197,15 @@ proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
 
 template `%~`*(s: openArray[Value]): seq[Value] = @s
 
+proc toObject*(s: seq[(string, Value)]): Value =
+  ## converts the given sequence to an object
+  ## This is only used to store the result of the `groups` iterator as a
+  ## `Value`.
+  result = Value(kind: VObject)
+  result.fields = initOrderedTable[string, Value]()
+  for (key, val) in s:
+    result.fields[key] = val
+
 proc `[]`*(df: DataFrame, k: string): PersistentVector[Value] {.inline.} =
   result = df.data[k]
 
