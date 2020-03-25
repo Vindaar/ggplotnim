@@ -1402,7 +1402,11 @@ proc handleTicks(view: var Viewport, filledScales: FilledScales, p: GgPlot,
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
     # in this case don't read into anything and just call ticks / labels
-    let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
+    var boundScale: ginger.Scale
+    if boundScaleOpt.isSome:
+      boundScale = boundScaleOpt.unsafeGet
+    else:
+      boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
     let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
     var tickLabs: seq[GraphObject]
     if hideTickLabels:
