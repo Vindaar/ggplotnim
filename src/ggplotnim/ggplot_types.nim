@@ -24,7 +24,7 @@ type
     text*: Option[Scale] # text to display
 
   ScaleKind* = enum
-    scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize
+    scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize, scText
 
   PositionKind* = enum
     pkIdentity = "identity"
@@ -59,6 +59,7 @@ type
     of scSize:
       # a size of something, e.g. a marker
       size*: float
+    of scText: discard
 
   #BelongsToAxis = enum
   #  btTrue, # for Scales, which belong to an axis, e.g. continuous x, y
@@ -371,6 +372,7 @@ proc hash*(x: ScaleValue): Hash =
     result = result !& hash(x.marker)
   of scSize:
     result = result !& hash(x.size)
+  of scText: discard
   result = !$result
 
 proc hash*(fn: FormulaNode): Hash =
