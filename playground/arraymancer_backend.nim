@@ -415,8 +415,9 @@ func determineFormulaKind(body: NimNode): FormulaKind =
       let res = determineFormulaKind(body[i])
       result = if res != fkNone: res else: result
 
-func determineFuncKind(body: NimNode,
-                       typeHint: NimNode):
+proc determineFuncKind(body: NimNode,
+                       typeHint: NimNode,
+                       name: NimNode):
      tuple[dtype: NimNode,
            resDtype: NimNode,
            fkKind: FormulaKind] =
@@ -465,6 +466,8 @@ func determineFuncKind(body: NimNode,
     debugecho "IS FLOAT ", isFloat
     debugecho "IS string ", isstring
     debugecho "IS bool ", isbool
+    result[0] = newNilLit()
+    result[1] = newNilLit()
     if isFloat:
       result[0] = ident"float"
       result[1] = ident"float"
@@ -498,6 +501,13 @@ func determineFuncKind(body: NimNode,
         # set both
         result[0] = typeHint
         result[1] = typeHint
+    if result[0].kind == nnkNilLit or result[1].kind == nnkNilLit:
+      error("Could not determine data types of tensors in formula:\n" &
+        "  name: " & $name & "\n" &
+        "  formula: " & $body.repr & "\n" &
+        "  data type: " & $result[0].repr & "\n" &
+        "  output data type: " & $result[1].repr)
+
 
     # finally determine the FormulaKind
     # TODO: for now we just assume that raw string literals are supposed
@@ -510,7 +520,8 @@ proc compileFormulaImpl(name, body: NimNode,
                         isAssignment: bool,
                         isReduce: bool,
                         typeHint: NimNode): NimNode =
-  var (dtype, resDtype, funcKind) = determineFuncKind(body, typeHint = typeHint)
+  var (dtype, resDtype, funcKind) = determineFuncKind(body, typeHint = typeHint,
+                                                      name = name)
   # force `fkVariable` if this is an `<-` assignment
   funcKind = if isAssignment: fkVariable
              elif isReduce: fkScalar
