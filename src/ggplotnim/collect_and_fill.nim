@@ -349,7 +349,8 @@ proc fillScaleImpl(
     of scShape:
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
-    of scText: result = Scale(scKind: scText)
+    of scText: result = Scale(scKind: scText,
+                              col: col) # nothing required but the column
 
 type
   ScaleData = tuple
