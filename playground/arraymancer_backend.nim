@@ -58,34 +58,28 @@ import formulaClosure
 export formulaClosure
 
 type
-  FormulaKind = enum
-    fkNone, fkVector, fkScalar, fkVariable
+  FormulaKind* = enum
+    fkVariable, fkAssign, fkVector, fkScalar
 
   FormulaNode* = object
-    name*: string
+    name*: string # stringification of whole formula. Only for printing and
+                  # debugging
     case kind*: FormulaKind
-    of fkNone: discard
-    # just some constant value. Result of a simple computation as a `Value`
-    # This is mainly used to rename columns / provide a constant value
-    of fkVariable: val*: Value
+    of fkVariable:
+      # just some constant value. Result of a simple computation as a `Value`
+      # This is mainly used to rename columns / provide a constant value
+      val*: Value
+    of fkAssign:
+      lhs*: string # can this be something else?
+      rhs*: Value
     of fkVector:
+      colName*: string
       resType*: ColKind
       fnV*: proc(df: DataFrame): Column
-      #case dtKindV*: ColKind
-      #of colFloat: fnFloatV*: proc(df: DataFrame): float
-      #of colInt: fnIntV*: proc(df: DataFrame): int
-      #of colString: fnStringV*: proc(df: DataFrame): string
-      #of colBool: fnBoolV*: proc(df: DataFrame): bool
-      #of colObject: fnValueV*: proc(df: DataFrame): Value
     of fkScalar:
+      valName*: string
       valKind*: ValueKind
       fnS*: proc(c: DataFrame): Value
-      #case dtKindS: ColKind
-      #of cFloat: fnFloatS: proc(x: float): float
-      #of cInt: fnIntS: proc(x: int): int
-      #of cString: fnStringS: proc(x: string): string
-      #of cBool: fnBoolS: proc(x: bool): bool
-      #of cObject: fnValueS: proc(x: Value): Value
 
   DataFrameKind = enum
     dfNormal, dfGrouped
@@ -910,7 +904,7 @@ proc row*(df: DataFrame, idx: int, cols: varargs[string]): Value {.inline.} =
 #  ## DF as a `VObject Value`.
 #  df.row(idx)
 #
-#func isColumn*(fn: FormulaNode, df: DataFrame): bool =
+#proc isColumn*(fn: FormulaNode, df: DataFrame): bool =
 #  case fn.kind
 #  of fkVariable:
 #    case fn.val.kind
@@ -1066,13 +1060,18 @@ macro toTab*(args: varargs[untyped]): untyped =
     block:
       `result`
       # finally fill up possible columns shorter than df.len
-      #`data`.extendShortColumns()
+      `data`.extendShortColumns()
       `data`
-  echo result.treerepr
-  echo result.repr
+  #echo result.treerepr
+  #echo result.repr
 
 template seqsToDf*(s: varargs[untyped]): untyped =
   ## converts an arbitrary number of sequences to a `DataFrame` or any
+  ## number of key / value pairs where we have string / seq[T] pairs.
+  toTab(s)
+
+template colsToDf*(s: varargs[untyped]): untyped =
+  ## converts an arbitrary number of columns to a `DataFrame` or any
   ## number of key / value pairs where we have string / seq[T] pairs.
   toTab(s)
 
@@ -1229,10 +1228,10 @@ iterator items*(df: DataFrame): Value =
 #    if mcond.evaluate(df, i).toBool:
 #      result.add i
 #
-#func filter(p: PersistentVector[Value], idx: seq[int]): PersistentVector[Value] =
+#proc filter(p: PersistentVector[Value], idx: seq[int]): PersistentVector[Value] =
 #  result = toPersistentVector(idx.mapIt(p[it]))
 
-#func filter(p: seq[Value], idx: seq[int]): seq[Value] =
+#proc filter(p: seq[Value], idx: seq[int]): seq[Value] =
 #  result = idx.mapIt(p[it])
 
 #template withKind(col: Column, body: untyped): untyped =
@@ -1258,7 +1257,7 @@ iterator items*(df: DataFrame): Value =
 #    var res {.inject.} = newTensor[Value](nonZero)
 #    body
 
-func filter(col: Column, filterIdx: Tensor[int]): Column =
+proc filter(col: Column, filterIdx: Tensor[int]): Column =
   ## perform filterting of the given column `key`
   withNativeDtype(col):
     let t = toTensor(col, dtype)
@@ -1268,12 +1267,12 @@ func filter(col: Column, filterIdx: Tensor[int]): Column =
         res[i[0]] = t[idx]
     result = res.toColumn
 
-func countTrue(t: Tensor[bool]): int {.inline.} =
+proc countTrue(t: Tensor[bool]): int {.inline.} =
   for el in t:
     if el:
       inc result
 
-func filteredIdx(t: Tensor[bool]): Tensor[int] {.inline.} =
+proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline.} =
   let numNonZero = countTrue(t)
   result = newTensor[int](numNonZero)
   var idx = 0
@@ -1431,7 +1430,7 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
 #  let colVals = df[col].vToSeq
 #  result = colVals.colMax(ignoreInf = ignoreInf)
 #
-#func scaleFromData*(s: seq[Value], ignoreInf: static bool = true): ginger.Scale =
+#proc scaleFromData*(s: seq[Value], ignoreInf: static bool = true): ginger.Scale =
 #  ## Combination of `colMin`, `colMax` to avoid running over the data
 #  ## twice. For large DFs to plot this makes a big difference.
 #  if s.len == 0: return (low: 0.0, high: 0.0)
@@ -1517,13 +1516,10 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
 ##
 ##liftProcToString(mean, float)
 #
-#proc unique*(v: PersistentVector[Value]): seq[Value] =
-#  ## returns a seq of all unique values in `v`
-#  result = v.vToSeq.deduplicate
-#
+
 proc calcNewColumn*(df: DataFrame, fn: FormulaNode): (string, Column) =
   ## calculates a new column based on the `fn` given
-  result = (fn.name, fn.fnV(df))
+  result = (fn.colName, fn.fnV(df))
   #doAssert fn.lhs.kind == fkVariable, " was " & $fn
   #doAssert fn.lhs.val.kind == VString, " was " & $fn
   ## for column names we don't want explicit highlighting of string numbers, since
@@ -1548,10 +1544,10 @@ proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]
       toDrop.excl fn
     else:
       case fn.kind
-      of fkNone: toDrop.excl fn.name
-      of fkVariable:
-        df[fn.name] = df[fn.val]
-        toDrop.excl fn.name
+      of fkVariable: toDrop.excl fn.val.toStr
+      of fkAssign:
+        df[fn.lhs] = df[fn.rhs]
+        toDrop.excl fn.lhs
       else: doAssert false, "function does not make sense for select"
   # now drop all required keys
   for key in toDrop: df.drop(key)
@@ -1574,12 +1570,20 @@ proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
   ## decide whether to only keep touched columns or not.
   var colsToKeep: seq[string]
   for fn in fns:
-    if fn.kind in {fkNone,fkVariable}:
-      colsToKeep.add fn.name
-    elif fn.kind == fkVector:
+    case fn.kind
+    of fkVariable:
+      colsToKeep.add fn.val.toStr
+    of fkAssign:
+      # essentially a rename
+      df[fn.lhs] = df[fn.rhs.toStr]
+      # colToKeep only relevant for `transmute`, where we only want to keep
+      # the LHS
+      colsToKeep.add fn.lhs
+    of fkVector:
       let (colName, newCol) = df.calcNewColumn(fn)
       df[colName] = newCol
       colsToKeep.add colName
+    of fkScalar: discard
   when dropCols:
     df.selectInplace(colsToKeep)
 
@@ -1594,8 +1598,9 @@ proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## dataframe.
   ## We assume that the LHS of the formula corresponds to a fkVariable
   ## that's used to designate the new name.
-  ## NOTE: If a given `fn` is a term (`fkTerm`) without an assignment
-  ## (using `~`, kind `amDep`) or a function (`fkFunction`), the resulting
+  ## TODO: UPDATE!!!
+  ## NOTE: If a given `fn` is a term (`fk`) without an assignment
+  ## (using `~`, kind `amDep`) or a function (`fk`), the resulting
   ## column will be named after the stringification of the formula.
   ##
   ## E.g.: `df.mutate(f{"x" * 2})` will add the column `(* x 2)`.
@@ -1633,10 +1638,10 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
   ## have to be `~`, but for clarity it should be.
   result = df
   for fn in cols:
-    doAssert fn.kind == fkVariable
-    result[fn.name] = df[fn.val.toStr]
+    doAssert fn.kind == fkAssign
+    result[fn.lhs] = df[fn.rhs.toStr]
     # remove the column of the old name
-    result.drop(fn.val.toStr)
+    result.drop(fn.rhs.toStr)
 
 #proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
 #  ## Given a dataframe `df` and column keys `keys`, returns a `seq[Value]`
@@ -1911,7 +1916,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     #for k in keys(seqTab):
     #  result[k] = seqTab[k].toPersistentVector
 
-func toSet(t: Tensor[Value]): HashSet[Value] =
+proc toSet(t: Tensor[Value]): HashSet[Value] =
   for el in t:
     result.incl el
 
@@ -1943,7 +1948,7 @@ proc hashColumn(s: var seq[Hash], c: Column) =
     for idx in 0 ..< t.size:
       s[idx] = s[idx] !& hash(t[idx])
 
-func buildColHashes(df: DataFrame, keys: seq[string]): seq[Hash] =
+proc buildColHashes(df: DataFrame, keys: seq[string]): seq[Hash] =
   for i, k in keys:
     if i == 0:
       result = newSeq[Hash](df.len)
@@ -2016,7 +2021,7 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   of dfNormal:
     for fn in fns:
       doAssert fn.kind == fkScalar
-      lhsName = fn.name
+      lhsName = fn.valName
       # just apply the function
       withNativeConversion(fn.valKind, get):
         let res = toColumn get(fn.fnS(df))
@@ -2030,7 +2035,7 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
     var idx = 0
     for fn in fns:
       doAssert fn.kind == fkScalar
-      lhsName = fn.name
+      lhsName = fn.valName
       sumStats[lhsName] = newSeqOfCap[Value](1000) # just start with decent size
       for class, subdf in groups(df):
         for (key, label) in class:
