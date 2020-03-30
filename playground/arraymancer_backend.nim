@@ -244,6 +244,52 @@ proc get*(df: DataFrame, key: string): Column {.inline.} =
     # create column of constants or raise?
     raise newException(KeyError, "Given string " & $key & " is not a valid column!")
 
+#proc createFormula(
+
+#colMin(df, $s.col), high: colMax(df, $s.col))
+proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
+  ## Returns the maximum of a given `seq[Value]`.
+  ## If `ignoreInf` is true `Inf` values are ignored. This porc
+  ## is mainly used to determine the data scales for a plot and not
+  ## as a user facing proc!
+  let t = df[col].toTensor(float)
+  for i, x in t:
+    if i[0] == 0:
+      result = x
+    if ignoreInf and classify(x) == fcInf:
+      continue
+    result = max(x, result)
+
+proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
+  ## Returns the minimum of a given `seq[Value]`.
+  ## If `ignoreInf` is true `-Inf` values are ignored. This porc
+  ## is mainly used to determine the data scales for a plot and not
+  ## as a user facing proc!
+  let t = df[col].toTensor(float)
+  for i, x in t:
+    if i[0] == 0:
+      result = x
+    if ignoreInf and classify(x) == fcNegInf:
+      continue
+    result = min(x, result)
+
+func scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
+  ## Combination of `colMin`, `colMax` to avoid running over the data
+  ## twice. For large DFs to plot this makes a big difference.
+  if c.len == 0: return (low: 0.0, high: 0.0)
+  let t = c.toTensor(float, dropNulls = true)
+  var
+    minVal = t[0]
+    maxVal = t[0]
+  for x in t:
+    when ignoreInf:
+      if (classify(x) == fcNegInf or
+          classify(x) == fcInf):
+        continue
+    minVal = min(x, minVal)
+    maxVal = max(x, maxVal)
+  result = (low: minVal, high: maxVal)
+
 proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   ## a helper proc to reorder an nnkInfix tree according to the
   ## `~` contained in it, so that `~` is at the top tree.
