@@ -41,5 +41,8 @@ let res = shellVerbose:
   nim c "-r recipes/rClassifiedGeomText.nim"
   nim c "-r recipes/rAnnotateUsingGeomText.nim"
   nim c "-r recipes/rAnnotateMaxValues.nim"
+  nim c "-r recipes/rAnnotatedHeatMap.nim"
+  nim c "-r recipes/rMultiSubplots.nim"
+  nim c "-r recipes/rPeriodicTable.nim"
 if res[1] != 0:
   raise newException(Exception, "Failed to build or run at least one recipe!")
