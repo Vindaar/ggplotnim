@@ -190,11 +190,17 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
         result = c.iCol[idx]
       elif T is SomeNumber:
         result = c.iCol[idx].T
+      elif T is string:
+        result = $c.iCol[idx]
     of colFloat:
       when T is float:
         result = c.fCol[idx]
       elif T is SomeNumber:
         result = c.fCol[idx].T
+      elif T is string:
+        # convert to Value and then string so that we use one single
+        # formatting function. This is slow anyways
+        result = pretty(%~ c.fCol[idx])
     of colString:
       when T is string:
         result = c.sCol[idx]
