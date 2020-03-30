@@ -11,8 +11,12 @@ from seqmath import linspace
 import persvector
 export persvector
 
-import ggplotnim / formula
-export formula
+when defined(defaultBackend):
+  import ggplotnim / formula
+  export formula
+else:
+  import ../playground/arraymancer_backend
+  export arraymancer_backend
 
 import ggplotnim / [
   ggplot_utils, ggplot_types,
@@ -474,33 +478,54 @@ proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
 proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
   result = Facet()
   for f in fns:
-    doAssert f.kind == fkTerm
-    doAssert f.rhs.val.kind == VString
-    result.columns.add f.rhs.val.str
+    when defined(defaultBackend):
+      doAssert f.kind == fkTerm
+      doAssert f.rhs.val.kind == VString
+      result.columns.add f.rhs.val.str
+    else:
+      result.columns.add f.name
 
 proc scale_x_log10*(): Scale =
   ## sets the X scale of the plot to a log10 scale
+  when defined(defaultBackend):
+    let trans = proc(v: Value): Value =
+      result = %~ log10(v.toFloat)
+
+  else:
+    let trans = proc(v: float): float =
+      result = log10(v)
+
   result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akX,
                  dcKind: dcContinuous,
-                 trans: proc(v: Value): Value =
-                            result = %~ log10(v.toFloat))
+                 trans: trans)
 
 proc scale_y_log10*(): Scale =
   ## sets the Y scale of the plot to a log10 scale
+  when defined(defaultBackend):
+    let trans = proc(v: Value): Value =
+      result = %~ log10(v.toFloat)
+
+  else:
+    let trans = proc(v: float): float =
+      result = log10(v)
+
   result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akY,
                  dcKind: dcContinuous,
-                 trans: proc(v: Value): Value =
-                            result = %~ log10(v.toFloat))
+                 trans: trans)
 
-func sec_axis*(trans: FormulaNode = nil, name: string = ""): SecondaryAxis =
+func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
   var fn: Option[FormulaNode]
-  if not trans.isNil:
-    fn = some(trans)
+  when defined(defaultBackend):
+    if not trans.isNil:
+      fn = some(trans)
+  else:
+    if trans.name.len > 0:
+      fn = some(trans)
   result = SecondaryAxis(trans: fn,
                          name: name)
 
@@ -1420,7 +1445,11 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
   of akY:
     scale = filledScales.getYScale()
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
-  if not scale.col.isNil:
+  when defined(defaultBackend):
+    let hasScale = not scale.col.isNil
+  else:
+    let hasScale = scale.col.name.len > 0
+  if hasScale:
     case scale.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
@@ -1449,7 +1478,7 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
       boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
     let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
     var tickLabs: seq[GraphObject]
-    if hideTickLabels:
+    if not hideTickLabels:
       tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
     view.addObj concat(ticks, tickLabs)
     result = ticks
@@ -1652,6 +1681,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
 
   # change scales to user defined if desired
   view.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
+  echo "xscale ", view.xScale
+
   if p.ridges.isSome:
     let ridge = p.ridges.unsafeGet
     view.generateRidge(ridge, p, filledScales, theme, hideLabels, hideTicks)
@@ -1769,12 +1800,20 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
       result = $xScale.col
   of akY:
     let yScale = getYScale(filledScales)
-    if yScale.name.len > 0:
-      result = yScale.name
-    elif not yScale.col.isNil:
-      result = $yScale.col
+    when defined(defaultBackend):
+      if yScale.name.len > 0:
+        result = yScale.name
+      elif not yScale.col.isNil:
+        result = $yScale.col
+      else:
+        result = "count"
     else:
-      result = "count"
+      if yScale.name.len > 0:
+        result = yScale.name
+      elif yScale.col.name.len > 0:
+        result = $yScale.col
+      else:
+        result = "count"
 
 proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
   ## builds the final theme used for the plot. It takes the theme of the

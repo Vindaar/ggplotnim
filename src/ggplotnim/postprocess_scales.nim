@@ -1,6 +1,10 @@
 import sequtils, algorithm, tables
 
-import ggplot_types, formula, ggplot_styles, ggplot_utils
+import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 import ginger except Scale
 
 from seqmath import histogram, linspace, round
@@ -40,7 +44,7 @@ func getScales(gid: uint16, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.yMax))
   addIfAny(result[2], getScale(filledScales.width))
   addIfAny(result[2], getScale(filledScales.height))
-  #addIfAny(result[2], getScale(filledScales.text)) # not required
+  addIfAny(result[2], getScale(filledScales.text)) # not required
   addIfAny(result[2], getScale(filledScales.yRidges))
 
 func isEmpty(s: ginger.Scale): bool =
@@ -68,9 +72,19 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   var fns: seq[FormulaNode]
   for s in scales:
     if s.scKind == scTransformedData:
-      let col = evaluate(s.col)
-      let fn = f{ col ~ s.trans( col ) }
-      fns.add fn
+      when defined(defaultBackend):
+        let col = evaluate(s.col)
+        let fn = f{col ~ s.trans( col ) }
+        fns.add fn
+      else:
+        # create a closureScope to capture the value of `s` and `col` instead
+        # of the reference
+        closureScope:
+          let col = evaluate(s.col)
+          # make a copy of `s` which we hand to the closure
+          let ms = s
+          let fn = f{float: col.toStr ~ ms.trans( df[col] ) }
+          fns.add fn
     else:
       # `s.col` may be pointing to scale which sets constant value or involves
       # a calculation of a column
@@ -149,20 +163,39 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   if result[0].len == 0:
     result = (@[baseStyle], yieldDf)
 
-proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
-                         col: string, pos: PositionKind) =
-  ## adds the `df` column `col` elements to the `sumCounts` data frame in the
-  ## same column taking into account the geom position kind.
-  case pos
-  of pkStack:
-    if sumCounts.len == 0:
+when defined(defaultBackend):
+  proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
+                           col: string, pos: PositionKind) =
+    ## adds the `df` column `col` elements to the `sumCounts` data frame in the
+    ## same column taking into account the geom position kind.
+    case pos
+    of pkStack:
+      if sumCounts.len == 0:
+        sumCounts = df
+      else:
+        for i in 0 ..< df.len:
+          sumCounts[col, i] = sumCounts[col, i] + df[col, i]
+    of pkIdentity, pkDodge:
       sumCounts = df
-    else:
-      for i in 0 ..< df.len:
-        sumCounts[col, i] = sumCounts[col, i] + df[col, i]
-  of pkIdentity, pkDodge:
-    sumCounts = df
-  of pkFill: sumCounts[col] = toVector(%~ @[1]) # max for fill always 1.0
+    of pkFill: sumCounts[col] = toVector(%~ @[1]) # max for fill always 1.0
+else:
+  proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
+                           col: string, pos: PositionKind) =
+    ## adds the `df` column `col` elements to the `sumCounts` data frame in the
+    ## same column taking into account the geom position kind.
+    case pos
+    of pkStack:
+      if sumCounts.len == 0:
+        sumCounts = df
+      else:
+        echo "Sum Counts ", sumCounts
+        echo "Df ", df
+        for i in 0 ..< df.len:
+          sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
+    of pkIdentity, pkDodge:
+      sumCounts = df
+    of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
+
 
 proc addBinCountsByPosition(sumHist: var seq[int], hist: seq[int],
                             pos: PositionKind) =
@@ -179,14 +212,28 @@ proc addBinCountsByPosition(sumHist: var seq[int], hist: seq[int],
     sumHist = hist
   of pkFill: sumHist = @[1] # max for fill always 1.0
 
-proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
-  ## Adds the `keys` columns which have zero count values to the `df`.
-  ## This is needed for `count` stats, since the `groups` iterator does not
-  ## yield empty subgroups, yet we need those for the plot.
-  let existKeys = df[xCol].unique
-  let zeroKeys = keys.filterIt(it notin existKeys)
-  let zeroVals = zeroKeys.mapIt(0)
-  df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
+when defined(defaultBackend):
+  proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
+    ## Adds the `keys` columns which have zero count values to the `df`.
+    ## This is needed for `count` stats, since the `groups` iterator does not
+    ## yield empty subgroups, yet we need those for the plot.
+    let existKeys = df[xCol].unique
+    let zeroKeys = keys.filterIt(it notin existKeys)
+    let zeroVals = zeroKeys.mapIt(0)
+    df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
+else:
+  proc addZeroKeys(df: var DataFrame, keys: Column, xCol, countCol: string) =
+    ## Adds the `keys` columns which have zero count values to the `df`.
+    ## This is needed for `count` stats, since the `groups` iterator does not
+    ## yield empty subgroups, yet we need those for the plot.
+    let existKeys = df[xCol].unique
+    echo existKeys
+    echo colsToDf(keys)
+    var dfZero = colsToDf(keys).filter(f{string: `keys` notin existKeys})
+    echo dfZero
+    dfZero.transmuteInplace(f{int: countCol ~ 0},
+                            f{xCol <- "keys"})
+    df.add dfZero
 
 func encompassingDataScale(scales: seq[Scale],
                            axKind: AxisKind,
@@ -227,7 +274,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       xcol: $x.col,
                       ycol: $y.col,
                       dcKindX: x.dcKind,
-                      dcKindY: y.dcKind)
+                      dcKindY: y.dcKind,
+                      geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
   result.yScale = determineDataScale(y, cont, df)
   # w/ all groupings
@@ -255,13 +303,16 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
-func callHistogram(geom: Geom, data: seq[float], range: ginger.Scale): (seq[int], seq[float], seq[float]) =
+func callHistogram[T: seq | Tensor](geom: Geom, data: T,
+                                    range: ginger.Scale): (seq[int], seq[float], seq[float]) =
   ## calls the `histogram` proc taking into account the `geom` fields for
   ## - numBins
   ## - binWidth
   ## - binEdges
   ## and chooses the correct field for the calculation
   doAssert geom.statKind == stBin, "Can only bin `stBin` geoms!"
+  when T is Tensor:
+    var data = data.toRawSeq
   var
     hist: seq[int]
     binEdges: seq[float]
@@ -291,7 +342,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                       xcol: $x.col,
                       ycol: countCol,
                       dcKindX: x.dcKind,
-                      dcKindY: dcContinuous)
+                      dcKindY: dcContinuous,
+                      geomKind: g.kind)
   # for histogram data we don't take into account the raw data, because
   # due to custom bin breaks there may be more data than we want to plot
   result.xScale = encompassingDataScale(cont, akX)
@@ -309,8 +361,14 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
-                                                    range = x.dataScale)
+      when defined(defaultBackend):
+        let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
+                                                      range = x.dataScale)
+      else:
+        let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).toTensor(float),
+                                                      range = x.dataScale)
+      ## TODO: Find a nicer solution than this. In this way the `countCol` will always
+      ## be a `colObject` column on the arraymancer backend!
       sumHist.addBinCountsByPosition(hist, g.position)
       let yieldDf = seqsToDf({ $x.col : bins,
                                countCol: hist })
@@ -322,8 +380,12 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       result.yScale = mergeScales(result.yScale, (low: 0.0,
                                                   high: sumHist.max.float))
   else:
-    let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).vToSeq.mapIt(it.toFloat),
-                                                  range = x.dataScale)
+    when defined(defaultBackend):
+      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).vToSeq.mapIt(it.toFloat),
+                                                    range = x.dataScale)
+    else:
+      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).toTensor(float),
+                                                    range = x.dataScale)
     let yieldDf = seqsToDf({ $x.col : bins,
                              countCol: hist,
                              widthCol: binWidths})
@@ -353,7 +415,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                       xcol: $x.col,
                       ycol: countCol,
                       dcKindX: x.dcKind,
-                      dcKindY: dcContinuous)
+                      dcKindY: dcContinuous,
+                      geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
   # y scale is not yet defined, only use encompassing cont. scales
   result.yScale = encompassingDataScale(cont, akY)
@@ -376,13 +439,19 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       yieldDf.addZeroKeys(allClasses, $x.col, countCol)
       # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange($x.col)
+      echo "YIIIIIIELD ", yieldDf
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       let styleLabel = StyleLabel(style: style, label: toObject(keys))
       result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
       result.setXAttributes(yieldDf, x)
-      result.yScale = mergeScales(result.yScale,
-                                  (low: 0.0,
-                                   high: max(sumCounts[countCol]).toFloat))
+      when defined(defaultBackend):
+        result.yScale = mergeScales(result.yScale,
+                                    (low: 0.0,
+                                     high: max(sumCounts[countCol]).toFloat))
+      else:
+        result.yScale = mergeScales(result.yScale,
+                                    (low: 0.0,
+                                     high: max(sumCounts[countCol]).toFloat))
   else:
     let yieldDf = df.count($x.col, name = countCol)
     let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
@@ -395,6 +464,26 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   # maximum value is always an `int`!
   result.numY = result.yScale.high.round.int
   doAssert result.numX == allClasses.len
+  echo "RRRRRRRRRRRRRRR"
+
+
+proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
+  template assignIfAny(fg, scale, arg: untyped): untyped =
+    if scale.isSome:
+      fg.arg = some($scale.get.col)
+  # TODO: use fg. gid?
+  case fg.geom.kind
+  of gkErrorBar:
+    fg.assignIfAny(getXMinScale(fs), xMin)
+    fg.assignIfAny(getXMaxScale(fs), xMax)
+    fg.assignIfAny(getYMinScale(fs), yMin)
+    fg.assignIfAny(getYMaxScale(fs), yMax)
+  of gkTile:
+    fg.assignIfAny(getHeightScale(fs), height)
+    fg.assignIfAny(getWidthScale(fs), width)
+  of gkText:
+    fg.text = $getTextScale(fs).col
+  else: discard
 
 proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
   ## walk all geoms and create the dataframes required to draw the
@@ -415,6 +504,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         filledGeom = filledCountGeom(df, g, filledScales)
       else:
         filledGeom = filledBinGeom(df, g, filledScales)
+      filledGeom.fillOptFields(filledScales)
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:

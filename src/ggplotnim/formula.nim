@@ -31,6 +31,13 @@ type
     of VNull:
       discard
 
+  # dummy object for compat with arraymancer backend to allow generics involving columns
+  # not behind `when defined...`
+  Column* = object
+    discard
+  Tensor* = object
+    discard
+
   FormulaKind* = enum
     fkTerm, fkVariable, fkFunction, #fkFormula
 
@@ -1416,8 +1423,10 @@ proc buildFormula(n: NimNode): NimNode =
     result = constructVariable(n)
   of nnkPrefix:
     result = handlePrefix(n)
+  of nnkAccQuoted:
+    result = constructVariable(n[0])
   else:
-    raise newException(Exception, "Not implemented! " & $n.kind)
+    error("Not implemented! " & $n.kind)
 
 macro `{}`*(x: untyped{ident}, y: untyped): untyped =
   if x.strVal == "f":

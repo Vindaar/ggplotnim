@@ -1,8 +1,20 @@
 import options, tables, hashes, macros, strformat
 import chroma
-import formula
-import ginger
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
+import ginger except Scale
 
+when defined(defaultBackend):
+  type
+    ScaleTransform* = proc(v: Value): Value
+else:
+  type
+    ScaleTransform* = proc(v: float): float
+
+# something like
+# aes: array[AesKind, Option[Scale]]
 type
   Aesthetics* = object
     # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
@@ -76,8 +88,6 @@ type
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
   # static identifier we can calculate to retrieve it?
   # e.g. `xaxis`, `<name of geom>.xaxis` etc.?
-  ScaleTransform* = proc(v: Value): Value
-
   Scale* = ref object
     # the column which this scale corresponds to
     col*: FormulaNode
@@ -268,6 +278,8 @@ type
     # select the correct scale for the whole plot
     xScale*: ginger.Scale
     yScale*: ginger.Scale
+    reversedX*: bool
+    reversedY*: bool
     # `GgStyle` stores base style for each value of the discrete (!) scales
     yieldData*: OrderedTable[StyleLabel, (seq[GgStyle], DataFrame)]
     # whether X or Y is discrete or continuous. Has direct implication for drawing
@@ -284,6 +296,20 @@ type
     # if continuous just the max number of elements the largest style
     numX*: int
     numY*: int
+    # alternative Table[AesField, stringification of FormulaNode]?
+    case geomKind*: GeomKind
+    of gkErrorBar:
+      xMin*: Option[string]
+      yMin*: Option[string]
+      xMax*: Option[string]
+      yMax*: Option[string]
+    of gkTile:
+      width*: Option[string]
+      height*: Option[string]
+    of gkText:
+      # required if text is used
+      text*: string
+    else: discard
 
   MainAddScales* = tuple[main: Option[Scale], more: seq[Scale]]
   FilledScales* = object
@@ -302,7 +328,7 @@ type
     yMax*: MainAddScales
     width*: MainAddScales
     height*: MainAddScales
-    #text*: MainAddScales # not needed, since we don't collect text
+    text*: MainAddScales # not needed, since we don't collect text
     yRidges*: MainAddScales
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
@@ -316,12 +342,20 @@ type
 
 
 proc `==`*(s1, s2: Scale): bool =
-  if s1.dcKind == s2.dcKind and
-     s1.col == s2.col:
-    # the other fields ``will`` be computed to the same!
-    result = true
+  when defined(defaultBackend):
+    if s1.dcKind == s2.dcKind and
+       s1.col == s2.col:
+      # the other fields ``will`` be computed to the same!
+      result = true
+    else:
+      result = false
   else:
-    result = false
+    if s1.dcKind == s2.dcKind and
+       s1.col.name == s2.col.name:
+      # the other fields ``will`` be computed to the same!
+      result = true
+    else:
+      result = false
 
 proc hash*(s: GgStyle): Hash =
   if s.color.isSome:
@@ -387,24 +421,41 @@ proc hash*(x: ScaleValue): Hash =
   of scText: discard
   result = !$result
 
-proc hash*(fn: FormulaNode): Hash =
-  result = hash(fn.kind.int)
-  case fn.kind
-  of fkVariable:
-    result = result !& hash(fn.val)
-  of fkFunction:
-    result = result !& hash(fn.fnName)
-    result = result !& hash(fn.arg)
-    result = result !& hash(fn.fnKind.int)
-    case fn.fnKind
-    of funcVector:
+when defined(defaultBackend):
+  proc hash*(fn: FormulaNode): Hash =
+    result = hash(fn.kind.int)
+    case fn.kind
+    of fkVariable:
+      result = result !& hash(fn.val)
+    of fkFunction:
+      result = result !& hash(fn.fnName)
+      result = result !& hash(fn.arg)
+      result = result !& hash(fn.fnKind.int)
+      case fn.fnKind
+      of funcVector:
+        result = result !& hash(fn.fnV)
+      of funcScalar:
+        result = result !& hash(fn.fnS)
+    of fkTerm:
+      result = result !& hash(fn.lhs)
+      result = result !& hash(fn.rhs)
+      result = result !& hash(fn.op.int)
+else:
+  proc hash*(fn: FormulaNode): Hash =
+    result = hash(fn.kind.int)
+    result = result !& hash(fn.name)
+    case fn.kind
+    of fkVariable:
+      result = result !& hash(fn.val)
+    of fkAssign:
+      result = result !& hash(fn.lhs)
+      result = result !& hash(fn.rhs)
+    of fkVector:
+      result = result !& hash(fn.resType)
       result = result !& hash(fn.fnV)
-    of funcScalar:
+    of fkScalar:
+      result = result !& hash(fn.valKind)
       result = result !& hash(fn.fnS)
-  of fkTerm:
-    result = result !& hash(fn.lhs)
-    result = result !& hash(fn.rhs)
-    result = result !& hash(fn.op.int)
 
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)

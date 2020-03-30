@@ -1,5 +1,9 @@
 import sequtils, tables
-import ggplot_types, formula, ggplot_styles, ggplot_scales
+import ggplot_types, ggplot_styles, ggplot_scales
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 import ginger
 
 iterator enumerateData(geom: FilledGeom): (StyleLabel, seq[GgStyle], DataFrame) =
@@ -109,35 +113,64 @@ proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   ## reads all error data available
   template getField(field: untyped): untyped =
     fg.geom.aes.field.unsafeGet.col
-  if fg.geom.aes.xMin.isSome:
-    result.xMin = some(evaluate(getField(xMin), df, idx).toFloat)
-  if fg.geom.aes.xMax.isSome:
-    result.xMax = some(evaluate(getField(xMax), df, idx).toFloat)
-  if fg.geom.aes.yMin.isSome:
-    result.yMin = some(evaluate(getField(yMin), df, idx).toFloat)
-  if fg.geom.aes.yMax.isSome:
-    result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
+  when defined(defaultBackend):
+    if fg.geom.aes.xMin.isSome:
+      result.xMin = some(evaluate(getField(xMin), df, idx).toFloat)
+    if fg.geom.aes.xMax.isSome:
+      result.xMax = some(evaluate(getField(xMax), df, idx).toFloat)
+    if fg.geom.aes.yMin.isSome:
+      result.yMin = some(evaluate(getField(yMin), df, idx).toFloat)
+    if fg.geom.aes.yMax.isSome:
+      result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
+  else:
+    ## TODO: we have to move this to `postprocess` to handle these properly
+    ## Need to assign fields to `FilledGeom` depending on `geomKind`
+    ## Here we then just have to check which field it is, which will tell us
+    ## the column of `df`, then we just write
+    ## `result.xMin = some(df[fg.xMin][idx, float])`
+    if fg.xMin.isSome:
+      result.xMin = some(df[fg.xMin.unsafeGet][idx, float])
+    if fg.xMax.isSome:
+      result.xMax = some(df[fg.xMax.unsafeGet][idx, float])
+    if fg.yMin.isSome:
+      result.yMin = some(df[fg.yMin.unsafeGet][idx, float])
+    if fg.yMax.isSome:
+      result.yMax = some(df[fg.yMax.unsafeGet][idx, float])
 
 proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
   tuple[width, height: float] =
   ## reads all error data available
-  template getField(field: untyped): untyped =
-    fg.geom.aes.field.unsafeGet.col
-  if fg.geom.aes.width.isSome:
-    result.width = evaluate(getField(width), df, idx).toFloat
+  when defined(defaultBackend):
+    template getField(field: untyped): untyped =
+      fg.geom.aes.field.unsafeGet.col
+    if fg.geom.aes.width.isSome:
+      result.width = evaluate(getField(width), df, idx).toFloat
+    else:
+      result.width = 1.0
+    if fg.geom.aes.height.isSome:
+      result.height = evaluate(getField(height), df, idx).toFloat
+    else:
+      result.height = 1.0
   else:
-    result.width = 1.0
-  if fg.geom.aes.height.isSome:
-    result.height = evaluate(getField(height), df, idx).toFloat
-  else:
-    result.height = 1.0
+    echo "?? ", fg.geom.kind
+    if fg.width.isSome:
+      result.width = df[fg.width.unsafeGet][idx, float]
+    else:
+      result.width = 1.0
+    if fg.height.isSome:
+      result.height = df[fg.height.unsafeGet][idx, float]
+    else:
+      result.height = 1.0
 
-proc readText(df: DataFrame, idx: int, fg: FilledGeom): Value =
+proc readText(df: DataFrame, idx: int, fg: FilledGeom): string =
   ## reads all error data available
-  template getField(field: untyped): untyped =
-    fg.geom.aes.field.unsafeGet.col
-  doAssert fg.geom.aes.text.isSome, "text has to be `some` for `geom_text`!"
-  result = evaluate(getField(text), df, idx)
+  when defined(defaultBackend):
+    #template getField(field: untyped): untyped =
+    #  fg.geom.aes.field.unsafeGet.col
+    #doAssert fg.text.isSome, "text has to be `some` for `geom_text`!"
+    result = df[fg.text, idx].toStr #evaluate(getField(text), df, idx)
+  else:
+    result = df[fg.text][idx, string]
 
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
@@ -375,7 +408,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
                               style = some(style))
   of gkText:
     view.addObj view.initText(pos,
-                              text = $readText(df, idx, fg),
+                              text = readText(df, idx, fg),
                               textKind = goText,
                               alignKind = style.font.alignKind,
                               font = some(style.font))

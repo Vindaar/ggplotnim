@@ -1,6 +1,9 @@
-import ggplot_types, formula, ggplot_scales, ggplot_utils
+import ggplot_types, ggplot_scales, ggplot_utils
 import ginger except Scale
-
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 #[
 Contains procs dealing with styles and defines defaults for
 different geoms.
@@ -120,6 +123,7 @@ proc applyStyle*[T: string | FormulaNode](style: var GgStyle, df: DataFrame, sca
           styleVal = s.getValue(evaluate(s.col))
         elif $col == $s.col:
           # else only get value if this `col` is the scales column!
+          echo "Keys ", keys
           styleVal = s.getValue(val)
         else: continue
         style = changeStyle(style, styleVal)
