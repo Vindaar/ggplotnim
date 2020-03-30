@@ -72,13 +72,22 @@ proc toColKind*[T](dtype: typedesc[T]): ColKind =
   elif T is Value:
     result = colObject
 
-proc toColKind*[T](vKind: ValueKind): ColKind =
+proc toColKind*(vKind: ValueKind): ColKind =
   case vKind
   of VFloat: result = colFloat
   of VInt: result = colInt
   of VString: result = colString
   of VBool: result = colBool
   of VObject: result = colObject
+  of VNull: result = colObject
+
+proc toValueKind*(colKind: ColKind): ValueKind =
+  case colKind
+  of colFloat: result = VFloat
+  of colInt: result = VInt
+  of colString: result = VString
+  of colBool: result = VBool
+  of colObject: result = VObject
 
 proc toNimType*(colKind: ColKind): string =
   ## returns the string name of the underlying data type of the column kind
