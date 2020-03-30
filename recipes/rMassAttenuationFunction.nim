@@ -15,13 +15,13 @@ const massAttenuationFile = "data/mass_attenuation_nist_data.txt"
 var dfMuRhoTab = toDf(readCsv(massAttenuationFile, header = "#", 
                               skipLines = 1, sep = ' '))
   # convert MeV energy to keV
-  .mutate(f{"Energy" ~ "Energy" * 1000.0})
-  .filter(f{"Energy" >= energies.min and "Energy" <= energies.max})
+  .mutate(f{"Energy" ~ c"Energy" * 1000.0})
+  .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})
 # create df of interpolated values
 let dfMuRhoInterp = seqsToDf({ "E / keV" : energies,
                                "mu/rho" : muOverRho })
 # rename the columns of the tabulated values df and create a log column
-dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" ~ "Energy"})
+dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" <- "Energy"})
 # build combined DF
 let dfMuRho = bind_rows([("Interpolation", dfMuRhoInterp), 
                          ("NIST", dfMuRhoTab)], 
@@ -29,8 +29,8 @@ let dfMuRho = bind_rows([("Interpolation", dfMuRhoInterp),
 
 # and the plot of the raw mu/rho values
 ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) + 
-  geom_line(data = dfMuRho.filter(f{"type" == "Interpolation"})) +
-  geom_point(data = dfMuRho.filter(f{"type" == "NIST"})) +
+  geom_line(data = dfMuRho.filter(f{`type` == "Interpolation"})) +
+  geom_point(data = dfMuRho.filter(f{`type` == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
   ggsave("media/recipes/rMassAttenuationFunction.png")
