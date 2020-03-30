@@ -7,10 +7,10 @@ ggplot(df, aes("hwy", "displ")) +
   geom_point(aes(color = "cty")) + # set point specific color mapping
   # Add the annotation for the car model below the point
   geom_text(data = dfMax,
-            aes = aes(y = f{"displ" - 0.2}, 
+            aes = aes(y = f{c"displ" - 0.2}, 
                       text = "model")) +
   # and add another annotation of the mean mpg above the point
   geom_text(data = dfMax,
-            aes = aes(y = f{"displ" + 0.2}, 
+            aes = aes(y = f{c"displ" + 0.2}, 
                       text = "mpgMean")) +
   ggsave("media/recipes/rAnnotateMaxValues.png")

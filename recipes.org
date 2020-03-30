@@ -943,11 +943,11 @@ ggplot(df, aes("hwy", "displ")) +
   geom_point(aes(color = "cty")) + # set point specific color mapping
   # Add the annotation for the car model below the point
   geom_text(data = dfMax,
-            aes = aes(y = f{"displ" - 0.2}, 
+            aes = aes(y = f{c"displ" - 0.2}, 
                       text = "model")) +
   # and add another annotation of the mean mpg above the point
   geom_text(data = dfMax,
-            aes = aes(y = f{"displ" + 0.2}, 
+            aes = aes(y = f{c"displ" + 0.2}, 
                       text = "mpgMean")) +
   ggsave("media/recipes/rAnnotateMaxValues.png")
 #+END_SRC
@@ -967,9 +967,9 @@ annotated heatmap from the combination.
 import ggplotnim, random, math
 
 let df = toDf(readCsv("data/mpg.csv"))
-let dfRed = df.group_by(["class", "cyl"]).summarize(f{mean( c"hwy" )})
+let dfRed = df.group_by(["class", "cyl"]).summarize(f{float: "meanHwy" << mean( c"hwy" )})
 # stringification of formula is default name
-let meanHwyCol = $f{mean( c"hwy" )}
+let meanHwyCol = "meanHwy"
 ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
