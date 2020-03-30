@@ -86,7 +86,7 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
       # identifier corresponds to key in data frame (`constructVariable` called
       # from untyped templates)
       val = newLit n.strVal
-  of nnkStrLit:
+  of nnkStrLit, nnkRStrLit:
     val = n#.strVal
   of nnkIntLit .. nnkFloat64Lit:
     val = n
@@ -196,7 +196,7 @@ proc buildFormula*(n: NimNode): NimNode =
     # should correspond to a known identifier in the calling scope
     result = constructVariable(n)
   of nnkCall:
-    result = n
+    result = constructVariable(ident(n.repr))
   of nnkPar:
     result = buildFormula(n[0])
   of nnkDotExpr, nnkBracketExpr:
@@ -205,5 +205,8 @@ proc buildFormula*(n: NimNode): NimNode =
     result = handlePrefix(n)
   of nnkAccQuoted:
     result = constructVariable(n[0].toStrLit)
+  of nnkCallStrLit:
+    result = constructVariable(n[1])
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
+  echo "Result is ", result.repr, " for kind ", n.kind
