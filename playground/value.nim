@@ -261,18 +261,18 @@ template withNative*(v: Value,
                      body: untyped): untyped =
   case v.kind
   of VInt:
-    let `valName` {.inject.} =  c.num
+    let `valName` {.inject.} =  v.num
     body
   of VFloat:
-    let `valName` {.inject.} =  c.fnum
+    let `valName` {.inject.} =  v.fnum
     body
   of VString:
-    let `valName` {.inject.} =  c.str
+    let `valName` {.inject.} =  v.str
     body
   of VBool:
-    let `valName` {.inject.} =  c.bval
+    let `valName` {.inject.} =  v.bval
     body
-  of VObject:
+  of VObject, VNull:
     doAssert false, "not implemented / makes no sense for current usage"
 
 template withNativeConversion*(kind: ValueKind,
