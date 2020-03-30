@@ -50,6 +50,8 @@ proc guessType(s: seq[Value], drawSamples: static bool = true): ValueKind =
         case result
         of VInt, VFloat:
           result = VFloat
+        of VString:
+          result = VString # string "encompasses" all numbers
         else:
           return VNull
 
