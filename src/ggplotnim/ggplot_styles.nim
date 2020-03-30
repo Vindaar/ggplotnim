@@ -111,7 +111,7 @@ proc applyStyle*[T: string | FormulaNode](style: var GgStyle, df: DataFrame, sca
   for (col, val) in keys:
     for s in scales:
       # walk all scales and build the correct style
-      if s.scKind in {scLinearData, scTransformedData}: continue
+      if s.scKind in {scLinearData, scTransformedData, scText}: continue
       case s.dcKind
       of dcDiscrete:
         when T is string:

@@ -326,7 +326,8 @@ proc fillScaleImpl(
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
         "discrete scales!")
-    of scText: result = Scale(scKind: scText) # nothing required but the column
+    of scText: result = Scale(scKind: scText,
+                              col: col) # nothing required but the column
   else:
     let dataScale = dataScaleOpt.unwrap()
     case scKind
