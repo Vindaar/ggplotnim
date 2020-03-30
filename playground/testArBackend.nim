@@ -50,12 +50,14 @@ proc main =
     let dfnew = dfD.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
     echo dfNew
 
-
-
   echo mpg.summarize(f{float: `mean` << mean(`hwy`)},
                      f{float: `meanCty` << mean(`cty`)})
-  echo mpg.group_by("class").summarize(f{float: `mean` << mean(`hwy`)},
+  echo mpg.group_by("class").summarize(f{float: `mean` << mean(`hwy`) + mean(`cty`) - 20},
                                        f{float: `meanCty` << mean(`cty`)})
+
+
+  echo mpg.mutate(f{`agmax` << argmax(`hwy`, 0)[0].float + 0.5})
+
 
 
   #df.mutateInplace(f{"x" * 2.0})
