@@ -134,6 +134,8 @@ else:
     ## deteremines both the `ValueKind` of the given column as well whether that
     ## data is discrete.
     let indices = drawSampleIdx(data.high)
+    let vKind = toValueKind(data.kind)
+    # get data and check if discrete
     let data = indices.mapIt(data[it, Value])
     let isDiscrete = block:
       if dcKind.isSome:
@@ -142,7 +144,7 @@ else:
       else:
         isDiscreteData(data, drawSamples = false)
     result = (isDiscrete: isDiscrete,
-              vKind: guessType(data, drawSamples = false))
+              vKind: vKind)
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value]): Scale =
