@@ -33,7 +33,7 @@ not needed so much?
 
 # maybe instead
 
-import macros, tables, strutils, options, fenv, sets, hashes, sugar
+import macros, tables, strutils, options, fenv, sets, hashes, sugar, math
 
 import sequtils, stats, strformat, algorithm, parseutils
 
@@ -42,11 +42,11 @@ import typetraits
 
 from ginger import Scale
 
-import arraymancer
+import arraymancer except io_csv
 export arraymancer
 
-import df_io
-export df_io
+#import df_io
+#export df_io
 
 import value
 export value
@@ -108,10 +108,42 @@ const ValueNull* = Value(kind: VNull)
 #proc evaluate*(node: FormulaNode, data: DataFrame): PersistentVector[Value]
 #
 
-func initDataFrame*(): DataFrame =
+proc raw*(node: FormulaNode): string =
+  ## prints the raw stringification of `node`
+  result = node.name
+
+proc toUgly*(result: var string, node: FormulaNode) =
+  var comma = false
+  case node.kind:
+  of fkVariable:
+    result = $node.val
+  of fkAssign:
+    result.add "(<- "
+    result.add $node.lhs & " "
+    result.add $node.rhs & ")"
+  of fkVector:
+    result.add "(" & $node.colName & " "
+    result.add $node.resType & ")"
+  of fkScalar:
+    result.add "(" & $node.valName & " "
+    result.add $node.valKind & ")"
+
+proc `$`*(node: FormulaNode): string =
+  ## Converts `node` to its string representation
+  result = newStringOfCap(1024)
+  toUgly(result, node)
+
+## The following 3 procs `evaluate` and `reduce` are for API compliance with
+## ggplotnims default backend.
+
+func len*[T](t: Tensor[T]): int =
+  assert t.dims == 1
+  result = t.size
+
+proc initDataFrame*(): DataFrame =
   result.data = initTable[string, Column](16) # default 16 columns
 
-func `high`*(df: DataFrame): int = df.len - 1
+proc `high`*(df: DataFrame): int = df.len - 1
 
 iterator keys*(df: DataFrame): string =
   for k in keys(df.data):
