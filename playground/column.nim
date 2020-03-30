@@ -1,4 +1,4 @@
-import arraymancer, value, sugar
+import arraymancer, value, sugar, math
 
 type
   ColKind* = enum
@@ -12,7 +12,12 @@ type
     of colString: sCol*: Tensor[string]
     of colObject: oCol*: Tensor[Value]
 
-func toColumn*[T: float | int | string | bool | Value](t: Tensor[T]): Column =
+# just a no-op
+template toColumn*(c: Column): Column = c
+
+func high*(c: Column): int = c.len - 1
+
+proc toColumn*[T: float | int | string | bool | Value](t: Tensor[T]): Column =
   when T is int:
     result = Column(kind: colInt,
                     iCol: t,
@@ -34,6 +39,11 @@ func toColumn*[T: float | int | string | bool | Value](t: Tensor[T]): Column =
                     oCol: t,
                     len: t.size)
 
+proc constantColumn*(val: Value, len: int): Column =
+  ## creates a constant column based on `val` and its type
+  withNative(val, x):
+    result = toColumn newTensorWith[type(x)](len, x)
+
 proc `[]`*(c: Column, slice: Slice[int]): Column =
   case c.kind
   of colInt: result = toColumn c.iCol[slice.a .. slice.b]
@@ -42,7 +52,7 @@ proc `[]`*(c: Column, slice: Slice[int]): Column =
   of colBool: result = toColumn c.bCol[slice.a .. slice.b]
   of colObject: result = toColumn c.oCol[slice.a .. slice.b]
 
-func initColumn*(kind: ColKind, length = 0): Column =
+proc initColumn*(kind: ColKind, length = 0): Column =
   case kind
   of colFloat: result = toColumn newTensor[float](length)
   of colInt: result = toColumn newTensor[int](length)
@@ -50,7 +60,7 @@ func initColumn*(kind: ColKind, length = 0): Column =
   of colBool: result = toColumn newTensor[bool](length)
   of colObject: result = toColumn newTensor[Value](length)
 
-func toColKind*[T](dtype: typedesc[T]): ColKind =
+proc toColKind*[T](dtype: typedesc[T]): ColKind =
   when T is float:
     result = colFloat
   elif T is int:
@@ -62,7 +72,7 @@ func toColKind*[T](dtype: typedesc[T]): ColKind =
   elif T is Value:
     result = colObject
 
-func toColKind*[T](vKind: ValueKind): ColKind =
+proc toColKind*[T](vKind: ValueKind): ColKind =
   case vKind
   of VFloat: result = colFloat
   of VInt: result = colInt
@@ -70,23 +80,59 @@ func toColKind*[T](vKind: ValueKind): ColKind =
   of VBool: result = colBool
   of VObject: result = colObject
 
+proc toNimType*(colKind: ColKind): string =
+  ## returns the string name of the underlying data type of the column kind
+  case colKind
+  of colFloat: result = "float"
+  of colInt: result = "int"
+  of colString: result = "string"
+  of colBool: result = "bool"
+  of colObject: result = "object"
+
 proc asValue*[T](t: Tensor[T]): Tensor[Value] {.noInit.} =
   ## Apply type conversion on the whole tensor
   result = t.map(x => (%~ x))
 
-proc valueTo*[T](t: Tensor[Value], dtype: typedesc[T]): Tensor[T] =
-  when T is string:
-    result = t.map(x => x.toStr)
-  elif T is float:
-    result = t.map(x => x.toFloat)
-  elif T is int:
-    result = t.map(x => x.toInt)
-  elif T is bool:
-    result = t.map(x => x.toBool)
-  elif T is Value:
-    result = t
+proc valueTo*[T](t: Tensor[Value], dtype: typedesc[T],
+                 dropNulls: static bool = false): Tensor[T] =
+  when not dropNulls:
+    when T is string:
+      result = t.map(x => x.toStr)
+    elif T is float:
+      result = t.map(x => x.toFloat)
+    elif T is int:
+      result = t.map(x => x.toInt)
+    elif T is bool:
+      result = t.map(x => x.toBool)
+    elif T is Value:
+      result = t
+  else:
+    # filter tensor to non Null values
+    var outputIdx = newSeqOfCap[int](t.size)
+    for idx, x in t:
+      if x.kind != VNull:
+        outputIdx.add idx[0]
+    result = newTensor[T](outputIdx.len)
+    when T is string:
+      for i, idx in outputIdx:
+        result[i] = t[idx].toStr
+    elif T is float:
+      for i, idx in outputIdx:
+        result[i] = t[idx].toFloat
+    elif T is int:
+      for i, idx in outputIdx:
+        result[i] = t[idx].toInt
+    elif T is bool:
+      for i, idx in outputIdx:
+        result[i] = t[idx].toBool
+    elif T is Value:
+      for i, idx in outputIdx:
+        result[i] = t[idx]
 
-func toTensor*[T](c: Column, dtype: typedesc[T]): Tensor[T] =
+proc toTensor*[T](c: Column, dtype: typedesc[T],
+                  dropNulls: static bool = false): Tensor[T] =
+  ## `dropNulls` only has an effect on `colObject` columns. It allows to
+  ## drop Null values to get (hopefully) a valid raw Tensor
   case c.kind
   of colInt:
     when T is int:
@@ -113,9 +159,9 @@ func toTensor*[T](c: Column, dtype: typedesc[T]): Tensor[T] =
     elif T is Value:
       result = c.bCol.asValue
   of colObject:
-    result = c.oCol.valueTo(T)
+    result = c.oCol.valueTo(T, dropNulls = dropNulls)
 
-func toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
+proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
   case c.kind
   of colInt:
     when T is int:
@@ -229,7 +275,7 @@ template withNativeTensor*(c: Column,
 
 template `%~`*(v: Value): Value = v
 
-func toObjectColumn*(c: Column): Column =
+proc toObjectColumn*(c: Column): Column =
   ## returns `c` as an object column
   var res = newTensor[Value](c.len)
   withNativeTensor(c, t):
@@ -307,14 +353,14 @@ template withNative2*(c1, c2: Column, idx1, idx2: int,
     let `valName2` {.inject.} =  c2[idx2, Value]
     body
 
-func compatibleColumns*(c1, c2: Column): bool {.inline.} =
+proc compatibleColumns*(c1, c2: Column): bool {.inline.} =
   if c1.kind == c2.kind: result = true
   elif c1.kind in {colInt, colFloat} and
        c2.kind in {colInt, colFloat}:
     result = true
   else: result = false
 
-func toObject*(c: Column): Column {.inline.} =
+proc toObject*(c: Column): Column {.inline.} =
   case c.kind
   of colObject: result = c
   of colInt: result = toColumn c.iCol.asValue
@@ -322,7 +368,7 @@ func toObject*(c: Column): Column {.inline.} =
   of colString: result = toColumn c.sCol.asValue
   of colBool: result = toColumn c.bCol.asValue
 
-func add*(c1, c2: Column): Column =
+proc add*(c1, c2: Column): Column =
   ## adds column `c2` to `c1`. Uses `concat` internally.
   if c2.len == 0: return c1
   elif c1.len == 0: return c2
@@ -374,7 +420,7 @@ proc toNativeColumn*(s: openArray[Value]): Column =
         data[i] = get(x)
       result = toColumn data
 
-func nullColumn*(num: int): Column =
+proc nullColumn*(num: int): Column =
   ## returns an object `Column` with `N` values, which are
   ## all `VNull`
   var nullseq = newSeq[Value](num)
@@ -383,3 +429,15 @@ func nullColumn*(num: int): Column =
   result = toColumn(nullseq)
 
 #proc `*`[T: SomeNumber]*(c: Column, x: T)
+proc contains*[T: float | string | int | bool | Value](c: Column, val: T): bool =
+  let t = toTensor(c, T)
+  result = false
+  for x in t:
+    if val == x:
+      return true
+
+template liftScalarToColumn*(name: untyped): untyped =
+  proc `name`*(c: Column): Value =
+    withNativeDtype(c):
+      result = %~ `name`(c.toTensor(dtype))
+liftScalarToColumn(max)
