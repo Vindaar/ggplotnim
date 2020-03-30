@@ -1677,7 +1677,12 @@ proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
   for fn in fns:
     case fn.kind
     of fkVariable:
-      colsToKeep.add fn.val.toStr
+      if fn.isColumn(df):
+        colsToKeep.add fn.val.toStr
+      else:
+        # create column of value
+        df[$fn.val] = constantColumn(fn.val, df.len)
+        colsToKeep.add $fn.val
     of fkAssign:
       # essentially a rename
       df[fn.lhs] = df[fn.rhs.toStr]
