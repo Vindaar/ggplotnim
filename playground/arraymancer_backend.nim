@@ -1036,6 +1036,11 @@ proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string
   for k in keys(df):
     result.add align($k, alignBy)
   result.add "\n"
+  # now add data types
+  result.add align("dtype:", alignBy)
+  for k in keys(df):
+    result.add align(toNimType(df[k].kind), alignBy)
+  result.add "\n"
   for i in 0 ..< num:
     result.add align($i, alignBy)
     for k in keys(df):
