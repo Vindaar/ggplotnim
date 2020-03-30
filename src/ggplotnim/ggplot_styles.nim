@@ -123,7 +123,6 @@ proc applyStyle*[T: string | FormulaNode](style: var GgStyle, df: DataFrame, sca
           styleVal = s.getValue(evaluate(s.col))
         elif $col == $s.col:
           # else only get value if this `col` is the scales column!
-          echo "Keys ", keys
           styleVal = s.getValue(val)
         else: continue
         style = changeStyle(style, styleVal)

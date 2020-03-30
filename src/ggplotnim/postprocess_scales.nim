@@ -188,8 +188,6 @@ else:
       if sumCounts.len == 0:
         sumCounts = df
       else:
-        echo "Sum Counts ", sumCounts
-        echo "Df ", df
         for i in 0 ..< df.len:
           sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
     of pkIdentity, pkDodge:
@@ -227,10 +225,7 @@ else:
     ## This is needed for `count` stats, since the `groups` iterator does not
     ## yield empty subgroups, yet we need those for the plot.
     let existKeys = df[xCol].unique
-    echo existKeys
-    echo colsToDf(keys)
     var dfZero = colsToDf(keys).filter(f{string: `keys` notin existKeys})
-    echo dfZero
     dfZero.transmuteInplace(f{int: countCol ~ 0},
                             f{xCol <- "keys"})
     df.add dfZero
@@ -439,7 +434,6 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       yieldDf.addZeroKeys(allClasses, $x.col, countCol)
       # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange($x.col)
-      echo "YIIIIIIELD ", yieldDf
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       let styleLabel = StyleLabel(style: style, label: toObject(keys))
       result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
@@ -464,8 +458,6 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   # maximum value is always an `int`!
   result.numY = result.yScale.high.round.int
   doAssert result.numX == allClasses.len
-  echo "RRRRRRRRRRRRRRR"
-
 
 proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
   template assignIfAny(fg, scale, arg: untyped): untyped =

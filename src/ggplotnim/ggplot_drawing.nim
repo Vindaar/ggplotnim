@@ -152,7 +152,6 @@ proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
     else:
       result.height = 1.0
   else:
-    echo "?? ", fg.geom.kind
     if fg.width.isSome:
       result.width = df[fg.width.unsafeGet][idx, float]
     else:
