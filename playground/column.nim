@@ -386,7 +386,7 @@ proc add*(c1, c2: Column): Column =
     of colInt:
       # c1 is int, c2 is float
       assert c2.kind == colFloat
-      result = toColumn concat(c1.fCol.asType(float), c2.fCol, axis = 0)
+      result = toColumn concat(c1.iCol.asType(float), c2.fCol, axis = 0)
     of colFloat:
       # c1 is float, c2 is int
       assert c2.kind == colInt
