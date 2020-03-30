@@ -466,15 +466,15 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
   # TODO: use fg. gid?
   case fg.geom.kind
   of gkErrorBar:
-    fg.assignIfAny(getXMinScale(fs), xMin)
-    fg.assignIfAny(getXMaxScale(fs), xMax)
-    fg.assignIfAny(getYMinScale(fs), yMin)
-    fg.assignIfAny(getYMaxScale(fs), yMax)
+    fg.assignIfAny(getXMinScale(fs, fg.geom), xMin)
+    fg.assignIfAny(getXMaxScale(fs, fg.geom), xMax)
+    fg.assignIfAny(getYMinScale(fs, fg.geom), yMin)
+    fg.assignIfAny(getYMaxScale(fs, fg.geom), yMax)
   of gkTile:
-    fg.assignIfAny(getHeightScale(fs), height)
-    fg.assignIfAny(getWidthScale(fs), width)
+    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
+    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
   of gkText:
-    fg.text = $getTextScale(fs).col
+    fg.text = $getTextScale(fs, fg.geom).col
   else: discard
 
 proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
