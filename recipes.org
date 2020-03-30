@@ -312,13 +312,13 @@ import ggplotnim, sequtils, seqmath, strutils
 let cols = toSeq(0 .. 7).mapIt($it)
 # make `parseInt` work on Values, so we can parse the long form 
 # `Channel` column
-liftScalarStringProc(parseInt)
+#liftScalarStringProc(parseInt)
 let df = toDf(readCsv("data/szinti_channel_counts.txt", 
                       sep = '\t',
                       colNames = cols))
   .gather(cols, key = "Channel", value = "Count")
-  .mutate(f{"Channel" ~ parseInt("Channel")})
-let dfMean = df.group_by("Channel").summarize(f{"Mean counts / min" ~ mean("Count")})
+  .mutate(f{string -> int: "Channel" ~ parseInt( c"Channel" )})
+let dfMean = df.group_by("Channel").summarize(f{float: "Mean counts / min" << mean( c"Count" )})
 # calculate mean for each channel
 ggplot(dfMean, aes("Channel", "Mean counts / min")) +
   geom_bar(stat = "identity", position = "identity") +
@@ -581,7 +581,7 @@ let df = toDf(readCsv("data/50-18004.CSV"))
 let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # assume we want to create an annotation that prints the largest 5 values of
 # Channel 2; get largest values, sorted by time (`in_s`)
-let dfChMax = dfNew.filter(f{"Channel" == "C2_in_V"})
+let dfChMax = dfNew.filter(f{c"Channel" == "C2_in_V"})
   .arrange("V", SortOrder.Descending)
   .head(5)
   .arrange("in_s") # sort again by x axis
@@ -589,8 +589,8 @@ let dfChMax = dfNew.filter(f{"Channel" == "C2_in_V"})
 var annot: string
 let idxs = toSeq({'A'..'E'})
 for j, id in idxs:
-  let xVal = alignLeft(pretty(dfChMax["in_s"].vToSeq[j], precision = 2), 9)
-  let yVal = pretty(dfChMax["V"].vToSeq[j], precision = 4)
+  let xVal = alignLeft(formatFloat(dfChMax["in_s", j, float], precision = 2), 9)
+  let yVal = formatFloat(dfChMax["V", j, float], precision = 4)
   annot.add &"{id}: (x: {xVal}, y: {yVal})"
   if j < idxs.high:
     annot.add "\n"
@@ -703,7 +703,7 @@ import ggplotnim, algorithm
 let df = toDf(readCsv("data/50-18004.CSV"))
   .gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # filter to Channel 2 and sort by voltage
-let dfSorted = df.filter(f{"Channel" == "C2_in_V"})
+let dfSorted = df.filter(f{c"Channel" == "C2_in_V"})
   .arrange("V", SortOrder.Descending)
 # get min and max
 let dfMax = dfSorted.head(1)
@@ -747,7 +747,7 @@ The other way to achieve this is to provide a =FormulaNode= to the
 #+BEGIN_SRC nim :tangle recipes/rFormulaAesthetic.nim
 import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
-ggplot(df, aes(f{235 / "cty"}, "displ")) + 
+ggplot(df, aes(f{235 / c"cty"}, "displ")) + 
   geom_point() +
   xlab("cty [L / 100km]") +
   ggsave("media/recipes/rFormulaAesthetic.png")
@@ -779,7 +779,7 @@ down and =0.05= up. Note that =xMin= etc. are completely normal
 aesthetic fields. You can also assign a column of your DF with
 precomputed min and max values or even use more complex functionality
 provided by aesthetics via formulas, e.g. compute the square root
-error via =yMax = f{"y" + sqrt("y")}= for instance.
+error via =yMax = f{`y` + sqrt(`y`)}= for instance.
 
 #+BEGIN_SRC nim :tangle recipes/rErrorBar.nim
 import ggplotnim, seqmath, sequtils
@@ -791,7 +791,7 @@ let df = seqsToDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_point() +
   # define errors as a formula, which references our "y" scale
-  geom_errorbar(aes(yMin = f{"y" - 0.03}, yMax = f{"y" + 0.05})) +
+  geom_errorbar(aes(yMin = f{`y` - 0.03}, yMax = f{`y` + 0.05})) +
   ggsave("media/recipes/rErrorBar.png")
 #+END_SRC
 
@@ -919,7 +919,7 @@ import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
 ggplot(df, aes("hwy", "displ")) + 
   geom_point() +
-  geom_text(aes(x = f{"hwy" + 0.3}, 
+  geom_text(aes(x = f{c"hwy" + 0.3}, 
             text = "manufacturer"),
             alignKind = taLeft, 
             # font = some(font(10.0, ...)) <- you can also change the font
@@ -936,7 +936,7 @@ want to annotate the car model with the best fuel economy:
 #+BEGIN_SRC nim :tangle recipes/rAnnotateMaxValues.nim
 import ggplotnim 
 let df = toDf(readCsv("data/mpg.csv"))
-let dfMax = df.mutate(f{"mpgMean" ~ ("cty" + "hwy") / 2.0})
+let dfMax = df.mutate(f{"mpgMean" ~ (`cty` + `hwy`) / 2.0})
   .arrange("mpgMean")
   .tail(1)
 ggplot(df, aes("hwy", "displ")) + 
@@ -967,9 +967,9 @@ annotated heatmap from the combination.
 import ggplotnim, random, math
 
 let df = toDf(readCsv("data/mpg.csv"))
-let dfRed = df.group_by(["class", "cyl"]).summarize(f{mean("hwy")})
+let dfRed = df.group_by(["class", "cyl"]).summarize(f{mean( c"hwy" )})
 # stringification of formula is default name
-let meanHwyCol = $f{mean("hwy")}
+let meanHwyCol = $f{mean( c"hwy" )}
 ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
@@ -1073,24 +1073,24 @@ import ggplotnim, sequtils, seqmath, strutils
 var elements = toDf(readCsv("data/elements.csv"))
 echo elements.pretty(5)
 
-elements["group"] = elements["group"].vToSeq.mapIt(
-  if it == %~ "-":
+elements["group"] = elements["group"].toTensor(Value).map_inline(
+  if x == %~ "-":
     %~ -1
-  elif it.kind == VString:
-    %~ parseInt(it.toStr)
+  elif x.kind == VString:
+    %~ parseInt(x.toStr)
   else:
-    it)
+    x)
 
 # convert atomic mass floats to strings without explicit `"`
-elements["atomic mass"] = elements["atomic mass"].vToSeq.mapIt(
+elements["atomic mass"] = elements["atomic mass"].toTensor(Value).map_inline(
   try:
-    %~ parseFloat(pretty(it, emphStrNumber = false))
+    %~ parseFloat(pretty(x, emphStrNumber = false))
   except ValueError:
-    it
+    x
 )
 
-var top = elements.filter(f{"group" != -1})
-var bottom = elements.filter(f{"group" == -1})
+var top = elements.filter(f{c"group" != -1})
+var bottom = elements.filter(f{c"group" == -1})
 top["x"] = top["group"]
 top["y"] = top["period"]
 echo top["x"]
@@ -1100,7 +1100,8 @@ const nrows = 2
 const hshift = 3.5
 const vshift = 3
 bottom["x"] = cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
-bottom["y"] = bottom["period"].vToSeq.mapIt(it.toFloat + vshift)
+bottom["y"] = bottom["period"].toTensor(float).map_inline:
+  x + vshift
 echo bottom
 const tile_width = 0.95
 const tile_height = 0.95
@@ -1136,30 +1137,30 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
                       width = f{tileWidth / 2.0},
                       height = f{tileHeight})) +
   scale_y_continuous(dcKind = dcContinuous) +
-  geom_text(aes(x = f{"x" + 0.15},
-                y = f{"y" + 0.15},
+  geom_text(aes(x = f{`x` + 0.15},
+                y = f{`y` + 0.15},
                 text="atomic number"),
             font = some(font(6.0))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.4},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.4},
                 text="symbol"),
             font = some(font(9.0))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.6},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.6},
                 text="name"),
             font = some(font(4.5))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.8},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.8},
                 text="atomic mass"),
             font = some(font(4.5))) +
   geom_text(data = groupdf,
-            aes = aes(x = f{"group" + 0.5},
-                      y = f{"y" - 0.2},
+            aes = aes(x = f{`group` + 0.5},
+                      y = f{`y` - 0.2},
                       text = "group"),
             font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
   geom_text(data = periodDf,
-            aes = aes(x = f{"x" + 0.3},
-                      y = f{"period" + 0.5},
+            aes = aes(x = f{`x` + 0.3},
+                      y = f{`period` + 0.5},
                       text = "period"),
             font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
   legendPosition(0.82, 0.1) +
@@ -1234,7 +1235,7 @@ manually).
 However, we might want to plot it against =km= instead of =m=, so
 let's transmute the data frame:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
-df = df.transmute(f{"r / km" ~ "r / m" / 1000.0}, f{"g(r) / m s¯²"})
+df = df.transmute(f{"r / km" ~ c"r / m" / 1000.0}, f{"g(r) / m s¯²"})
 #+END_SRC
 The =transmute= function takes a variable number of elements. Only
 those columns that appear here (on the LHS of the ~) will be part of
@@ -1257,13 +1258,13 @@ At this point we might ask "Do we recover the known 9.81 m/s^2 at the
 surface?". Let's see. There's many different ways we could go on about
 this. We'll use summarize:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
-let maxG = df.summarize(f{"g_max" ~ max("g(r) / m s¯²")})
+let maxG = df.summarize(f{float: "g_max" << max(c"g(r) / m s¯²")})
 #+END_SRC
 
 An alternative way would be to access the data column directly, like
 so:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
-let maxG_alt = df["g(r) / m s¯²"].vToSeq.max
+let maxG_alt = df["g(r) / m s¯²"].toTensor(float).max
 #+END_SRC
 where access via =[]= returns a =PersistentVector[Value]=. To copy the values to a
 =seq[Value]=, so that we can use procs like =max= on it, we can use
@@ -1380,13 +1381,13 @@ const massAttenuationFile = "data/mass_attenuation_nist_data.txt"
 var dfMuRhoTab = toDf(readCsv(massAttenuationFile, header = "#", 
                               skipLines = 1, sep = ' '))
   # convert MeV energy to keV
-  .mutate(f{"Energy" ~ "Energy" * 1000.0})
-  .filter(f{"Energy" >= energies.min and "Energy" <= energies.max})
+  .mutate(f{"Energy" ~ c"Energy" * 1000.0})
+  .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})
 # create df of interpolated values
 let dfMuRhoInterp = seqsToDf({ "E / keV" : energies,
                                "mu/rho" : muOverRho })
 # rename the columns of the tabulated values df and create a log column
-dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" ~ "Energy"})
+dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" <- "Energy"})
 # build combined DF
 let dfMuRho = bind_rows([("Interpolation", dfMuRhoInterp), 
                          ("NIST", dfMuRhoTab)], 
@@ -1394,8 +1395,8 @@ let dfMuRho = bind_rows([("Interpolation", dfMuRhoInterp),
 
 # and the plot of the raw mu/rho values
 ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) + 
-  geom_line(data = dfMuRho.filter(f{"type" == "Interpolation"})) +
-  geom_point(data = dfMuRho.filter(f{"type" == "NIST"})) +
+  geom_line(data = dfMuRho.filter(f{`type` == "Interpolation"})) +
+  geom_point(data = dfMuRho.filter(f{`type` == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
   ggsave("media/recipes/rMassAttenuationFunction.png")
