@@ -8,7 +8,6 @@ import ggplotnim, sequtils, seqmath, strutils
 
 var elements = toDf(readCsv("data/elements.csv"))
 echo elements.pretty(5)
-
 elements["group"] = elements["group"].toTensor(Value).map_inline(
   if x == %~ "-":
     %~ -1
@@ -35,7 +34,7 @@ echo top["y"]
 const nrows = 2
 const hshift = 3.5
 const vshift = 3
-bottom["x"] = cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
+bottom["x"] = toColumn cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
 bottom["y"] = bottom["period"].toTensor(float).map_inline:
   x + vshift
 echo bottom
@@ -75,7 +74,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   scale_y_continuous(dcKind = dcContinuous) +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
-                text="atomic number"),
+                text = "atomic number"),
             font = some(font(6.0))) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.4},
@@ -103,6 +102,6 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   theme_void() +
   scale_y_reverse() +
   scale_x_continuous(dcKind = dcContinuous) +
-  ggsave("media/recipes/rPeriodicTable.png",
+  ggsave("media/recipes/rPeriodicTable.pdf",
          width = 1000,
          height = 500)
