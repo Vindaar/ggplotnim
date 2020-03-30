@@ -187,10 +187,26 @@ proc contains*(df: DataFrame, key: string): bool =
 proc `[]`*(df: DataFrame, k: string): Column {.inline.} =
   result = df.data[k]
 
+proc `[]`*(df: DataFrame, k: Value): Column {.inline.} =
+  result = df.data[k.toStr]
+
+func isColumn*(fn: FormulaNode, df: DataFrame): bool =
+  case fn.kind
+  of fkVariable:
+    case fn.val.kind
+    of VString: result = fn.val.str in df
+    else: result = false
+  else: result = false
+
 proc `[]`*(df: DataFrame, k: string, idx: int): Value {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
   ## returning the whole vector first
   result = df.data[k][idx, Value]
+
+proc `[]`*[T](df: DataFrame, k: string, idx: int, dtype: typedesc[T]): T {.inline.} =
+  ## returns the element at index `idx` in column `k` directly, without
+  ## returning the whole vector first
+  result = df.data[k][idx, dtype]
 
 proc `[]`*[T](df: DataFrame, k: string, slice: Slice[int], dtype: typedesc[T]): Tensor[T] {.inline.} =
   ## returns the elements in `slice` in column `k` directly, without
@@ -204,6 +220,9 @@ proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): Column {.inline.} =
 
 proc `[]=`*(df: var DataFrame, k: string, vec: Column) {.inline.} =
   df.data[k] = vec
+
+proc `[]=`*[T](df: var DataFrame, k: string, t: Tensor[T]) {.inline.} =
+  df.data[k] = toColumn t
 
 proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
   ## WARNING: only use this if you know that `T` is the correct data type!
