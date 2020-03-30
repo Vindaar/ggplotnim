@@ -182,7 +182,7 @@ proc handlePrefix(n: NimNode): NimNode =
   else:
     raise newException(Exception, "Not implemented `nnkPrefix` other than `-`! " & $n.repr)
 
-
+import strutils
 proc buildFormula*(n: NimNode): NimNode =
   ## Builds the formula given by `f{}`
   ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
@@ -206,7 +206,9 @@ proc buildFormula*(n: NimNode): NimNode =
   of nnkAccQuoted:
     result = constructVariable(n[0].toStrLit)
   of nnkCallStrLit:
-    result = constructVariable(n[1])
+    # do some hacky things
+    let node = n[1].toStrLit.repr.unescape[2 .. ^2]
+    result = constructVariable(ident(node))
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
   echo "Result is ", result.repr, " for kind ", n.kind
