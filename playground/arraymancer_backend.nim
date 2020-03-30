@@ -193,12 +193,7 @@ proc `[]`*(df: DataFrame, k: Value): Column {.inline.} =
   result = df.data[k.toStr]
 
 func isColumn*(fn: FormulaNode, df: DataFrame): bool =
-  case fn.kind
-  of fkVariable:
-    case fn.val.kind
-    of VString: result = fn.val.str in df
-    else: result = false
-  else: result = false
+  result = $fn in df
 
 proc `[]`*(df: DataFrame, k: string, idx: int): Value {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
