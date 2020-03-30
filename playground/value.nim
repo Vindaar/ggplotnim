@@ -24,6 +24,8 @@ type
     of VNull:
       discard
 
+proc pretty*(v: Value, precision = 4, emphStrNumber = true): string
+
 func toValKind*[T](dtype: typedesc[T]): ValueKind =
   when T is float:
     result = VFloat
@@ -250,7 +252,7 @@ proc toStr*(v: Value): string =
   ## - VObject
   ## if you want string representations of those value types, use `$`
   case v.kind
-  of VInt, VFloat, VBool: result = $v
+  of VInt, VFloat, VBool: result = pretty(v)
   of VString: result = v.str
   else:
     raise newException(ValueError, "Will not convert a Value of kind " &
