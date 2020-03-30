@@ -9,24 +9,24 @@ import ggplotnim, sequtils, seqmath, strutils
 var elements = toDf(readCsv("data/elements.csv"))
 echo elements.pretty(5)
 
-elements["group"] = elements["group"].vToSeq.mapIt(
-  if it == %~ "-":
+elements["group"] = elements["group"].toTensor(Value).map_inline(
+  if x == %~ "-":
     %~ -1
-  elif it.kind == VString:
-    %~ parseInt(it.toStr)
+  elif x.kind == VString:
+    %~ parseInt(x.toStr)
   else:
-    it)
+    x)
 
 # convert atomic mass floats to strings without explicit `"`
-elements["atomic mass"] = elements["atomic mass"].vToSeq.mapIt(
+elements["atomic mass"] = elements["atomic mass"].toTensor(Value).map_inline(
   try:
-    %~ parseFloat(pretty(it, emphStrNumber = false))
+    %~ parseFloat(pretty(x, emphStrNumber = false))
   except ValueError:
-    it
+    x
 )
 
-var top = elements.filter(f{"group" != -1})
-var bottom = elements.filter(f{"group" == -1})
+var top = elements.filter(f{c"group" != -1})
+var bottom = elements.filter(f{c"group" == -1})
 top["x"] = top["group"]
 top["y"] = top["period"]
 echo top["x"]
@@ -36,7 +36,8 @@ const nrows = 2
 const hshift = 3.5
 const vshift = 3
 bottom["x"] = cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
-bottom["y"] = bottom["period"].vToSeq.mapIt(it.toFloat + vshift)
+bottom["y"] = bottom["period"].toTensor(float).map_inline:
+  x + vshift
 echo bottom
 const tile_width = 0.95
 const tile_height = 0.95
@@ -72,30 +73,30 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
                       width = f{tileWidth / 2.0},
                       height = f{tileHeight})) +
   scale_y_continuous(dcKind = dcContinuous) +
-  geom_text(aes(x = f{"x" + 0.15},
-                y = f{"y" + 0.15},
+  geom_text(aes(x = f{`x` + 0.15},
+                y = f{`y` + 0.15},
                 text="atomic number"),
             font = some(font(6.0))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.4},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.4},
                 text="symbol"),
             font = some(font(9.0))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.6},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.6},
                 text="name"),
             font = some(font(4.5))) +
-  geom_text(aes(x = f{"x" + 0.5},
-                y = f{"y" + 0.8},
+  geom_text(aes(x = f{`x` + 0.5},
+                y = f{`y` + 0.8},
                 text="atomic mass"),
             font = some(font(4.5))) +
   geom_text(data = groupdf,
-            aes = aes(x = f{"group" + 0.5},
-                      y = f{"y" - 0.2},
+            aes = aes(x = f{`group` + 0.5},
+                      y = f{`y` - 0.2},
                       text = "group"),
             font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
   geom_text(data = periodDf,
-            aes = aes(x = f{"x" + 0.3},
-                      y = f{"period" + 0.5},
+            aes = aes(x = f{`x` + 0.3},
+                      y = f{`period` + 0.5},
                       text = "period"),
             font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
   legendPosition(0.82, 0.1) +
