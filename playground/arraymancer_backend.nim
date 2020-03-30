@@ -2259,6 +2259,49 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
     # fill each key with the non zero elements
   result.len = idxToKeep.size
 
+func evaluate*(node: FormulaNode): Value =
+  ## tries to return a single `Value` from a FormulaNode.
+  ## Works either if formula is `fkNone` or `fkVariable`.
+  ## Raises for `fkVector` and `fkScalar`.
+  case node.kind
+  of fkVariable: result = node.val
+  of fkAssign: result = node.rhs # ?? TODO: should this be allowed?
+  of fkScalar, fkVector:
+    raise newException(ValueError, "Cannot evaluate a formula of kind " &
+      $node.kind & " without a data frame as input!")
+
+proc evaluate*(node: FormulaNode, df: DataFrame): Column =
+  ## tries to return a Column from a FormulaNode with an input
+  ## DataFrame `df`.
+  ## Works either if formula is `fkNone` or `fkVariable`.
+  ## Raises for `fkVector` and `fkScalar`.
+  # TODO: Handle cases if a value is not a column!
+  case node.kind
+  of fkVariable:
+    if node.isColumn(df):
+      result = df[node.val.toStr]
+    else:
+      # create constant column
+      result = constantColumn(node.val, df.len)
+  of fkAssign: result = df[node.rhs.toStr]
+  of fkVector: result = node.fnV(df)
+  of fkScalar:
+    raise newException(ValueError, "Cannot evaluate a formula of kind " &
+      $node.kind & " without a data frame as input!")
+
+#proc evaluate*[T](node: FormulaNode, df: DataFrame,
+#                  idx: int,
+#                  dtype: typedesc[T]): T =
+#  case node.kind
+#  of fkVector:
+#    # filter to indices
+#    withNativeDtype(df[
+#    result = node.fnV(df)
+#  else:
+#    raise newException(ValueError, "Cannot evaluate a formula of kind " &
+#      $node.kind & " without a data frame as input!")
+
+
 #proc evaluate*[T](node: FormulaNode[T], data: DataFrame, idx: int): T =
 #  case node.kind
 #  of fkVariable:
