@@ -122,11 +122,13 @@ proc toUgly*(result: var string, node: FormulaNode) =
     result.add $node.lhs & " "
     result.add $node.rhs & ")"
   of fkVector:
-    result.add "(" & $node.colName & " "
-    result.add $node.resType & ")"
+    result = $node.colName
+    #result.add "(" & $node.colName & " "
+    #result.add $node.resType & ")"
   of fkScalar:
-    result.add "(" & $node.valName & " "
-    result.add $node.valKind & ")"
+    result = $node.valName
+    #result.add "(" & $node.valName & " "
+    #result.add $node.valKind & ")"
 
 proc `$`*(node: FormulaNode): string =
   ## Converts `node` to its string representation
