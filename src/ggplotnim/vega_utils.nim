@@ -1,5 +1,9 @@
 import json, tables, options, strutils
-import formula, ggplot_types
+import ggplot_types
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 
 const vegaLiteTmpl = """
 {

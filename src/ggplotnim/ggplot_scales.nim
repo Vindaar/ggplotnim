@@ -1,6 +1,10 @@
 import tables, sets, algorithm, macros
 
-import ggplot_types, formula
+import ggplot_types
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 import ginger except Scale
 
 #[
@@ -83,8 +87,30 @@ macro genGetScale(field: untyped): untyped =
           if geom.gid == 0 or geom.gid in s.ids:
             return s
 
+macro genGetOptScale(field: untyped): untyped =
+  let name = ident("get" & $field.strVal & "Scale")
+  result = quote do:
+    proc `name`*(filledScales: FilledScales, geom = Geom(gid: 0)): Option[Scale] =
+      #result = new Scale
+      if filledScales.`field`.main.isSome:
+        # use main
+        result = some(filledScales.`field`.main.get)
+      else:
+        # find scale matching `gid`
+        for s in filledScales.`field`.more:
+          if geom.gid == 0 or geom.gid in s.ids:
+            return some(s)
+
+
 genGetScale(x)
 genGetScale(y)
+genGetOptScale(xMin)
+genGetOptScale(yMin)
+genGetOptScale(xMax)
+genGetOptScale(yMax)
+genGetOptScale(width)
+genGetOptScale(height)
+genGetScale(text)
 genGetScale(yRidges)
 # not used at the moment
 #genGetScale(color)

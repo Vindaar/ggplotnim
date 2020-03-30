@@ -1,19 +1,27 @@
-import tables, algorithm, sequtils, random, sets, math, macros
+import tables, algorithm, sequtils, random, sets, math, macros, options
 
-import ggplot_types, formula, ggplot_utils
+import ggplot_types, ggplot_utils
 import ggplotnim / colormaps / viridisRaw
 import postprocess_scales
+when defined(defaultBackend):
+  import formula
+else:
+  import ../../playground/arraymancer_backend
 
 import persvector
 
 import ginger except Scale
 
-proc addIdentityData(data: var seq[Value], df: DataFrame, s: Scale) =
-  let colVec = s.col.evaluate(df)
-  var startIdx = data.len
-  data.setLen(data.len + colVec.len)
-  for i, val in colVec:
-    data[startIdx + i] = val
+when defined(defaultBackend):
+  proc addIdentityData(data: var seq[Value], df: DataFrame, s: Scale) =
+    let colVec = s.col.evaluate(df)
+    var startIdx = data.len
+    data.setLen(data.len + colVec.len)
+    for i, val in colVec:
+      data[startIdx + i] = val
+else:
+  proc addIdentityData(data: var Column, df: DataFrame, s: Scale) =
+    data = data.add s.col.evaluate(df)
 
 proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
@@ -87,7 +95,10 @@ proc discreteAndType(df: DataFrame, col: FormulaNode,
   ## deteremines both the `ValueKind` of the given column as well whether that
   ## data is discrete.
   let indices = drawSampleIdx(df.high)
-  let data = indices.mapIt(col.evaluate(df, it))
+  when defined(defaultBackend):
+    let data = indices.mapIt(col.evaluate(df, it))
+  else:
+    let data = indices.mapIt(df[$col, it])
   let isDiscrete = block:
     if dcKind.isSome:
       let dc = dcKind.get
@@ -97,21 +108,40 @@ proc discreteAndType(df: DataFrame, col: FormulaNode,
   result = (isDiscrete: isDiscrete,
             vKind: guessType(data, drawSamples = false))
 
-proc discreteAndType(data: seq[Value],
-                     dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
-    tuple[isDiscrete: bool, vKind: ValueKind] =
-  ## deteremines both the `ValueKind` of the given column as well whether that
-  ## data is discrete.
-  let indices = drawSampleIdx(data.high)
-  let data = indices.mapIt(data[it])
-  let isDiscrete = block:
-    if dcKind.isSome:
-      let dc = dcKind.get
-      dc == dcDiscrete
-    else:
-      isDiscreteData(data, drawSamples = false)
-  result = (isDiscrete: isDiscrete,
-            vKind: guessType(data, drawSamples = false))
+when defined(defaultBackend):
+  proc discreteAndType(data: seq[Value],
+                       dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
+      tuple[isDiscrete: bool, vKind: ValueKind] =
+    ## deteremines both the `ValueKind` of the given column as well whether that
+    ## data is discrete.
+    let indices = drawSampleIdx(data.high)
+    let data = indices.mapIt(data[it])
+    let isDiscrete = block:
+      if dcKind.isSome:
+        let dc = dcKind.get
+        dc == dcDiscrete
+      else:
+        isDiscreteData(data, drawSamples = false)
+    result = (isDiscrete: isDiscrete,
+              vKind: guessType(data, drawSamples = false))
+else:
+  ## TODO: make use of column type information, duh!
+  proc discreteAndType(data: Column,
+                       dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
+      tuple[isDiscrete: bool, vKind: ValueKind] =
+    ## deteremines both the `ValueKind` of the given column as well whether that
+    ## data is discrete.
+    let indices = drawSampleIdx(data.high)
+    let data = indices.mapIt(data[it, Value])
+    let isDiscrete = block:
+      if dcKind.isSome:
+        let dc = dcKind.get
+        dc == dcDiscrete
+      else:
+        isDiscreteData(data, drawSamples = false)
+    result = (isDiscrete: isDiscrete,
+              vKind: guessType(data, drawSamples = false))
+    echo "RES ", result
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value]): Scale =
@@ -164,11 +194,18 @@ proc fillContinuousTransformedScale(col: FormulaNode,
                                     vKind: ValueKind,
                                     trans: ScaleTransform,
                                     dataScale: ginger.Scale): Scale =
-  result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
-                 dcKind: dcContinuous,
-                 # apply transformation to data scale
-                 dataScale: (low: trans(%~ dataScale.low).toFloat,
-                             high: trans(%~ dataScale.high).toFloat))
+  when defined(defaultBackend):
+    result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
+                   dcKind: dcContinuous,
+                   # apply transformation to data scale
+                   dataScale: (low: trans(%~ dataScale.low).toFloat,
+                               high: trans(%~ dataScale.high).toFloat))
+  else:
+    result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
+                   dcKind: dcContinuous,
+                   # apply transformation to data scale
+                   dataScale: (low: trans(dataScale.low),
+                               high: trans(dataScale.high)))
   result.axKind = axKind
   result.trans = trans
 
@@ -182,22 +219,40 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
                  dataScale: dataScale)
   # for now just take viridis as default
   # map all values to values between 0-255 and get the correct idx of viridis map
-  result.mapData = (
-    proc(df: DataFrame): seq[ScaleValue] =
-      let idxs = toSeq(0 .. df.high)
-      result = newSeq[ScaleValue](idxs.len)
-      for i, idx in idxs:
-        var colorIdx = (255.0 * ((col.evaluate(df, idx).toFloat - dataScale.low) /
-                                 (dataScale.high - dataScale.low))).round.int
-        colorIdx = min(255, colorIdx)
-        let cVal = ViridisRaw[colorIdx]
-        var scVal = if scKind == scColor:
-                      ScaleValue(kind: scColor)
-                    else:
-                      ScaleValue(kind: scFillColor)
-        scVal.color = color(cVal[0], cVal[1], cVal[2])
-        result[i] = scVal
-  )
+  when defined(defaultBackend):
+    result.mapData = (
+      proc(df: DataFrame): seq[ScaleValue] =
+        result = newSeq[ScaleValue](df.len)
+        for idx in 0 ..< df.len:
+          var colorIdx = (255.0 * ((col.evaluate(df, idx).toFloat - dataScale.low) /
+                                   (dataScale.high - dataScale.low))).round.int
+          colorIdx = min(255, colorIdx)
+          let cVal = ViridisRaw[colorIdx]
+          var scVal = if scKind == scColor:
+                        ScaleValue(kind: scColor)
+                      else:
+                        ScaleValue(kind: scFillColor)
+          scVal.color = color(cVal[0], cVal[1], cVal[2])
+          result[idx] = scVal
+    )
+  else:
+    result.mapData = (
+      proc(df: DataFrame): seq[ScaleValue] =
+        result = newSeq[ScaleValue](df.len)
+        let t = col.evaluate(df).toTensor(float)
+        for idx in 0 ..< df.len:
+          var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
+                                   (dataScale.high - dataScale.low))).round.int
+          colorIdx = min(255, colorIdx)
+          let cVal = ViridisRaw[colorIdx]
+          var scVal = if scKind == scColor:
+                        ScaleValue(kind: scColor)
+                      else:
+                        ScaleValue(kind: scFillColor)
+          scVal.color = color(cVal[0], cVal[1], cVal[2])
+          result[idx] = scVal
+    )
+
 
 proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
                              dataScale: ginger.Scale,
@@ -206,16 +261,28 @@ proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
   const maxSize = 7.0
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
-  result.mapData = (
-    proc(df: DataFrame): seq[ScaleValue] =
-      let idxs = toSeq(0 .. df.high)
-      result = newSeq[ScaleValue](idxs.len)
-      for i, idx in idxs:
-        let size = (col.evaluate(df, idx).toFloat - minSize) /
-                   (maxSize - minSize)
-        result[i] = ScaleValue(kind: scSize,
-                               size: size)
-  )
+  when defined(defaultBackend):
+    result.mapData = (
+      proc(df: DataFrame): seq[ScaleValue] =
+        result = newSeq[ScaleValue](df.len)
+        for idx in 0 ..< df.len:
+          let size = (col.evaluate(df, idx).toFloat - minSize) /
+                     (maxSize - minSize)
+          result[idx] = ScaleValue(kind: scSize,
+                                 size: size)
+    )
+  else:
+    result.mapData = (
+      proc(df: DataFrame): seq[ScaleValue] =
+        let t = col.evaluate(df).toTensor(float)
+        result = newSeq[ScaleValue](df.len)
+        for idx in 0 ..< df.len:
+          let size = (t[idx] - minSize) /
+                     (maxSize - minSize)
+          result[idx] = ScaleValue(kind: scSize,
+                                 size: size)
+    )
+
 
 proc fillScaleImpl(
   vKind: ValueKind,
@@ -286,7 +353,7 @@ proc fillScaleImpl(
 
 type
   ScaleData = tuple
-    data: Option[DataFrame]
+    dataFrame: Option[DataFrame]
     scale: Scale
     statKind: StatKind
 
@@ -297,13 +364,17 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # "axis" (x, y, color,...) and thus can be considered compatible and part of the
   # same scale / classes! The actual data given to each filled scale however is not
   # this DF, but rather the input `df.select(s.col)`, see below.
-  var data = newSeqOfCap[Value](df.len * scales.len)
+  when defined(defaultBackend):
+    var data = newSeqOfCap[Value](df.len * scales.len)
+  else:
+    var data: Column
   var transOpt: Option[ScaleTransform]
   var axKindOpt: Option[AxisKind]
   # in a first loop over the scales read the data required to make decisions about
   # the appearence of the resulting scale
   for s in scales:
     # add this scales data to `data` DF for deduction of labels / data scales
+    echo "DATA ", s.col
     data.addIdentityData(df, s)
   # in the second loop for each of the scales add one filled scale to the result
   # using the combined dataset of all. This way we automatically get the correct
@@ -332,8 +403,13 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       continue
 
     if isDiscrete:
-      labelSeqOpt = some(data.deduplicate.sorted)
+      when defined(defaultBackend):
+        labelSeqOpt = some(data.deduplicate.sorted)
+      else:
+        echo "LABEL SEQ ??? ", data.unique
+        labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
     else:
+      echo "DATA ", data, " for col ", s.col
       dataScaleOpt = some(scaleFromData(data))
 
     # now have to call `fillScaleImpl` with this information
@@ -352,7 +428,7 @@ proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
   ## - current scale is ``not`` in `GgPlot.aes`
   ## - `geom` with this scale has ``no`` `data` field
   # handle those geoms separately, which have their own data
-  let separateIdxs = toSeq(0 .. scales.high).filterIt(scales[it].data.isSome)
+  let separateIdxs = toSeq(0 .. scales.high).filterIt(scales[it].dataFrame.isSome)
   var scalesToUse = newSeq[Scale]()
   for i, s in scales:
     if i notin separateIdxs:
@@ -373,25 +449,42 @@ proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
     var additional: seq[Scale]
     case scales[i].scale.scKind
     of scTransformedData:
-      additional = fillScale(scales[i].data.get, @[scales[i].scale], scTransformedData)
+      additional = fillScale(scales[i].dataFrame.get, @[scales[i].scale], scTransformedData)
     else:
-      additional = fillScale(scales[i].data.get, @[scales[i].scale], scKind)
+      additional = fillScale(scales[i].dataFrame.get, @[scales[i].scale], scKind)
     doAssert additional.len <= 1
     for fs in additional:
       result.add fs
 
-template collect(p: GgPlot, f: untyped): untyped =
-  var sds = newSeq[ScaleData]()
-  if isSome(p.aes.f):
-    # NOTE: the dataframe of GgPlot is always given individually to
-    # the fill* procs, hence we give a none here
-    sds.add (data: none(DataFrame), scale: p.aes.f.get,
-             statKind: stIdentity)
-  for g in p.geoms:
-    if isSome(g.aes.f):
-      sds.add (data: g.data, scale: g.aes.f.get,
-               statKind: g.statKind)
-  sds
+#template collect(p: GgPlot, f: untyped): untyped =
+#  var sds = newSeq[ScaleData]()
+#  if isSome(p.aes.f):
+#    # NOTE: the dataframe of GgPlot is always given individually to
+#    # the fill* procs, hence we give a none here
+#    let element = (data: none[DataFrame](),
+#                   scale: p.aes.f.get,
+#                   statKind: stIdentity)
+#    sds.add element
+#  for g in p.geoms:
+#    if isSome(g.aes.f):
+#      sds.add (data: g.data, scale: g.aes.f.get,
+#               statKind: g.statKind)
+#  sds
+macro collect(p: GgPlot, field: untyped): untyped =
+  result = quote do:
+    var sds = newSeq[ScaleData]()
+    if isSome(`p`.aes.`field`):
+      # NOTE: the dataframe of GgPlot is always given individually to
+      # the fill* procs, hence we give a none here
+      let element = (dataFrame: none(DataFrame),
+                     scale: `p`.aes.`field`.get,
+                     statKind: stIdentity)
+      sds.add element
+    for g in `p`.geoms:
+      if isSome(g.aes.`field`):
+        sds.add (dataFrame: g.data, scale: g.aes.`field`.get,
+                 statKind: g.statKind)
+    sds
 
 proc collectScales*(p: GgPlot): FilledScales =
   ## Collects all scales required to draw the plot. This means comparing each
@@ -460,8 +553,8 @@ proc collectScales*(p: GgPlot): FilledScales =
   fillField("height", heightFilled)
   # `text` is essentially a "dummy" scale, not required. Only care about
   # the column
-  #let texts = collect(p, text)
-  #let textFilled = callFillScale(p.data, texts, scText)
-  #fillField("text", textFilled)
+  let texts = collect(p, text)
+  let textFilled = callFillScale(p.data, texts, scText)
+  fillField("text", textFilled)
 
   postProcessScales(result, p)
