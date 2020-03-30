@@ -2233,6 +2233,26 @@ proc gather*(df: DataFrame, cols: varargs[string],
       result[rem] = toColumn(fullCol)
   result.len = newLen
 
+
+proc unique*(c: Column): Column =
+  ## returns a seq of all unique values in `v`
+  var hashes = newSeq[Hash](c.len)
+  hashes.hashColumn(c)
+  # finalize the hashes
+  hashes.applyIt(!$it)
+  var hSet = toSet(hashes)
+  var idxToKeep = newTensor[int](hSet.card)
+  var idx = 0
+  for i in 0 ..< c.len:
+    if hashes[i] in hSet:
+      idxToKeep[idx] = i
+      # remove from set to not get duplicates!
+      hSet.excl hashes[i]
+      inc idx
+  # apply idxToKeep as filter
+  result = c.filter(idxToKeep)
+  result.len = idxToKeep.size
+
 proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
   ## returns a DF with only distinct rows. If one or more `cols` are given
   ## the uniqueness of a row is only determined based on those columns. By
