@@ -141,7 +141,6 @@ else:
         isDiscreteData(data, drawSamples = false)
     result = (isDiscrete: isDiscrete,
               vKind: guessType(data, drawSamples = false))
-    echo "RES ", result
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value]): Scale =
@@ -374,7 +373,6 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # the appearence of the resulting scale
   for s in scales:
     # add this scales data to `data` DF for deduction of labels / data scales
-    echo "DATA ", s.col
     data.addIdentityData(df, s)
   # in the second loop for each of the scales add one filled scale to the result
   # using the combined dataset of all. This way we automatically get the correct
@@ -406,10 +404,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       when defined(defaultBackend):
         labelSeqOpt = some(data.deduplicate.sorted)
       else:
-        echo "LABEL SEQ ??? ", data.unique
         labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
     else:
-      echo "DATA ", data, " for col ", s.col
       dataScaleOpt = some(scaleFromData(data))
 
     # now have to call `fillScaleImpl` with this information
