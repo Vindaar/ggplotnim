@@ -368,7 +368,12 @@ proc `<`*(v, w: Value): bool =
      v.kind in {VFloat, VInt} and
      w.kind in {VFloat, VInt}:
     result = v.toFloat < w.toFloat
-  else:
+  elif v.kind != w.kind and
+     v.kind in {VFloat, VInt, VString} and
+     w.kind in {VFloat, VInt, VString}:
+    # compare as strings
+    result = $v < $w
+  elif v.kind == w.kind:
     case v.kind
     of VString:
       result = v.str < w.str
