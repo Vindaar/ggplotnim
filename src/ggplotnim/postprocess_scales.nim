@@ -246,6 +246,10 @@ proc determineDataScale(s: Scale,
                         additional: seq[Scale], df: DataFrame): ginger.Scale =
   ## returns the data scale given a filled `Scale s` and the corresponding data,
   ## while differentiating between continuous and discrete scales
+  ## NOTE: by this time we should (if the code before is correct) certainly
+  ## have the `s.col` column in `df`, since `applyTransformations` should have
+  ## created it before!
+  assert s.col.isColumn(df)
   case s.dcKind
   of dcContinuous:
     result = if s.datascale.isEmpty: # happens for input DFs with 1-2 elements
