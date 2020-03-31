@@ -1,48 +1,74 @@
-import shell
+import shell, os, macros, times
 
-let res = shellVerbose:
-  nim c "-r recipes/rStackedMpgHistogram.nim"
-  nim c "-r recipes/rNewtonAcceleration.nim"
-  nim c "-r recipes/rMpgStackedPointPlot.nim"
-  nim c "-r recipes/rLinePlotSize.nim"
-  nim c "-r recipes/rMpgHistoBinWidth.nim"
-  nim c "-r recipes/rMpgContinuousColorPoints.nim"
-  nim c "-r recipes/rAxionMassVsDensity.nim"
-  nim c "-r recipes/rMpgHistoNumBins.nim"
-  nim c "-r recipes/rMpgHistoCustomBreaks.nim"
-  nim c "-r recipes/rMpgCustomColorPoint.nim"
-  nim c "-r recipes/rMpgHistoPlusPoints.nim"
-  nim c "-r recipes/rSimpleLinePlot.nim"
-  nim c "-r recipes/rMpgSimpleBarPlot.nim"
-  nim c "-r recipes/rTwoSensorsBadStyle.nim"
-  nim c "-r recipes/rTwoSensorsGoodStyle.nim"
-  nim c "-r recipes/rPrebinnedHisto.nim"
-  nim c "-r recipes/rMassAttenuationFunction.nim"
-  nim c "-r recipes/rAxionMassesLogLog.nim"
-  nim c "-r recipes/rStackedMpgFreqpoly.nim"
-  nim c "-r recipes/rMpgStackedBarPlot.nim"
-  nim c "-r recipes/rBarPlotRotatedLabels.nim"
-  nim c "-r recipes/rBarPlotCompStats.nim"
-  nim c "-r recipes/rCustomAnnotations.nim"
-  nim c "-r recipes/rMpgDiscreteXScale.nim"
-  nim c "-r recipes/rDiscreteXLine.nim"
-  nim c "-r recipes/rEnlargeXRange.nim"
-  nim c "-r recipes/rLimitXRange.nim"
-  nim c "-r recipes/rCreateMarginBuffer.nim"
-  nim c "-r recipes/rHighlightMinMax.nim"
-  nim c "-r recipes/rFormulaAesthetic.nim"
-  nim c "-r recipes/rErrorBar.nim"
-  nim c "-r recipes/rDiscreteYAxis.nim"
-  nim c "-r recipes/rBothDiscreteAxes.nim"
-  nim c "-r recipes/rFreqPolyWithAlpha.nim"
-  nim c "-r recipes/rMultipleLegends.nim"
-  nim c "-r recipes/rSimpleTile.nim"
-  nim c "-r recipes/rSimpleGeomText.nim"
-  nim c "-r recipes/rClassifiedGeomText.nim"
-  nim c "-r recipes/rAnnotateUsingGeomText.nim"
-  nim c "-r recipes/rAnnotateMaxValues.nim"
-  nim c "-r recipes/rAnnotatedHeatMap.nim"
-  nim c "-r recipes/rMultiSubplots.nim"
-  nim c "-r recipes/rPeriodicTable.nim"
-if res[1] != 0:
-  raise newException(Exception, "Failed to build or run at least one recipe!")
+const recipes = ["rStackedMpgHistogram",
+                 "rNewtonAcceleration",
+                 "rMpgStackedPointPlot",
+                 "rLinePlotSize",
+                 "rMpgHistoBinWidth",
+                 "rMpgContinuousColorPoints",
+                 "rAxionMassVsDensity",
+                 "rMpgHistoNumBins",
+                 "rMpgHistoCustomBreaks",
+                 "rMpgCustomColorPoint",
+                 "rMpgHistoPlusPoints",
+                 "rSimpleLinePlot",
+                 "rMpgSimpleBarPlot",
+                 "rTwoSensorsBadStyle",
+                 "rTwoSensorsGoodStyle",
+                 "rPrebinnedHisto",
+                 "rMassAttenuationFunction",
+                 "rAxionMassesLogLog",
+                 "rStackedMpgFreqpoly",
+                 "rMpgStackedBarPlot",
+                 "rBarPlotRotatedLabels",
+                 "rBarPlotCompStats",
+                 "rCustomAnnotations",
+                 "rMpgDiscreteXScale",
+                 "rDiscreteXLine",
+                 "rEnlargeXRange",
+                 "rLimitXRange",
+                 "rCreateMarginBuffer",
+                 "rHighlightMinMax",
+                 "rFormulaAesthetic",
+                 "rErrorBar",
+                 "rDiscreteYAxis",
+                 "rBothDiscreteAxes",
+                 "rFreqPolyWithAlpha",
+                 "rMultipleLegends",
+                 "rSimpleTile",
+                 "rSimpleGeomText",
+                 "rClassifiedGeomText",
+                 "rAnnotateUsingGeomText",
+                 "rAnnotateMaxValues",
+                 "rAnnotatedHeatmap",
+                 "rMultiSubplots",
+                 "rPeriodicTable"]
+
+macro genCommands(prefix: static string,
+                  suffix: static string = ""): untyped =
+  var cmds = newStmtList()
+  for r in recipes:
+    let cmd = prefix & r & suffix
+    cmds.add quote do:
+      `cmd`
+  echo cmds.repr
+  result = quote do:
+    let res = shellVerbose:
+      `cmds`
+    if res[1] != 0:
+      raise newException(Exception, "Failed to build or run at least one recipe!")
+
+if paramCount() == 0:
+  let t0 = epochTime()
+  genCommands("nim c -r recipes/", ".nim")
+  echo "Compilating and running all recipes took ", epochTime() - t0
+if paramCount() > 0:
+  let p0 = paramStr(1)
+  if p0 == "-c" or p0 == "--compile":
+    genCommands("nim c recipes/", ".nim")
+  elif p0 == "-cd" or p0 == "--compileDanger":
+    genCommands("nim c -d:danger recipes/", ".nim")
+  elif p0 == "-r" or p0 == "--run":
+    let t0 = epochTime()
+    genCommands("./recipes/")
+    echo "Running all recipes took ", epochTime() - t0
