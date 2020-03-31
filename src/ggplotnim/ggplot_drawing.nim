@@ -42,13 +42,13 @@ proc drawStackedPolyLine(view: var Viewport,
     if line.len > 0:
       result = view.initPolyLine(line, some(style))
 
-template getXY(view, df, fg, i, theme, xORK, yORK: untyped,
+template getXY(view, df, xT, yT, fg, i, theme, xORK, yORK: untyped,
                xMaybeString: static bool = true): untyped =
   ## this template retrieves the current x and y values at index `i` from the `df`
   ## taking into account the view's scale and theme settings.
   # x may be a string! TODO: y at some point too.
-  var x = df[$fg.xcol, i]
-  var y = df[$fg.ycol, i]
+  var x = xT[i]
+  var y = yT[i] #df[$fg.ycol, i]
   x = if x.kind == VNull: %~ 0.0 else: x
   y = if y.kind == VNull: %~ 0.0 else: y
   # modify according to ranges of viewport (may be different from real data ranges, assigned
@@ -491,11 +491,19 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     binWidths: tuple[x, y: float]
   let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile} or
                       fg.geom.binPosition in {bpCenter, bpRight})
+
+  when defined(defaultBackend):
+    var xT = df[$fg.xcol]
+    var yT = df[$fg.ycol]
+  else:
+    var xT = df[$fg.xcol].toTensor(Value)
+    var yT = df[$fg.ycol].toTensor(Value)
+
   for i in 0 ..< df.len:
     if styles.len > 1:
       style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
     # get current x, y values, possibly clipping them
-    p = getXY(view, df, fg, i, theme, xOutsideRange,
+    p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
               yOutsideRange, xMaybeString = true)
     if viewMap.len > 0:
       # get correct viewport if any is discrete
