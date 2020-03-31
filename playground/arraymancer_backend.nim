@@ -1106,13 +1106,13 @@ macro toTab*(args: varargs[untyped]): untyped =
     of nnkIdent:
       let key = a.strVal
       result.add quote do:
-        `data`[`key`] = `a`.toColumn
+        asgn(`data`, `key`, `a`.toColumn)
         `data`.len = max(`data`.len, `a`.len)
     of nnkExprColonExpr:
       let nameCh = a[0]
       let seqCh = a[1]
       result.add quote do:
-        `data`[`nameCh`] = `seqCh`.toColumn
+        asgn(`data`, `nameCh`, `seqCh`.toColumn)
         `data`.len = max(`data`.len, `seqCh`.len)
     else:
       error("Unsupported kind " & $a.kind)
@@ -1359,7 +1359,7 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
       filterIdx = c.fnV(df)
   let nonZeroIdx = filteredIdx(filterIdx.bCol)
   for k in keys(df):
-    result[k] = df[k].filter(nonZeroIdx)
+    result.asgn(k, df[k].filter(nonZeroIdx))
     # fill each key with the non zero elements
   result.len = nonZeroIdx.size
 #template liftVectorFloatProc*(name: untyped,
@@ -1606,7 +1606,7 @@ proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]
       case fn.kind
       of fkVariable: toDrop.excl fn.val.toStr
       of fkAssign:
-        df[fn.lhs] = df[fn.rhs]
+        df.asgn(fn.lhs, df[fn.rhs])
         toDrop.excl fn.lhs
       else: doAssert false, "function does not make sense for select"
   # now drop all required keys
@@ -1636,17 +1636,17 @@ proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
         colsToKeep.add fn.val.toStr
       else:
         # create column of value
-        df[$fn.val] = constantColumn(fn.val, df.len)
+        df.asgn($fn.val, constantColumn(fn.val, df.len))
         colsToKeep.add $fn.val
     of fkAssign:
       # essentially a rename
-      df[fn.lhs] = df[fn.rhs.toStr]
+      df.asgn(fn.lhs, df[fn.rhs.toStr])
       # colToKeep only relevant for `transmute`, where we only want to keep
       # the LHS
       colsToKeep.add fn.lhs
     of fkVector:
       let (colName, newCol) = df.calcNewColumn(fn)
-      df[colName] = newCol
+      df.asgn(colName, newCol)
       colsToKeep.add colName
     of fkScalar: discard
   when dropCols:
@@ -1862,7 +1862,7 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
         #res[i] = col[idxValCol[i][0]]
         res[i] = col[idxCol[i]]
       data = toColumn res
-    result[k] = data
+    result.asgn(k, data)
 
 proc arrange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
   result = df.arrange(@[by], order)
@@ -1939,11 +1939,11 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     for k in allKeys:
       if k in df1S and k in df2S:
         doAssert df1S[k].kind == df2S[k].kind
-        result[k] = initColumn(kind = df1S[k].kind, length = resLen)
+        result.asgn(k, initColumn(kind = df1S[k].kind, length = resLen))
       elif k in df1S and k notin df2S:
-        result[k] = initColumn(kind = df1S[k].kind, length = resLen)
+        result.asgn(k, initColumn(kind = df1S[k].kind, length = resLen))
       if k notin df1S and k in df2S:
-        result[k] = initColumn(kind = df2S[k].kind, length = resLen)
+        result.asgn(k, initColumn(kind = df2S[k].kind, length = resLen))
     var count = 0
 
     let df1By = df1S[by].toTensor(dtype)
@@ -2108,9 +2108,9 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
           keys[key].add label
         sumStats[lhsName].add fn.fnS(subDf)
     for k, vals in keys:
-      result[k] = toNativeColumn vals
+      result.asgn(k, toNativeColumn vals)
     for k, vals in sumStats:
-      result[k] = toNativeColumn vals
+      result.asgn(k, toNativeColumn vals)
       result.len = vals.len
 
 proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
@@ -2123,14 +2123,15 @@ proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
   var keys = initTable[string, seq[Value]](grouped.groupMap.len)
   var idx = 0
   for class, subdf in groups(grouped):
+    #echo "!!! ", subdf
     for (c, val) in class:
       if c notin keys: keys[c] = newSeqOfCap[Value](1000)
       keys[c].add val
     counts.add subDf.len
     inc idx
   for k, vals in keys:
-    result[k] = toNativeColumn vals
-  result[name] = toColumn counts
+    result.asgn(k, toNativeColumn vals)
+  result.asgn(name, toColumn counts)
   result.len = idx
 
 proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
@@ -2144,31 +2145,30 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
     totLen += df.len
     # first add `id` column
     if id.len > 0 and id notin result:
-      result[id] = toColumn( newTensorWith(df.len, idVal) )
+      result.asgn(id, toColumn( newTensorWith(df.len, idVal) ))
     elif id.len > 0:
-      result[id] = result[id].add toColumn( newTensorWith(df.len, idVal) )
+      result.asgn(id, result[id].add toColumn( newTensorWith(df.len, idVal) ))
     var lastSize = 0
     for k in keys(df):
       if k notin result:
         # create this new column consisting of `VNull` up to current size
         if result.len > 0:
-          result[k] = nullColumn(result.len)
+          result.asgn(k, nullColumn(result.len))
         else:
-          result[k] = initColumn(df[k].kind)
+          result.asgn(k, initColumn(df[k].kind))
       # now add the current vector
       if k != id:
         # TODO: write a test for multiple bind_rows calls in a row!
-        result[k] = result[k].add df[k]
+        result.asgn(k, result[k].add df[k])
       lastSize = max(result[k].len, lastSize)
     result.len = lastSize
-
   # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
   # the first `df` has a column `k` with `N` entries, but another `M` entries are added to
   # the `df`. Since `k` is not found in another `df`, it won't be extend in the loop above
   for k in keys(result):
     if result[k].len < result.len:
       # extend this by `VNull`
-      result[k] = result[k].add nullColumn(result.len - result[k].len)
+      result.asgn(k, result[k].add nullColumn(result.len - result[k].len))
   doAssert totLen == result.len, " totLen was: " & $totLen & " and result.len " & $result.len
 
 template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
@@ -2236,12 +2236,12 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
         idxToKeep2.add idx
     # rebuild those from df1, then those from idx2
     for k in keys:
-      result[k] = df1[k].filter(toTensor(idxToKeep1))
+      result.asgn(k, df1[k].filter(toTensor(idxToKeep1)))
       # fill each key with the non zero elements
     result.len = idxToKeep1.len
-    var df2Res: DataFrame
+    var df2Res = initDataFrame()
     for k in keys:
-      df2Res[k] = df2[k].filter(toTensor(idxToKeep2))
+      df2Res.asgn(k, df2[k].filter(toTensor(idxToKeep2)))
       # fill each key with the non zero elements
     df2Res.len = idxToKeep2.len
     # stack the two data frames
@@ -2258,7 +2258,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
         inc i
     # rebuild the idxToKeep columns
     for k in keys:
-      result[k] = df1[k].filter(idxToKeep)
+      result.asgn(k, df1[k].filter(idxToKeep))
       # fill each key with the non zero elements
     result.len = idxToKeep.size
 
@@ -2290,8 +2290,8 @@ proc gather*(df: DataFrame, cols: varargs[string],
       # TODO: make sure we don't have to clone the given tensor!
       valTensor[i * df.len ..< (i + 1) * df.len] = df[col].toTensor(dtype)
     # now create result
-    result[key] = toColumn keyTensor
-    result[value] = toColumn valTensor
+    result.asgn(key, toColumn keyTensor)
+    result.asgn(value, toColumn valTensor)
   # For remainder of columns, just use something like `repeat`!, `stack`, `concat`
   for rem in remainCols:
     withNativeDtype(df[rem]):
@@ -2345,7 +2345,7 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
       inc idx
   # apply idxToKeep as filter
   for k in mcols:
-    result[k] = df[k].filter(idxToKeep)
+    result.asgn(k, df[k].filter(idxToKeep))
     # fill each key with the non zero elements
   result.len = idxToKeep.size
 
