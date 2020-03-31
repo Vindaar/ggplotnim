@@ -549,6 +549,11 @@ proc determineFormulaKind(body: NimNode): FormulaKind =
       # assume this refers to a column, so vector
       # (how to diff scalar?)
       result = fkVector
+    of nnkBracketExpr:
+      if eqIdent(body[i][0], ident"df"):
+        # refers to a column
+        result = fkVector
+      else: discard
     of nnkIntLit .. nnkFloat64Lit:
       if result != fkVector:
         # if already a vector, leave it
