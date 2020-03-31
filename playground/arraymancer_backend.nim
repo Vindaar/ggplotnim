@@ -65,11 +65,15 @@ type
 
 const ValueNull* = Value(kind: VNull)
 
-proc initDataFrame*(size = 16): DataFrame =
+proc initDataFrame*(size = 8,
+                    kind = dfNormal): DataFrame =
   ## initialize a DataFrame, which initializes the table for `size` number
   ## of columns. Given size will be rounded up to the next power of 2!
-  result = new(DataFrame)
-  result.data = initTable[string, Column](nextPowerOfTwo(size))
+  result = DataFrame(kind: kind,
+                     data: initTable[string, Column](nextPowerOfTwo(size)),
+                     len: 0)
+
+template ncols*(df: DataFrame): int = df.data.len
 
 proc `high`*(df: DataFrame): int = df.len - 1
 
@@ -949,10 +953,11 @@ template `^^`(df, i: untyped): untyped =
 
 proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
   ## returns the vertical slice of the data frame given by `rowSlice`.
-  result = DataFrame(len: 0)
+  let keys = getKeys(df)
+  result = initDataFrame(df.ncols)
   let a = (df ^^ rowSlice.a)
   let b = (df ^^ rowSlice.b)
-  for k in keys(df):
+  for k in keys:
     result[k] = df[k, a .. b]
   # add 1, because it's an ``inclusive`` slice!
   result.len = (b - a) + 1
@@ -1343,6 +1348,7 @@ proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline.} =
 
 proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
   ## returns the data frame filtered by the conditions given
+  result = initDataFrame(df.ncols)
   var fullCondition: FormulaNode
   var filterIdx: Column
   for c in conds:
@@ -1832,26 +1838,8 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
   ## sorts the data frame in ascending / descending `order` by key `by`
   # now sort by cols in ascending order of each col, i.e. ties will be broken
   # in ascending order of the columns
-  var idxCol: seq[int]
-  if by.len == 1:
-    idxCol = sortBys(df, by, order = order)
-  else:
-    # in case of having multiple strings to sort by, first create a sequence of all
-    # rows (only containig the columns to be sorted)
-    ## old code:
-    #var idxValCol = getColsAsRowsIdx(df, by)
-    #idxValCol.arrangeSortImpl(order)
-    #let test = idxValCol.mapIt(it[0])
-    idxCol = sortBys(df, by, order = order)
-    ## check it sorts correctly
-    #doAssert test.len == idxCol.len
-    #for idx in 0 ..< test.len:
-    #  doAssert test[idx] == idxCol[idx], " was " & $test[idx] & " | " & $idxCol[idx] & " at " & $idx
-    ## experimental (slow) via custom sort
-    #var sortDf = df.select(by)
-    #echo "start"
-    #sortDf["idxSorted"] = toColumn arraymancer.arange(0, df.len)
-    #sortDf.sort()
+  result = initDataFrame(df.ncols)
+  let idxCol = sortBys(df, by, order = order)
   result.len = df.len
   var data: Column
   for k in keys(df):
@@ -1934,7 +1922,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       keys1 = getKeys(df1S).toSet
       keys2 = getKeys(df2S).toSet
       allKeys = keys1 + keys2
-    result = DataFrame()
+    result = initDataFrame(allKeys.card)
     let resLen = (max(df1S.len, df2S.len))
     for k in allKeys:
       if k in df1S and k in df2S:
@@ -1998,7 +1986,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   else:
     # copy over the data frame into new one of kind `dfGrouped` (cannot change
     # kind at runtime!)
-    result = DataFrame(kind: dfGrouped)
+    result = initDataFrame(df.ncols, kind = dfGrouped)
     result.data = df.data
     result.len = df.len
   for key in by:
@@ -2035,7 +2023,6 @@ iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Valu
   let dfArranged = df.arrange(keys, order = order)
   # having the data frame in a sorted order, walk it and return each combination
   let hashes = buildColHashes(dfArranged, keys)
-
   #[
   Need new approach.
   Again calculate hashes of `keys` columns.
@@ -2080,7 +2067,7 @@ iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Valu
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
-  result = DataFrame(kind: dfNormal)
+  result = initDataFrame(kind = dfNormal)
   var lhsName = ""
   case df.kind
   of dfNormal:
@@ -2090,7 +2077,7 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
       # just apply the function
       withNativeConversion(fn.valKind, get):
         let res = toColumn get(fn.fnS(df))
-        result[lhsName] = res
+        result.asgn(lhsName, res)
         result.len = res.len
   of dfGrouped:
     # since `df.len >> fns.len = result.len` the overhead of storing the result
@@ -2201,10 +2188,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
   ## returns a `DataFrame` with all elements in `df1` that are not found in
   ## `df2`. If `symmetric` is true, the symmetric difference of the dataset is
   ## returned, i.e. elements which are either not in `df1` ``or`` not in `df2`.
-  ## NOTE: Currently simple implementation based on `HashSet`. Iterates
-  ## both dataframes once to generate sets, calcualtes intersection and returns
-  ## difference as new `DataFrame`
-  ## Considers whole rows for comparison. The result is potentially unsorted!
+  result = initDataFrame(df1.ncols)
   #[
   Calculate custom hash for each row in each table.
   Keep var h1, h2 = seq[Hashes] where seq[Hashes] is hash of of row.
@@ -2275,6 +2259,7 @@ proc gather*(df: DataFrame, cols: varargs[string],
   ## gathers the `cols` from `df` and merges these columns into two new columns
   ## where the `key` column contains the name of the column from which the `value`
   ## entry is taken. I.e. transforms `cols` from wide to long format.
+  result = initDataFrame(df.ncols)
   let remainCols = getKeys(df).toSet.difference(cols.toSet)
   let newLen = cols.len * df.len
   # assert all columns same type
@@ -2329,6 +2314,7 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
   ## default all columns are considered.
   ## NOTE: The corresponding `dplyr` function is `distinct`. The choice for
   ## `unique` was made, since `distinct` is a keyword in Nim!
+  result = initDataFrame(df.ncols)
   var mcols = @cols
   if mcols.len == 0:
     mcols = getKeys(df)
