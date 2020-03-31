@@ -1,38 +1,5 @@
 #import ggplotnim
 
-#[
-In principle we could support an arraymancer backend. By changing the `DataFrame`
-type as:
-]#
-#type
-#  DataFrameAr* = object
-#    len*: int
-#    columns*: Table[string, int] # table mapping the column key to an integer
-#    data*: Tensor[Value]
-#    case kind: DataFrameKind
-#    of dfGrouped:
-#      # a grouped data frame stores the keys of the groups and maps them to
-#      # a set of the categories
-#      groupMap: OrderedTable[string, HashSet[Value]]
-#    else: discard
-#[
-And providing overloads for the access of the data frame this should work fine
-]#
-
-#proc `[]`(df: DataFrameAr, key: string): Tensor[Value] =
-#  ## returns a column of the data frame
-#  ## Or maybe this should just return a single column data frame
-#  result = df.data[df.columns[key], _]
-
-#[
-The `DataFrame` tensor should probably be `column` major, so that accessing a column
-is quick. For most operations looking at the whole column is required. Row access is
-not needed so much?
-]#
-
-
-# maybe instead
-
 import macros, tables, strutils, options, fenv, sets, hashes, sugar, math
 
 import sequtils, stats, strformat, algorithm, parseutils
@@ -86,7 +53,7 @@ type
 
   # where value is as usual
   # then
-  DataFrame* = object
+  DataFrame* = ref object
     len*: int
     data*: Table[string, Column]
     case kind: DataFrameKind
@@ -98,15 +65,27 @@ type
 
 const ValueNull* = Value(kind: VNull)
 
-#proc initVariable*[T](x: T): FormulaNode[T] =
-#  result = FormulaNode[T](kind: fkVariable,
-#                          val: x)
+proc initDataFrame*(size = 16): DataFrame =
+  ## initialize a DataFrame, which initializes the table for `size` number
+  ## of columns.
+  result = new(DataFrame)
+  result.data = initTable[string, Column](nextPowerOfTwo(size))
 
-#proc evaluate*(node: FormulaNode): Value
-#proc evaluate*(node: FormulaNode, data: DataFrame, idx: int): Value
-#proc reduce*(node: FormulaNode, data: DataFrame): Value
-#proc evaluate*(node: FormulaNode, data: DataFrame): PersistentVector[Value]
-#
+proc `high`*(df: DataFrame): int = df.len - 1
+
+iterator keys*(df: DataFrame): string =
+  for k in keys(df.data):
+    yield k
+
+proc getKeys*[T](tab: OrderedTable[string, T]): seq[string] =
+  ## returns the keys of the table as a seq
+  for k in keys(tab):
+    result.add k
+
+proc getKeys*(df: DataFrame): seq[string] =
+  ## returns the keys of a data frame as a seq
+  for k in keys(df):
+    result.add k
 
 proc raw*(node: FormulaNode): string =
   ## prints the raw stringification of `node`
@@ -141,25 +120,6 @@ proc `$`*(node: FormulaNode): string =
 func len*[T](t: Tensor[T]): int =
   assert t.shape.len == 1
   result = t.size
-
-proc initDataFrame*(): DataFrame =
-  result.data = initTable[string, Column](16) # default 16 columns
-
-proc `high`*(df: DataFrame): int = df.len - 1
-
-iterator keys*(df: DataFrame): string =
-  for k in keys(df.data):
-    yield k
-
-proc getKeys*[T](tab: OrderedTable[string, T]): seq[string] =
-  ## returns the keys of the table as a seq
-  for k in keys(tab):
-    result.add k
-
-proc getKeys*(df: DataFrame): seq[string] =
-  ## returns the keys of a data frame as a seq
-  for k in keys(df):
-    result.add k
 
 #iterator mpairs*(df: var DataFrame): (string, var PersistentVector[Value]) =
 #  for k, mval in mpairs(df.data):
