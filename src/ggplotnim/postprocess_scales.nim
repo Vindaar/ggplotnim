@@ -464,7 +464,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     else:
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0,
-                                   high: max(yield[countCol].toTensor(int)).float))
+                                   high: max(yieldDf[countCol].toTensor(int)).float))
 
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
