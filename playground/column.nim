@@ -54,7 +54,7 @@ proc `[]`*(c: Column, slice: Slice[int]): Column =
   of colObject: result = toColumn c.oCol[slice.a .. slice.b]
   of colNone: raise newException(IndexError, "Accessed column is empty!")
 
-proc initColumn*(kind = colNone, length = 0): Column =
+proc newColumn*(kind = colNone, length = 0): Column =
   case kind
   of colFloat: result = toColumn newTensor[float](length)
   of colInt: result = toColumn newTensor[int](length)
