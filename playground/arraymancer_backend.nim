@@ -67,7 +67,7 @@ const ValueNull* = Value(kind: VNull)
 
 proc initDataFrame*(size = 16): DataFrame =
   ## initialize a DataFrame, which initializes the table for `size` number
-  ## of columns.
+  ## of columns. Given size will be rounded up to the next power of 2!
   result = new(DataFrame)
   result.data = initTable[string, Column](nextPowerOfTwo(size))
 
@@ -140,7 +140,6 @@ proc drop*(df: var DataFrame, key: string) {.inline.} =
 #    result = v
 #    for x in w:
 #      result = result.add x
-
 proc contains*(df: DataFrame, key: string): bool =
   ## Contains proc for `DataFrames`, which checks if the `key` names
   ## a column in the `DataFrame`
@@ -176,7 +175,29 @@ proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): Column {.inline.} =
   result = df.data[k][slice.a .. slice.b]
 
 proc `[]=`*(df: var DataFrame, k: string, vec: Column) {.inline.} =
+  # user facing proc to assign a full column. Performs sanity checks on
+  # the lengths
   df.data[k] = vec
+  assert df.len == vec.len or df.len == 0
+  df.len = vec.len
+
+proc asgn(df: var DataFrame, k: string, vec: Column) {.inline.} =
+  # low level assign, which does not care about sizes of vector. Used in `toTab`.
+  # Shorter columns are extended afterwards.
+  df.data[k] = vec
+
+proc clone*(df: DataFrame): DataFrame =
+  ## returns a cloned version of `df` so that the tensors don't share
+  ## data.
+  # NOTE: This should actually just use `clone` on each tensor, but if
+  # we do that, we get random GC segfaults later
+  result = DataFrame(kind: df.kind)
+  result.len = df.len
+  result.data = deepCopy(df.data)
+  case df.kind
+  of dfGrouped:
+    result.groupMap = df.groupMap
+  else: discard
 
 proc `[]=`*[T](df: var DataFrame, k: string, t: Tensor[T]) {.inline.} =
   df.data[k] = toColumn t
