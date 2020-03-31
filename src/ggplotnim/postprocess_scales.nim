@@ -186,7 +186,10 @@ else:
     case pos
     of pkStack:
       if sumCounts.len == 0:
-        sumCounts = df
+        when defined(defaultBackend):
+          sumCounts = df
+        else:
+          sumCounts = clone(df)
       else:
         for i in 0 ..< df.len:
           sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
@@ -449,14 +452,20 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       else:
         result.yScale = mergeScales(result.yScale,
                                     (low: 0.0,
-                                     high: max(sumCounts[countCol]).toFloat))
+                                     high: max(sumCounts[countCol].toTensor(int)).float))
   else:
     let yieldDf = df.count($x.col, name = countCol)
     let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
     result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.setXAttributes(yieldDf, x)
-    result.yScale = mergeScales(result.yScale,
-                                (low: 0.0, high: yieldDf[countCol].max.toFloat))
+    when defined(defaultBackend):
+      result.yScale = mergeScales(result.yScale,
+                                  (low: 0.0, high: yieldDf[countCol].max.toFloat))
+    else:
+      result.yScale = mergeScales(result.yScale,
+                                  (low: 0.0,
+                                   high: max(yield[countCol].toTensor(int)).float))
+
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the
   # maximum value is always an `int`!

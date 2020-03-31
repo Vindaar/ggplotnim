@@ -1,7 +1,7 @@
 import sequtils, tables
 import ggplot_types, ggplot_styles, ggplot_scales
 when defined(defaultBackend):
-  import formula
+  import formula, persvector
 else:
   import ../../playground/arraymancer_backend
 import ginger

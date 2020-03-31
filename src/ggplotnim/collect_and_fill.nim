@@ -372,7 +372,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   when defined(defaultBackend):
     var data = newSeqOfCap[Value](df.len * scales.len)
   else:
-    var data: Column
+    var data = newColumn()
   var transOpt: Option[ScaleTransform]
   var axKindOpt: Option[AxisKind]
   # in a first loop over the scales read the data required to make decisions about

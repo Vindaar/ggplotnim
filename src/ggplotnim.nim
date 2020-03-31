@@ -1681,7 +1681,6 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
 
   # change scales to user defined if desired
   view.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
-  echo "xscale ", view.xScale
 
   if p.ridges.isSome:
     let ridge = p.ridges.unsafeGet
