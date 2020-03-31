@@ -918,6 +918,11 @@ macro `{}`*(x: untyped{ident}, y: untyped): untyped =
     ##   the logic for above for assignment, vector or scalar
     result = compileFormula(y, isRaw = true)
 
+macro `fn`*(x: untyped): untyped =
+  let arg = if x.kind == nnkStmtList: x[0] else: x
+  expectKind arg, nnkCurly
+  result = compileFormula(arg[0], isRaw = false)
+
 #proc `[]=`*[T](df: var DataFrame, k: string, data: openArray[T]) {.inline.} =
 #  ## Extends the given DataFrame by the column `k` with the `data`.
 #  ## This proc raises if the given data length if not the same as the
