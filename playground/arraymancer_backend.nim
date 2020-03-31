@@ -139,7 +139,7 @@ proc `$`*(node: FormulaNode): string =
 ## ggplotnims default backend.
 
 func len*[T](t: Tensor[T]): int =
-  assert t.dims == 1
+  assert t.shape.len == 1
   result = t.size
 
 proc initDataFrame*(): DataFrame =
