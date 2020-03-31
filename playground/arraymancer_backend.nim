@@ -178,17 +178,17 @@ proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): Column {.inline.} =
   ## returning the whole vector first
   result = df.data[k][slice.a .. slice.b]
 
-proc `[]=`*(df: var DataFrame, k: string, vec: Column) {.inline.} =
-  # user facing proc to assign a full column. Performs sanity checks on
-  # the lengths
-  df.data[k] = vec
-  assert df.len == vec.len or df.len == 0
-  df.len = vec.len
+proc `[]=`*(df: var DataFrame, k: string, col: Column) {.inline.} =
+  ## Assigns a full column to the DF. In debug mode it checks that the size of
+  ## the input column matches the DF size, unless the DF is empty.
+  df.data[k] = col
+  assert df.len == col.len or df.len == 0
+  df.len = col.len
 
-proc asgn(df: var DataFrame, k: string, vec: Column) {.inline.} =
-  # low level assign, which does not care about sizes of vector. Used in `toTab`.
+proc asgn(df: var DataFrame, k: string, col: Column) {.inline.} =
+  # low level assign, which does not care about sizes of column. Used in `toTab`.
   # Shorter columns are extended afterwards.
-  df.data[k] = vec
+  df.data[k] = col
 
 proc clone*(df: DataFrame): DataFrame =
   ## returns a cloned version of `df` so that the tensors don't share
@@ -1368,239 +1368,10 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
     result.asgn(k, df[k].filter(nonZeroIdx))
     # fill each key with the non zero elements
   result.len = nonZeroIdx.size
-#template liftVectorFloatProc*(name: untyped,
-#                              toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `seq[float]` to act on a `PersistentVector[Value]`
-#  ## so that it can be used in a formula to act on a whole DF column.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
-#  else:
-#    proc `name`(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VFloat, fnum: `name`(v[0 ..< v.len].mapIt(it.toFloat)))
-#
-#template liftVectorIntProc*(name: untyped,
-#                            toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `seq[int]` to act on a `PersistentVector[Value]`
-#  ## so that it can be used in a formula to act on a whole DF column.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
-#  else:
-#    proc `name`(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VInt, num: `name`(v[0 ..< v.len].mapIt(it.toInt)))
-#
-#template liftVectorStringProc*(name: untyped,
-#                               toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `seq[string]` to act on a `PersistentVector[Value]`
-#  ## so that it can be used in a formula to act on a whole DF column.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toStr)))
-#  else:
-#    proc `name`(v: PersistentVector[Value]): Value =
-#      result = Value(kind: VString, str: `name`(v[0 ..< v.len].mapIt(it.toStr)))
-#
-#template liftScalarFloatProc*(name: untyped,
-#                              toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `float` to act on a `Value`
-#  ## so that it can be used in a formula to act on an element in a DF.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: Value): Value =
-#      result = %~ `name`(v.toFloat)
-#  else:
-#    proc `name`(v: Value): Value =
-#      result = %~ `name`(v.toFloat)
-#
-#template liftScalarIntProc*(name: untyped,
-#                           toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `int` to act on a `Value`
-#  ## so that it can be used in a formula to act on an element in a DF.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: Value): Value =
-#      result = %~ `name`(v.toInt)
-#  else:
-#    proc `name`(v: Value): Value =
-#      result = %~ `name`(v.toInt)
-#
-#template liftScalarStringProc*(name: untyped,
-#                               toExport: static bool = true): untyped =
-#  ## Lifts a proc, which takes a `string` to act on a `Value`
-#  ## so that it can be used in a formula to act on an element in a DF.
-#  ## `toExport` can be set to `false` so that the resulting proc is not exported.
-#  ## This is useful to lift procs only locally (e.g. in a test case etc.)
-#  when toExport:
-#    proc `name`*(v: Value): Value =
-#      result = %~ `name`(v.toStr)
-#  else:
-#    proc `name`(v: Value): Value =
-#      result = %~ `name`(v.toStr)
-#
-#proc length*(v: PersistentVector[Value]): Value =
-#  ## returns the `length` of the given vector (DF column) as a `Value`.
-#  ## Essentially just a working version of `len` for use in formulas, e.g.
-#  ## for `summarize`. Does not use the `len` name for two reasons:
-#  ## 1. Nim does not allow overload by return type
-#  ## 2. `length` is the name in R
-#  result = %~ v.len
-#
-#proc colMin*(s: seq[Value], ignoreInf = true): float =
-#  ## Returns the minimum of a given `seq[Value]`.
-#  ## If `ignoreInf` is true `-Inf` values are ignored. This porc
-#  ## is mainly used to determine the data scales for a plot and not
-#  ## as a user facing proc!
-#  for i, x in s:
-#    let xFloat = x.toFloat
-#    if i == 0:
-#      result = xFloat
-#    if ignoreInf and classify(xFloat) == fcNegInf:
-#      continue
-#    result = min(xFloat, result)
-#
-#proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
-#  ## Returns the minimum of a DF column.
-#  ## If `ignoreInf` is true `-Inf` values are ignored. This porc
-#  ## is mainly used to determine the data scales for a plot and not
-#  ## as a user facing proc!
-#  let colVals = df[col].vToSeq
-#  result = colVals.colMin(ignoreInf = ignoreInf)
-#
-#proc colMax*(s: seq[Value], ignoreInf = true): float =
-#  ## Returns the maximum of a given string`seq[Value]`.
-#  ## If `ignoreInf` is true `Inf` values are ignored. This proc
-#  ## is mainly used to determine the data scales for a plot and not
-#  ## as a user facing proc!
-#  for i, x in s:
-#    let xFloat = x.toFloat
-#    if i == 0:
-#      result = xFloat
-#    if ignoreInf and classify(xFloat) == fcInf:
-#      continue
-#    result = max(xFloat, result)
-#
-#proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
-#  ## Returns the maximum of a DF column.
-#  ## If `ignoreInf` is true `Inf` values are ignored. This proc
-#  ## is mainly used to determine the data scales for a plot and not
-#  ## as a user facing proc!
-#  let colVals = df[col].vToSeq
-#  result = colVals.colMax(ignoreInf = ignoreInf)
-#
-#proc scaleFromData*(s: seq[Value], ignoreInf: static bool = true): ginger.Scale =
-#  ## Combination of `colMin`, `colMax` to avoid running over the data
-#  ## twice. For large DFs to plot this makes a big difference.
-#  if s.len == 0: return (low: 0.0, high: 0.0)
-#  var
-#    xFloat = s[0].toFloat
-#    minVal = xFloat
-#    maxVal = xFloat
-#  for i, x in s:
-#    xFloat = x.toFloat
-#    when ignoreInf:
-#      if (classify(xFloat) == fcNegInf or
-#          classify(xFloat) == fcInf):
-#        continue
-#    minVal = min(xFloat, minVal)
-#    maxVal = max(xFloat, maxVal)
-#  result = (low: minVal, high: maxVal)
-#
-#liftVectorFloatProc(mean)
-#liftVectorFloatProc(sum)
-#liftScalarFloatProc(abs)
-#liftVectorFloatProc(min)
-#liftVectorFloatProc(max)
-#
-## lifted procs from `stats` module
-#liftVectorFloatProc(variance)
-#liftVectorFloatProc(standardDeviation)
-#liftVectorFloatProc(skewness)
-#liftVectorFloatProc(kurtosis)
-#
-## The following lifted procs are all lifted from the stdlib and the lifting to
-## work on seqs is done in seqmath. Not all work atm, since some take additional args
-## or return bools
-## ---- from math.nim --------------
-##liftScalarFloatProc(classify)
-##liftScalarFloatProc(binom)
-##liftScalarFloatProc(fac)
-##liftScalarFloatProc(isPowerOfTwo)
-##liftScalarFloatProc(nextPowerOfTwo)
-##liftScalarFloatProc(countBits32)
-##liftScalarFloatProc(random)
-#liftScalarFloatProc(sqrt)
-#liftScalarFloatProc(cbrt)
-#liftScalarFloatProc(log10)
-#liftScalarFloatProc(log2)
-#liftScalarFloatProc(ln)
-#liftScalarFloatProc(exp)
-##liftScalarFloatProc2(fexp)
-#liftScalarFloatProc(arccos)
-#liftScalarFloatProc(arcsin)
-#liftScalarFloatProc(arctan)
-##liftScalarFloatProc2(arctan2)
-#liftScalarFloatProc(cos)
-#liftScalarFloatProc(cosh)
-##liftScalarFloatProc2(hypot)
-#liftScalarFloatProc(sin)
-#liftScalarFloatProc(sinh)
-#liftScalarFloatProc(tan)
-#liftScalarFloatProc(tanh)
-##liftScalarFloatProc2(pow)
-#liftScalarFloatProc(erf)
-#liftScalarFloatProc(erfc)
-#liftScalarFloatProc(lgamma)
-#liftScalarFloatProc(tgamma)
-#liftScalarFloatProc(trunc)
-#liftScalarFloatProc(floor)
-#liftScalarFloatProc(ceil)
-#liftScalarFloatProc(degToRad)
-#liftScalarFloatProc(radToDeg)
-##liftScalarFloatProc(gcd)
-##liftScalarFloatProc(lcm)
-#
-#
-#
-#template liftVectorProcToPersVec(name: untyped, outType: untyped): untyped =
-#  proc `name`*(v: PersistentVector[Value]): `outType` =
-#    result = v[0 ..< v.len].mapIt(`name`(it.toFloat))
-#
-## liftVectorProcToPersVec(ln, seq[float])
-#
-##template liftProcToString(name: untyped, outType: untyped): untyped =
-##  proc `name`(df: DataFrame, x: string): `outType` =
-##    result = `name`(df[x])
-##
-##liftProcToString(mean, float)
-#
 
 proc calcNewColumn*(df: DataFrame, fn: FormulaNode): (string, Column) =
   ## calculates a new column based on the `fn` given
   result = (fn.colName, fn.fnV(df))
-  #doAssert fn.lhs.kind == fkVariable, " was " & $fn
-  #doAssert fn.lhs.val.kind == VString, " was " & $fn
-  ## for column names we don't want explicit highlighting of string numbers, since
-  ## we are dealing with strings anyways (`emphStrNumber = false`).
-  #let colName = if fn.lhs.val.kind == VString:
-  #                fn.lhs.val.str
-  #              else:
-  #                pretty(fn.lhs.val, emphStrNumber = false)
-  ## mutable copy so that we can cache the result of `fn(arg)` if such a
-  ## function call is involved
-  #var mfn = fn
-  #var newCol = newTensor[T](df.len)
-  #for i in 0 ..< df.len:
-  #  newCol[i] = mfn.rhs.evaluate(df, i)
-  #result = (colName, toColumn(newCol))
 
 proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]) =
   ## Inplace variant of `select` below.
@@ -1714,38 +1485,6 @@ proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
     # remove the column of the old name
     result.drop(fn.rhs.toStr)
 
-#proc getColsAsRows(df: DataFrame, keys: seq[string]): seq[Value] =
-#  ## Given a dataframe `df` and column keys `keys`, returns a `seq[Value]`
-#  ## where each `Value` is a `VObject` containing a single row, with
-#  ## (key, value) pairs.
-#  # now build the rows
-#  result = newSeq[Value](df.len)
-#  for i in 0 ..< result.len:
-#    result[i] = newVObject()
-#    for k in keys:
-#      result[i][k] = df[k, i]
-#
-#import times
-#proc getColsAsRowsIdx(df: DataFrame, keys: seq[string]): seq[(int, Value)] =
-#  ## Given a dataframe `df` and column keys `keys`, returns a `seq[(int, Value)]`
-#  ## where each `Value` is a `VObject` containing a single row, with
-#  ## (key, value) pairs and `int` contains the index
-#  # now build the rows
-#  let t0 = cpuTime()
-#  result = newSeq[(int, Value)](df.len)
-#  var first = true
-#  for k in keys:
-#    withNativeDtype(df[k]):
-#      let col = df[k].toTensor(dtype)
-#      for i in 0 ..< result.len:
-#        if first:
-#          result[i][0] = i
-#          result[i][1] = newVObject(keys.len)
-#        result[i][1][k] = %~ (col[i])
-#      first = false
-#  let t1 = cpuTime()
-#  echo "to rows took ", t1 - t0
-#
 proc arrangeSortImpl[T](toSort: var seq[(int, T)], order: SortOrder) =
   ## sorts the given `(index, Value)` pair according to the `Value`
   toSort.sort(
@@ -1755,23 +1494,6 @@ proc arrangeSortImpl[T](toSort: var seq[(int, T)], order: SortOrder) =
       ),
       order = order
     )
-
-#proc sort*(a: var DataFrame, order = SortOrder.Ascending)
-
-#template withNativeCols(cols: varargs[Column]): untyped =
-#  for c in cols:
-#
-
-#proc sortBy(df: DataFrame, by: string, order: SortOrder): seq[int] =
-#  withNativeDtype(df[by]):
-#    var res = newSeq[(int, dtype)](df.len)
-#    for i, val in toTensor(df[by], dtype):
-#      res[i[0]] = (i[0], val)
-#    res.arrangeSortImpl(order = order)
-#    # after sorting here, check duplicate values of `val`, slice
-#    # of those duplicates, use the next `by` in line and sort
-#    # the remaining indices. Recursively do this until
-#    result = res.mapIt(it[0])
 
 proc sortBySubset(df: DataFrame, by: string, idx: seq[int], order: SortOrder): seq[int] =
   withNativeDtype(df[by]):
@@ -1941,7 +1663,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       let il = idxDf1[i]
       let jl = idxDf2[j]
       # indices point to same row, merge row
-      if df1by[il] == df2by[jl]:
+      if df1By[il] == df2By[jl]:
         for k in allKeys:
           if k in keys1 and k in keys2:
             doAssert equal(df1S[k], il, df2S[k], jl)
@@ -1954,12 +1676,12 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       # now increase the indices as required
       if i != idxDf1.high and
          j != idxDf2.high and
-         (df1by[idxDf1[i+1]] == df2by[idxDf2[j+1]]):
+         (df1By[idxDf1[i+1]] == df2By[idxDf2[j+1]]):
         inc i
         inc j
-      elif i != idxDf1.high and (df1by[idxDf1[i+1]] == df2by[jl]):
+      elif i != idxDf1.high and (df1By[idxDf1[i+1]] == df2By[jl]):
         inc i
-      elif j != idxDf2.high and (df1by[il] == df2by[idxDf2[j+1]]):
+      elif j != idxDf2.high and (df1By[il] == df2By[idxDf2[j+1]]):
         inc j
       elif i == idxDf1.high and j == idxDf2.high:
         break
