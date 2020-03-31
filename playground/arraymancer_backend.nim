@@ -944,20 +944,6 @@ macro `fn`*(x: untyped): untyped =
   expectKind arg, nnkCurly
   result = compileFormula(arg[0], isRaw = false)
 
-#proc `[]=`*[T](df: var DataFrame, k: string, data: openArray[T]) {.inline.} =
-#  ## Extends the given DataFrame by the column `k` with the `data`.
-#  ## This proc raises if the given data length if not the same as the
-#  ## DataFrames' length. In case `k` already exists, `data` will override
-#  ## the current content!
-#  if data.len == df.len:
-#    df.data[k] = toPersistentVector(%~ data)
-#  else:
-#    raise newException(ValueError, "Given `data` length of " & $data.len &
-#      " does not match DF length of: " & $df.len & "!")
-#
-#proc `[]=`*(df: var DataFrame, k: string, idx: int, val: Value) {.inline.} =
-#  df.data[k] = df.data[k].update(idx, val)
-
 template `^^`(df, i: untyped): untyped =
   (when i is BackwardsIndex: df.len - int(i) else: int(i))
 
@@ -979,23 +965,6 @@ proc row*(df: DataFrame, idx: int, cols: varargs[string]): Value {.inline.} =
   for col in mcols:
     result[col] = df[col][idx, Value]
 
-#template `[]`*(df: DataFrame, idx: int): Value =
-#  ## convenience template around `row` to access the `idx`-th row of the
-#  ## DF as a `VObject Value`.
-#  df.row(idx)
-#
-#proc isColumn*(fn: FormulaNode, df: DataFrame): bool =
-#  case fn.kind
-#  of fkVariable:
-#    case fn.val.kind
-#    of VString: result = fn.val.str in df
-#    else: result = false
-#  else: result = false
-#
-#template `failed?`(cond: untyped): untyped {.used.} =
-#  # helper template
-#  debugecho "Failed? ", astToStr(cond), ": ", cond
-#
 proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string =
   ## converts the first `numLines` to a table.
   ## If the `numLines` argument is negative, will print all rows of the
