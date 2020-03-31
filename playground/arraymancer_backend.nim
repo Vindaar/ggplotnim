@@ -1529,7 +1529,7 @@ proc sortRecurse(df: DataFrame, by: seq[string],
     var cur = res[1][1]
     var i = startIdx
     var lastSearch = 0
-    while i < df.len:
+    while i < res.len:
       cur = res[i][1]
       if last != cur or i == df.high:
         if i > lastSearch + 1:
