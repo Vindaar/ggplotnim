@@ -255,7 +255,7 @@ proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
       continue
     result = min(x, result)
 
-func scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
+proc scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
   ## Combination of `colMin`, `colMax` to avoid running over the data
   ## twice. For large DFs to plot this makes a big difference.
   if c.len == 0: return (low: 0.0, high: 0.0)
