@@ -65,7 +65,7 @@ type
 
 const ValueNull* = Value(kind: VNull)
 
-proc initDataFrame*(size = 8,
+proc newDataFrame*(size = 8,
                     kind = dfNormal): DataFrame =
   ## initialize a DataFrame, which initializes the table for `size` number
   ## of columns. Given size will be rounded up to the next power of 2!
@@ -959,7 +959,7 @@ template `^^`(df, i: untyped): untyped =
 proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
   ## returns the vertical slice of the data frame given by `rowSlice`.
   let keys = getKeys(df)
-  result = initDataFrame(df.ncols)
+  result = newDataFrame(df.ncols)
   let a = (df ^^ rowSlice.a)
   let b = (df ^^ rowSlice.b)
   for k in keys:
@@ -1034,7 +1034,7 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## TODO: currently does not allow to parse bool!
   result = DataFrame(len: 0)
   for k, v in t:
-    var col = initColumn()
+    var col = newColumn()
     # check first element of v for type
     if v.len > 0:
       # TODO: CLEAN UP
@@ -1110,7 +1110,7 @@ macro toTab*(args: varargs[untyped]): untyped =
   let data = ident"columns"
   result = newStmtList()
   result.add quote do:
-    var `data` = initDataFrame()
+    var `data` = newDataFrame()
   for a in s:
     case a.kind
     of nnkIdent:
@@ -1275,7 +1275,7 @@ iterator items*(df: DataFrame): Value =
 #proc add(df: var DataFrame, row: Value) =
 #  for k in keys(row):
 #    if not df.hasKey(k):
-#      df[k] = initColumn(toColKind(row[k]))
+#      df[k] = newColumn(toColKind(row[k]))
 #    df[k] = df[k].add row[k]
 #    doAssert df.len + 1 == df[k].len
 #  df.len = df.len + 1
@@ -1353,9 +1353,9 @@ proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline.} =
 
 proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
   ## returns the data frame filtered by the conditions given
-  result = initDataFrame(df.ncols)
+  result = newDataFrame(df.ncols)
   var fullCondition: FormulaNode
-  var filterIdx = initColumn(colInt)
+  var filterIdx = newColumn(colInt)
   for c in conds:
     if filterIdx.len > 0:
       # combine two tensors
@@ -1565,10 +1565,10 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
   ## sorts the data frame in ascending / descending `order` by key `by`
   # now sort by cols in ascending order of each col, i.e. ties will be broken
   # in ascending order of the columns
-  result = initDataFrame(df.ncols)
+  result = newDataFrame(df.ncols)
   let idxCol = sortBys(df, by, order = order)
   result.len = df.len
-  var data = initColumn()
+  var data = newColumn()
   for k in keys(df):
     withNativeDtype(df[k]):
       let col = df[k].toTensor(dtype)
@@ -1648,16 +1648,16 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       keys1 = getKeys(df1S).toSet
       keys2 = getKeys(df2S).toSet
       allKeys = keys1 + keys2
-    result = initDataFrame(allKeys.card)
+    result = newDataFrame(allKeys.card)
     let resLen = (max(df1S.len, df2S.len))
     for k in allKeys:
       if k in df1S and k in df2S:
         doAssert df1S[k].kind == df2S[k].kind
-        result.asgn(k, initColumn(kind = df1S[k].kind, length = resLen))
+        result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
       elif k in df1S and k notin df2S:
-        result.asgn(k, initColumn(kind = df1S[k].kind, length = resLen))
+        result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
       if k notin df1S and k in df2S:
-        result.asgn(k, initColumn(kind = df2S[k].kind, length = resLen))
+        result.asgn(k, newColumn(kind = df2S[k].kind, length = resLen))
     var count = 0
 
     let df1By = df1S[by].toTensor(dtype)
@@ -1712,7 +1712,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   else:
     # copy over the data frame into new one of kind `dfGrouped` (cannot change
     # kind at runtime!)
-    result = initDataFrame(df.ncols, kind = dfGrouped)
+    result = newDataFrame(df.ncols, kind = dfGrouped)
     result.data = df.data
     result.len = df.len
   for key in by:
@@ -1793,7 +1793,7 @@ iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Valu
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
-  result = initDataFrame(kind = dfNormal)
+  result = newDataFrame(kind = dfNormal)
   var lhsName = ""
   case df.kind
   of dfNormal:
@@ -1868,7 +1868,7 @@ proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
         if result.len > 0:
           result.asgn(k, nullColumn(result.len))
         else:
-          result.asgn(k, initColumn(df[k].kind))
+          result.asgn(k, newColumn(df[k].kind))
       # now add the current vector
       if k != id:
         # TODO: write a test for multiple bind_rows calls in a row!
@@ -1914,7 +1914,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
   ## returns a `DataFrame` with all elements in `df1` that are not found in
   ## `df2`. If `symmetric` is true, the symmetric difference of the dataset is
   ## returned, i.e. elements which are either not in `df1` ``or`` not in `df2`.
-  result = initDataFrame(df1.ncols)
+  result = newDataFrame(df1.ncols)
   #[
   Calculate custom hash for each row in each table.
   Keep var h1, h2 = seq[Hashes] where seq[Hashes] is hash of of row.
@@ -1949,7 +1949,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
       result.asgn(k, df1[k].filter(toTensor(idxToKeep1)))
       # fill each key with the non zero elements
     result.len = idxToKeep1.len
-    var df2Res = initDataFrame()
+    var df2Res = newDataFrame()
     for k in keys:
       df2Res.asgn(k, df2[k].filter(toTensor(idxToKeep2)))
       # fill each key with the non zero elements
@@ -1985,7 +1985,7 @@ proc gather*(df: DataFrame, cols: varargs[string],
   ## gathers the `cols` from `df` and merges these columns into two new columns
   ## where the `key` column contains the name of the column from which the `value`
   ## entry is taken. I.e. transforms `cols` from wide to long format.
-  result = initDataFrame(df.ncols)
+  result = newDataFrame(df.ncols)
   let remainCols = getKeys(df).toSet.difference(cols.toSet)
   let newLen = cols.len * df.len
   # assert all columns same type
@@ -2040,7 +2040,7 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
   ## default all columns are considered.
   ## NOTE: The corresponding `dplyr` function is `distinct`. The choice for
   ## `unique` was made, since `distinct` is a keyword in Nim!
-  result = initDataFrame(df.ncols)
+  result = newDataFrame(df.ncols)
   var mcols = @cols
   if mcols.len == 0:
     mcols = getKeys(df)
