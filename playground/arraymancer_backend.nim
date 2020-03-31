@@ -1034,7 +1034,7 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
   ## TODO: currently does not allow to parse bool!
   result = DataFrame(len: 0)
   for k, v in t:
-    var col: Column
+    var col = initColumn()
     # check first element of v for type
     if v.len > 0:
       # TODO: CLEAN UP
@@ -1355,7 +1355,7 @@ proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
   ## returns the data frame filtered by the conditions given
   result = initDataFrame(df.ncols)
   var fullCondition: FormulaNode
-  var filterIdx: Column
+  var filterIdx = initColumn(colInt)
   for c in conds:
     if filterIdx.len > 0:
       # combine two tensors
@@ -1568,13 +1568,12 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
   result = initDataFrame(df.ncols)
   let idxCol = sortBys(df, by, order = order)
   result.len = df.len
-  var data: Column
+  var data = initColumn()
   for k in keys(df):
     withNativeDtype(df[k]):
       let col = df[k].toTensor(dtype)
       var res = newTensor[dtype](df.len)
       for i in 0 ..< df.len:
-        #res[i] = col[idxValCol[i][0]]
         res[i] = col[idxCol[i]]
       data = toColumn res
     result.asgn(k, data)

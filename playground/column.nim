@@ -2,8 +2,8 @@ import arraymancer, value, sugar, math
 
 type
   ColKind* = enum
-    colFloat, colInt, colBool, colString, colObject
-  Column* = object
+    colNone, colFloat, colInt, colBool, colString, colObject
+  Column* = ref object
     len*: int
     case kind*: ColKind
     of colFloat: fCol*: Tensor[float]
@@ -11,6 +11,7 @@ type
     of colBool: bCol*: Tensor[bool]
     of colString: sCol*: Tensor[string]
     of colObject: oCol*: Tensor[Value]
+    of colNone: discard
 
 # just a no-op
 template toColumn*(c: Column): Column = c
@@ -51,14 +52,17 @@ proc `[]`*(c: Column, slice: Slice[int]): Column =
   of colString: result = toColumn c.sCol[slice.a .. slice.b]
   of colBool: result = toColumn c.bCol[slice.a .. slice.b]
   of colObject: result = toColumn c.oCol[slice.a .. slice.b]
+  of colNone: raise newException(IndexError, "Accessed column is empty!")
 
-proc initColumn*(kind: ColKind, length = 0): Column =
+proc initColumn*(kind = colNone, length = 0): Column =
   case kind
   of colFloat: result = toColumn newTensor[float](length)
   of colInt: result = toColumn newTensor[int](length)
   of colString: result = toColumn newTensor[string](length)
   of colBool: result = toColumn newTensor[bool](length)
   of colObject: result = toColumn newTensor[Value](length)
+  of colNone: result = Column(kind: colNone, len: 0)
+
 
 proc toColKind*[T](dtype: typedesc[T]): ColKind =
   when T is float:
@@ -88,6 +92,7 @@ proc toValueKind*(colKind: ColKind): ValueKind =
   of colString: result = VString
   of colBool: result = VBool
   of colObject: result = VObject
+  of colNone: result = VNull
 
 proc toNimType*(colKind: ColKind): string =
   ## returns the string name of the underlying data type of the column kind
@@ -97,6 +102,7 @@ proc toNimType*(colKind: ColKind): string =
   of colString: result = "string"
   of colBool: result = "bool"
   of colObject: result = "object"
+  of colNone: result = "null"
 
 proc asValue*[T](t: Tensor[T]): Tensor[Value] {.noInit.} =
   ## Apply type conversion on the whole tensor
@@ -169,6 +175,7 @@ proc toTensor*[T](c: Column, dtype: typedesc[T],
       result = c.bCol.asValue
   of colObject:
     result = c.oCol.valueTo(T, dropNulls = dropNulls)
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
   case c.kind
@@ -190,6 +197,7 @@ proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
       result = c.bCol[slice.a .. slice.b]
   of colObject:
     result = c.oCol[slice.a .. slice.b].valueTo(T)
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
   when T isnot Value:
@@ -225,6 +233,7 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
         result = c.oCol[idx].toInt
       elif T is bool:
         result = c.oCol[idx].toBool
+    of colNone: raise newException(ValueError, "Accessed column is empty!")
   else:
     case c.kind
     of colInt: result = %~ c.iCol[idx]
@@ -232,6 +241,7 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
     of colString: result = %~ c.sCol[idx]
     of colBool: result = %~ c.bCol[idx]
     of colObject: result = c.oCol[idx]
+    of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc `[]=`*[T](c: var Column, idx: int, val: T) =
   ## assign `val` to column `c` at index `idx`
@@ -263,6 +273,7 @@ proc `[]=`*[T](c: var Column, idx: int, val: T) =
       rewriteAsValue = true
   of colObject:
     c.oCol[idx] = %~ val
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
   if rewriteAsValue:
     # rewrite as an object column
     c = c.toObjectColumn()
@@ -287,6 +298,7 @@ template withNativeTensor*(c: Column,
   of colObject:
     let `valName` {.inject.} =  c.oCol
     body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 template `%~`*(v: Value): Value = v
 
@@ -316,6 +328,7 @@ template withNative*(c: Column, idx: int,
   of colObject:
     let `valName` {.inject.} =  c[idx, Value]
     body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 template withNativeDtype*(c: Column, body: untyped): untyped =
   case c.kind
@@ -334,6 +347,7 @@ template withNativeDtype*(c: Column, body: untyped): untyped =
   of colObject:
     type dtype {.inject.} = Value
     body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc equal*(c1: Column, idx1: int, c2: Column, idx2: int): bool =
   ## checks if the value in `c1` at `idx1` is equal to the
@@ -367,6 +381,7 @@ template withNative2*(c1, c2: Column, idx1, idx2: int,
     let `valName1` {.inject.} =  c1[idx1, Value]
     let `valName2` {.inject.} =  c2[idx2, Value]
     body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc compatibleColumns*(c1, c2: Column): bool {.inline.} =
   if c1.kind == c2.kind: result = true
@@ -382,6 +397,7 @@ proc toObject*(c: Column): Column {.inline.} =
   of colFloat: result = toColumn c.fCol.asValue
   of colString: result = toColumn c.sCol.asValue
   of colBool: result = toColumn c.bCol.asValue
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc add*(c1, c2: Column): Column =
   ## adds column `c2` to `c1`. Uses `concat` internally.
@@ -395,6 +411,7 @@ proc add*(c1, c2: Column): Column =
     of colBool: result = toColumn concat(c1.bCol, c2.bCol, axis = 0)
     of colString: result = toColumn concat(c1.sCol, c2.sCol, axis = 0)
     of colObject: result = toColumn concat(c1.oCol, c2.oCol, axis = 0)
+    of colNone: doAssert false, "Both columns are empty!"
   elif compatibleColumns(c1, c2):
     # convert both to float
     case c1.kind
@@ -456,3 +473,10 @@ template liftScalarToColumn*(name: untyped): untyped =
     withNativeDtype(c):
       result = %~ `name`(c.toTensor(dtype))
 liftScalarToColumn(max)
+
+proc pretty*(c: Column): string =
+  ## pretty prints a Column
+  result = &"Column of type: {toNimType(c.kind)} with length: {c.len}\n"
+  withNativeTensor(c, t):
+    result.add &"  contained Tensor: {t}"
+template `$`*(c: Column): string = pretty(c)
