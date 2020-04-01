@@ -25,9 +25,11 @@ All examples run on:
                -~|{*l}*|~
 #+END_SRC
 
-TODO: add plots, write more
+TODO: explain more.
 
-[[./plots/bench_create_column_openmp.png]]
+All pandas / numpy values prefixed with =pd_= or just =pandas=,
+=numpy=. Everything else is datamancer.
+
 
 [[./plots/bench_create_column.png]]
 
