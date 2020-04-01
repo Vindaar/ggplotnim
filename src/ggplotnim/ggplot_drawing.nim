@@ -498,7 +498,6 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   else:
     var xT = df[$fg.xcol].toTensor(Value)
     var yT = df[$fg.ycol].toTensor(Value)
-
   for i in 0 ..< df.len:
     if styles.len > 1:
       style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)

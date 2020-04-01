@@ -40,10 +40,13 @@ proc toColumn*[T: float | int | string | bool | Value](t: Tensor[T]): Column =
                     oCol: t,
                     len: t.size)
 
-proc constantColumn*(val: Value, len: int): Column =
+proc constantColumn*[T](val: T, len: int): Column =
   ## creates a constant column based on `val` and its type
-  withNative(val, x):
-    result = toColumn newTensorWith[type(x)](len, x)
+  when T is Value:
+    withNative(val, x):
+      result = toColumn newTensorWith[type(x)](len, x)
+  else:
+    result = toColumn newTensorWith[T](len, val)
 
 proc `[]`*(c: Column, slice: Slice[int]): Column =
   case c.kind
