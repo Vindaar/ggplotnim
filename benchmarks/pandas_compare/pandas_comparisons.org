@@ -27,20 +27,20 @@ All examples run on:
 
 TODO: add plots, write more
 
-[[./bench_create_column_openmp.png]]
+[[./plots/bench_create_column_openmp.png]]
 
-[[./bench_create_column.png]]
+[[./plots/bench_create_column.png]]
 
-[[./bench_loop.png]]
+[[./plots/bench_loop.png]]
 
-[[./bench_mean.png]]
+[[./plots/bench_mean.png]]
 
-[[./bench_prod.png]]
+[[./plots/bench_prod.png]]
 
-[[./bench_selection.png]]
+[[./plots/bench_selection.png]]
 
-[[./bench_sort.png]]
+[[./plots/bench_sort.png]]
 
-[[./bench_sum.png]]
+[[./plots/bench_sum.png]]
 
-[[./bench_unique.png]]
+[[./plots/bench_unique.png]]
