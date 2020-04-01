@@ -235,12 +235,15 @@ proc colMax*(df: DataFrame, col: string, ignoreInf = true): float =
   ## is mainly used to determine the data scales for a plot and not
   ## as a user facing proc!
   let t = df[col].toTensor(float)
-  for i, x in t:
-    if i[0] == 0:
+  var idx = 0
+  for x in t:
+    if idx == 0:
       result = x
     if ignoreInf and classify(x) == fcInf:
+      inc idx
       continue
     result = max(x, result)
+    inc idx
 
 proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
   ## Returns the minimum of a given `seq[Value]`.
@@ -248,12 +251,15 @@ proc colMin*(df: DataFrame, col: string, ignoreInf = true): float =
   ## is mainly used to determine the data scales for a plot and not
   ## as a user facing proc!
   let t = df[col].toTensor(float)
-  for i, x in t:
-    if i[0] == 0:
+  var idx = 0
+  for x in t:
+    if idx == 0:
       result = x
     if ignoreInf and classify(x) == fcNegInf:
+      inc idx
       continue
     result = min(x, result)
+    inc idx
 
 proc scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
   ## Combination of `colMin`, `colMax` to avoid running over the data
@@ -1331,10 +1337,12 @@ proc filter(col: Column, filterIdx: Tensor[int]): Column =
   ## perform filterting of the given column `key`
   withNativeDtype(col):
     let t = toTensor(col, dtype)
-    var res = newTensor[dtype](filterIdx.size)
+    var res = newTensorUninit[dtype](filterIdx.size)
     if filterIdx.size > 0:
-      for i, idx in filterIdx:
-        res[i[0]] = t[idx]
+      var i = 0
+      for idx in filterIdx:
+        res[i] = t[idx]
+        inc i
     result = res.toColumn
 
 proc countTrue(t: Tensor[bool]): int {.inline.} =
@@ -1342,14 +1350,16 @@ proc countTrue(t: Tensor[bool]): int {.inline.} =
     if el:
       inc result
 
-proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline.} =
+proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline, noinit.} =
   let numNonZero = countTrue(t)
-  result = newTensor[int](numNonZero)
+  result = newTensorUninit[int](numNonZero)
   var idx = 0
-  for i, cond in t:
+  var j = 0
+  for cond in t:
     if cond:
-      result[idx] = i[0]
+      result[idx] = j
       inc idx
+    inc j
 
 proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
   ## returns the data frame filtered by the conditions given
@@ -1549,8 +1559,10 @@ proc sortRecurse(df: DataFrame, by: seq[string],
 proc sortBys(df: DataFrame, by: seq[string], order: SortOrder): seq[int] =
   withNativeDtype(df[by[0]]):
     var res = newSeq[(int, dtype)](df.len)
-    for i, val in toTensor(df[by[0]], dtype):
-      res[i[0]] = (i[0], val)
+    var idx = 0
+    for val in toTensor(df[by[0]], dtype):
+      res[idx] = (idx, val)
+      inc idx
     res.arrangeSortImpl(order = order)
     # after sorting here, check duplicate values of `val`, slice
     # of those
