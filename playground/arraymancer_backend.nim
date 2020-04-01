@@ -1745,14 +1745,17 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   for key in by:
     result.groupMap[key] = toSet(result[key].toTensor(Value))
 
-proc hashColumn(s: var seq[Hash], c: Column) =
+proc hashColumn(s: var seq[Hash], c: Column, finish: static bool = false) =
   ## performs a partial hash of a DF. I.e. a single column, where
   ## the hash is added to each index in `s`. The hash is not finalized,
   ## rather the idea is to use this to hash all columns on `s` first.
   withNativeTensor(c, t):
     assert s.len == t.size
     for idx in 0 ..< t.size:
-      s[idx] = s[idx] !& hash(t[idx])
+      when not finish:
+        s[idx] = s[idx] !& hash(t[idx])
+      else:
+        s[idx] = !$(s[idx] !& hash(t[idx]))
 
 proc buildColHashes(df: DataFrame, keys: seq[string]): seq[Hash] =
   for i, k in keys:
