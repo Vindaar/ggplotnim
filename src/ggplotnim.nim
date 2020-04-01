@@ -310,6 +310,7 @@ proc geom_line*(aes: Aesthetics = aes(),
                 binWidth = 0.0,
                 breaks: seq[float] = @[],
                 binPosition = "none",
+                position = "identity"
                ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)

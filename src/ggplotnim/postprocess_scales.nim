@@ -81,15 +81,24 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
         # of the reference
         closureScope:
           let col = evaluate(s.col)
+          let colStr = getColName(s)
           # make a copy of `s` which we hand to the closure
           let ms = s
-          let fn = f{float: col.toStr ~ ms.trans( df[col] ) }
+          let fn = f{float: colStr ~ ms.trans( df[col] ) }
           fns.add fn
     else:
       # `s.col` may be pointing to scale which sets constant value or involves
       # a calculation of a column
       fns.add s.col
   # apply transformations using inplace mutate
+  ## NOTE: mutating th DF in place means that we ``will`` end up with problems,
+  ## if a user sets one aesthetic to some tranformation of a column, assigns
+  ## it to the same column name again and tries to plot multiple geoms, which
+  ## all access this same aesthetic, since the transformation will be applied
+  ## several times! A solution would be to clone the DF when assigning
+  ## `var df = if ...` in `postProcessScales`. However, this has a significant
+  ## performance cost for plots with many geoms (e.g. `benchmarks/bench_many_geoms.nim`
+  ## incurs a performance regression of 50% if cloned).
   df.mutateInplace(fns)
 
 proc separateScalesApplyTrafos(
@@ -110,16 +119,18 @@ proc separateScalesApplyTrafos(
   result = (x: x, y: y, discretes: discretes, cont: cont)
 
 proc splitDiscreteSetMap(df: DataFrame,
-                         scales: seq[Scale]): (seq[FormulaNode], seq[FormulaNode]) =
+                         scales: seq[Scale]): (seq[FormulaNode], seq[string]) =
   ## splits the given discrete (!) columns by whether they set data (i.e.
   ## arg not a DF column) or map data (arg is column)
   var setDiscCols = newSeq[FormulaNode]()
-  var mapDiscCols = newSeq[FormulaNode]()
+  var mapDiscCols = newSeq[string]()
   for d in scales:
     # for discrete scales, build the continuous (if any) scales
     if d.col.isColumn(df):
-      mapDiscCols.add d.col
+      mapDiscCols.add getColName(d)
     else:
+      # setting columns are returned as is, since they don't refer to a column, but a
+      # value, which needs to be used
       setDiscCols.add d.col
   result = (setDiscCols, mapDiscCols)
 
@@ -152,7 +163,7 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   result[1] = yieldDf
   for c in scales:
     ## TODO: verify this should be `yieldDf`
-    result[1][$c.col] = c.col.evaluate(yieldDf) #fullDf)
+    result[1][getColName(c)] = c.col.evaluate(yieldDf) #fullDf)
     case c.scKind
     of scLinearData, scTransformedData:
       # for linear and transformed data we don't change the style
@@ -256,7 +267,7 @@ proc determineDataScale(s: Scale,
   case s.dcKind
   of dcContinuous:
     result = if s.datascale.isEmpty: # happens for input DFs with 1-2 elements
-              (low: colMin(df, $s.col), high: colMax(df, $s.col))
+              (low: colMin(df, getColName(s)), high: colMax(df, getColName(s)))
              else:
                s.datascale
     # now merge with all additional data scales along the same axis
@@ -273,8 +284,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: $x.col,
-                      ycol: $y.col,
+                      xcol: getColName(x),
+                      ycol: getColName(y),
                       dcKindX: x.dcKind,
                       dcKindY: y.dcKind,
                       geomKind: g.kind)
@@ -285,7 +296,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols.mapIt($it))
+    df = df.group_by(mapDiscCols)
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
@@ -341,7 +352,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: $x.col,
+                      xcol: getColName(x),
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous,
@@ -356,7 +367,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols.mapIt($it))
+    df = df.group_by(mapDiscCols)
     # sumHist used to calculate height of stacked histogram
     var sumHist: seq[int]
     for keys, subDf in groups(df, order = SortOrder.Descending):
@@ -372,7 +383,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
       sumHist.addBinCountsByPosition(hist, g.position)
-      let yieldDf = seqsToDf({ $x.col : bins,
+      let yieldDf = seqsToDf({ getColName(x) : bins,
                                countCol: hist })
       let styleLabel = StyleLabel(style: style, label: toObject(keys))
       result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
@@ -388,7 +399,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     else:
       let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).toTensor(float),
                                                     range = x.dataScale)
-    let yieldDf = seqsToDf({ $x.col : bins,
+    let yieldDf = seqsToDf({ getColName(x) : bins,
                              countCol: hist,
                              widthCol: binWidths})
     let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
@@ -413,8 +424,9 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     raise newException(ValueError, "For continuous data columns use `geom_histogram` instead!")
   let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+  let xCol = getColName(x)
   result = FilledGeom(geom: g,
-                      xcol: $x.col,
+                      xcol: xCol,
                       ycol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous,
@@ -422,25 +434,25 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   result.xScale = determineDataScale(x, cont, df)
   # y scale is not yet defined, only use encompassing cont. scales
   result.yScale = encompassingDataScale(cont, akY)
-  let allClasses = df[$x.col].unique
+  let allClasses = df[xCol].unique
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
-    df = df.group_by(mapDiscCols.mapIt($it))
+    df = df.group_by(mapDiscCols)
     # sumCounts used to calculate height of stacked histogram
     # TODO: can be simplified by implementing `count` of `grouped` DFs!
     var sumCounts = DataFrame()
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf.count($x.col, name = countCol)
+      var yieldDf = subDf.count(xCol, name = countCol)
       # all values, which are zero still have to be accounted for! Add those keys with
       # zero values
-      yieldDf.addZeroKeys(allClasses, $x.col, countCol)
+      yieldDf.addZeroKeys(allClasses, xCol, countCol)
       # now arrange by `x.col` to force correct order
-      yieldDf = yieldDf.arrange($x.col)
+      yieldDf = yieldDf.arrange(xCol)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       let styleLabel = StyleLabel(style: style, label: toObject(keys))
       result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
@@ -454,7 +466,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                     (low: 0.0,
                                      high: max(sumCounts[countCol].toTensor(int)).float))
   else:
-    let yieldDf = df.count($x.col, name = countCol)
+    let yieldDf = df.count(xCol, name = countCol)
     let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
     result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, df, cont, style)
     result.setXAttributes(yieldDf, x)
@@ -475,7 +487,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
 proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
   template assignIfAny(fg, scale, arg: untyped): untyped =
     if scale.isSome:
-      fg.arg = some($scale.get.col)
+      fg.arg = some(getColName(scale.get))
   # TODO: use fg. gid?
   case fg.geom.kind
   of gkErrorBar:
