@@ -286,7 +286,8 @@ proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   result = copyNimTree(n)
   for i, ch in n:
     case ch.kind
-    of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar, nnkCall:
+    of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar, nnkCall,
+       nnkAccQuoted, nnkCallStrLit:
       discard
     of nnkInfix:
       if ch == tilde:
