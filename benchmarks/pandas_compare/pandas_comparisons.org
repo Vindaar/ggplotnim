@@ -1,0 +1,46 @@
+* Datamancer vs. pandas
+
+Port of:
+https://github.com/mm-mansour/Fast-Pandas
+
+All examples run on:
+#+BEGIN_SRC  
+                __.;=====;.__                   basti@void 
+            _.=+==++=++=+=+===;.                ---------- 
+             -=+++=+===+=+=+++++=_              OS: Void Linux x86_64 
+        .     -=:``     `--==+=++==.            Host: AERO 15XV8 
+       _vi,    `            --+=++++:           Kernel: 5.4.27_1 
+      .uvnvi.       _._       -==+==+.          Uptime: 4 days, 7 hours, 54 mins 
+     .vvnvnI`    .;==|==;.     :|=||=|.         Packages: 1226 (xbps-query) 
++QmQQmpvvnv; _yYsyQQWUUQQQm #QmQ#:QQQWUV$QQm.   Shell: zsh 5.8 
+ -QQWQWpvvowZ?.wQQQE==<QWWQ/QWQW.QQWW(: jQWQE   Resolution: 1920x1080 
+  -$QQQQmmU'  jQQQ@+=<QWQQ)mQQQ.mQQQC+;jWQQ@'   DE: XMonad 
+   -$WQ8YnI:   QWQQwgQQWV`mWQQ.jQWQQgyyWW@!     CPU: Intel i7-8750H (12) @ 4.100GHz 
+     -1vvnvv.     `~+++`        ++|+++          GPU: Intel UHD Graphics 630 
+      +vnvnnv,                 `-|===           Memory: 6100MiB / 15941MiB 
+       +vnvnvns.           .      :=-
+        -Invnvvnsi..___..=sv=.     `                                    
+          +Invnvnvnnnnnnnnvvnn;.
+            ~|Invnvnvvnvvvnnv}+`
+               -~|{*l}*|~
+#+END_SRC
+
+TODO: add plots, write more
+
+[[./bench_create_column_openmp.png]]
+
+[[./bench_create_column.png]]
+
+[[./bench_loop.png]]
+
+[[./bench_mean.png]]
+
+[[./bench_prod.png]]
+
+[[./bench_selection.png]]
+
+[[./bench_sort.png]]
+
+[[./bench_sum.png]]
+
+[[./bench_unique.png]]
