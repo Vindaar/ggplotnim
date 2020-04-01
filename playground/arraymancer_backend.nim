@@ -1722,7 +1722,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     #for k in keys(seqTab):
     #  result[k] = seqTab[k].toPersistentVector
 
-proc toSet(t: Tensor[Value]): HashSet[Value] =
+proc toSet[T](t: Tensor[T]): HashSet[T] =
   for el in t:
     result.incl el
 
