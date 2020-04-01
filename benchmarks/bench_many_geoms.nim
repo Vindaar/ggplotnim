@@ -21,7 +21,7 @@ proc gaussian*(rnd: var Rand, mu = 0.0, sigma = 1.0): float =
 
 proc createDataFrame(): DataFrame =
   const sigma = 0.10
-  result = initDataFrame()
+  result = newDataFrame()
   var rnd = initRand(124325)
   var simPath = newSeq[float](dates)
   for j in 0..<paths:
