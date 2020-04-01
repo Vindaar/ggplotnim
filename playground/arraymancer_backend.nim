@@ -1159,6 +1159,20 @@ iterator items*(df: DataFrame): Value =
   for i in 0 ..< df.len:
     yield df.row(i)
 
+iterator values*(df: DataFrame, cols: varargs[string]): Tensor[Value] {.inline.} =
+  ## yields all `cols` of `df` as `Tensor[Value]` rows
+  let mcols = if cols.len == 0: getKeys(df) else: @cols
+  var res = newTensor[Value](mcols.len)
+  # fill col seq with column references, so that we don't have to hash the keys
+  # every single iteration
+  var colSeq = newSeq[Column](mcols.len)
+  for idx, k in mcols:
+    colSeq[idx] = df.data[k]
+  for idx in 0 ..< df.len:
+    for j in 0 ..< mcols.len:
+      res[j] = colSeq[j][idx, Value]
+    yield res
+
 #iterator pairs*(df: DataFrame): (int, Value) =
 #  # returns each row of the dataframe as a Value of kind VObject
 #  for i in 0 ..< df.len:
