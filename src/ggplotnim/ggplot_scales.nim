@@ -11,6 +11,23 @@ import ginger except Scale
 Contains procs dealing with `ggplot.Scale`.
 ]#
 
+proc getColName*(s: Scale): string =
+  ## returns the name of the referred column of the given Scale `s`.
+  ## Usually this is just the stringification of `s.col`, but for
+  ## `scTransformedData`, we have to assign to a column, which includes
+  ## the name of the transformation, so that we don't override the
+  ## existing column. This is because otherwise we modify the DF (we call
+  ## `mutateInplace`) and will apply the transformations multiple times
+  ## if several geoms are plotted!
+  case s.scKind
+  of scTransformedData:
+    ## TODO: determine name of `trans` based on transformation proc!
+    ## We create a new column for transformed data, because this allows us
+    ## to avoid deep copying the input data frame.
+    result = "log10(" & evaluate(s.col).toStr & ")"
+  else:
+    result = evaluate(s.col).toStr
+
 proc getValue*(s: Scale, label: Value): ScaleValue =
   ## returns the `ScaleValue` of the given Scale `s` for `label`
   result = s.valueMap[label]

@@ -48,7 +48,7 @@ template getXY(view, df, xT, yT, fg, i, theme, xORK, yORK: untyped,
   ## taking into account the view's scale and theme settings.
   # x may be a string! TODO: y at some point too.
   var x = xT[i]
-  var y = yT[i] #df[$fg.ycol, i]
+  var y = yT[i]
   x = if x.kind == VNull: %~ 0.0 else: x
   y = if y.kind == VNull: %~ 0.0 else: y
   # modify according to ranges of viewport (may be different from real data ranges, assigned
