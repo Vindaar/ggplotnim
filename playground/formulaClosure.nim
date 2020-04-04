@@ -50,9 +50,9 @@ func initTerm*(lhs: FormulaName, rhs: FormulaName,
                        rhs: rhs,
                        op: op)
 
-func initVariable*(val: string): FormulaName =
+func initVariable*[T: Value | string](val: T): FormulaName =
   result = FormulaName(kind: fkVariable,
-                       val: val)
+                       val: $val)
 
 proc toUgly*(result: var string, node: FormulaName) =
   var comma = false
@@ -95,8 +95,6 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     # echo n.treeRepr
     val = n
   of nnkPrefix:
-    doAssert n[0].eqIdent(ident"-")
-    doAssert n[1].kind in {nnkIntLit .. nnkFloat64Lit}
     val = n
   else:
     error("Unsupported kind to construct variable " & $n.kind)
@@ -171,16 +169,20 @@ proc handlePrefix(n: NimNode): NimNode =
   if n[0].eqIdent(ident"-"):
     case n[1].kind
     of nnkStrLit, nnkRStrLit:
-      let rhs = buildFormula(n[1])
-      let mulIdent = "*"
+      let str = "-" & n[1].strVal
       result = quote do:
-        FormulaName(kind: fkTerm, lhs: f{-1}, rhs: `rhs`, op: `mulIdent`)
+        initVariable(`str`)
+    of nnkCallStrLit:
+      let str = "-" & n[1][1].strVal
+      result = quote do:
+        initVariable(`str`)
     of nnkIntLit .. nnkFloat64Lit:
       result = constructVariable(n)
     else:
       raise newException(Exception, "Not implemented `nnkPrefix` for " & $n[1].kind)
   else:
-    raise newException(Exception, "Not implemented `nnkPrefix` other than `-`! " & $n.repr)
+    result = quote do:
+      initVariable(`n`)
 
 import strutils
 proc buildFormula*(n: NimNode): NimNode =
