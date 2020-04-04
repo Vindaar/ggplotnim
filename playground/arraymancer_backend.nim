@@ -219,6 +219,228 @@ proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
   elif T is Value:
     df.data[k].ocol[idx] = val
 
+template `^^`(df, i: untyped): untyped =
+  (when i is BackwardsIndex: df.len - int(i) else: int(i))
+
+proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
+  ## returns the vertical slice of the data frame given by `rowSlice`.
+  let keys = getKeys(df)
+  result = newDataFrame(df.ncols)
+  let a = (df ^^ rowSlice.a)
+  let b = (df ^^ rowSlice.b)
+  for k in keys:
+    result[k] = df[k, a .. b]
+  # add 1, because it's an ``inclusive`` slice!
+  result.len = (b - a) + 1
+
+proc row*(df: DataFrame, idx: int, cols: varargs[string]): Value {.inline.} =
+  ## Returns the row `idx` of the DataFrame `df` as a `Value` of kind `VObject`.
+  ## If `cols` are given, only those columns will appear in the resulting `Value`.
+  result = newVObject(length = cols.len)
+  let mcols = if cols.len == 0: getKeys(df) else: @cols
+  for col in mcols:
+    result[col] = df[col][idx, Value]
+
+proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string =
+  ## converts the first `numLines` to a table.
+  ## If the `numLines` argument is negative, will print all rows of the
+  ## dataframe.
+  ## The precision argument is relevant for `VFloat` values, but can also be
+  ## (mis-) used to set the column width, e.g. to show long string columns.
+  ## The `header` is the `Dataframe with ...` information line, which is not part
+  ## of the returned values for simplicity if the output is to be assigned to some
+  ## variable. TODO: we could change that (current way makes a test case easier...)
+  ## TODO: need to improve printing of string columns if length of elements
+  ## more than `alignBy`.
+  var maxLen = 6 # default width for a column name
+  for k in keys(df):
+    maxLen = max(k.len, maxLen)
+  if header:
+    echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
+  let alignBy = max(maxLen + precision, 10)
+  let num = if numLines > 0: min(df.len, numLines) else: df.len
+  # write header
+  result.add align("Idx", alignBy)
+  for k in keys(df):
+    result.add align($k, alignBy)
+  result.add "\n"
+  # now add data types
+  result.add align("dtype:", alignBy)
+  for k in keys(df):
+    result.add align(toNimType(df[k].kind), alignBy)
+  result.add "\n"
+  for i in 0 ..< num:
+    result.add align($i, alignBy)
+    for k in keys(df):
+      let element = pretty(df[k, i], precision = precision)
+      if element.len < alignBy - 1:
+        result.add align(element,
+                         alignBy)
+      else:
+        result.add align(element[0 ..< alignBy - 4] & "...",
+                         alignBy)
+    result.add "\n"
+
+template `$`*(df: DataFrame): string = df.pretty
+
+proc extendShortColumns*(df: var DataFrame) =
+  ## initial calls to `seqsToDf` and other procs may result in a ragged DF, which
+  ## has less entries in certain columns than the data frame length.
+  ## This proc fills up the mutable dataframe in those columns
+  for k in keys(df):
+    if df[k].len < df.len:
+      let nFill = df.len - df[k].len
+      df[k] = df[k].add nullColumn(nFill)
+
+proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
+  ## creates a data frame from a table of seq[string]
+  ## NOTE: This proc assumes that the given entries in the `seq[string]`
+  ## have been cleaned of white space. The `readCsv` proc takes care of
+  ## this.
+  ## TODO: currently does not allow to parse bool!
+  result = DataFrame(len: 0)
+  for k, v in t:
+    var col = newColumn()
+    # check first element of v for type
+    if v.len > 0:
+      # TODO: CLEAN UP
+      var maybeNumber = v[0].isNumber
+      var maybeInt = v[0].isInt
+      if maybeNumber and maybeInt:
+        # try as int
+        try:
+          let data = v.mapIt(it.parseInt)
+          col = data.toColumn
+        except ValueError:
+          try:
+            let data = v.mapIt(it.parseFloat)
+            col = data.toColumn
+          except ValueError:
+            # then parse as value
+            var data = newSeq[Value](v.len)
+            for i, x in v:
+              try:
+                data[i] = %~ x.parseInt
+                col = data.toColumn
+              except ValueError:
+                try:
+                  data[i] = %~ x.parseFloat
+                  col = data.toColumn
+                except ValueError:
+                  data[i] = %~ x
+                  col = data.toColumn
+      elif maybeNumber:
+        try:
+          let data = v.mapIt(it.parseFloat)
+          col = data.toColumn
+        except ValueError:
+          # then parse as value
+          var data = newSeq[Value](v.len)
+          for i, x in v:
+            try:
+              data[i] = %~ x.parseFloat
+              col = data.toColumn
+            except ValueError:
+              data[i] = %~ x
+              col = data.toColumn
+      else:
+        # try bool?
+        try:
+          let data = v.mapIt(it.parseBool)
+          col = data.toColumn
+        except ValueError:
+          # keep as string
+          col = v.toColumn
+    result.data[k] = col
+    result.len = max(result.data[k].len, result.len)
+  result.extendShortColumns()
+
+proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
+  ## creates a data frame from a table of `seq[Value]`. Simply have to convert
+  ## the `seq[Value]` to a `PersistentVector[Value]` and add to DF.
+  result = DataFrame(len: 0)
+  for k, v in t:
+    result[k] = v.toColumn
+    result.len = max(v.len, result.len)
+  result.extendShortColumns()
+
+macro toTab*(args: varargs[untyped]): untyped =
+  expectKind(args, nnkArglist)
+  var s = args
+  if args.len == 1 and args[0].kind == nnkTableConstr:
+    # has to be tableConstr or simple ident
+    s = args[0]
+  elif args.len == 1 and args[0].kind notin {nnkIdent, nnkSym}:
+    error("If only single argument it has to be an ident or symbol, " &
+      "but " & $args[0].repr & " is of kind: " & $args[0].kind)
+  let data = ident"columns"
+  result = newStmtList()
+  result.add quote do:
+    var `data` = newDataFrame()
+  for a in s:
+    case a.kind
+    of nnkIdent:
+      let key = a.strVal
+      result.add quote do:
+        asgn(`data`, `key`, `a`.toColumn)
+        `data`.len = max(`data`.len, `a`.len)
+    of nnkExprColonExpr:
+      let nameCh = a[0]
+      let seqCh = a[1]
+      result.add quote do:
+        asgn(`data`, `nameCh`, `seqCh`.toColumn)
+        `data`.len = max(`data`.len, `seqCh`.len)
+    else:
+      error("Unsupported kind " & $a.kind)
+  result = quote do:
+    block:
+      `result`
+      # finally fill up possible columns shorter than df.len
+      `data`.extendShortColumns()
+      `data`
+  #echo result.treerepr
+  #echo result.repr
+
+template seqsToDf*(s: varargs[untyped]): untyped =
+  ## converts an arbitrary number of sequences to a `DataFrame` or any
+  ## number of key / value pairs where we have string / seq[T] pairs.
+  toTab(s)
+
+template colsToDf*(s: varargs[untyped]): untyped =
+  ## converts an arbitrary number of columns to a `DataFrame` or any
+  ## number of key / value pairs where we have string / seq[T] pairs.
+  toTab(s)
+
+template dataFrame*(s: varargs[untyped]): untyped =
+  ## alias for `seqsToDf`
+  toTab(s)
+
+template toDf*(s: varargs[untyped]): untyped =
+  ## alias for `seqsToDf`
+  toTab(s)
+
+proc hasKey(df: DataFrame, key: string): bool =
+  result = df.data.hasKey(key)
+
+iterator items*(df: DataFrame): Value =
+  # returns each row of the dataframe as a Value of kind VObject
+  for i in 0 ..< df.len:
+    yield df.row(i)
+
+iterator values*(df: DataFrame, cols: varargs[string]): Tensor[Value] {.inline.} =
+  ## yields all `cols` of `df` as `Tensor[Value]` rows
+  let mcols = if cols.len == 0: getKeys(df) else: @cols
+  var res = newTensor[Value](mcols.len)
+  # fill col seq with column references, so that we don't have to hash the keys
+  # every single iteration
+  var colSeq = newSeq[Column](mcols.len)
+  for idx, k in mcols:
+    colSeq[idx] = df.data[k]
+  for idx in 0 ..< df.len:
+    for j in 0 ..< mcols.len:
+      res[j] = colSeq[j][idx, Value]
+    yield res
+
 proc get*(df: DataFrame, key: string): Column {.inline.} =
   if key in df:
     result = df[key]
@@ -960,220 +1182,6 @@ macro `fn`*(x: untyped): untyped =
   expectKind arg, nnkCurly
   result = compileFormula(arg[0], isRaw = false)
 
-template `^^`(df, i: untyped): untyped =
-  (when i is BackwardsIndex: df.len - int(i) else: int(i))
-
-proc `[]`*[T, U](df: DataFrame, rowSlice: HSlice[T, U]): DataFrame =
-  ## returns the vertical slice of the data frame given by `rowSlice`.
-  let keys = getKeys(df)
-  result = newDataFrame(df.ncols)
-  let a = (df ^^ rowSlice.a)
-  let b = (df ^^ rowSlice.b)
-  for k in keys:
-    result[k] = df[k, a .. b]
-  # add 1, because it's an ``inclusive`` slice!
-  result.len = (b - a) + 1
-
-proc row*(df: DataFrame, idx: int, cols: varargs[string]): Value {.inline.} =
-  ## Returns the row `idx` of the DataFrame `df` as a `Value` of kind `VObject`.
-  ## If `cols` are given, only those columns will appear in the resulting `Value`.
-  result = newVObject(length = cols.len)
-  let mcols = if cols.len == 0: getKeys(df) else: @cols
-  for col in mcols:
-    result[col] = df[col][idx, Value]
-
-proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string =
-  ## converts the first `numLines` to a table.
-  ## If the `numLines` argument is negative, will print all rows of the
-  ## dataframe.
-  ## The precision argument is relevant for `VFloat` values, but can also be
-  ## (mis-) used to set the column width, e.g. to show long string columns.
-  ## The `header` is the `Dataframe with ...` information line, which is not part
-  ## of the returned values for simplicity if the output is to be assigned to some
-  ## variable. TODO: we could change that (current way makes a test case easier...)
-  ## TODO: need to improve printing of string columns if length of elements
-  ## more than `alignBy`.
-  var maxLen = 6 # default width for a column name
-  for k in keys(df):
-    maxLen = max(k.len, maxLen)
-  if header:
-    echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
-  let alignBy = max(maxLen + precision, 10)
-  let num = if numLines > 0: min(df.len, numLines) else: df.len
-  # write header
-  result.add align("Idx", alignBy)
-  for k in keys(df):
-    result.add align($k, alignBy)
-  result.add "\n"
-  # now add data types
-  result.add align("dtype:", alignBy)
-  for k in keys(df):
-    result.add align(toNimType(df[k].kind), alignBy)
-  result.add "\n"
-  for i in 0 ..< num:
-    result.add align($i, alignBy)
-    for k in keys(df):
-      let element = pretty(df[k, i], precision = precision)
-      if element.len < alignBy - 1:
-        result.add align(element,
-                         alignBy)
-      else:
-        result.add align(element[0 ..< alignBy - 4] & "...",
-                         alignBy)
-    result.add "\n"
-
-template `$`*(df: DataFrame): string = df.pretty
-
-proc extendShortColumns*(df: var DataFrame) =
-  ## initial calls to `seqsToDf` and other procs may result in a ragged DF, which
-  ## has less entries in certain columns than the data frame length.
-  ## This proc fills up the mutable dataframe in those columns
-  for k in keys(df):
-    if df[k].len < df.len:
-      let nFill = df.len - df[k].len
-      df[k] = df[k].add nullColumn(nFill)
-
-proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
-  ## creates a data frame from a table of seq[string]
-  ## NOTE: This proc assumes that the given entries in the `seq[string]`
-  ## have been cleaned of white space. The `readCsv` proc takes care of
-  ## this.
-  ## TODO: currently does not allow to parse bool!
-  result = DataFrame(len: 0)
-  for k, v in t:
-    var col = newColumn()
-    # check first element of v for type
-    if v.len > 0:
-      # TODO: CLEAN UP
-      var maybeNumber = v[0].isNumber
-      var maybeInt = v[0].isInt
-      if maybeNumber and maybeInt:
-        # try as int
-        try:
-          let data = v.mapIt(it.parseInt)
-          col = data.toColumn
-        except ValueError:
-          try:
-            let data = v.mapIt(it.parseFloat)
-            col = data.toColumn
-          except ValueError:
-            # then parse as value
-            var data = newSeq[Value](v.len)
-            for i, x in v:
-              try:
-                data[i] = %~ x.parseInt
-                col = data.toColumn
-              except ValueError:
-                try:
-                  data[i] = %~ x.parseFloat
-                  col = data.toColumn
-                except ValueError:
-                  data[i] = %~ x
-                  col = data.toColumn
-      elif maybeNumber:
-        try:
-          let data = v.mapIt(it.parseFloat)
-          col = data.toColumn
-        except ValueError:
-          # then parse as value
-          var data = newSeq[Value](v.len)
-          for i, x in v:
-            try:
-              data[i] = %~ x.parseFloat
-              col = data.toColumn
-            except ValueError:
-              data[i] = %~ x
-              col = data.toColumn
-      else:
-        # try bool?
-        try:
-          let data = v.mapIt(it.parseBool)
-          col = v.toColumn
-        except ValueError:
-          let data = v.mapIt(%~ it)
-          col = v.toColumn
-    result.data[k] = col
-    result.len = max(result.data[k].len, result.len)
-  result.extendShortColumns()
-
-proc toDf*(t: OrderedTable[string, seq[Value]]): DataFrame =
-  ## creates a data frame from a table of `seq[Value]`. Simply have to convert
-  ## the `seq[Value]` to a `PersistentVector[Value]` and add to DF.
-  result = DataFrame(len: 0)
-  for k, v in t:
-    result[k] = v.toColumn
-    result.len = max(v.len, result.len)
-  result.extendShortColumns()
-
-macro toTab*(args: varargs[untyped]): untyped =
-  expectKind(args, nnkArglist)
-  var s = args
-  if args.len == 1 and args[0].kind == nnkTableConstr:
-    # has to be tableConstr or simple ident
-    s = args[0]
-  elif args.len == 1 and args[0].kind notin {nnkIdent, nnkSym}:
-    error("If only single argument it has to be an ident or symbol, " &
-      "but " & $args[0].repr & " is of kind: " & $args[0].kind)
-  let data = ident"columns"
-  result = newStmtList()
-  result.add quote do:
-    var `data` = newDataFrame()
-  for a in s:
-    case a.kind
-    of nnkIdent:
-      let key = a.strVal
-      result.add quote do:
-        asgn(`data`, `key`, `a`.toColumn)
-        `data`.len = max(`data`.len, `a`.len)
-    of nnkExprColonExpr:
-      let nameCh = a[0]
-      let seqCh = a[1]
-      result.add quote do:
-        asgn(`data`, `nameCh`, `seqCh`.toColumn)
-        `data`.len = max(`data`.len, `seqCh`.len)
-    else:
-      error("Unsupported kind " & $a.kind)
-  result = quote do:
-    block:
-      `result`
-      # finally fill up possible columns shorter than df.len
-      `data`.extendShortColumns()
-      `data`
-  #echo result.treerepr
-  #echo result.repr
-
-template seqsToDf*(s: varargs[untyped]): untyped =
-  ## converts an arbitrary number of sequences to a `DataFrame` or any
-  ## number of key / value pairs where we have string / seq[T] pairs.
-  toTab(s)
-
-template colsToDf*(s: varargs[untyped]): untyped =
-  ## converts an arbitrary number of columns to a `DataFrame` or any
-  ## number of key / value pairs where we have string / seq[T] pairs.
-  toTab(s)
-
-proc hasKey(df: DataFrame, key: string): bool =
-  result = df.data.hasKey(key)
-
-iterator items*(df: DataFrame): Value =
-  # returns each row of the dataframe as a Value of kind VObject
-  for i in 0 ..< df.len:
-    yield df.row(i)
-
-iterator values*(df: DataFrame, cols: varargs[string]): Tensor[Value] {.inline.} =
-  ## yields all `cols` of `df` as `Tensor[Value]` rows
-  let mcols = if cols.len == 0: getKeys(df) else: @cols
-  var res = newTensor[Value](mcols.len)
-  # fill col seq with column references, so that we don't have to hash the keys
-  # every single iteration
-  var colSeq = newSeq[Column](mcols.len)
-  for idx, k in mcols:
-    colSeq[idx] = df.data[k]
-  for idx in 0 ..< df.len:
-    for j in 0 ..< mcols.len:
-      res[j] = colSeq[j][idx, Value]
-    yield res
-
 #iterator pairs*(df: DataFrame): (int, Value) =
 #  # returns each row of the dataframe as a Value of kind VObject
 #  for i in 0 ..< df.len:
@@ -1300,53 +1308,6 @@ iterator values*(df: DataFrame, cols: varargs[string]): Tensor[Value] {.inline.}
 #    df[k] = df[k].add row[k]
 #    doAssert df.len + 1 == df[k].len
 #  df.len = df.len + 1
-
-#proc getFilteredIdx(df: DataFrame, cond: FormulaNode): seq[int] =
-#  ## return indices allowed after filter, by applying `cond` to each index
-#  ## and checking it's validity
-#  result = newSeqOfCap[int](df.len)
-#  var mcond = cond
-#  for i in 0 ..< df.len:
-#    if mcond.evaluate(df, i).toBool:
-#      result.add i
-#
-#proc getFilteredIdx(idx: seq[int], df: DataFrame, cond: FormulaNode): seq[int] =
-#  ## return indices allowed after filter, starting from a given sequence
-#  ## of allowed indices
-#  result = newSeqOfCap[int](idx.len)
-#  var mcond = cond
-#  for i in idx:
-#    if mcond.evaluate(df, i).toBool:
-#      result.add i
-#
-#proc filter(p: PersistentVector[Value], idx: seq[int]): PersistentVector[Value] =
-#  result = toPersistentVector(idx.mapIt(p[it]))
-
-#proc filter(p: seq[Value], idx: seq[int]): seq[Value] =
-#  result = idx.mapIt(p[it])
-
-#template withKind(col: Column, body: untyped): untyped =
-#  case col.kind
-#  of colFloat:
-#    let t {.inject.} = toTensor(col, float)
-#    var res {.inject.} = newTensor[float](nonZero)
-#    body
-#  of colInt:
-#    let t {.inject.} = toTensor(col, int)
-#    var res {.inject.} = newTensor[int](nonZero)
-#    body
-#  of colString:
-#    let t {.inject.} = toTensor(col, string)
-#    var res {.inject.} = newTensor[string](nonZero)
-#    body
-#  of colBool:
-#    let t {.inject.} = toTensor(col, bool)
-#    var res {.inject.} = newTensor[bool](nonZero)
-#    body
-#  of colObject:
-#    let t {.inject.} = toTensor(col, Value)
-#    var res {.inject.} = newTensor[Value](nonZero)
-#    body
 
 proc filter(col: Column, filterIdx: Tensor[int]): Column =
   ## perform filterting of the given column `key`
