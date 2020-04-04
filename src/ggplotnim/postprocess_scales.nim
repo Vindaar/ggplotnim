@@ -84,7 +84,7 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
           let colStr = getColName(s)
           # make a copy of `s` which we hand to the closure
           let ms = s
-          let fn = f{float: colStr ~ ms.trans( df[col] ) }
+          let fn = f{float: colStr ~ ms.trans( df[col][idx] ) }
           fns.add fn
     else:
       # `s.col` may be pointing to scale which sets constant value or involves
