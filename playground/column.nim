@@ -1,4 +1,5 @@
-import arraymancer, value, sugar, math
+import arraymancer
+import value, sugar, math, strformat
 
 type
   ColKind* = enum
