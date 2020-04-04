@@ -2180,9 +2180,8 @@ func evaluate*(node: FormulaNode): Value =
   case node.kind
   of fkVariable: result = node.val
   of fkAssign: result = node.rhs # ?? TODO: should this be allowed?
-  of fkScalar, fkVector:
-    raise newException(ValueError, "Cannot evaluate a formula of kind " &
-      $node.kind & " without a data frame as input!")
+  of fkScalar: result = %~ node.valName
+  of fkVector: result = %~ node.colName
 
 proc evaluate*(node: FormulaNode, df: DataFrame): Column =
   ## tries to return a Column from a FormulaNode with an input
