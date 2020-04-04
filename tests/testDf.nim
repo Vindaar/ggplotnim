@@ -1,4 +1,4 @@
-import ggplotnim, unittest, sequtils, math, strutils, streams
+import ggplotnim, unittest, sequtils, math, strutils, streams, sugar
 import algorithm
 import seqmath
 
@@ -45,7 +45,10 @@ suite "Data frame tests":
       check "three" in df
       check "four" notin df
       # and now add fourth manually
-      df["four"] = toVector(%~ d)
+      when defined(defaultBackend):
+        df["four"] = toVector(%~ d)
+      else:
+        df["four"] = d
       check "four" in df
 
     block:
@@ -103,11 +106,18 @@ suite "Data frame tests":
       check "three" in df
       check "four" in df
       # check `"four"` is `c`
-      check df["four"].vToSeq == %~ c
+      when defined(defaultBackend):
+        check df["four"].vToSeq == %~ c
+      else:
+        check df["four"].toTensor(int) == c.toTensor
       # assign actual `"four"`
       df["four"] = e
       # check `"four"` is now `d`
-      check df["four"].vToSeq == %~ e
+      when defined(defaultBackend):
+        check df["four"].vToSeq == %~ e
+      else:
+        check df["four"].toTensor(int) == e.toTensor
+
 
   test "Testing `bind_rows`":
     let a = [1, 2, 3]
@@ -123,8 +133,12 @@ suite "Data frame tests":
       let res = bind_rows([df, df2])
       echo "Resulting df "
       echo res
-      check toSeq(res["a"]) == %~ concat(@a, @c)
-      check toSeq(res["b"]) == %~ concat(@b, @d)
+      when defined(defaultBackend):
+        check toSeq(res["a"]) == %~ concat(@a, @c)
+        check toSeq(res["b"]) == %~ concat(@b, @d)
+      else:
+        check res["a"].toTensor(int) == concat(a.toTensor(), c.toTensor(), axis = 0)
+        check res["b"].toTensor(int) == concat(b.toTensor(), d.toTensor(), axis = 0)
       # without specifying `id`, no column will be added
       #check toSeq(res["id"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
       #                                      toSeq(0..<c.len).mapIt("1"))
@@ -138,10 +152,20 @@ suite "Data frame tests":
       echo "Resulting df "
       echo res
       echo res["a"]
-      echo toVector(%~ concat(@a, @c))
-      check toSeq(res["a"]) == %~ concat(@a, @c)
-      check toSeq(res["b"]) == %~ concat(%~ b, toSeq(0 .. 3).mapIt(Value(kind: VNull)))
-      check toSeq(res["d"]) == %~ concat(toSeq(0 .. 2).mapIt(Value(kind: VNull)), %~ d)
+      when defined(defaultBackend):
+        echo toVector(%~ concat(@a, @c))
+        check toSeq(res["a"]) == %~ concat(@a, @c)
+        check toSeq(res["b"]) == %~ concat(%~ b, toSeq(0 .. 3).mapIt(Value(kind: VNull)))
+        check toSeq(res["d"]) == %~ concat(toSeq(0 .. 2).mapIt(Value(kind: VNull)), %~ d)
+      else:
+        check res["a"].toTensor(int) == concat(a.toTensor, c.toTensor, axis = 0)
+        check res["b"].toTensor(Value) == concat(toTensor(%~ b),
+                                                 toTensor(toSeq(0 .. 3).mapIt(Value(kind: VNull))),
+                                                 axis = 0)
+        check res["d"].toTensor(Value) == concat(toTensor(toSeq(0 .. 2).mapIt(Value(kind: VNull))),
+                                                 toTensor(%~ d),
+                                                 axis = 0)
+
       #check toSeq(res["id"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
       #                                      toSeq(0..<c.len).mapIt("1"))
 
@@ -153,10 +177,18 @@ suite "Data frame tests":
       let res = bind_rows([df, df2], id = "combine")
       echo "Resulting df "
       echo res
-      check toSeq(res["a"]) == %~ concat(@a, @c)
-      check toSeq(res["b"]) == %~ concat(@b, @d)
-      check toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
-                                                 toSeq(0..<c.len).mapIt("1"))
+      when defined(defaultBackend):
+        check toSeq(res["a"]) == %~ concat(@a, @c)
+        check toSeq(res["b"]) == %~ concat(@b, @d)
+        check toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("0"),
+                                                   toSeq(0..<c.len).mapIt("1"))
+      else:
+        check res["a"].toTensor(int) == concat(a.toTensor(), c.toTensor(), axis = 0)
+        check res["b"].toTensor(int) == concat(b.toTensor(), d.toTensor(), axis = 0)
+        check res["combine"].toTensor(string) == concat(toTensor(toSeq(0..<a.len).mapIt("0")),
+                                                        toTensor(toSeq(0..<c.len).mapIt("1")),
+                                                        axis = 0)
+
 
     block:
       echo "-------"
@@ -166,10 +198,17 @@ suite "Data frame tests":
       let res = bind_rows([("one", df), ("two", df2)], id = "combine")
       echo "Resulting df "
       echo res
-      check toSeq(res["a"]) == %~ concat(@a, @c)
-      check toSeq(res["b"]) == %~ concat(@b, @d)
-      check toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("one"),
+      when defined(defaultBackend):
+        check toSeq(res["a"]) == %~ concat(@a, @c)
+        check toSeq(res["b"]) == %~ concat(@b, @d)
+        check toSeq(res["combine"]) == %~ concat(toSeq(0..<a.len).mapIt("one"),
                                                toSeq(0..<c.len).mapIt("two"))
+      else:
+        check res["a"].toTensor(int) == concat(a.toTensor, c.toTensor, axis = 0)
+        check res["b"].toTensor(int) == concat(b.toTensor, d.toTensor, axis = 0)
+        check res["combine"].toTensor(string) == concat(toTensor(toSeq(0..<a.len).mapIt("one")),
+                                                        toTensor(toSeq(0..<c.len).mapIt("two")),
+                                                        axis = 0)
 
   test "Group by":
     proc almostEqual(x, y: float, eps = 1e-6): bool =
@@ -180,31 +219,51 @@ suite "Data frame tests":
     let mpggroup = mpg.group_by("cyl")
 
     # TODO: make this to `doAssert`!
-    let summary = mpg.summarize(f{"mean_cyl" ~ mean("cyl")},
-                                f{"mean_hwy" ~ mean("hwy")})
-    check almostEqual(summary["mean_cyl"][0].toFloat, 5.88889)
-    check almostEqual(summary["mean_hwy"][0].toFloat, 23.4402)
+    let summary = mpg.summarize(f{float: "mean_cyl" << mean(c"cyl")},
+                                f{float: "mean_hwy" << mean(c"hwy")})
+    when defined(defaultBackend):
+      check almostEqual(summary["mean_cyl"][0].toFloat, 5.88889)
+      check almostEqual(summary["mean_hwy"][0].toFloat, 23.4402)
+    else:
+      check almostEqual(summary["mean_cyl"][0, float], 5.88889)
+      check almostEqual(summary["mean_hwy"][0, float], 23.4402)
 
-    let sum_grouped = mpggroup.summarize(f{"mean_displ" ~ mean("displ")},
-                                         f{"mean_hwy" ~ mean("hwy")})
+    let sum_grouped = mpggroup.summarize(f{float: "mean_displ" << mean(c"displ")},
+                                         f{float: "mean_hwy" << mean(c"hwy")})
       .arrange("cyl")
     check sum_grouped.len == 4
-    check sum_grouped["cyl"][0].toInt == 4
-    check sum_grouped["cyl"][1].toInt == 5
-    check sum_grouped["cyl"][2].toInt == 6
-    check sum_grouped["cyl"][3].toInt == 8
-    check almostEqual(sum_grouped["mean_displ"][0].toFloat, 2.14568)
-    check almostEqual(sum_grouped["mean_displ"][1].toFloat, 2.5)
-    check almostEqual(sum_grouped["mean_displ"][2].toFloat, 3.40886)
-    check almostEqual(sum_grouped["mean_displ"][3].toFloat, 5.13286)
-    check almostEqual(sum_grouped["mean_hwy"][0].toFloat, 28.8025)
-    check almostEqual(sum_grouped["mean_hwy"][1].toFloat, 28.75)
-    check almostEqual(sum_grouped["mean_hwy"][2].toFloat, 22.8228)
-    check almostEqual(sum_grouped["mean_hwy"][3].toFloat, 17.6286)
+    when defined(defaultBackend):
+      check sum_grouped["cyl"][0].toInt == 4
+      check sum_grouped["cyl"][1].toInt == 5
+      check sum_grouped["cyl"][2].toInt == 6
+      check sum_grouped["cyl"][3].toInt == 8
+      check almostEqual(sum_grouped["mean_displ"][0].toFloat, 2.14568)
+      check almostEqual(sum_grouped["mean_displ"][1].toFloat, 2.5)
+      check almostEqual(sum_grouped["mean_displ"][2].toFloat, 3.40886)
+      check almostEqual(sum_grouped["mean_displ"][3].toFloat, 5.13286)
+      check almostEqual(sum_grouped["mean_hwy"][0].toFloat, 28.8025)
+      check almostEqual(sum_grouped["mean_hwy"][1].toFloat, 28.75)
+      check almostEqual(sum_grouped["mean_hwy"][2].toFloat, 22.8228)
+      check almostEqual(sum_grouped["mean_hwy"][3].toFloat, 17.6286)
+    else:
+      check sum_grouped["cyl"][0, int] == 4
+      check sum_grouped["cyl"][1, int] == 5
+      check sum_grouped["cyl"][2, int] == 6
+      check sum_grouped["cyl"][3, int] == 8
+      check almostEqual(sum_grouped["mean_displ"][0, float], 2.14568)
+      check almostEqual(sum_grouped["mean_displ"][1, float], 2.5)
+      check almostEqual(sum_grouped["mean_displ"][2, float], 3.40886)
+      check almostEqual(sum_grouped["mean_displ"][3, float], 5.13286)
+      check almostEqual(sum_grouped["mean_hwy"][0, float], 28.8025)
+      check almostEqual(sum_grouped["mean_hwy"][1, float], 28.75)
+      check almostEqual(sum_grouped["mean_hwy"][2, float], 22.8228)
+      check almostEqual(sum_grouped["mean_hwy"][3, float], 17.6286)
+
     let mpg2groups = mpggroup.group_by("class", add = true)
     let classes = mpg["class"].unique
     let cyls = mpg["cyl"].unique
-    let product = product([classes, cyls])
+    let product = product([classes.toTensor(Value).toRawSeq,
+                           cyls.toTensor(Value).toRawSeq])
     var subgroupCount = 0
     for (by, df) in groups(mpg2groups):
       echo "--------------------Subgroup by ", by, "--------------------\n"
@@ -222,9 +281,9 @@ suite "Data frame tests":
     check subGroupCount == 19
 
 
-    let cylFiltered = mpg.filter(f{"cyl" == 4})
+    let cylFiltered = mpg.filter(f{c"cyl" == 4})
     check cylFiltered.len == 81
-    let cylDrvFiltered = cylFiltered.filter(f{"drv" == "4"})
+    let cylDrvFiltered = cylFiltered.filter(f{c"drv" == "4"})
     check cylDrvFiltered.len == 23
 
     echo cylDrvFiltered
@@ -239,15 +298,31 @@ suite "Data frame tests":
   test "Filter - two comparisons using `and`":
     let x = toSeq(0 .. 100)
     let df = seqsToDf(x)
-    let dfFilter = df.filter(f{"x" >= 50 and
-                               "x" <= 75})
-    check dfFilter["x"].vToSeq == %~ toSeq(50 .. 75)
+    let dfFilter = df.filter(f{c"x" >= 50 and
+                               c"x" <= 75})
+    when defined(defaultBackend):
+      check dfFilter["x"].vToSeq == %~ toSeq(50 .. 75)
+    else:
+      check dfFilter["x"].toTensor(int) == toTensor toSeq(50 .. 75)
 
   test "Filter - comparisons using function":
     let x = toSeq(0 .. 100)
     let df = seqsToDf(x)
-    let dfFilter = df.filter(f{"x" >= max("x") * 0.5})
-    check dfFilter["x"].vToSeq == %~ toSeq(50 .. 100)
+    let dfFilter = df.filter(f{float: c"x" >= max(c"x") * 0.5})
+    when defined(defaultBackend):
+      check dfFilter["x"].vToSeq == %~ toSeq(50 .. 100)
+    else:
+      check dfFilter["x"].toTensor(int) == toTensor toSeq(50 .. 100)
+
+  test "Filter - data types":
+    let x = toSeq(0 .. 100)
+    let df = seqsToDf(x)
+    let dfFiltered = df.filter(f{float: c"x" >= max(c"x") * 0.5})
+    check dfFiltered["x"].kind == colInt
+    let dfReduced1 = df.summarize(f{int: max(c"x")})
+    check dfReduced1["max(c\"x\")"].kind == colInt
+    let dfReduced2 = df.summarize(f{float: max(c"x")})
+    check dfReduced1["max(c\"x\")"].kind == colFloat
 
   test "Transmute - float arithmetic":
     let x = toSeq(0 ..< 100)
@@ -255,11 +330,14 @@ suite "Data frame tests":
     let y2 = x.mapIt(pow(sin(it.float), 2.0))
     let df = seqsToDf(x, y)
     check df.len == 100
-    let dfTrans = df.transmute(f{"x"}, f{"y2" ~ "y" * "y"})
+    let dfTrans = df.transmute(f{"x"}, f{"y2" ~ c"y" * c"y"})
     check "y" notin dfTrans
     check "y2" in dfTrans
     check "x" in dfTrans
-    check dfTrans["y2"].vToSeq == %~ y2
+    when defined(defaultBackend):
+      check dfTrans["y2"].vToSeq == %~ y2
+    else:
+      check dfTrans["y2"].toTensor(float) == toTensor y2
 
   test "Transmute - parse floats in dataframe from string column":
     let x = toSeq(0 ..< 100)
@@ -267,12 +345,19 @@ suite "Data frame tests":
     let yFloat = x.mapIt(sin(it.float))
     let df = seqsToDf(x, y)
     check df.len == 100
-    liftScalarStringProc(parseFloat, toExport = false)
-    let dfTrans = df.transmute(f{"x"}, f{"yFloat" ~ parseFloat("y")})
+    when defined(defaultBackend):
+      liftScalarStringProc(parseFloat, toExport = false)
+      let dfTrans = df.transmute(f{"x"}, f{"yFloat" ~ parseFloat("y")})
+    else:
+      let dfTrans = df.transmute(f{"x"},
+                                 f{string -> float: "yFloat" ~ parseFloat(df["y"][idx])})
     check "y" notin dfTrans
     check "yFloat" in dfTrans
     check "x" in dfTrans
-    check dfTrans["yFloat"].vToSeq == %~ yFloat
+    when defined(defaultBackend):
+      check dfTrans["yFloat"].vToSeq == %~ yFloat
+    else:
+      check dfTrans["yFloat"].toTensor(float) == toTensor yFloat
 
   test "Gather - 2 columns":
     let x = toSeq(0 ..< 100)
@@ -283,14 +368,24 @@ suite "Data frame tests":
     check df.len == 100
     let dfLong = df.gather(["y1", "y2"], key = "from", value = "y")
     check dfLong.len == 200
-    check dfLong["from"].unique == %~ @["y1", "y2"]
-    check dfLong["y"].vToSeq == %~ yComb
-    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
-    let dfY2FromLong = dfLong.filter(f{"from" == "y2"})
-    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
-    check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
-    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
-    check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
+    when defined(defaultBackend):
+      check dfLong["from"].unique == %~ @["y1", "y2"]
+      check dfLong["y"].vToSeq == %~ yComb
+    else:
+      check dfLong["from"].unique.toTensor(string) == toTensor @["y1", "y2"]
+      check dfLong["y"].toTensor(float) == toTensor(yComb)
+    let dfY1FromLong = dfLong.filter(f{c"from" == "y1"})
+    let dfY2FromLong = dfLong.filter(f{c"from" == "y2"})
+    when defined(defaultBackend):
+      check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+      check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
+      check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+      check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
+    else:
+      check dfY1FromLong["y"].toTensor(float) == df["y1"].toTensor(float)
+      check dfY2FromLong["y"].toTensor(float) == df["y2"].toTensor(float)
+      check dfY1FromLong["x"].toTensor(float) == df["x"].toTensor(float)
+      check dfY2FromLong["x"].toTensor(float) == df["x"].toTensor(float)
 
   test "Gather - 3 columns":
     ## check that it works for 3 columns too
@@ -303,17 +398,30 @@ suite "Data frame tests":
     check df.len == 100
     let dfLong = df.gather(["y1", "y2", "y3"], key = "from", value = "y")
     check dfLong.len == 300
-    check dfLong["from"].unique == %~ @["y1", "y2", "y3"]
-    check dfLong["y"].vToSeq == %~ yComb
-    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
-    let dfY2FromLong = dfLong.filter(f{"from" == "y2"})
-    let dfY3FromLong = dfLong.filter(f{"from" == "y3"})
-    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
-    check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
-    check dfY3FromLong["y"].vToSeq == df["y3"].vToSeq
-    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
-    check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
-    check dfY3FromLong["x"].vToSeq == df["x"].vToSeq
+    when defined(defaultBackend):
+      check dfLong["from"].unique == %~ @["y1", "y2", "y3"]
+      check dfLong["y"].vToSeq == %~ yComb
+    else:
+      check dfLong["from"].unique.toTensor(string) == toTensor @["y1", "y2", "y3"]
+      check dfLong["y"].toTensor(float) == toTensor yComb
+    let dfY1FromLong = dfLong.filter(f{c"from" == "y1"})
+    let dfY2FromLong = dfLong.filter(f{c"from" == "y2"})
+    let dfY3FromLong = dfLong.filter(f{c"from" == "y3"})
+    when defined(defaultBackend):
+      check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+      check dfY2FromLong["y"].vToSeq == df["y2"].vToSeq
+      check dfY3FromLong["y"].vToSeq == df["y3"].vToSeq
+      check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+      check dfY2FromLong["x"].vToSeq == df["x"].vToSeq
+      check dfY3FromLong["x"].vToSeq == df["x"].vToSeq
+    else:
+      check dfY1FromLong["y"].toTensor(float) == toTensor(df["y1"], float)
+      check dfY2FromLong["y"].toTensor(float) == toTensor(df["y2"], float)
+      check dfY3FromLong["y"].toTensor(float) == toTensor(df["y3"], float)
+      check dfY1FromLong["x"].toTensor(float) == toTensor(df["x"], float)
+      check dfY2FromLong["x"].toTensor(float) == toTensor(df["x"], float)
+      check dfY3FromLong["x"].toTensor(float) == toTensor(df["x"], float)
+
 
   test "Gather - string and float column":
     ## while it may be questionable to combine string and float columns in general
@@ -326,14 +434,24 @@ suite "Data frame tests":
     check df.len == 100
     let dfLong = df.gather(["y1", "yStr"], key = "from", value = "y")
     check dfLong.len == 200
-    check dfLong["from"].unique == %~ @["y1", "yStr"]
-    check dfLong["y"].vToSeq == yComb
-    let dfY1FromLong = dfLong.filter(f{"from" == "y1"})
-    let dfYSTRFromLong = dfLong.filter(f{"from" == "yStr"})
-    check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
-    check dfYSTRFromLong["y"].vToSeq == df["yStr"].vToSeq
-    check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
-    check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
+    when defined(defaultBackend):
+      check dfLong["from"].unique == %~ @["y1", "yStr"]
+      check dfLong["y"].vToSeq == yComb
+    else:
+      check dfLong["from"].unique.toTensor(string) == toTensor @["y1", "yStr"]
+      check dfLong["y"].toTensor(Value) == toTensor yComb
+    let dfY1FromLong = dfLong.filter(f{c"from" == "y1"})
+    let dfYSTRFromLong = dfLong.filter(f{c"from" == "yStr"})
+    when defined(defaultBackend):
+      check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+      check dfYSTRFromLong["y"].vToSeq == df["yStr"].vToSeq
+      check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+      check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
+    else:
+      check dfY1FromLong["y"].toTensor(float) == df["y1"].toTensor(float)
+      check dfYSTRFromLong["y"].toTensor(string) == df["yStr"].toTensor(string)
+      check dfY1FromLong["x"].toTensor(float) == df["x"].toTensor(float)
+      check dfYSTRFromLong["x"].toTensor(float) == df["x"].toTensor(float)
 
   test "Gather - dropping null values":
     ## check that it works for 3 columns too
@@ -351,9 +469,12 @@ suite "Data frame tests":
         y2.add Value(kind: VNull)
     let df = seqsToDf(x, y1, y2)
     let gathered = df.gather(["y1", "y2"], dropNulls = false)
-    let onlyy2 = gathered.filter(f{isNull("value") == false and
-                                   "key" == "y2"})
-    check onlyy2["x"].vToSeq == %~ x2s
+    let onlyy2 = gathered.filter(f{Value: isNull(df["value"][idx]).toBool == false and
+                                  c"key" == %~ "y2"})
+    when defined(defaultBackend):
+      check onlyy2["x"].vToSeq == %~ x2s
+    else:
+      check onlyy2["x"].toTensor(int) == toTensor x2s
     check onlyy2.len == x2s.len
 
   test "Pretty printing of DFs":
@@ -442,46 +563,58 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let dfExp = seqsToDf({"t_in_s" : texp, "C1_in_V" : c1Exp, "C2_in_V" : c2Exp,
                            "type" : typeExp})
     let df = toDf(csvRead)
-    check df["t_in_s"].vToSeq == dfExp["t_in_s"].vToSeq
-    check df["C1_in_V"].vToSeq == dfExp["C1_in_V"].vToSeq
-    check df["C2_in_V"].vToSeq == dfExp["C2_in_V"].vToSeq
-    check df["type"].vToSeq == dfExp["type"].vToSeq
+    when defined(defaultBackend):
+      check df["t_in_s"].vToSeq == dfExp["t_in_s"].vToSeq
+      check df["C1_in_V"].vToSeq == dfExp["C1_in_V"].vToSeq
+      check df["C2_in_V"].vToSeq == dfExp["C2_in_V"].vToSeq
+      check df["type"].vToSeq == dfExp["type"].vToSeq
+    else:
+      check df["t_in_s"].toTensor(float) == dfExp["t_in_s"].toTensor(float)
+      check df["C1_in_V"].toTensor(float) == dfExp["C1_in_V"].toTensor(float)
+      check df["C2_in_V"].toTensor(float) == dfExp["C2_in_V"].toTensor(float)
+      check df["type"].toTensor(string) == dfExp["type"].toTensor(string)
 
   test "Summarize":
     let mpg = toDf(readCsv("data/mpg.csv"))
     block:
       # explicit LHS
-      let res = mpg.summarize(f{"num" ~ sum("cyl")})
+      let res = mpg.summarize(f{int: "num" << sum(c"cyl")})
       check "num" in res
       check res.len == 1
-      check res["num"][0] == %~ 1378
+      check res["num", 0] == %~ 1378
       # implicit LHS
-      let resImplicit = mpg.summarize(f{sum("cyl")})
+      let resImplicit = mpg.summarize(f{int: sum(c"cyl")})
       check "(sum cyl)" in resImplicit
       check resImplicit.len == 1
-      check resImplicit["(sum cyl)"][0] == %~ 1378
+      check resImplicit["(sum cyl)", 0] == %~ 1378
     block:
       # explicit LHS
-      let res = mpg.summarize(f{"mean" ~ mean("cyl")})
+      let res = mpg.summarize(f{float: "mean" << mean(c"cyl")})
       check "mean" in res
       check res.len == 1
-      check almostEqual(res["mean"][0].toFloat, 5.888888889)
+      check almostEqual(res["mean", 0].toFloat, 5.888888889)
       # implicit LHS
-      let resImplicit = mpg.summarize(f{mean("cyl")})
+      let resImplicit = mpg.summarize(f{float: mean(c"cyl")})
       check "(mean cyl)" in resImplicit
       check resImplicit.len == 1
-      check almostEqual(resImplicit["(mean cyl)"][0].toFloat, 5.888888889)
+      check almostEqual(resImplicit["(mean cyl)", 0].toFloat, 5.888888889)
     block:
       # summarize multiple groups at the same time
-      let res = mpg.group_by(["class", "cyl"]).summarize(f{mean("hwy")})
+      let res = mpg.group_by(["class", "cyl"]).summarize(f{float: mean(c"hwy")})
       check res.len == 19
       # expected numbers. They seem reasonable, but ``I did NOT`` check them
       # manually!!
       # hence another test below with known numbers and their sum
       let exp = %~ @[24.8, 24.8, 29.47, 29.47, 29, 29, 25.31, 25.31, 29.19, 29.19, 26.26, 26.26, 24, 24, 24, 24, 22.2, 22.2, 20.67, 20.67, 17.9, 17.9, 15.8, 15.8, 30.81, 30.81, 28.5, 28.5, 24.71, 24.71, 21.6, 21.6, 23.75, 23.75, 18.5, 18.5, 16.79, 16.79]
-      for i, el in res[$f{mean("hwy")}].vToSeq:
-        # very rough check
-        check almostEqual(el.toFloat, exp[i].toFloat, 1e-1)
+      when defined(defaultBackend):
+        for i, el in res[$f{mean("hwy")}].vToSeq:
+          # very rough check
+          check almostEqual(el.toFloat, exp[i].toFloat, 1e-1)
+      else:
+        var idx = 0
+        for el in res[$f{float: mean(c"hwy")}].toTensor(Value):
+          # very rough check
+          check almostEqual(el.toFloat, exp[idx].toFloat, 1e-1)
     block:
       # generate numbers
       let num = toSeq(1 .. 100)
@@ -499,11 +632,15 @@ t_in_s,  C1_in_V,  C2_in_V,  type
           inc count
       check count == 2600
       let df = seqsToDf(l1, l2, numVec)
-      let dfG = df.group_by(["l1", "l2"]).summarize(f{sum("numVec")})
+      let dfG = df.group_by(["l1", "l2"]).summarize(f{int: sum(c"numVec")})
       check dfG.len == 26
       check sumNum == 5050
-      for i, el in dfG[$f{sum("numVec")}].vToSeq:
-        check el == %~ sumNum
+      when defined(defaultBackend):
+        for i, el in dfG[$f{sum("numVec")}].vToSeq:
+          check el == %~ sumNum
+      else:
+        for el in dfG[$f{int: sum(c"numVec")}].toTensor(Value):
+          check el == %~ sumNum
 
   test "Count":
     # count elements by group. Useful combination of group_by and summarize(len)
@@ -512,11 +649,11 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let exp = toSet({6 : 79, 8 : 70, 4 : 81, 5 : 4})
     block:
       # manually
-      let res = mpg.group_by("cyl").summarize(f{"num" ~ length("cyl")})
+      let res = mpg.group_by("cyl").summarize(f{int: "num" << c"cyl".len})
       check "num" in res
       check res.len == 4
       var resSet = initHashSet[(int, int)]()
-      for i, row in res:
+      for row in res:
         resSet.incl (row["cyl"].toInt.int, row["num"].toInt.int)
       check resSet == exp
       # using `count` directly
@@ -524,7 +661,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check "n" in resDirect
       check resDirect.len == 4
       var resDirectSet = initHashSet[(int, int)]()
-      for i, row in resDirect:
+      for row in resDirect:
         resDirectSet.incl (row["cyl"].toInt.int, row["n"].toInt.int)
       check resDirectSet == exp
 
@@ -533,7 +670,10 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let x1 = toSeq(0 .. 100)
     let x2 = toSeq(0 .. 10)
     let df = seqsToDf(x1, x2)
-    check df.filter(f{isNull("x2") == false})["x2"].vToSeq == %~ x2
+    when defined(defaultBackend):
+      check df.filter(f{isNull("x2") == false})["x2"].vToSeq == %~ x2
+    else:
+      check df.filter(f{Value: isNull(df["x2"][idx]).toBool == false})["x2"].toTensor(Value) == toTensor (%~ x2)
 
   test "Unique - duplicates using all columns":
     # given some data containing duplicates
@@ -578,14 +718,14 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       let res = setDiff(mpgS1, mpgS2).arrange(toSeq(keys(mpg)))
       check exp.len == res.len
       for i in 0 ..< exp.len:
-        check exp[i] == res[i]
+        check row(exp, i) == row(res, i)
     block:
       # S2 is primary
       let exp = mpg[26 .. 29].arrange(toSeq(keys(mpg)))
       let res = setDiff(mpgS2, mpgS1).arrange(toSeq(keys(mpg)))
       check exp.len == res.len
       for i in 0 ..< exp.len:
-        check exp[i] == res[i]
+        check row(exp, i) == row(res, i)
     block:
       # symmetric difference
       let exp = bind_rows(mpg[0 .. 19], mpg[26 .. 29], id = "")
@@ -593,7 +733,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       let res = setDiff(mpgS1, mpgS2, symmetric = true).arrange(toSeq(keys(mpg)))
       check exp.len == res.len
       for i in 0 ..< exp.len:
-        check exp[i] == res[i]
+        check row(exp, i) == row(res, i)
 
   test "Custom column names when reading CSV like data":
     # given some data without a header and column names
@@ -627,29 +767,38 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 
   test "Evaluate data frame using FormulaNode":
     let mpg = toDf(readCsv("data/mpg.csv"))
-    let f = hwy ~ (displ + cyl - cty) # this doesn't make sense, but anyways...
+    let f = f{`hwy` ~ (`displ` + `cyl` - `cty`)} # this doesn't make sense, but anyways...
     # Displacement + Cylinders - City mpg. Yeah :D
     # use RHS of formula for calculation of 0 row.
-    check f.rhs.evaluate(mpg, 0) == %~ -12.2
+    when defined(defaultBackend):
+      check f.rhs.evaluate(mpg, 0) == %~ -12.2
+    else:
+      # not exactly possible on arraymancer backend
+      check f.evaluate(mpg)[0, Value] == %~ -12.2
 
     # applying negative column results in expected
     # stringifaction of the formula
-    let dfNeg = mpg.transmute(f{-"hwy"})
+    let dfNeg = mpg.transmute(f{-1 * c"hwy"})
     check "(* -1 hwy)" == getKeys(dfNeg)[0]
 
     # negative prefix of existing column results in what we expect
-    check evaluate(f{-"hwy"}, mpg).vToSeq == mpg["hwy"].vToSeq.mapIt((%~ -1) * it)
-
-    # evaluate non existant key to vector of constant
-    check evaluate(f{"nonExistant"}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ "nonExistant")
-
-    # evaluate formula without column on DF
-    check evaluate(f{1 + 2}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ 3)
+    when defined(defaultBackend):
+      check evaluate(f{-"hwy"}, mpg).vToSeq == mpg["hwy"].vToSeq.mapIt((%~ -1) * it)
+      # evaluate non existant key to vector of constant
+      check evaluate(f{"nonExistant"}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ "nonExistant")
+      # evaluate formula without column on DF
+      check evaluate(f{1 + 2}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ 3)
+    else:
+      check evaluate(f{-1 * c"hwy"}, mpg).toTensor(float) == mpg["hwy"].toTensor(float).map(x => -x)
+      # evaluate non existant key to vector of constant
+      check evaluate(f{"nonExistant"}, mpg).toTensor(string) == toTensor toSeq(0 ..< mpg.len).mapIt("nonExistant")
+      # evaluate formula without column on DF
+      check evaluate(f{1 + 2}, mpg).toTensor(int) == toTensor toSeq(0 ..< mpg.len).mapIt(3)
 
   test "Reduce data frame using FormulaNode":
     let mpg = toDf(readCsv("data/mpg.csv"))
     # check reduction via a formula and VectorFloatProc
-    check almostEqual(reduce(f{mean("hwy")}, mpg).toFloat, 23.44017, 1e-3)
+    check almostEqual(reduce(f{float: mean(c"hwy")}, mpg).toFloat, 23.44017, 1e-3)
 
     # combine with calculation
-    check almostEqual(reduce(f{235 / mean("hwy")}, mpg).toFloat, 10.0255, 1e-3)
+    check almostEqual(reduce(f{float: 235 / mean(c"hwy")}, mpg).toFloat, 10.0255, 1e-3)
