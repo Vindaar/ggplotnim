@@ -203,7 +203,7 @@ proc clone*(df: DataFrame): DataFrame =
     result.groupMap = df.groupMap
   else: discard
 
-proc `[]=`*[T](df: var DataFrame, k: string, t: Tensor[T]) {.inline.} =
+proc `[]=`*[T: Tensor | seq | array](df: var DataFrame, k: string, t: T) {.inline.} =
   df.data[k] = toColumn t
 
 proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
