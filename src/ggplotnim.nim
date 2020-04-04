@@ -62,11 +62,11 @@ proc orNone(f: float): Option[float] =
   if classify(f) != fcNaN: some(f)
   else: none[float]()
 
-proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind = akX): Option[Scale] =
+proc orNoneScale[T: string | SomeNumber | FormulaNode](s: T, scKind: static ScaleKind, axKind = akX): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
   if ($s).len > 0:
-    when T is string:
+    when T is string or T is SomeNumber:
       let fs = f{s}
     else:
       let fs = s
@@ -80,7 +80,7 @@ proc orNoneScale[T: string | FormulaNode](s: T, scKind: static ScaleKind, axKind
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | FormulaNode](
+proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | SomeNumber | FormulaNode](
   x: A = "",
   y: B = "",
   color: C = "",
