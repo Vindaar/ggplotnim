@@ -527,11 +527,47 @@ proc recurseFind(n: NimNode, cond: NimNode): NimNode =
       break
     else:
       let found = recurseFind(ch, cond)
-      if found.kind != nnkNilLIt:
+      if found.kind != nnkNilLit:
         result = found
 
+
+type
+  ReplaceKind = enum
+    byValue, # replace identifier (`c"someString"`, etc.) by `t[idx]`
+    byTensor # replace identifier (`c"someString"`, etc.) by `t`
+
 proc replaceColumns(body: NimNode, idents: var seq[NimNode],
-                    fkKind: FormulaKind): NimNode =
+                    typeNodeTuples: seq[(ReplaceKind, NimNode)],
+                    rpKind: ReplaceKind): NimNode
+
+proc replaceDfNodes(n: NimNode, idents: var seq[NimNode],
+                    typeNodeTuples: seq[(ReplaceKind, NimNode)],
+                    rpKind: ReplaceKind): NimNode =
+  result = copyNimTree(n)
+  expectKind(n, nnkBracketExpr)
+  case result[0].kind
+  of nnkBracketExpr:
+    case result[0][0].kind
+    of nnkIdent:
+      if eqIdent(result[0][0], ident"df"):
+        # replace `nnkExprColonExpr` node w/ `colName_...`.
+        # `idx` part already in place and will stay
+        doAssert result[1].kind == nnkIdent
+        doAssert eqIdent(result[1], ident"idx")
+        result[0] = idents.pop
+    else: discard
+  of nnkIdent:
+    if eqIdent(result[0], ident"df"):
+      # replace whole node simply by `colName_...`. N
+      result = idents.pop
+  else:
+    result = replaceColumns(result, idents,
+                            typeNodeTuples,
+                            rpKind = rpKind)
+
+proc replaceColumns(body: NimNode, idents: var seq[NimNode],
+                    typeNodeTuples: seq[(ReplaceKind, NimNode)],
+                    rpKind: ReplaceKind): NimNode =
   result = copyNimTree(body)
   # essentially we have to do the following:
   # - replace all strings by calls to `df["String"]`
@@ -546,35 +582,35 @@ proc replaceColumns(body: NimNode, idents: var seq[NimNode],
   #   else string?
   for i in 0 ..< body.len:
     case body[i].kind
+    of nnkCall:
+      # if a call, take into account `typeNodeTuples` on how to replace content
+      # and recurse with overriden `rpKind`
+      for (thisRpKind, name) in typeNodeTuples:
+        if eqIdent(name, body[i][0]):
+          # replace it with given rpKind
+          result[i] = replaceColumns(body[i], idents, typeNodeTuples,
+                                     rpKind = thisRpKind)
     of nnkAccQuoted, nnkCallStrLit:
-      case fkKind
-      of fkVector:
+      case rpKind
+      of byValue:
         let idIdx = ident"idx"
         result[i] = nnkBracketExpr.newTree(idents.pop,
                                            idIdx)
         #nnkCall.newTree(ident"get", ident"df", body[i])
-      of fkScalar:
+      of byTensor:
         # just the full column
         # TODO: change such that we determine which ident needs to be
         # scalar treated and which vector, based on determining
         # the formula kind the way we do in default backend!
         result[i] = idents.pop
-      of fkVariable:
-        result[i] = result[i][0].toStrLit
-        error("fix me")
-      else: discard
     of nnkBracketExpr:
-      if eqIdent(result[i][0], ident"df"):
-        # replace whole node
-        let idIdx = ident"idx"
-        result[i] = nnkBracketExpr.newTree(idents.pop,
-                                           idIdx)
-      else:
-        result[i] = replaceColumns(body[i], idents, fkKind = fkKind)
+      result[i] = replaceDfNodes(result[i], idents, typeNodeTuples, rpKind)
     else:
-      result[i] = replaceColumns(body[i], idents, fkKind = fkKind)
+      result[i] = replaceColumns(body[i], idents,
+                                 typeNodeTuples,
+                                 rpKind = rpKind)
 
-proc unwrapAccQuote(n: NimNode): NimNode =
+proc unwrapAccQuote(n: NimNode, strAllowed: static bool = false): NimNode =
   case n.kind
   of nnkAccQuoted:
     # remove the accented quote and replace it by a string literal
@@ -588,7 +624,29 @@ proc unwrapAccQuote(n: NimNode): NimNode =
       result = n[0].toStrLit
   of nnkCallStrLit:
     result = n[1]
+  of nnkStrLit:
+    when strAllowed:
+      result = n
+    else:
+      result = n
   else: result = n
+
+proc collectColumns(body: NimNode): seq[NimNode]
+proc collectDfNode(n: NimNode): seq[NimNode] =
+  expectKind(n, nnkBracketExpr)
+  case n[0].kind
+  of nnkBracketExpr:
+    # is of form: `df["colName"][idx]`
+    if eqIdent(n[0][0], ident"df"):
+      result.add unwrapAccQuote(n[0][1], strAllowed = true)
+    else:
+      result.add collectColumns(n[0])
+  of nnkIdent:
+    if eqIdent(n[0], ident"df"):
+      # refers to a column
+      result.add unwrapAccQuote(n[1], strAllowed = true)
+  else:
+    result.add collectColumns(n[0])
 
 proc collectColumns(body: NimNode): seq[NimNode] =
   result = newSeq[NimNode]()
@@ -596,16 +654,8 @@ proc collectColumns(body: NimNode): seq[NimNode] =
     case body[i].kind
     of nnkAccQuoted, nnkCallStrLit:
       result.add unwrapAccQuote(body[i])
-    #of nnkStrLit:
-    #  result.add body[i]
-    #of nnkIdent:
-    #  echo "IDENT ", body[i].repr
     of nnkBracketExpr:
-      if eqIdent(body[i][0], ident"df"):
-        # refers to a column
-        result.add body[i][1]
-      else:
-        result.add collectColumns(body[i])
+      result.add collectDfNode(body[i])
     else:
       result.add collectColumns(body[i])
 
@@ -660,6 +710,7 @@ func genColDefsFromIdents(idents: seq[NimNode],
   else: error("not supported")
 
 proc compileVectorFormula(rawName, name, body, dtype, resDtype: NimNode,
+                          typeNodeTuples: seq[(ReplaceKind, NimNode)],
                           isRaw: bool): NimNode =
   let columns = collectColumns(body)
   var idents = genIdentsFromColumns(columns)
@@ -669,7 +720,9 @@ proc compileVectorFormula(rawName, name, body, dtype, resDtype: NimNode,
                                      dtype, resDtype)
   # reverse the idents, since we use `pop`
   idents.reverse()
-  let forLoopBody = replaceColumns(body, idents, fkKind = fkVector)
+  let forLoopBody = replaceColumns(body, idents,
+                                   typeNodeTuples,
+                                   rpKind = byValue)
   let
     idIdx = ident"idx"
     dfIdent = ident"df"
@@ -704,6 +757,7 @@ proc compileVectorFormula(rawName, name, body, dtype, resDtype: NimNode,
   #echo result.repr
 
 proc compileScalarFormula(rawName, name, body, dtype, resDtype: NimNode,
+                          typeNodeTuples: seq[(ReplaceKind, NimNode)],
                           isRaw: bool): NimNode =
   let columns = collectColumns(body)
   var idents = genIdentsFromColumns(columns)
@@ -713,7 +767,9 @@ proc compileScalarFormula(rawName, name, body, dtype, resDtype: NimNode,
                                      dtype, resDtype)
   # reverse the idents, since we use `pop`
   idents.reverse()
-  let scalarBody = replaceColumns(body, idents, fkKind = fkScalar)
+  let scalarBody = replaceColumns(body, idents,
+                                  typeNodeTuples,
+                                  rpKind = byTensor)
   let idIdx = ident"idx"
   let resultId = ident"result"
 
@@ -733,10 +789,10 @@ proc compileScalarFormula(rawName, name, body, dtype, resDtype: NimNode,
                        params = params,
                        body = bodyFinal,
                        procType = nnkLambda)
-  doAssert name.kind != nnkNilLit, " there must be a LHS for fkScalar!"
+  let valName = if name.kind == nnkNilLit: rawName else: name
   result = quote do:
     FormulaNode(name: `rawName`,
-                valName: `name`, kind: fkScalar,
+                valName: `valName`, kind: fkScalar,
                 valKind: toValKind(`dtype`),
                 fnS: `procImpl`)
   #echo result.repr
@@ -821,13 +877,62 @@ proc constrFormula(body: NimNode): NimNode =
       if res.kind != nnkNilLit:
         result = res
 
-proc extractIdents(n: NimNode): seq[NimNode] =
+template newTensorHelper(dtype: untyped): untyped =
+  newTensor[dtype](0)
+
+template newLiteral(dtype: untyped): untyped =
+  when dtype is SomeNumber:
+    dtype(0)
+  elif dtype is string:
+    ""
+  elif dtype is Value:
+    %~ 0
+  else:
+    error("BAD TYPE")
+
+proc isValid(n: NimNode): bool =
+  result = compiles(n)
+
+proc handleDfNodes(n: NimNode, dtype: NimNode): NimNode =
+  expectKind(n, nnkBracketExpr)
+  result = n
+  case n[0].kind
+  of nnkBracketExpr:
+    # is of form: `df["colName"][idx]`
+    if eqIdent(n[0][0], ident"df"):
+      result = getAst(newLiteral(dtype))
+  else:
+    if eqIdent(n[0], ident"df"):
+      result = getAst(newTensorHelper(dtype))
+
+proc extractIdents(n: NimNode, dtype: NimNode,
+                   fkKind: FormulaKind): NimNode =
+  result = nnkBracket.newTree()
+  echo "N KIND ", n.kind, " FOR ", n.repr
   case n.kind
-  of nnkIdent:
-    result.add n
+  of nnkCall:
+    let id = n[0]
+    var callNode = copyNimTree(n)
+    # walk the call and replace `
+    for i in 0 ..< callNode.len:
+      case callNode[i].kind
+      of nnkCallStrLit, nnkAccQuoted:
+        callNode[i] = getAst(newTensorHelper(`dtype`))
+      of nnkBracketExpr:
+        callNode[i] = handleDfNodes(callNode[i], dtype)
+      else: discard
+    echo callNode.treeRepr
+    result.add callNode
+  of nnkCallStrLit, nnkAccQuoted:
+    # call `newDataFrame` to have a DF we can use to later extract `Column` using `n`
+    # this way we don't need a locally defined DF of a certain name, since we don't
+    # use this type only to deduce the types anyways.
+    result.add nnkBracketExpr.newTree(nnkCall.newTree(ident"newDataFrame"), unwrapAccQuote(n))
   else:
     for i in 0 ..< n.len:
-      result.add extractIdents(n[i])
+      let idents = extractIdents(n[i], dtype, fkKind)
+      for el in idents:
+        result.add el
 
 proc determineFuncKind(body: NimNode,
                        typeHints: tuple[dtype, resDtype: NimNode],
@@ -942,117 +1047,88 @@ proc determineFuncKind(body: NimNode,
     # TODO2: we might want to consider
     result[2] = determineFormulaKind(body)
 
-proc isValidFunc(fn: NimNode): bool =
-  ## Checks if the given `fn` sym node represents a valid function
-  ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
-  # TODO: this is essentialy the IMPL of `getFuncKind` too!!!
-  case fn.kind
-  of nnkClosedSymChoice, nnkOpenSymChoice:
-    # if a generic, check if there exists a valid choice
-    for ch in fn:
-      if isValidFunc(ch):
-        #result = ch
-        return true
-  else:
-    let impl = fn.getTypeImpl
-    result = false
-    case impl.kind
-    of nnkProcTy:
-      let argType = impl[0][1][1]
-      #let resType = impl[0][1][1]
-      #echo impl.treeRepr
-      #echo argType.repr
-      if argType.kind == nnkBracketExpr:
-        if eqIdent(argType[0], "PersistentVector") and
-           eqIdent(argType[1], "Value"):
-          result = true
-      else:
-        if eqIdent(argType, "Value"):
-          result = true
-    of nnkBracketExpr:
-      doAssert impl[1].kind in {nnkProcTy, nnkSym}
-      result = isValidFunc(impl[1])
-    else:
-      error("Invalid kind " & $impl.kind)
-
-proc extractTypes(idents: NimNode): seq[(NimNode, NimNode)] =
-  ## Checks if the given `fn` sym node represents a valid function
-  ## of either `VectorValuedFunc` or `ScalarValuedFunc`.
-  # TODO: this is essentialy the IMPL of `getFuncKind` too!!!
+proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
+  ##
   expectKind idents, nnkBracket
   for id in idents:
+    echo "ID ", id.treeRepr
     case id.kind
     of nnkIdent: discard
+    of nnkCall:
+      let impl = id[0].getTypeImpl
+      echo impl.treeRepr
+      case impl[0][0].kind
+      of nnkSym:
+        ## TODO: make sure the symbol actually refers to a valid type?
+        case impl[0][0].strVal
+        of "Column":
+          result.add (byValue, id[0])
+        else:
+          # only `byTensor` if input is also `Tensor`
+          case impl[0][1][1].kind
+          of nnkBracketExpr:
+            doAssert impl[0][1][1][0].strVal in ["seq", "Tensor"]
+            result.add (byTensor, id[0])
+          else:
+            result.add (byValue, id[0])
+      of nnkBracketExpr:
+        doAssert eqIdent(impl[0][1][1][0], "Tensor")
+        result.add (byValue, id[0])
+      else: discard
+      echo impl.treeRepr
     else:
-      let impl = id.getTypeImpl
+      discard
 
-macro cpTyped(name, body: untyped,
-              idents: typed,
-              typeHints: typed): untyped =
-  echo name.treerepr
-  echo body.treerepr
-  #echo fns.treeRepr
-  echo idents.treeRepr
-  echo "\n\n\n\n"
-  #let fnKind = isValidFunc(fns)
-  let typeNodeTuples = extractTypes(idents)
-  #echo "fn kind ", fnKind
-  result = quote do:
-    FormulaNode(kind: fkVariable, name: "test")
-  echo "res cpTyped ", result.repr
+proc parseBool(n: NimNode): bool =
+  result = if n[1].eqIdent(ident"true"): true else: false
 
-proc compileFormulaTypedMacro(body: NimNode,
-                              typeHints: tuple[dtype, resDtype: NimNode],
-                              name: NimNode): NimNode =
-  # essentially:
-  # extract every ident
-  # for every ident hand it to the typed macro as a sequence.
-  # Resolve each ident.
-  # If symbol points to a variable, get type:
-  # - If scalar, insert directly into body
-  #   - if string, assume means a column. Introduce fallback for
-  #     real strings? `s( stringIdent )` for example?
-  #   - if float, leave as is
-  # - If vector, assume same number as idx as DF, iterate over it
-  let columns = collectColumns(body)
-  var idents = genIdentsFromColumns(columns)
-  # reverse the idents, since we use `pop`
-  idents.reverse()
-  let scalarBody = replaceColumns(body, idents, fkKind = fkVariable)
-  echo scalarBody.treeRepr
-  #let fnss = constrFormula(scalarBody)
-  let fnss = extractIdents(scalarBody)
-  result = quote do:
-    cpTyped(`name`, `scalarBody`,
-            `fnss`,
-            `typeHints`)
-
-proc compileFormulaImpl(rawName, name, body: NimNode,
-                        isAssignment: bool,
-                        isVector: bool,
-                        isReduce: bool,
-                        isRaw: bool,
-                        typeHints: tuple[dtype, resDtype: NimNode]): NimNode =
+macro compileFormulaImpl*(rawName, name, body: untyped,
+                          bools: untyped,
+                          dtype: untyped,
+                          resDtype: untyped,
+                          funcKind: untyped,
+                          typedCalls: varargs[typed]): untyped =
   echo "IMPL, name: ", name.repr, " body: ", body.repr
-  var (dtype, resDtype, funcKind) = determineFuncKind(body, typeHints = typeHints,
-                                                      name = name)
+  echo "TYPED CALLS ", typedCalls.treerepr
+  let typeNodeTuples = extractTypes(typedCalls)
+  echo "TYPED NODES ", typeNodeTuples.repr
+
+  let
+    isAssignment = parseBool(bools[0])
+    isVector = parseBool(bools[1])
+    isReduce = parseBool(bools[2])
+    isRaw = parseBool(bools[3])
+    isInplace = parseBool(bools[4])
+
+  # possibly override
+
   # force `fkVariable` if this is an `<-` assignment
   echo resDtype.repr
   echo dtype.repr
-  echo "FUNCKIND ", funcKind
   echo "isAssignment ", isAssignment
   echo "isVector ", isVector
   echo "isReduce ", isReduce
-  funcKind = if isAssignment: fkAssign
-             elif isReduce: fkScalar
-             elif isVector: fkVector
-             else: funcKind
+  echo "ORIG FUNCKIND ", funcKind.repr
+  var allowOverride = false
+  var mFuncKind = if isAssignment: fkAssign
+                  elif isReduce: fkScalar
+                  elif isVector: fkVector
+                  else:
+                    allowOverride = true
+                    FormulaKind(funcKind[1].intVal)
+  # possibly override formulaKind yet again due to `typeNodeTuples`
+  echo "BEF FUNCKIND ", mFuncKind
+  if typeNodeTuples.len > 0 and allowOverride:
+    # if a single `byValue` is involved, the output cannot be a scalar!
+    for t in typeNodeTuples:
+      echo t[0]
+      echo t[1].treeRepr
+    mFuncKind = if typeNodeTuples.allIt(it[0] == byTensor): fkScalar
+                else: fkVector
 
-  if false: #dtype.kind == nnkNilLit and resDtype.kind == nnkNilLit:
-    result = compileFormulaTypedMacro(body, typeHints = typeHints,
-                                      name = name)
-  else:
-    case funcKind
+  echo "FUNCKIND ", mFuncKind
+  if not isInplace:
+    case mFuncKind
     of fkVariable:
       let val = unwrapAccQuote(body)
       result = quote do:
@@ -1067,16 +1143,57 @@ proc compileFormulaImpl(rawName, name, body: NimNode,
                     lhs: `name`,
                     rhs: %~ `rhs`)
     of fkVector:
-      result = compileVectorFormula(rawName, name, body, dtype, resDtype, isRaw = isRaw)
+      result = compileVectorFormula(rawName, name, body, dtype, resDtype,
+                                    typeNodeTuples = typeNodeTuples,
+                                    isRaw = isRaw)
     of fkScalar:
-      result = compileScalarFormula(rawName, name, body, dtype, resDtype, isRaw = isRaw)
+      result = compileScalarFormula(rawName, name, body, dtype, resDtype,
+                                    typeNodeTuples = typeNodeTuples,
+                                    isRaw = isRaw)
+  else:
+    result = compileInplaceScalar(rawName, name, body, dtype, resDtype,
+                                  typeNodeTuples = typeNodeTuples,
+                                  isRaw = isRaw)
 
-    #var mhs = @[ident"hwy"]
-    #let fns = constrFormula(replaceColumns(body, mhs, fkKind = fkNone))
-    #result = quote do:
-    #  block:
-    #    `fns`
-    #    `result`
+  echo result.repr
+
+proc compileFormulaTypedMacro(rawName, name, body: NimNode,
+                              isAssignment: bool,
+                              isVector: bool,
+                              isReduce: bool,
+                              isRaw: bool,
+                              isInplace: bool,
+                              typeHints: tuple[dtype, resDtype: NimNode],
+                             ): NimNode =
+  # essentially:
+  # extract every nnkCall
+  # for every ident hand it to the typed macro as a sequence.
+  # Resolve each ident.
+  # If symbol points to a variable, get type:
+  # - If scalar, insert directly into body
+  #   - if string, assume means a column. Introduce fallback for
+  #     real strings? `s( stringIdent )` for example?
+  #   - if float, leave as is
+  # - If vector, assume same number as idx as DF, iterate over it
+  var (dtype, resDtype, funcKind) = determineFuncKind(body, typeHints = typeHints,
+                                                      name = name)
+  let typedCalls = extractIdents(body, dtype, funcKind)
+  echo "TYPED CALLS ", typedCalls.repr
+  let bools = (isAssignment, isVector, isReduce, isRaw, isInplace)
+  result = nnkCall.newTree(ident"compileFormulaImpl")
+  result.add rawName
+  result.add name
+  result.add body
+  result.add newLit bools
+  result.add dtype
+  result.add resDtype
+  result.add newLit funcKind
+  for tk in typedCalls:
+    result.add tk
+  #result = quote do:
+  #    when compiles(`result`):
+  #      `result`
+  #    else: f{0}
 
 proc parseTypeHints(n: var NimNode): tuple[dtype, resDtype: NimNode] =
   case n.kind
@@ -1142,15 +1259,19 @@ proc compileFormula(n: NimNode, isRaw: bool): NimNode =
     isVector = true
     formulaName = unwrapAccQuote(node[1])
     formulaRhs = node[2]
+
   let fnName = buildFormula(node)
   let rawName = quote do:
-        $(`fnName`)
-  result = compileFormulaImpl(rawName, formulaName, formulaRhs,
-                              isAssignment = isAssignment,
-                              isVector = isVector,
-                              isReduce = isReduce,
-                              isRaw = isRaw,
-                              typeHints = typeHints)
+    $(`fnName`)
+  result = quote do:
+    compileFormula
+  result = compileFormulaTypedMacro(rawName, formulaName, formulaRhs,
+                                    isAssignment = isAssignment,
+                                    isVector = isVector,
+                                    isReduce = isReduce,
+                                    isRaw = isRaw,
+                                    isInplace = isInplace,
+                                    typeHints = typeHints)
   echo result.repr
 
 macro `{}`*(x: untyped{ident}, y: untyped): untyped =
