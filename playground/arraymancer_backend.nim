@@ -2203,6 +2203,19 @@ proc evaluate*(node: FormulaNode, df: DataFrame): Column =
     raise newException(ValueError, "Cannot evaluate a formula of kind " &
       $node.kind & " without a data frame as input!")
 
+proc reduce*(node: FormulaNode, df: DataFrame): Value =
+  ## tries to return a Column from a FormulaNode with an input
+  ## DataFrame `df`.
+  ## Works either if formula is `fkNone` or `fkVariable`.
+  ## Raises for `fkVector` and `fkScalar`.
+  # TODO: Handle cases if a value is not a column!
+  case node.kind
+  of fkScalar:
+    result = node.fnS(df)
+  else:
+    raise newException(ValueError, "Cannot reduce a data frame using a formula " &
+      "of kind " & $node.kind & "!")
+
 #proc evaluate*[T](node: FormulaNode, df: DataFrame,
 #                  idx: int,
 #                  dtype: typedesc[T]): T =
