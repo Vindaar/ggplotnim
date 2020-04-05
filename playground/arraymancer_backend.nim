@@ -9,11 +9,8 @@ import typetraits
 
 from ginger import Scale
 
-import arraymancer except io_csv
-export arraymancer
-
-#import df_io
-#export df_io
+import arraymancer
+export arraymancer.tensor
 
 import value
 export value
