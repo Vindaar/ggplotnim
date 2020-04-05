@@ -1,9 +1,9 @@
 import options, tables, hashes, macros, strformat
 import chroma
 when defined(defaultBackend):
-  import formula
+  import dataframe/fallback/formula
 else:
-  import ../../playground/arraymancer_backend
+  import dataframe/arraymancer_backend
 import ginger except Scale
 
 when defined(defaultBackend):

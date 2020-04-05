@@ -2,9 +2,9 @@ import sequtils, algorithm, tables
 
 import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
 when defined(defaultBackend):
-  import formula
+  import dataframe/fallback/formula
 else:
-  import ../../playground/arraymancer_backend
+  import dataframe/arraymancer_backend
 import ginger except Scale
 
 from seqmath import histogram, linspace, round

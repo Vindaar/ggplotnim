@@ -4,11 +4,10 @@ import ggplot_types, ggplot_utils
 import ggplotnim / colormaps / viridisRaw
 import postprocess_scales
 when defined(defaultBackend):
-  import formula
+  import dataframe/fallback/formula
+  import persvector
 else:
-  import ../../playground/arraymancer_backend
-
-import persvector
+  import dataframe/arraymancer_backend
 
 import ginger except Scale
 

@@ -1,9 +1,10 @@
 import json, tables, options, strutils
 import ggplot_types
 when defined(defaultBackend):
-  import formula
+  import dataframe/fallback/formula
+  import persvector
 else:
-  import ../../playground/arraymancer_backend
+  import dataframe/arraymancer_backend
 
 const vegaLiteTmpl = """
 {
