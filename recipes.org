@@ -1030,6 +1030,105 @@ plt.draw("media/recipes/rMultiSubplots.png")
 Which gives us:
 [[media/recipes/rMultiSubplots.png]]
 
+*** Creating a neural spike plot in =ggplotnim=
+
+These two examples are essentially the following gist:
+https://gist.github.com/Vindaar/9c32c0676ffddec9078e4c0917861fcd
+
+which I wrote for @voltist on IRC, who wanted to create neural raster
+spike plots.
+
+Just a disclaimer: I know nothing about these plots, so if they're
+wrong in some way (axes, labels, whatever), please open an issue on
+how to make them correct!
+
+I googled and found this:
+https://pythontic.com/visualization/charts/spikerasterplot
+
+which is easy to do in =ggplotnim= using =geom_linerange=.
+
+I'll show two ways to do it. One "elegant" way (in terms of what's
+considered typical usage of ggplot) and one rather weird way, which
+allows to use custom color codes.
+
+The first version relies on creating a long format data frame, with
+one column for spike numbers, one for the time axis, containing when a
+neuron spiked and finally a line size column for (what I assume is)
+the amplitude of the spike.
+#+BEGIN_SRC nim :tangle recipes/rAutoColoredNeuralSpikes.nim
+# first start with auto selection of colors
+import ggplotnim, sequtils
+const numx = 50
+const numy = 8
+const lineSizes = [0.4, 0.3, 0.2, 0.8, 0.5, 0.6, 0.7, 0.9]
+# NOTE: The creation of the data here could surely be done in a nicer
+# way...
+var spikes = newSeq[float]()
+var sizes = newSeq[float]()
+for y in 0 ..< numy:
+  for x in 0 ..< numx:
+    spikes.add y.float
+    sizes.add lineSizes[y]
+var df = newDataFrame()
+df["spikes"] = toColumn spikes
+df["neurons"] = toColumn randomTensor(numx * numy, 1.0)
+df["lineSize"] = toColumn sizes
+
+ggplot(df, aes("neurons", "spikes", color = "lineSize")) +
+  geom_linerange(aes(ymin = f{c"spikes" - c"lineSize" / 2.0},
+                     ymax = f{c"spikes" + c"lineSize" / 2.0})) +
+  scale_y_continuous() + # make sure y is considered cont.
+  ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
+  ggtitle("Spike raster plot") +
+  ggsave("media/recipes/rAutoColoredNeuralSpikes.png")
+#+END_SRC
+
+This gives us the following plot:
+
+[[media/recipes/rAutoColoredNeuralSpikes.png]]
+
+
+In constrast this version only has a data frame with one column for
+each neuron containing the times when they spiked. The spike number,
+line size and color are all constant for each neuron.
+#+BEGIN_SRC nim :tangle recipes/rCustomColoredNeuralSpikes.nim
+import ggplotnim, sequtils
+const numx = 50
+const numy = 8
+const lineSizes = [0.4, 0.3, 0.2, 0.8, 0.5, 0.6, 0.7, 0.9]
+# alternatively using fixed colors and one geom_linerange for each color
+let colorCodes = @[color(0, 0, 0),
+                   color(1, 0, 0),
+                   color(0, 1, 0),
+                   color(0, 0, 1),
+                   color(1 , 1, 0),
+                   color(1, 0, 1),
+                   color(0, 1, 1),
+                   color(1, 0, 1)]
+var df = newDataFrame()
+for nr in 0 ..< numy:
+  df["neuron " & $nr] = toColumn randomTensor(numx, 1.0)
+var plt = ggplot(df)
+for nr in 0 ..< numy:
+  # could combine with above loop, but for clarity
+  plt = plt + geom_linerange(aes(x = ("neuron " & $nr),
+                                 y = nr,
+                                 ymin = nr.float - lineSizes[nr] / 2.0,
+                                 ymax = nr.float + lineSizes[nr] / 2.0),
+                             color = some(colorCodes[nr]))
+# finally add scales, title and plot
+plt + scale_y_continuous() + # make sure y is considered cont.
+  ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
+  xlab("Neurons") +
+  ylab("Spikes") +
+  ggtitle("Spike raster plot, manual colors") +
+  ggsave("media/recipes/rCustomColoredNeuralSpikes.png")
+#+END_SRC
+
+This results in this plot:
+
+[[media/recipes/rCustomColoredNeuralSpikes.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot

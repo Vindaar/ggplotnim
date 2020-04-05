@@ -42,7 +42,9 @@ const recipes = ["rStackedMpgHistogram",
                  "rAnnotateMaxValues",
                  "rAnnotatedHeatmap",
                  "rMultiSubplots",
-                 "rPeriodicTable"]
+                 "rPeriodicTable",
+                 "rAutoColoredNeuralSpikes",
+                 "rCustomColoredNeuralSpikes"]
 
 macro genCommands(prefix: static string,
                   suffix: static string = ""): untyped =
