@@ -13,7 +13,7 @@ requires "https://github.com/Vindaar/seqmath >= 0.1.7"
 requires "ginger#moreRefLessCairoCalls"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
-requires "arraymancer >= 0.6.0"
+requires "arraymancer"
 
 task testCI, "Run standard tests w/o cairo dependency":
   # This runs all tests suitable for a CI environment, which does not provide
