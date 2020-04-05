@@ -8,6 +8,7 @@ import ggplotnim, sequtils, seqmath, strutils
 
 var elements = toDf(readCsv("data/elements.csv"))
 echo elements.pretty(5)
+
 elements["group"] = elements["group"].toTensor(Value).map_inline(
   if x == %~ "-":
     %~ -1
@@ -78,15 +79,15 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
             font = some(font(6.0))) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.4},
-                text="symbol"),
+                text = "symbol"),
             font = some(font(9.0))) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.6},
-                text="name"),
+                text = "name"),
             font = some(font(4.5))) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.8},
-                text="atomic mass"),
+                text = "atomic mass"),
             font = some(font(4.5))) +
   geom_text(data = groupdf,
             aes = aes(x = f{`group` + 0.5},
@@ -102,6 +103,6 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   theme_void() +
   scale_y_reverse() +
   scale_x_continuous(dcKind = dcContinuous) +
-  ggsave("media/recipes/rPeriodicTable.pdf",
+  ggsave("media/recipes/rPeriodicTable.png",
          width = 1000,
          height = 500)
