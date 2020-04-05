@@ -202,51 +202,62 @@ suite "Value":
     check v1 * v6 == Value(kind: VNull)
 
 suite "Formula":
-  test "Testing ~ formula creation":
-    let f = x ~ y
-    let a = x ~ (a - b)
-    let g = n ~ m + a * b * d
-    let g2 = n ~ m + a - b + d
-    let g3 = n ~ m + a * b / d
-    let single = ~ x
-    let gg1 = hwy ~ (displ + cyl - cty)
-    let gg2 = hwy ~ displ + cyl - cty
+  when defined(defaultBackend):
+    test "Testing ~ formula creation":
+      let f = x ~ y
+      let a = x ~ (a - b)
+      let g = n ~ m + a * b * d
+      let g2 = n ~ m + a - b + d
+      let g3 = n ~ m + a * b / d
+      let single = ~ x
+      let gg1 = hwy ~ (displ + cyl - cty)
+      let gg2 = hwy ~ displ + cyl - cty
 
-    check $f == "(~ x y)"
-    check $a == "(~ x (- a b))"
-    check $g == "(~ n (+ m (* (* a b) d)))"
-    check $g2 == "(~ n (+ (- (+ m a) b) d))"
-    check $g3 == "(~ n (+ m (/ (* a b) d)))"
-    check $single == "(~ \"\" x)" # LHS is empty string value
-    check $gg1 == "(~ hwy (- (+ displ cyl) cty))"
-    check $gg2 == "(~ hwy (- (+ displ cyl) cty))"
+      check $f == "(~ x y)"
+      check $a == "(~ x (- a b))"
+      check $g == "(~ n (+ m (* (* a b) d)))"
+      check $g2 == "(~ n (+ (- (+ m a) b) d))"
+      check $g3 == "(~ n (+ m (/ (* a b) d)))"
+      check $single == "(~ \"\" x)" # LHS is empty string value
+      check $gg1 == "(~ hwy (- (+ displ cyl) cty))"
+      check $gg2 == "(~ hwy (- (+ displ cyl) cty))"
+  else:
+    ## Currently not supported on arraymancer backend.
+    ## In practice (at least I) only used it for facet wrap.
+    ## For more complex formulae it's too fragile.
+    discard
 
   test "Testing ~ formula creation using f{} macro":
-    let f = f{"meanCty" ~ ("hwy" + "cty")}
-    let g = meanCty ~ hwy + cty
-    check $f == $g
+    let f = f{"meanCty" ~ (c"hwy" + c"cty")}
+    check f.name == "(~ meanCty (+ hwy cty))"
+    when defined(defaultBackend):
+      let g = meanCty ~ hwy + cty
+      check $f == $g
     # TODO: Add more tests here...
     # create with `.` access
     let tup = (a: 5.5, b: "ok")
-    let h = f{tup.a == tup.b}
-    check $h == "(== 5.5 ok)"
+    let h = f{%~ tup.a == %~ tup.b}
+    check h.kind == fkVariable
+    check h.val == %~ false
+    check h.name == "(== 5.5 ok)"
 
-    let f2 = f{"min" ~ min("runTimes")}
-    check $f2 == "(~ min (min runTimes))"
+    let f2 = f{float: "min" << min(c"runTimes")}
+    check $f2 == "min" # LHS of formula
+    check f2.name == "(<< min (min runTimes))"
 
     let s = Scale(col: f{"testCol"},
                   scKind: scTransformedData,
                   dcKind: dcContinuous,
-                  trans: (proc(v: Value): Value =
-                            result = v * (%~ 2.0)
+                  trans: (proc(v: float): float =
+                            result = v * 2.0
                   )
     )
     let col = $s.col
-    var f3 = f{ col ~ s.trans( col )}
-    check $f3 == "(~ testCol (s.trans testCol))"
+    var f3 = f{float: col ~ s.trans( df[col][idx] )}
+    check f3.name == "(~ col (s.trans df[col][idx]))"
     # test function on DF
     let df = seqsToDf( { "testCol" : @[1.0, 2.0, 3.0] })
-    check toSeq(0 .. 2).mapIt(f3.rhs.evaluate(df, it)) == %~ @[2.0, 4.0, 6.0]
+    check f3.evaluate(df).toTensor(Value) == toTensor(%~ @[2.0, 4.0, 6.0])
 
   test "Evaluate raw formula (no DF column dependency)":
     # arithmetic works
@@ -259,7 +270,8 @@ suite "Formula":
 
   test "Formula, literal on RHS":
     let f = f{"from" ~ 0}
-    check $f == "(~ from 0)"
+    check f.name == "(~ from 0)"
+    check $f == "from"
 
   test "Test formula creation of type `fkVariable`":
     let f1 = f{"Test"}
@@ -316,7 +328,7 @@ suite "GgPlot":
       for i in 0 ..< nclass:
         let pos = discrMargin + i.float * barViewWidth + centerPos
         result.add pos
-    let classes = mpg["class"].unique.mapIt(it.toStr).sorted
+    let classes = mpg["class"].unique.toTensor(string).toRawSeq.sorted
     let checkPos = calcPos(classes)
     var
       idxTk = 0
@@ -615,9 +627,9 @@ suite "Annotations":
 
   test "Manually set x and y limits":
     let df = toDf(readCsv("data/mpg.csv"))
-    let dfAt44 = df.filter(f{"hwy" == 44})
+    let dfAt44 = df.filter(f{c"hwy" == 44})
     check dfAt44.len == 2
-    check dfAt44["cty"].vToSeq == %~ @[33.0, 35.0]
+    check dfAt44["cty"].toTensor(float) == toTensor @[33.0, 35.0]
     block:
       let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
         geom_point() +
