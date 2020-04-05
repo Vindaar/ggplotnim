@@ -83,7 +83,7 @@ proc `%~`*(v: OrderedTable[string, Value]): Value =
 
 proc newVObject*(length = 8): Value =
   result = Value(kind: VObject)
-  result.fields = initOrderedTable[string, Value](length)
+  result.fields = initOrderedTable[string, Value](nextPowerOfTwo(length))
 
 proc `%~`*[T: not Value](s: openArray[T]): seq[Value] =
   ## converts a `seq[T]` to a `seq[Value]`
