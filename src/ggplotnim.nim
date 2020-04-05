@@ -1668,10 +1668,12 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
   if not hideLabels:
     view.handleLabels(theme)
   view.xScale = theme.xMarginRange
-  #view.updateDataScale()
 
-  #result[3].yScale = (low: 0.0, high: 1.0)
-  #result[3].updateDataScale()
+  if filledScales.reversedX:
+    view.xScale = (low: view.xScale.high, high: view.xScale.low)
+  if filledScales.reversedY:
+    view.yScale = (low: view.yScale.high, high: view.yScale.low)
+  #view.updateDataScale()
 
 proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
                   theme: Theme,
@@ -1714,10 +1716,9 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     view.xScale = theme.xMarginRange
     view.yScale = theme.yMarginRange
 
-    #if filledScales.reversedX:
-    #  view.xScale = (low: view.xScale.high, high: view.xScale.low)
-    #
-    if false: #filledScales.reversedY:
+    if filledScales.reversedX:
+      view.xScale = (low: view.xScale.high, high: view.xScale.low)
+    if filledScales.reversedY:
       view.yScale = (low: view.yScale.high, high: view.yScale.low)
 
     # TODO: Make sure we still have to do this. I think not!

@@ -315,6 +315,8 @@ type
   FilledScales* = object
     xScale*: ginger.Scale
     yScale*: ginger.Scale
+    reversedX*: bool
+    reversedY*: bool
     geoms*: seq[FilledGeom]
     x*: MainAddScales
     y*: MainAddScales

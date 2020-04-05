@@ -507,6 +507,9 @@ proc collectScales*(p: GgPlot): FilledScales =
   # NOTE: transformed data handled from this in `callFillScale`!
   let xFilled = callFillScale(p.data, xs, scLinearData)
   fillField("x", xFilled)
+  # possibly assign `reversedX` for filledScales
+  if xs.anyIt(it.scale.reversed):
+    result.reversedX = true
 
   let xsMin = collect(p, xMin)
   let xMinFilled = callFillScale(p.data, xsMin, scLinearData)
@@ -520,6 +523,9 @@ proc collectScales*(p: GgPlot): FilledScales =
   # NOTE: transformed data handled from this in `callFillScale`!
   let yFilled = callFillScale(p.data, ys, scLinearData)
   fillField("y", yFilled)
+  # possibly assign `reversedX` for filledScales
+  if ys.anyIt(it.scale.reversed):
+    result.reversedY = true
 
   let ysMin = collect(p, yMin)
   let yMinFilled = callFillScale(p.data, ysMin, scLinearData)
