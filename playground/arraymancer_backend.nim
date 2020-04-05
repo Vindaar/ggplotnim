@@ -2022,7 +2022,7 @@ proc add*(df: var DataFrame, dfToAdd: DataFrame) =
   if df.len == 0:
     df = dfToAdd
   else:
-    doAssert df.getKeys == dfToAdd.getKeys, "all keys must match to add dataframe!"
+    doAssert df.getKeys.sorted == dfToAdd.getKeys.sorted, "all keys must match to add dataframe!"
     df = bind_rows([("", df), ("", dfToAdd)])
 
 proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
