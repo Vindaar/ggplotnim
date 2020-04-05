@@ -1926,15 +1926,23 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
     var sumStats = initTable[string, seq[Value]]()
     var keys = initTable[string, seq[Value]](df.groupMap.len)
     var idx = 0
+    var keyLabelsAdded = false
     for fn in fns:
       doAssert fn.kind == fkScalar
       lhsName = fn.valName
       sumStats[lhsName] = newSeqOfCap[Value](1000) # just start with decent size
       for class, subdf in groups(df):
-        for (key, label) in class:
-          if key notin keys: keys[key] = newSeqOfCap[Value](1000)
-          keys[key].add label
+        if not keyLabelsAdded:
+          # keys and labels only have to be added for a single `fn`, since the DF
+          # will yield the same subgroups anyways!
+          # TODO: we're gonna replace this anyways, but we shouldn't iterate over groups
+          # several times for several functions!
+          for (key, label) in class:
+            if key notin keys: keys[key] = newSeqOfCap[Value](1000)
+            keys[key].add label
         sumStats[lhsName].add fn.fnS(subDf)
+      # done w/ one subgroup, don't add more keys / labels
+      keyLabelsAdded = true
     for k, vals in keys:
       result.asgn(k, toNativeColumn vals)
     for k, vals in sumStats:
