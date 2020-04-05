@@ -52,11 +52,14 @@ suite "Compare recipe output":
                   "rBothDiscreteAxes.png",
                   "rFreqPolyWithAlpha.png",
                   "rMultipleLegends.png",
-                  "rSimpleTile.png"]
+                  "rSimpleTile.png",
                   #"rSimpleGeomText.png",
                   #"rClassifiedGeomText.png",
                   #"rAnnotateUsingGeomText.png",
                   #"rAnnotateMaxValues.png"]
+                  "rAutoColoredNeuralSpikes.png",
+                  "rCustomColoredNeuralSpikes.png"]
+
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
         let pathF = path / $f
