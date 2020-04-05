@@ -2141,9 +2141,8 @@ proc gather*(df: DataFrame, cols: varargs[string],
 proc unique*(c: Column): Column =
   ## returns a seq of all unique values in `v`
   var hashes = newSeq[Hash](c.len)
-  hashes.hashColumn(c)
+  hashes.hashColumn(c, finish = true)
   # finalize the hashes
-  hashes.applyIt(!$it)
   var hSet = toSet(hashes)
   var idxToKeep = newTensor[int](hSet.card)
   var idx = 0
