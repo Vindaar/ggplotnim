@@ -204,7 +204,7 @@ proc clone*(df: DataFrame): DataFrame =
   else: discard
 
 proc `[]=`*[T: Tensor | seq | array](df: var DataFrame, k: string, t: T) {.inline.} =
-  df.data[k] = toColumn t
+  df[k] = toColumn t
 
 proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
   ## WARNING: only use this if you know that `T` is the correct data type!
