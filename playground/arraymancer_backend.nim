@@ -1035,12 +1035,12 @@ proc determineFuncKind(body: NimNode,
       result[1] = typeHintResDtype
     if result[0].kind == nnkNilLit or result[1].kind == nnkNilLit:
       # attempt via formula
-      discard
-      #error("Could not determine data types of tensors in formula:\n" &
-      #  "  name: " & $name & "\n" &
-      #  "  formula: " & $body.repr & "\n" &
-      #  "  data type: " & $result[0].repr & "\n" &
-      #  "  output data type: " & $result[1].repr)
+      error("Could not determine data types of tensors in formula:\n" &
+        "  name: " & $name.repr & "\n" &
+        "  formula: " & $body.repr & "\n" &
+        "  data type: " & $result[0].repr & "\n" &
+        "  output data type: " & $result[1].repr & "\n" &
+        "Consider giving type hints via: `f{T -> U: <theFormula>}`")
 
 
     # finally determine the FormulaKind
@@ -1154,9 +1154,10 @@ macro compileFormulaImpl*(rawName, name, body: untyped,
                                     typeNodeTuples = typeNodeTuples,
                                     isRaw = isRaw)
   else:
-    result = compileInplaceScalar(rawName, name, body, dtype, resDtype,
-                                  typeNodeTuples = typeNodeTuples,
-                                  isRaw = isRaw)
+    #result = compileInplaceScalar(rawName, name, body, dtype, resDtype,
+    #                              typeNodeTuples = typeNodeTuples,
+    #                              isRaw = isRaw)
+    error("Inplace formulas not yet fully implemented!")
 
   echo result.repr
 
@@ -1220,6 +1221,7 @@ proc compileFormula(n: NimNode, isRaw: bool): NimNode =
   var isAssignment = false
   var isReduce = false
   var isVector = false
+  var isInplace = false
   # extract possible type hint
   var node = n
   let typeHints = parseTypeHints(node)
@@ -1246,12 +1248,16 @@ proc compileFormula(n: NimNode, isRaw: bool): NimNode =
       #else: error("Unsupported LHS of type " & $node[1].kind & " : " & $node[1].repr)
       formulaRhs = node[2]
       isAssignment = true
-    elif node.len > 0 and  eqIdent(node[0], ident"<<"):
+    elif node.len > 0 and eqIdent(node[0], ident"<<"):
       # this is an assignment `w/o` access of DF column
       formulaName = unwrapAccQuote(node[1])
       #else: error("Unsupported LHS of type " & $node[1].kind & " : " & $node[1].repr)
       formulaRhs = node[2]
       isReduce = true
+    elif node.len > 0 and eqIdent(node[1], ident"res"):
+      isInplace = true
+      formulaName = node[1]
+      formulaRhs = node
     else:
       #if node.len == 0:
       #  formulaName = node
