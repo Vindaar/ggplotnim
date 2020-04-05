@@ -1,9 +1,10 @@
 import sequtils, tables
 import ggplot_types, ggplot_styles, ggplot_scales
 when defined(defaultBackend):
-  import formula, persvector
+  import dataframe/fallback/formula
+  import persvector
 else:
-  import ../../playground/arraymancer_backend
+  import dataframe/arraymancer_backend
 import ginger
 
 iterator enumerateData(geom: FilledGeom): (StyleLabel, seq[GgStyle], DataFrame) =

@@ -2,9 +2,9 @@ import tables, sets, algorithm, macros, strutils
 
 import ggplot_types
 when defined(defaultBackend):
-  import formula
+  import dataframe/fallback/formula
 else:
-  import ../../playground/arraymancer_backend
+  import dataframe/arraymancer_backend
 import ginger except Scale
 
 #[

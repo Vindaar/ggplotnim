@@ -12,10 +12,10 @@ import persvector
 export persvector
 
 when defined(defaultBackend):
-  import ggplotnim / formula
+  import ./ggplotnim/dataframe/fallback/formula
   export formula
 else:
-  import ../playground/arraymancer_backend
+  import ./ggplotnim/dataframe/arraymancer_backend
   export arraymancer_backend
 
 import ggplotnim / [
