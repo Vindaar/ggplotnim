@@ -16,6 +16,100 @@ mostly compliant with the =ggplot2= syntax. So searching for a
 solution in =ggplot2= should hopefully be applicable to this (unless
 the feature isn't implemented yet of course).
 
+** *IMPORTANT NOTE* on version =v0.3.0=!
+
+=v0.3.0= contains breaking changes regarding the usage of formulas via
+the =f{}= macro and is mostly considered a stop-gap release until
+=v0.4.0= is released.
+
+Originally =v0.3.0= was supposed to contain:
+- =geom_density=
+- =geom_contour=
+- working =facet_wrap=
+
+and some miscelaneous things like updated documentation.
+
+Instead I started a rewrite of the data frame on top of arraymancer,
+which was more successful, than I imagined. This sidelined my other
+work. But since I don't want to keep this out of ggplotnim anylonger,
+I made this the main part of =v0.3.0=. 
+
+=v0.4.0= will probably not take too long and will include proper
+documentation on the formula syntax and the above. By then however the
+data frame will also have been turned into its own module (probably
+named) =datamancer=.
+
+Short notes on formula syntax. The following rules apply:
+
+Use:
+- =<-= for assignment
+- =<<= for reduce operations
+- =~= for vector like proc
+- formula without any of the above will be considered:
+  - =fkVariable= if no column involved
+  - =fkVector= else
+- =<type>: <actualFormula>=: simple type hint for tensors in closure
+- =<type> -> <resDtype>: <actualFormula>=: full type for closure.
+  =<type>= is the dtype used for tensors, =<resDtype>= the resulting
+  type
+
+To access columns in the context of formula, the biggest change
+occured. In the old formula system, a literal string was attempted to
+be resolved as a DF column dynamically. Since the new formulas are
+compiled to closures, this would involve overhead and is thus avoided
+for clearer separation between columns and real strings. This also
+helps readers of a formula. This means:
+- =`columnName`=: accented quotes refer to a DF column
+- =c"columnName"= : call string literals (by convention use a =c=
+  before the string) are interpreted as a column
+- or directly via: =df[<someIdent/Sym>/string literal]=: to access columns using identifiers / symbols
+  defined in the scope / or string literals (either including accented
+  quotes, call string literals or just string literals).
+- =idx=: can be used to access the loop iteration index
+
+The closures take a data frame as an argument, which is named
+=df=. The =df["columnName"]= refers to that argument, although not
+literally (it is gen'symmed and =df["columnName"]= refers to a
+=Column=). From that column we get the underlying =Tensor=.
+
+In the context of calling procedures, e.g.:
+#+BEGIN_SRC nim
+f{"newCol" ~ someProc(c"columnName")}
+#+END_SRC
+it may not be clear whether the procedure is supposed to take the
+whole tensor as an argument or hand each element of the tensor in a
+loop. By default it is assumed that a given column in a call refers to
+a full column (/ tensor). To clarify that the proc takes a value, you
+have to clarify it via:
+#+BEGIN_SRC nim
+f{string -> float: "asFloat" ~ parseFloat(df["colName"][idx])}
+#+END_SRC
+where =parseFloat= acts on each element individually. For such a proc
+type hints are required, since it's not clear as what type =colName=
+is supposed to be read. 
+
+There is a step from an untyped to a typed macro involved, which tries
+to determine data types, but that is very experimental.
+Also the macro tries to guess data types based on symbols involved in
+the computation of the formula, e.g. if =*=, =/= is involved, it's
+assumed that the input tensors are floats and the output as well. If
+=&= or =$= is involved, it's assumed to be strings. 
+Finally if =and= and other logic keywords are used, the result is
+assumed to be =bool= (not the input thought!). The full list of
+symbols used is found here:
+
+https://github.com/Vindaar/ggplotnim/blob/arraymancerBackend/src/ggplotnim/dataframe/arraymancer_backend.nim#L981-L984
+
+#+BEGIN_SRC nim
+    const floatSet = toSet(@["+", "-", "*", "/", "mod"])
+    const stringSet = toSet(@["&", "$"])
+    const boolSet = toSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
+                            "true", "false", "in", "notin"])
+#+END_SRC
+
+For now please *mainly refer to the recipes* on how to use this,
+because they are checked in the CI and will work for sure!
+
 ** Recipes
 
 For a more nimish approach, check out the [[file:recipes.org][recipes]], which should give
@@ -83,6 +177,11 @@ the standard library.
 performance is not a priority. Heavy calculations should be done
 before creation of the data frame. Simple arithmetic, filtering, reducing
 etc. is the main aim. 
+
+*UPDATE*: the note above does not hold for the arraymancer backend
+data frame. That implementation is plenty fast (for simple operations
+it's faster than pandas!), see [[benchmarks/pandas_compare]] for a few
+numbers.
 
 The data frame provides the "5 verbs" of [[https://dplyr.tidyverse.org/][dplyr]] and more. Main implemented functions:
 - =filter=
