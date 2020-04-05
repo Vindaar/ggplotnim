@@ -182,8 +182,11 @@ proc `[]=`*(df: var DataFrame, k: string, col: Column) {.inline.} =
   ## Assigns a full column to the DF. In debug mode it checks that the size of
   ## the input column matches the DF size, unless the DF is empty.
   df.data[k] = col
-  assert df.len == col.len or df.len == 0
-  df.len = col.len
+  if df.len == col.len or df.len == 0:
+    df.len = col.len
+  else:
+    raise newException(ValueError, "Given column length of " & $col.len &
+      " does not match DF length of: " & $df.len & "!")
 
 proc asgn(df: var DataFrame, k: string, col: Column) {.inline.} =
   # low level assign, which does not care about sizes of column. Used in `toTab`.
