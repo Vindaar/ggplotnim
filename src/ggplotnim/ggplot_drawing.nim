@@ -111,9 +111,9 @@ proc moveBinPosition(x: var Value, bpKind: BinPositionKind, binWidth: float) =
 proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   tuple[xMin, xMax, yMin, yMax: Option[float]] =
   ## reads all error data available
-  template getField(field: untyped): untyped =
-    fg.geom.aes.field.unsafeGet.col
   when defined(defaultBackend):
+    template getField(field: untyped): untyped =
+      fg.geom.aes.field.unsafeGet.col
     if fg.geom.aes.xMin.isSome:
       result.xMin = some(evaluate(getField(xMin), df, idx).toFloat)
     if fg.geom.aes.xMax.isSome:
@@ -356,7 +356,7 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
                   pos: Coord,
                   df: DataFrame, idx: int, style: Style): GraphObject =
   # need the min and max values
-  let (xmin, xmax, ymin, ymax) = readErrorData(df, idx, fg)
+  let (xMin, xMax, yMin, yMax) = readErrorData(df, idx, fg)
   if xMin.isSome or xMax.isSome:
     template toC1(val: float): Coord1D =
       Coord1D(pos: val,

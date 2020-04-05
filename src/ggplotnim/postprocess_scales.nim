@@ -273,10 +273,10 @@ proc determineDataScale(s: Scale,
   assert s.col.isColumn(df)
   case s.dcKind
   of dcContinuous:
-    result = if s.datascale.isEmpty: # happens for input DFs with 1-2 elements
+    result = if s.dataScale.isEmpty: # happens for input DFs with 1-2 elements
               (low: colMin(df, getColName(s)), high: colMax(df, getColName(s)))
              else:
-               s.datascale
+               s.dataScale
     # now merge with all additional data scales along the same axis
     result = encompassingDataScale(additional, s.axKind, result)
   of dcDiscrete:
@@ -288,7 +288,6 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales)
-  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: getColName(x),
@@ -315,7 +314,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   else:
     let yieldDf = df
     result.setXAttributes(yieldDf, x)
-    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
     result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
 
   case y.dcKind
@@ -357,7 +356,6 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                                              yIsNone = true)
   if x.dcKind == dcDiscrete:
     raise newException(ValueError, "For discrete data columns use `geom_bar` instead!")
-  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xcol: getColName(x),
@@ -383,10 +381,10 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
       when defined(defaultBackend):
-        let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
+        let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
                                                       range = x.dataScale)
       else:
-        let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(subDf).toTensor(float),
+        let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).toTensor(float),
                                                       range = x.dataScale)
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
@@ -411,7 +409,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     let yieldDf = seqsToDf({ getColName(x) : bins,
                              countCol: hist,
                              widthCol: binWidths})
-    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
     result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
     result.numX = yieldDf.len
     result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
@@ -431,7 +429,6 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                                              yIsNone = true)
   if x.dcKind == dcContinuous:
     raise newException(ValueError, "For continuous data columns use `geom_histogram` instead!")
-  let contCols = cont.mapIt(it.col)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   let xCol = getColName(x)
   result = FilledGeom(geom: g,
@@ -477,7 +474,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                      high: max(sumCounts[countCol].toTensor(int)).float))
   else:
     let yieldDf = df.count(xCol, name = countCol)
-    let styleLabel = StyleLabel(style: style, label: Value(kind: Vnull))
+    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
     result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
     result.setXAttributes(yieldDf, x)
     when defined(defaultBackend):
