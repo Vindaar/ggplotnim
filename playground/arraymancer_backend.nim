@@ -804,7 +804,6 @@ proc checkDtype(body: NimNode,
                   tuple[isFloat: bool,
                         isString: bool,
                         isBool: bool] =
-  echo body.treerepr
   for i in 0 ..< body.len:
     case body[i].kind
     of nnkIdent:
@@ -908,7 +907,6 @@ proc handleDfNodes(n: NimNode, dtype: NimNode): NimNode =
 proc extractIdents(n: NimNode, dtype: NimNode,
                    fkKind: FormulaKind): NimNode =
   result = nnkBracket.newTree()
-  echo "N KIND ", n.kind, " FOR ", n.repr
   case n.kind
   of nnkCall:
     let id = n[0]
@@ -921,7 +919,6 @@ proc extractIdents(n: NimNode, dtype: NimNode,
       of nnkBracketExpr:
         callNode[i] = handleDfNodes(callNode[i], dtype)
       else: discard
-    echo callNode.treeRepr
     result.add callNode
   of nnkCallStrLit, nnkAccQuoted:
     # call `newDataFrame` to have a DF we can use to later extract `Column` using `n`
@@ -986,9 +983,6 @@ proc determineFuncKind(body: NimNode,
     const boolSet = toSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
                             "true", "false", "in", "notin"])
     let (isFloat, isString, isBool) = checkDtype(body, floatSet, stringSet, boolSet)
-    debugecho "AUTO IS FLOAT ", isFloat
-    debugecho "AUTO IS string ", isstring
-    debugecho "AUTO IS bool ", isbool
     result[0] = newNilLit()
     result[1] = newNilLit()
     if isFloat:
@@ -1051,12 +1045,10 @@ proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
   ##
   expectKind idents, nnkBracket
   for id in idents:
-    echo "ID ", id.treeRepr
     case id.kind
     of nnkIdent: discard
     of nnkCall:
       let impl = id[0].getTypeImpl
-      echo impl.treeRepr
       case impl[0][0].kind
       of nnkSym:
         ## TODO: make sure the symbol actually refers to a valid type?
@@ -1075,7 +1067,6 @@ proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
         doAssert eqIdent(impl[0][1][1][0], "Tensor")
         result.add (byValue, id[0])
       else: discard
-      echo impl.treeRepr
     else:
       discard
 
@@ -1088,11 +1079,7 @@ macro compileFormulaImpl*(rawName, name, body: untyped,
                           resDtype: untyped,
                           funcKind: untyped,
                           typedCalls: varargs[typed]): untyped =
-  echo "IMPL, name: ", name.repr, " body: ", body.repr
-  echo "TYPED CALLS ", typedCalls.treerepr
   let typeNodeTuples = extractTypes(typedCalls)
-  echo "TYPED NODES ", typeNodeTuples.repr
-
   let
     isAssignment = parseBool(bools[0])
     isVector = parseBool(bools[1])
@@ -1103,12 +1090,6 @@ macro compileFormulaImpl*(rawName, name, body: untyped,
   # possibly override
 
   # force `fkVariable` if this is an `<-` assignment
-  echo resDtype.repr
-  echo dtype.repr
-  echo "isAssignment ", isAssignment
-  echo "isVector ", isVector
-  echo "isReduce ", isReduce
-  echo "ORIG FUNCKIND ", funcKind.repr
   var allowOverride = false
   var mFuncKind = if isAssignment: fkAssign
                   elif isReduce: fkScalar
@@ -1117,16 +1098,11 @@ macro compileFormulaImpl*(rawName, name, body: untyped,
                     allowOverride = true
                     FormulaKind(funcKind[1].intVal)
   # possibly override formulaKind yet again due to `typeNodeTuples`
-  echo "BEF FUNCKIND ", mFuncKind
   if typeNodeTuples.len > 0 and allowOverride:
     # if a single `byValue` is involved, the output cannot be a scalar!
-    for t in typeNodeTuples:
-      echo t[0]
-      echo t[1].treeRepr
     mFuncKind = if typeNodeTuples.allIt(it[0] == byTensor): fkScalar
                 else: fkVector
 
-  echo "FUNCKIND ", mFuncKind
   if not isInplace:
     case mFuncKind
     of fkVariable:
@@ -1179,7 +1155,6 @@ proc compileFormulaTypedMacro(rawName, name, body: NimNode,
   var (dtype, resDtype, funcKind) = determineFuncKind(body, typeHints = typeHints,
                                                       name = name)
   let typedCalls = extractIdents(body, dtype, funcKind)
-  echo "TYPED CALLS ", typedCalls.repr
   let bools = (isAssignment, isVector, isReduce, isRaw, isInplace)
   result = nnkCall.newTree(ident"compileFormulaImpl")
   result.add rawName
