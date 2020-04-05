@@ -317,9 +317,9 @@ suite "Data frame tests":
     let dfFiltered = df.filter(f{float: c"x" >= max(c"x") * 0.5})
     check dfFiltered["x"].kind == colInt
     let dfReduced1 = df.summarize(f{int: max(c"x")})
-    check dfReduced1["max(c\"x\")"].kind == colInt
+    check dfReduced1["(max x)"].kind == colInt
     let dfReduced2 = df.summarize(f{float: max(c"x")})
-    check dfReduced2["max(c\"x\")"].kind == colFloat
+    check dfReduced2["(max x)"].kind == colFloat
 
   test "Transmute - float arithmetic":
     let x = toSeq(0 ..< 100)
@@ -639,12 +639,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check res["num", 0] == %~ 1378
       # implicit LHS
       let resImplicit = mpg.summarize(f{int: sum(c"cyl")})
-      when defined(defaultBackend):
-        let fname = "(sum cyl)"
-      else:
-        # TODO: fix this. Currently the naming of formula via formulaClosure (bad name btw)
-        # is broken:
-        let fname = "sum(c\"cyl\")"
+      let fname = "(sum cyl)"
       check fname in resImplicit
       check resImplicit.len == 1
       check resImplicit[fname, 0] == %~ 1378
@@ -656,12 +651,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check almostEqual(res["mean", 0].toFloat, 5.888888889)
       # implicit LHS
       let resImplicit = mpg.summarize(f{float: mean(c"cyl")})
-      when defined(defaultBackend):
-        let fname = "(mean cyl)"
-      else:
-        # TODO: fix this. Currently the naming of formula via formulaClosure (bad name btw)
-        # is broken:
-        let fname = "mean(c\"cyl\")"
+      let fname = "(mean cyl)"
       check fname in resImplicit
       check resImplicit.len == 1
       check almostEqual(resImplicit[fname, 0].toFloat, 5.888888889)

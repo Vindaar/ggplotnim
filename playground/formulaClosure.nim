@@ -58,10 +58,15 @@ proc toUgly*(result: var string, node: FormulaName) =
   var comma = false
   case node.kind:
   of fkTerm:
-    result.add "(" & $node.op & " "
-    result.toUgly node.lhs
-    result.add " "
-    result.toUgly node.rhs
+    result.add "(" & $node.op
+    var lhs = ""
+    lhs.toUgly(node.lhs)
+    if lhs.len > 0:
+      result.add " " & lhs
+    var rhs = ""
+    rhs.toUgly(node.rhs)
+    if rhs.len > 0:
+      result.add " " & rhs
     result.add ")"
   of fkVariable:
     result.add $node.val
@@ -87,12 +92,13 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
       # from untyped templates)
       val = newLit n.strVal
   of nnkStrLit, nnkRStrLit:
-    val = n#.strVal
+    val = ident(n.strVal)
+  of nnkCallStrLit:
+    val = ident(n[1].strVal)
   of nnkIntLit .. nnkFloat64Lit:
     val = n
   of nnkDotExpr, nnkBracketExpr:
     # probably field access of some object
-    # echo n.treeRepr
     val = n
   of nnkPrefix:
     val = n
@@ -102,14 +108,15 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
   result = quote do:
     FormulaName(kind: fkVariable, val: `name`)
 
+proc buildFormula*(n: NimNode): NimNode
 proc constructFunction*(n: NimNode): NimNode =
-  let fname = n[0].repr #.strVal
-  let fn = n[0]
-  let arg = constructVariable(n[1])
+  let fn = buildFormula(n[0])
+  let arg = buildFormula(n[1])
+  let rhs = buildFormula(newLit "")
   result = quote do:
-    # potentially extract the function from a generic
-    let fnArg = extractFunction(`fn`)
-    createFormula(`fname`, fnArg, `arg`)
+    initTerm(lhs = `arg`,
+             rhs = `rhs`,
+             op = $`fn`)
 
 proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   ## a helper proc to reorder an nnkInfix tree according to the
@@ -140,7 +147,6 @@ proc recurseFind(n: NimNode, cond: NimNode): NimNode =
       if found.kind != nnkNilLIt:
         result = found
 
-proc buildFormula*(n: NimNode): NimNode
 proc handleInfix(n: NimNode): NimNode =
   ## Builds the formula given by `f{}`
   ## If it is infix, a `fkTerm` is created. If it's a literal a `fkVariable` is
@@ -198,7 +204,7 @@ proc buildFormula*(n: NimNode): NimNode =
     # should correspond to a known identifier in the calling scope
     result = constructVariable(n)
   of nnkCall:
-    result = constructVariable(ident(n.repr))
+    result = constructFunction(n)
   of nnkPar:
     result = buildFormula(n[0])
   of nnkDotExpr, nnkBracketExpr:
@@ -213,4 +219,4 @@ proc buildFormula*(n: NimNode): NimNode =
     result = constructVariable(ident(node))
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
-  echo "Result is ", result.repr, " for kind ", n.kind
+  # echo "Result is ", result.repr, " for kind ", n.kind
