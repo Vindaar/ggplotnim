@@ -1,4 +1,4 @@
-import tables, sets, algorithm, macros
+import tables, sets, algorithm, macros, strutils
 
 import ggplot_types
 when defined(defaultBackend):
@@ -91,7 +91,7 @@ iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
       yield s
 
 macro genGetScale(field: untyped): untyped =
-  let name = ident("get" & $field.strVal & "Scale")
+  let name = ident("get" & $field.strVal.capitalizeAscii & "Scale")
   result = quote do:
     proc `name`*(filledScales: FilledScales, geom = Geom(gid: 0)): Scale =
       result = new Scale
@@ -105,7 +105,7 @@ macro genGetScale(field: untyped): untyped =
             return s
 
 macro genGetOptScale(field: untyped): untyped =
-  let name = ident("get" & $field.strVal & "Scale")
+  let name = ident("get" & $field.strVal.capitalizeAscii & "Scale")
   result = quote do:
     proc `name`*(filledScales: FilledScales, geom = Geom(gid: 0)): Option[Scale] =
       #result = new Scale
