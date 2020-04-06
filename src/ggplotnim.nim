@@ -1067,43 +1067,44 @@ proc `+`*(p: GgPlot, theme: Theme): GgPlot =
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
   ## `aes`
-  var mscale: Scale
-  when defined(gcDestructors):
-    mscale[] = scale[]
-  else:
-    mscale = deepCopy(scale)
+  template clone(newScale: untyped): untyped =
+    when defined(gcDestructors):
+      `newScale`[] = scale[]
+    else:
+      `newScale` = deepCopy(scale)
+  template assignCopyScale(field: untyped): untyped =
+    if aes.field.isSome:
+      var mscale: Scale
+      clone(mscale)
+      mscale.col = aes.field.get.col
+      mscale.ids = aes.field.get.ids
+      result.field = some(mscale)
+
   result = aes
-  case mscale.scKind
+  case scale.scKind
   of scLinearData, scTransformedData:
     # potentially `scale` has no `column` asigned yet, read from
     # `axKind` from the given `aes`. If `aes` has no `x`/`y` scale,
     # `mscale` will remain unchanged
     case scale.axKind
     of akX:
-      if aes.x.isSome:
-        mscale.col = aes.x.get.col
-        mscale.ids = aes.x.get.ids
-        result.x = some(mscale)
+      assignCopyScale(x)
+      assignCopyScale(xMin)
+      assignCopyScale(xMax)
     of akY:
-      if aes.y.isSome:
-        mscale.col = aes.y.get.col
-        mscale.ids = aes.y.get.ids
-        result.y = some(mscale)
+      assignCopyScale(y)
+      assignCopyScale(yMin)
+      assignCopyScale(yMax)
   of scColor:
-    mscale.ids = aes.color.get.ids
-    result.color = some(mscale)
+    assignCopyScale(color)
   of scFillColor:
-    mscale.ids = aes.fill.get.ids
-    result.fill = some(mscale)
+    assignCopyScale(fill)
   of scSize:
-    mscale.ids = aes.size.get.ids
-    result.size = some(mscale)
+    assignCopyScale(size)
   of scShape:
-    mscale.ids = aes.shape.get.ids
-    result.shape = some(mscale)
+    assignCopyScale(shape)
   of scText:
-    mscale.ids = aes.text.get.ids
-    result.text = some(mscale)
+    assignCopyScale(text)
 
 proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   ## adds the given Scale to the GgPlot object.
