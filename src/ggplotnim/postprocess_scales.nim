@@ -53,7 +53,11 @@ func isEmpty(s: ginger.Scale): bool =
 
 func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
   ## merges the two data scales and returns a version encompassing both
-  if s1.low != s1.high:
+  ## TODO: think about how we might allow (0.0, 0.0) for cases where the
+  ## input data has N elements all 0. This is useful for e.g.
+  ## having 0 data, but assigning only a yMin = -1. That results in a
+  ## useable (-1, 0) data scale! Currently would not work!
+  if s1.low != 0 and s1.high != 0:
     result = (low: min(s1.low, s2.low),
               high: max(s1.high, s2.high))
   else:
