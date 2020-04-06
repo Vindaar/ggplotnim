@@ -27,7 +27,7 @@ Originally =v0.3.0= was supposed to contain:
 - =geom_contour=
 - working =facet_wrap=
 
-and some miscelaneous things like updated documentation.
+and some miscellaneous things like updated documentation.
 
 Instead I started a rewrite of the data frame on top of arraymancer,
 which was more successful, than I imagined. This sidelined my other
