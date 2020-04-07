@@ -723,3 +723,108 @@ suite "Annotations":
         geom_point() +
         yMargin(-0.5) +
         ggsave("raisesInstead")
+
+  test "Merging of 'empty' data scales results in useful scale":
+    ## This is a rather subtle. If the input data on one axis is
+    ## only 0 we end up ignoring it in `mergeScales` during post processing.
+    ## However, if the user also adds min and max values (yMin, yMax for instance)
+    ## setting constant values, the result is still well defined. This was fixed
+    ## in
+    ## 71983ef6e5a41c4a65ba165799bfb2297dd35bb6
+    ## This test is just using the previously broken example as a test.
+    var spikes = @[0]
+    var neurons = toSeq(0 ..< 27).mapIt(0)
+    spikes.add toSeq(0 ..< 26).mapIt(502)
+    let df = seqsToDf(spikes, neurons)
+
+
+    block:
+      let plt = ggcreate(
+        ggplot(df, aes("spikes", "neurons")) +
+          geom_linerange(aes(ymin = f{-1.0},
+                             ymax = f{1.0})) +
+          scale_y_continuous() + # make sure y is considered cont.
+          ylim(-1, 1) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
+          ggtitle("Spike raster plot")
+      )
+
+      let fs = plt.filledScales
+      check fs.xScale == (0.0, 1.0)
+      check fs.yScale == (-1.0, 1.0)
+
+      check fs.yMin.more.len == 1
+      check fs.yMax.more.len == 1
+
+      check fs.yMin.more[0].col.val.toInt == -1
+      check fs.yMax.more[0].col.val.toInt == 1
+
+      var xLabelCount = 0
+      for ch in plt.view[4].objects:
+        case ch.kind
+        of goTickLabel:
+          if ch.txtPos.x.pos > 0.0:
+            # should mean we're looking at x axis tick labels
+            check ch.txtText in @["0", "502"]
+            inc xLabelCount
+        else: discard
+      check xLabelCount == 2
+
+      # now check if we have two child viewports for discrete X scale
+      # now get data viewport of plot and check it has 4 children
+      let dataView = plt.view[4][0]
+      check dataView.name == "data"
+      check dataView.children.len == 4
+      check dataView.xScale == (0.0, 1.0)
+      check dataView.yScale == (-1.0, 1.0)
+
+    block:
+      let plt = ggcreate(
+        ggplot(df, aes("spikes", "neurons")) +
+          geom_linerange(aes(ymin = f{-1.0},
+                             ymax = f{1.0})) +
+          scale_y_continuous() + # make sure y is considered cont.
+          ggtitle("Spike raster plot")
+      )
+
+      let fs = plt.filledScales
+      check fs.xScale == (0.0, 1.0)
+      check fs.yScale == (-1.0, 1.0)
+
+      check fs.yMin.more.len == 1
+      check fs.yMax.more.len == 1
+
+      check fs.yMin.more[0].col.val.toInt == -1
+      check fs.yMax.more[0].col.val.toInt == 1
+
+      var xLabelCount = 0
+      for ch in plt.view[4].objects:
+        case ch.kind
+        of goTickLabel:
+          if ch.txtPos.x.pos > 0.0:
+            # should mean we're looking at x axis tick labels
+            check ch.txtText in @["0", "502"]
+            inc xLabelCount
+        else: discard
+      check xLabelCount == 2
+
+      # now check if we have two child viewports for discrete X scale
+      # now get data viewport of plot and check it has 4 children
+      let dataView = plt.view[4][0]
+      check dataView.name == "data"
+      check dataView.children.len == 4
+      check dataView.xScale == (0.0, 1.0)
+      check dataView.yScale == (-1.0, 1.0)
+
+    block:
+      ## This test is essentially a test for a current bug, namely
+      ## that all 0 values for an axis are not allowed (read: ignored by
+      ## `mergeScales` in postprocessing!
+      ## TODO: fix the bug!
+      expect(ValueError):
+        discard ggcreate(
+          ggplot(df, aes("spikes", "neurons")) +
+            geom_linerange(aes(ymin = f{-1.0})) +
+            scale_y_continuous() + # make sure y is considered cont.
+            ylim(-1, 1) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
+            ggtitle("Spike raster plot")
+        )
