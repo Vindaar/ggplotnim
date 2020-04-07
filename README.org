@@ -42,17 +42,49 @@ named) =datamancer=.
 Short notes on formula syntax. The following rules apply:
 
 Use:
+- no infix symbol and only code, which does not involve a column in
+  the sense defined below in [[Column access]]:
+  #+BEGIN_SRC nim
+  f{1 + 2}
+  f{"aColumn"}
+  f{true}
+  #+END_SRC
+  a =FormulaNode= of kind =fkVariable=. Stores the values as a =Value=
+  variant object.
 - =<-= for assignment
+  #+BEGIN_SRC nim
+  f{"newName" <- "oldName"}
+  #+END_SRC
+  a =FormulaNode= of kind =fkAssign=.
+  This does not involve a closure and is just a simple object storing
+  a LHS as a string and the RHS as a =Value= (to also support constant
+  columns via =f{"constantCol" <- 5}=).
+  Typically used for =rename= or as an argument for =transmute= and
+  =mutate= to just rename a column or to assign a constant column.
 - =<<= for reduce operations
+  #+BEGIN_SRC nim
+  f{"meanHwy" << mean(`hwy`)}
+  #+END_SRC
+  a =FormulaNode= of kind =fkScalar=.
+  Used only for =summarize= and means we reduce a full column to a
+  single =Value=. This generates a closure, which computes the RHS and
+  assigns it to a result variable of type =Value=. Type hints are
+  required (for now) if only a single proc call is involved on the
+  RHS to tell the macro as what to read the column "hwy" and what the
+  result variable is.
 - =~= for vector like proc
-- formula without any of the above will be considered:
+  #+BEGIN_SRC nim
+  f{"xSquared" ~ `x` * `x`}
+  #+END_SRC
+  a =FormulaNode= of kind =fkVector=.
+  Used in =mutate=, =transmute= to calculate a full column. This also
+  generates a closure as the reduce operations =<<= does, except here
+  we loop over the length of the DF and access each read tensor via =[idx]=.
+- a formula without any infix symbols will be considered:
   - =fkVariable= if no column involved
   - =fkVector= else
-- =<type>: <actualFormula>=: simple type hint for tensors in closure
-- =<type> -> <resDtype>: <actualFormula>=: full type for closure.
-  =<type>= is the dtype used for tensors, =<resDtype>= the resulting
-  type
 
+*** Column access
 To access columns in the context of formula, the biggest change
 occured. In the old formula system, a literal string was attempted to
 be resolved as a DF column dynamically. Since the new formulas are
@@ -83,10 +115,28 @@ a full column (/ tensor). To clarify that the proc takes a value, you
 have to clarify it via:
 #+BEGIN_SRC nim
 f{string -> float: "asFloat" ~ parseFloat(df["colName"][idx])}
+# ^--- type of the tensors involved on the RHS
+#           ^--- type of the resulting tensor (the new column `asFloat`)
 #+END_SRC
 where =parseFloat= acts on each element individually. For such a proc
 type hints are required, since it's not clear as what type =colName=
 is supposed to be read. 
+
+*** Type hints
+Type hints are required if the formula does not involve any more
+complex operations (e.g. single proc call to reduce, ...). They are of
+the form:
+- =<type>: <actualFormula>=: simple type hint for the type of the
+  underlying tensor of the columns involved in the formula.  
+- =<type> -> <resDtype>: <actualFormula>=: full type for closure.
+  =<type>= is the dtype used for input tensors, =<resDtype>= the resulting
+  type.
+
+*NOTE:* it is not possible to include tensors of different data types
+in a single formula. All input tensors of a computation will be read
+either by the automatically deduced data type or the =<type>= argument
+mentioned here. If an underlying tensor is not actually of the given
+data type, it will be converted via =T(val)=, where =T= is the type.
 
 There is a step from an untyped to a typed macro involved, which tries
 to determine data types, but that is very experimental.
