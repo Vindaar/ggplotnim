@@ -18,8 +18,10 @@ export value
 import column
 export column
 
-import formulaClosure
-export formulaClosure
+# formulaNameMacro contains a macro and type based on the fallback `FormulaNode`,
+# which is used to generate the names of each `FormulaNode` in lisp representation
+import formulaNameMacro
+export formulaNameMacro
 
 type
   FormulaKind* = enum
