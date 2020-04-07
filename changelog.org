@@ -1,3 +1,17 @@
+* v0.3.0
+- =aes= now not only accespts strings, but also numbers, which will
+  also be wrapped in a =FormulaNode= of kind =fkVariable=. No need to
+  manually create such a formula.
+- add new recipes:
+  - =rAutoColoredNeuralSpikes.nim=: example on how to create neural
+    raster spike plot
+  - =rCustomColoredNeuralSpikes.nim=: same
+- add =scale_x/y_reverse= to reverse the x or y scales. Done by adding
+  =FilledScales= fields =reversedX/Y=, which are set in
+  =collectScales=. If any scale is reversed, the plot will be
+  reversed.
+
+
 * v0.2.21
 - =summarize= now works reliably on data frames, which have been grouped
   by multiple columns
