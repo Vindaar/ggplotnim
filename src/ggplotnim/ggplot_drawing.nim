@@ -287,7 +287,7 @@ proc getDrawPosImpl(
     case fg.geom.kind
     of gkPoint, gkErrorBar:
       result = getDiscretePoint(fg, axKind)
-    of gkLine, gkFreqPoly:
+    of gkLine, gkFreqPoly, gkRibbon:
       result = view.getDiscreteLine(axKind)
     of gkHistogram, gkBar:
       result = getDiscreteHisto(fg, width, axKind)
@@ -299,7 +299,7 @@ proc getDrawPosImpl(
     case fg.geom.kind
     of gkPoint, gkErrorBar:
       result = view.getContinuous(fg, val, axKind)
-    of gkLine, gkFreqPoly:
+    of gkLine, gkFreqPoly, gkRibbon:
       result = view.getContinuous(fg, val, axKind)
     of gkHistogram, gkBar:
       result = view.getContinuous(fg, val, axKind)
@@ -399,7 +399,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
                               quant(binWidth, ukData),
                               quant(-y.toFloat(allowNull = true), ukData),
                               style = some(style))
-  of gkLine, gkFreqPoly:
+  of gkLine, gkFreqPoly, gkRibbon:
     doAssert false, "Already handled in `drawSubDf`!"
   of gkTile:
     view.addObj view.initRect(pos,
@@ -416,7 +416,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
 proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
   const CoordFlipped = false
   case fg.geom.kind
-  of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar, gkText:
+  of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkRibbon, gkErrorBar, gkText:
     when not CoordFlipped:
       result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
     else:
@@ -496,37 +496,92 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   when defined(defaultBackend):
     var xT = df[$fg.xcol]
     var yT = df[$fg.ycol]
+    var aesyMin, aesyMax: type(xT)
+    if fg.geom.aes.yMin.isSome:
+      aesyMin = evaluate(fg.geom.aes.yMin.unsafeGet.col, df)
+    if fg.geom.aes.yMax.isSome:
+      aesyMax = evaluate(fg.geom.aes.yMax.unsafeGet.col, df)
   else:
     var xT = df[$fg.xcol].toTensor(Value)
     var yT = df[$fg.ycol].toTensor(Value)
+    var aesyMax, aesyMin: Tensor[Value]
+    if fg.geom.aes.yMin.isSome:
+      aesyMin = evaluate(fg.geom.aes.yMin.unsafeGet.col, df).toTensor(Value)
+    if fg.geom.aes.yMax.isSome:
+      aesyMax = evaluate(fg.geom.aes.yMax.unsafeGet.col, df).toTensor(Value)
+  if fg.geom.kind == gkRibbon:
+    if not (fg.geom.aes.yMin.isSome and fg.geom.aes.yMax.isSome):
+      echo "WARNING: using geom ribbon requires min and max aesthetics!"
   for i in 0 ..< df.len:
     if styles.len > 1:
       style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
     # get current x, y values, possibly clipping them
-    p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
-              yOutsideRange, xMaybeString = true)
-    if viewMap.len > 0:
-      # get correct viewport if any is discrete
-      viewIdx = getView(viewMap, p, fg)
-      locView = view[viewIdx]
-    if needBinWidth:
-      # potentially move the positions according to `binPosition`
-      binWidths = calcBinWidths(df, i, fg)
-      moveBinPositions(p, binWidths, fg)
-    pos = getDrawPos(locView, viewIdx,
-                     fg,
-                     p = p,
-                     binWidths = binWidths,
-                     df, i,
-                     prevVals)
+    if fg.geom.kind != gkRibbon: # we handle the ribbon points separately below
+      p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
+                yOutsideRange, xMaybeString = true)
+      if viewMap.len > 0:
+        # get correct viewport if any is discrete
+        viewIdx = getView(viewMap, p, fg)
+        locView = view[viewIdx]
+      if needBinWidth:
+        # potentially move the positions according to `binPosition`
+        binWidths = calcBinWidths(df, i, fg)
+        moveBinPositions(p, binWidths, fg)
+      pos = getDrawPos(locView, viewIdx,
+                       fg,
+                       p = p,
+                       binWidths = binWidths,
+                       df, i,
+                       prevVals)
     case fg.geom.position
     of pkIdentity:
       case fg.geom.kind
       of gkLine, gkFreqPoly: linePoints.add pos
+      of gkRibbon:
+        # add yMax points to end of linePoints
+        # and add yMin points to beginning of linePoints
+        block: # namespace hygiene required maybe for template from getXY?
+          # add yMax point as next point
+          p = getXY(view, df, xT, aesyMax, fg, i, theme, xOutsideRange,
+                    yOutsideRange, xMaybeString = true)
+          if viewMap.len > 0:
+            # get correct viewport if any is discrete
+            viewIdx = getView(viewMap, p, fg)
+            locView = view[viewIdx]
+          if needBinWidth:
+            # potentially move the positions according to `binPosition`
+            binWidths = calcBinWidths(df, i, fg)
+            moveBinPositions(p, binWidths, fg)
+          pos = getDrawPos(locView, viewIdx,
+                           fg,
+                           p = p,
+                           binWidths = binWidths,
+                           df, i,
+                           prevVals)
+          linePoints.add pos
+        block:
+          # add yMin point as very first point
+          p = getXY(view, df, xT, aesyMin, fg, i, theme, xOutsideRange,
+                    yOutsideRange, xMaybeString = true)
+          if viewMap.len > 0:
+            # get correct viewport if any is discrete
+            viewIdx = getView(viewMap, p, fg)
+            locView = view[viewIdx]
+          if needBinWidth:
+            # potentially move the positions according to `binPosition`
+            binWidths = calcBinWidths(df, i, fg)
+            moveBinPositions(p, binWidths, fg)
+          pos = getDrawPos(locView, viewIdx,
+                           fg,
+                           p = p,
+                           binWidths = binWidths,
+                           df, i,
+                           prevVals)
+          linePoints.insert(pos,0)
       else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkStack:
       case fg.geom.kind
-      of gkLine, gkFreqPoly: linePoints.add pos
+      of gkLine, gkFreqPoly, gkRibbon: linePoints.add pos
       else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkDodge:
       discard
@@ -537,7 +592,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   if viewMap.len == 0:
     view = locView
   # for `gkLine`, `gkFreqPoly` now draw the lines
-  if fg.geom.kind in {gkLine, gkFreqPoly}:
+  if fg.geom.kind in {gkLine, gkFreqPoly, gkRibbon}:
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
       # connect line down to axis, if fill color is not transparent

@@ -327,6 +327,40 @@ proc geom_line*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks)
 
+proc geom_ribbon*(aes: Aesthetics = aes(),
+                  data = DataFrame(),
+                  color = none[Color](), # color of the line
+                  size = none[float](), # line width of the line
+                  lineType = none[LineType](),
+                  fillColor = none[Color](),
+                  alpha = none[float](),
+                  bins = 30,
+                  binWidth = 0.0,
+                  breaks: seq[float] = @[],
+                  position = "identity",
+                  stat = "identity",
+                  binPosition = "none"
+                 ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let pkKind = parseEnum[PositionKind](position)
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let style = initGgStyle(lineType = lineType,
+                          lineWidth = size,
+                          color = color,
+                          fillColor = fillColor,
+                          alpha = alpha)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkRibbon,
+                aes: aes.fillIds({gid}),
+                userStyle: style,
+                position: pkKind,
+                binPosition: bpKind,
+                statKind: stKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks)
+
 proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
                      binWidth = 0.0, bins = 30,

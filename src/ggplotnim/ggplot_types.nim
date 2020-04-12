@@ -170,7 +170,7 @@ type
     font*: Option[Font]
 
   GeomKind* = enum
-    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar, gkText
+    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkRibbon, gkErrorBar, gkText
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
