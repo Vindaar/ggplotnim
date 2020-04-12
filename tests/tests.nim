@@ -828,3 +828,21 @@ suite "Annotations":
             ylim(-1, 1) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
             ggtitle("Spike raster plot")
         )
+
+    test "geom_bar w/ stat identity has yscale at 0":
+      ## ref: issue #61
+      ## we forgot to force the minimum value for geom_bar used for identity stat
+      ## to 0. This meant the automatically determined data scale (even minimum y)
+      ## was used, resulting in a botched plot
+
+      let df = seqsToDf({ "Age" : @[22, 54, 34],
+                          "Height" : @[1.87, 1.75, 1.78],
+                          "Name" : @["Mike", "Laura", "Sue"] })
+      let plt = ggcreate(
+        ggplot(df, aes("Name","Height")) +
+          geom_bar(stat="identity")
+      )
+
+      let expScale = (0.0, 2.0)
+      check plt.view[4].yScale == expScale
+      check plt.filledScales.yScale == expScale
