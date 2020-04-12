@@ -1,3 +1,7 @@
+* v0.3.1
+- fixes #61, by forcing the minimum y value to be 0 for =geom_bar= if
+  identity statistics is being used.
+
 * v0.3.0
 - =aes= now not only accespts strings, but also numbers, which will
   also be wrapped in a =FormulaNode= of kind =fkVariable=. No need to
