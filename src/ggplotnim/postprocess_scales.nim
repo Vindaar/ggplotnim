@@ -538,7 +538,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stIdentity:
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
-        # still a geom, make sure bottom is still at 0!
+        # still a histogram like geom, make sure bottom is still at 0!
         filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
       of stBin:
         # calculate histogram
@@ -551,13 +551,14 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stIdentity:
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
+        # still a geom_bar, make sure bottom is still at 0!
+        filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
       of stCount:
         # count values in classes
         filledGeom = filledCountGeom(df, g, filledScales)
       of stBin:
         raise newException(Exception, "For continuous binning of your data use " &
           "`geom_histogram` instead!")
-
     if not xScale.isEmpty:
       xScale = mergeScales(xScale, filledGeom.xScale)
       yScale = mergeScales(yScale, filledGeom.yScale)
@@ -565,6 +566,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       xScale = filledGeom.xScale
       yScale = filledGeom.yScale
     filledScales.geoms.add filledGeom
+
   let (finalXScale, _, _) = calcTickLocations(xScale, p.numXTicks)
   let (finalYScale, _, _) = calcTickLocations(yScale, p.numYTicks)
 
