@@ -1,3 +1,9 @@
+* v0.3.2
+
+- updates ginger dependency, due to a ginger bug which under some
+  circumstances could cause bugged drawings (e.g. for error bars with
+  "T" like shape)
+
 * v0.3.1
 - fixes #61, by forcing the minimum y value to be 0 for =geom_bar= if
   identity statistics is being used.
