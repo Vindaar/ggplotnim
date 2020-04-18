@@ -846,3 +846,21 @@ suite "Annotations":
       let expScale = (0.0, 2.0)
       check plt.view[4].yScale == expScale
       check plt.filledScales.yScale == expScale
+
+    test "geom_bar w/ stat identity has yscale at neg value if data negative":
+      ## ref issue: #64
+      ## related to issue #61 and its fix (see test above). Instead of forcing the
+      ## negative value to 0 explicitly, we should select the minimum of 0 and the
+      ## current y scale, to allow negative values
+      let trials = @["A", "B", "C", "D", "E"]
+      let values = @[1.0, 0.5, 0, -0.5, -1.0]
+      let df = seqsToDf({ "Trial" : trials,
+                          "Value" : values })
+      let plt = ggcreate(
+        ggplot(df, aes(x="Trial", y="Value")) +
+          geom_bar(stat="identity", position="identity")
+      )
+
+      let expScale = (-1.0, 1.0)
+      check plt.view[4].yScale == expScale
+      check plt.filledScales.yScale == expScale
