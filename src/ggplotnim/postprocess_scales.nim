@@ -539,7 +539,8 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
         # still a histogram like geom, make sure bottom is still at 0!
-        filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
+        filledGeom.yScale = (low: min(0.0, filledGeom.yScale.low),
+                             high: filledGeom.yScale.high)
       of stBin:
         # calculate histogram
         filledGeom = filledBinGeom(df, g, filledScales)
@@ -552,7 +553,8 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         # essentially take same data as for point
         filledGeom = filledIdentityGeom(df, g, filledScales)
         # still a geom_bar, make sure bottom is still at 0!
-        filledGeom.yScale = (low: 0.0, high: filledGeom.yScale.high)
+        filledGeom.yScale = (low: min(0.0, filledGeom.yScale.low),
+                             high: filledGeom.yScale.high)
       of stCount:
         # count values in classes
         filledGeom = filledCountGeom(df, g, filledScales)
