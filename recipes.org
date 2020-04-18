@@ -558,6 +558,32 @@ instead of the embedded plot, since it's so wide.
 
 [[./media/expected/rBarPlotRotatedLabels.svg]]
 
+*** Bar plot with negative values
+
+By using =stat = "identity"= combined with =geom_bar= or
+=geom_histogram=, one can also plot bars with negative height.
+
+This recipe is taken from:
+https://github.com/Vindaar/ggplotnim/issues/64
+
+#+BEGIN_SRC nim :tangle recipes/rNegativeBarPlot.nim
+import ggplotnim
+
+let trials = @["A", "B", "C", "D", "E"]
+let values = @[1.0, 0.5, 0, -0.5, -1.0]
+
+let df = seqsToDf({ "Trial" : trials,
+                    "Value" : values })
+
+ggplot(df, aes(x="Trial", y="Value")) +
+  geom_bar(stat="identity", position="identity") +
+  ggsave("media/recipes/rNegativeBarPlot.png")
+#+END_SRC
+
+Gives us the following plot:
+
+[[media/recipes/rNegativeBarPlot.png]]
+
 *** Plot with custom annotation
 
 Putting custom annotations onto the plot is supported. However the
