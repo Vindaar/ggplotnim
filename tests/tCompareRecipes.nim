@@ -58,7 +58,8 @@ suite "Compare recipe output":
                   #"rAnnotateUsingGeomText.png",
                   #"rAnnotateMaxValues.png"]
                   "rAutoColoredNeuralSpikes.png",
-                  "rCustomColoredNeuralSpikes.png"]
+                  "rCustomColoredNeuralSpikes.png",
+                  "rNegativeBarPlot"]
 
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in files:
