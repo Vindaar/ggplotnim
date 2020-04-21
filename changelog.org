@@ -1,3 +1,9 @@
+* v0.3.4
+- allow creation of colunms from other int and float types (other than
+  =int64= and =float64=) via =toColumn=
+- allow access of DF columns with mutability (~[]=~ returns ~var
+  Column~)
+
 * v0.3.3
 - allow negative values in =geom_bar= and =geom_histogram= if identity
   statistics is used
