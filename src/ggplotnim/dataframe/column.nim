@@ -19,14 +19,14 @@ template toColumn*(c: Column): Column = c
 
 func high*(c: Column): int = c.len - 1
 
-proc toColumn*[T: float | int | string | bool | Value](t: Tensor[T]): Column =
-  when T is int:
+proc toColumn*[T: SomeFloat | SomeInteger | string | bool | Value](t: Tensor[T]): Column =
+  when T is SomeInteger:
     result = Column(kind: colInt,
-                    iCol: t,
+                    iCol: t.asType(int),
                     len: t.size)
-  elif T is float:
+  elif T is SomeFloat:
     result = Column(kind: colFloat,
-                    fCol: t,
+                    fCol: t.asType(float),
                     len: t.size)
   elif T is bool:
     result = Column(kind: colBool,
@@ -69,9 +69,9 @@ proc newColumn*(kind = colNone, length = 0): Column =
 
 
 proc toColKind*[T](dtype: typedesc[T]): ColKind =
-  when T is float:
+  when T is SomeFloat:
     result = colFloat
-  elif T is int:
+  elif T is SomeInteger:
     result = colInt
   elif T is bool:
     result = colBool
@@ -433,13 +433,13 @@ proc add*(c1, c2: Column): Column =
     result = toColumn concat(c1.toObject.oCol, c2.toObject.oCol, axis = 0)
   result.len = c1.len + c2.len
 
-proc toColumn*[T: float | string | int | bool | Value](s: openArray[T]): Column =
+proc toColumn*[T: SomeFloat | SomeInteger | string | bool | Value](s: openArray[T]): Column =
   var vals = newTensor[T](s.len)
   for i, x in s:
     vals[i] = x
   result = toColumn(vals)
 
-proc toColumn*[T: float | string | int | bool | Value](x: T): Column =
+proc toColumn*[T: SomeFloat | SomeInteger | string | bool | Value](x: T): Column =
   # also possible to create single row column, but inefficient
   # for `summarize` though there's no way around
   let vals = newTensorWith[T](1, x)
