@@ -108,6 +108,69 @@ proc toNimType*(colKind: ColKind): string =
   of colObject: result = "object"
   of colNone: result = "null"
 
+template withNativeTensor*(c: Column,
+                           valName: untyped,
+                           body: untyped): untyped =
+  case c.kind
+  of colInt:
+    let `valName` {.inject.} =  c.iCol
+    body
+  of colFloat:
+    let `valName` {.inject.} =  c.fCol
+    body
+  of colString:
+    let `valName` {.inject.} =  c.sCol
+    body
+  of colBool:
+    let `valName` {.inject.} =  c.bCol
+    body
+  of colObject:
+    let `valName` {.inject.} =  c.oCol
+    body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
+
+template `%~`*(v: Value): Value = v
+
+template withNative*(c: Column, idx: int,
+                     valName: untyped,
+                     body: untyped): untyped =
+  case c.kind
+  of colInt:
+    let `valName` {.inject.} =  c[idx, int]
+    body
+  of colFloat:
+    let `valName` {.inject.} =  c[idx, float]
+    body
+  of colString:
+    let `valName` {.inject.} =  c[idx, string]
+    body
+  of colBool:
+    let `valName` {.inject.} =  c[idx, bool]
+    body
+  of colObject:
+    let `valName` {.inject.} =  c[idx, Value]
+    body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
+
+template withNativeDtype*(c: Column, body: untyped): untyped =
+  case c.kind
+  of colInt:
+    type dtype {.inject.} = int
+    body
+  of colFloat:
+    type dtype {.inject.} = float
+    body
+  of colString:
+    type dtype {.inject.} = string
+    body
+  of colBool:
+    type dtype {.inject.} = bool
+    body
+  of colObject:
+    type dtype {.inject.} = Value
+    body
+  of colNone: raise newException(ValueError, "Accessed column is empty!")
+
 proc asValue*[T](t: Tensor[T]): Tensor[Value] {.noInit.} =
   ## Apply type conversion on the whole tensor
   result = t.map(x => (%~ x))
@@ -247,6 +310,14 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
     of colObject: result = c.oCol[idx]
     of colNone: raise newException(ValueError, "Accessed column is empty!")
 
+proc toObjectColumn*(c: Column): Column =
+  ## returns `c` as an object column
+  var res = newTensor[Value](c.len)
+  withNativeTensor(c, t):
+    for idx in 0 ..< c.len:
+      res[idx] = %~ (t[idx])
+  result = toColumn res
+
 proc `[]=`*[T](c: var Column, idx: int, val: T) =
   ## assign `val` to column `c` at index `idx`
   ## If the types match, it just calls `[]=` on the tensor.
@@ -282,76 +353,6 @@ proc `[]=`*[T](c: var Column, idx: int, val: T) =
     # rewrite as an object column
     c = c.toObjectColumn()
     c.oCol[idx] = %~ val
-
-template withNativeTensor*(c: Column,
-                           valName: untyped,
-                           body: untyped): untyped =
-  case c.kind
-  of colInt:
-    let `valName` {.inject.} =  c.iCol
-    body
-  of colFloat:
-    let `valName` {.inject.} =  c.fCol
-    body
-  of colString:
-    let `valName` {.inject.} =  c.sCol
-    body
-  of colBool:
-    let `valName` {.inject.} =  c.bCol
-    body
-  of colObject:
-    let `valName` {.inject.} =  c.oCol
-    body
-  of colNone: raise newException(ValueError, "Accessed column is empty!")
-
-template `%~`*(v: Value): Value = v
-
-proc toObjectColumn*(c: Column): Column =
-  ## returns `c` as an object column
-  var res = newTensor[Value](c.len)
-  withNativeTensor(c, t):
-    for idx in 0 ..< c.len:
-      res[idx] = %~ (t[idx])
-
-template withNative*(c: Column, idx: int,
-                     valName: untyped,
-                     body: untyped): untyped =
-  case c.kind
-  of colInt:
-    let `valName` {.inject.} =  c[idx, int]
-    body
-  of colFloat:
-    let `valName` {.inject.} =  c[idx, float]
-    body
-  of colString:
-    let `valName` {.inject.} =  c[idx, string]
-    body
-  of colBool:
-    let `valName` {.inject.} =  c[idx, bool]
-    body
-  of colObject:
-    let `valName` {.inject.} =  c[idx, Value]
-    body
-  of colNone: raise newException(ValueError, "Accessed column is empty!")
-
-template withNativeDtype*(c: Column, body: untyped): untyped =
-  case c.kind
-  of colInt:
-    type dtype {.inject.} = int
-    body
-  of colFloat:
-    type dtype {.inject.} = float
-    body
-  of colString:
-    type dtype {.inject.} = string
-    body
-  of colBool:
-    type dtype {.inject.} = bool
-    body
-  of colObject:
-    type dtype {.inject.} = Value
-    body
-  of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc equal*(c1: Column, idx1: int, c2: Column, idx2: int): bool =
   ## checks if the value in `c1` at `idx1` is equal to the
