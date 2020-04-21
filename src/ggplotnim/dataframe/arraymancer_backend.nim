@@ -1,7 +1,6 @@
 #import ggplotnim
 
 import macros, tables, strutils, options, fenv, sets, hashes, sugar, math
-
 import sequtils, stats, strformat, algorithm, parseutils
 
 # for error messages to print types
@@ -1043,32 +1042,35 @@ proc determineFuncKind(body: NimNode,
     # TODO2: we might want to consider
     result[2] = determineFormulaKind(body)
 
+proc handleCall(id: NimNode): (ReplaceKind, NimNode) =
+  let impl = id[0].getTypeImpl
+  case impl[0][0].kind
+  of nnkSym:
+    ## TODO: make sure the symbol actually refers to a valid type?
+    case impl[0][0].strVal
+    of "Column":
+      result = (byValue, id[0])
+    else:
+      # only `byTensor` if input is also `Tensor`
+      case impl[0][1][1].kind
+      of nnkBracketExpr:
+        doAssert impl[0][1][1][0].strVal in ["seq", "Tensor"]
+        result = (byTensor, id[0])
+      else:
+        result = (byValue, id[0])
+  of nnkBracketExpr:
+    doAssert eqIdent(impl[0][1][1][0], "Tensor")
+    result = (byValue, id[0])
+  else: discard
+
 proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
   ##
   expectKind idents, nnkBracket
   for id in idents:
     case id.kind
     of nnkIdent: discard
-    of nnkCall:
-      let impl = id[0].getTypeImpl
-      case impl[0][0].kind
-      of nnkSym:
-        ## TODO: make sure the symbol actually refers to a valid type?
-        case impl[0][0].strVal
-        of "Column":
-          result.add (byValue, id[0])
-        else:
-          # only `byTensor` if input is also `Tensor`
-          case impl[0][1][1].kind
-          of nnkBracketExpr:
-            doAssert impl[0][1][1][0].strVal in ["seq", "Tensor"]
-            result.add (byTensor, id[0])
-          else:
-            result.add (byValue, id[0])
-      of nnkBracketExpr:
-        doAssert eqIdent(impl[0][1][1][0], "Tensor")
-        result.add (byValue, id[0])
-      else: discard
+    of nnkCall: result.add handleCall(id)
+    of nnkHiddenDeref: result.add handleCall(id[0])
     else:
       discard
 
@@ -1133,8 +1135,6 @@ macro compileFormulaImpl*(rawName, name, body: untyped,
     #                              typeNodeTuples = typeNodeTuples,
     #                              isRaw = isRaw)
     error("Inplace formulas not yet fully implemented!")
-
-  echo result.repr
 
 proc compileFormulaTypedMacro(rawName, name, body: NimNode,
                               isAssignment: bool,
@@ -1255,7 +1255,6 @@ proc compileFormula(n: NimNode, isRaw: bool): NimNode =
                                     isRaw = isRaw,
                                     isInplace = isInplace,
                                     typeHints = typeHints)
-  echo result.repr
 
 macro `{}`*(x: untyped{ident}, y: untyped): untyped =
   ## TODO: add some ability to explicitly create formulas of
@@ -1939,7 +1938,6 @@ proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
   var keys = initTable[string, seq[Value]](grouped.groupMap.len)
   var idx = 0
   for class, subdf in groups(grouped):
-    #echo "!!! ", subdf
     for (c, val) in class:
       if c notin keys: keys[c] = newSeqOfCap[Value](1000)
       keys[c].add val
