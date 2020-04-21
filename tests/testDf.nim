@@ -26,6 +26,21 @@ suite "Data frame tests":
       check "three" in df
       check "four" in df
 
+  test "Creation of DF w/ int, float other than int64, float64":
+    let a = @[123'u8, 12, 55]
+    let b = @[1.123'f32, 4.234, 1e12]
+    let c = @[1001'i32, 1002, 1003]
+    var df = seqsToDf({ "a" : a,
+                        "b" : b })
+    check df["a"].kind == colInt
+    check df["b"].kind == colFloat
+    check df["a"].toTensor(int) == a.toTensor.asType(int)
+    check df["b"].toTensor(float) == b.toTensor.asType(float)
+    # check toColumn directly
+    df["c"] = toColumn c
+    check df["c"].kind == colInt
+    check df["c"].toTensor(int) == c.toTensor.asType(int)
+
   test "Extending a DF by a column":
     let a = [1, 2, 3]
     let b = [3, 4, 5]
