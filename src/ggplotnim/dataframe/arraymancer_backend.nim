@@ -148,7 +148,7 @@ proc contains*(df: DataFrame, key: string): bool =
   ## a column in the `DataFrame`
   result = df.data.hasKey(key)
 
-proc `[]`*(df: DataFrame, k: string): Column {.inline.} =
+proc `[]`*(df: DataFrame, k: string): var Column {.inline.} =
   result = df.data[k]
 
 proc `[]`*(df: DataFrame, k: Value): Column {.inline.} =
