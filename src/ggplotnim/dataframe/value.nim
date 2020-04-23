@@ -59,6 +59,14 @@ proc contains*(v: Value, key: string): bool =
   doAssert v.kind == VObject
   result = v.fields.hasKey(key)
 
+proc `[]`*(v: Value, key: string): Value {.inline.} =
+  doAssert v.kind == VObject
+  result = v.fields[key]
+
+proc `[]=`*(v: var Value, key: string, val: Value) {.inline.} =
+  doAssert v.kind == VObject
+  v.fields[key] = val
+
 proc `%~`*(c: char): Value =
   ## we convert a `char` to a `string`!
   result = Value(kind: VString, str: $c)
@@ -102,13 +110,7 @@ proc toObject*(s: seq[(string, Value)]): Value =
   for (key, val) in s:
     result.fields[key] = val
 
-proc `[]`*(v: Value, key: string): Value {.inline.} =
-  doAssert v.kind == VObject
-  result = v.fields[key]
-
-proc `[]=`*(v: var Value, key: string, val: Value) {.inline.} =
-  doAssert v.kind == VObject
-  v.fields[key] = val
+proc toObject*(s: (string, Value)): Value = toObject(@[s])
 
 func isNumber*(s: string): bool =
   ## returns true, if `s` is a number according to our rules:
