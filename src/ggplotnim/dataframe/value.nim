@@ -510,3 +510,14 @@ proc hash*(x: Value): Hash =
   of VNull:
     result = 0
   result = !$result
+
+proc contains*(v: Value, has: Value): bool =
+  ## checks whether `has` is a subset of `v` if both are `VObject`.
+  ## A subset means that all keys of `has` are in `v` and their values match.
+  ## There may be more fields in `v` than in `has`
+  doAssert v.kind == VObject
+  doAssert has.kind == VObject
+  result = true
+  for key, val in has:
+    if key in v: result = result and val == v[key]
+    else: result = false
