@@ -480,8 +480,13 @@ proc pretty*(v: Value, precision = 4, emphStrNumber = true): string =
       result = vstr
   of VObject:
     result.add "{"
+    var idx = 0
     for k, x in v.fields:
-      result.add (&"{k} : {pretty(x)}")
+      if idx == v.fields.len - 1:
+        result.add (&"{k}: {pretty(x)}")
+      else:
+        result.add (&"{k}: {pretty(x)}, ")
+      inc idx
     result.add "}"
   of VNull:
     result = "null"
