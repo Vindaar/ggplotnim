@@ -1651,7 +1651,7 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
       var mtheme = theme
       mtheme.xOutsideRange = some(orkNone)
       mtheme.yOutsideRange = some(orkNone)
-      pChild.createGobjFromGeom(fg, mtheme, col = some(ridge.col), label = some(label))
+      pChild.createGobjFromGeom(fg, mtheme, labelVal = some(toObject(($ridge.col, label))))
       # add the data viewport to the view
       viewLabel.children.add pChild
     if ridge.showTicks:

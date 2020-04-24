@@ -160,7 +160,8 @@ proc setXAttributes(fg: var FilledGeom,
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          scales: seq[Scale], baseStyle: GgStyle,
-                         toClone: static bool = false): (seq[GgStyle], DataFrame) =
+                         toClone: static bool = false):
+                           (GgStyle, seq[GgStyle], DataFrame) =
   ## given continuous `scales` (if any) return the correct scales based
   ## on each of these scales
   ## `toClone` should be `true` for all cases where at least on discrete scale is
@@ -168,22 +169,24 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   ## If we don't clone in that case, all DataFrames in `yieldData` point to the
   ## last processed DF!
   ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
+  result[0] = baseStyle
   when defined(defaultBackend) or not toClone:
-    result[1] = yieldDf
+    result[2] = yieldDf
   else:
-    result[1] = clone(yieldDf)
+    result[2] = clone(yieldDf)
   for c in scales:
     ## TODO: verify this should be `yieldDf`
-    result[1][getColName(c)] = c.col.evaluate(result[1])
+    result[2][getColName(c)] = c.col.evaluate(result[2])
     case c.scKind
     of scLinearData, scTransformedData:
       # for linear and transformed data we don't change the style
       discard
     else:
-      for el in c.mapData(result[1]):
-        result[0].add baseStyle.changeStyle(el)
-  if result[0].len == 0:
-    result = (@[baseStyle], result[1])
+      for el in c.mapData(result[2]):
+        result[1].add baseStyle.changeStyle(el)
+  if result[1].len == 0:
+    result = (baseStyle, @[baseStyle], result[2])
+
 
 when defined(defaultBackend):
   proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
@@ -312,14 +315,13 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
       applyStyle(style, subDf, discretes, keys)
       let yieldDf = subDf
       result.setXAttributes(yieldDf, x)
-      let styleLabel = StyleLabel(style: style, label: toObject(keys))
-      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style,
-                                                         toClone = true)
+      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+                                                             toClone = true)
   else:
     let yieldDf = df
     result.setXAttributes(yieldDf, x)
-    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
-    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
+    let key = ("", Value(kind: VNull))
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
 
   case y.dcKind
   of dcDiscrete: result.yLabelSeq = y.labelSeq
@@ -395,9 +397,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       sumHist.addBinCountsByPosition(hist, g.position)
       let yieldDf = seqsToDf({ getColName(x) : bins,
                                countCol: hist })
-      let styleLabel = StyleLabel(style: style, label: toObject(keys))
-      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style,
-                                                         toClone = true)
+      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+                                                             toClone = true)
       result.numX = max(result.numX, yieldDf.len)
       result.xScale = mergeScales(result.xScale, (low: bins.min.float,
                                                   high: bins.max.float))
@@ -413,8 +414,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     let yieldDf = seqsToDf({ getColName(x) : bins,
                              countCol: hist,
                              widthCol: binWidths})
-    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
-    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
+    let key = ("", Value(kind: VNull))
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
     result.numX = yieldDf.len
     result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
     result.yScale = mergeScales(result.yScale, (low: 0.0, high: hist.max.float))
@@ -464,9 +465,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange(xCol)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
-      let styleLabel = StyleLabel(style: style, label: toObject(keys))
-      result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style,
-                                                         toClone = true)
+      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+                                                             toClone = true)
       result.setXAttributes(yieldDf, x)
       when defined(defaultBackend):
         result.yScale = mergeScales(result.yScale,
@@ -478,8 +478,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                      high: max(sumCounts[countCol].toTensor(int)).float))
   else:
     let yieldDf = df.count(xCol, name = countCol)
-    let styleLabel = StyleLabel(style: style, label: Value(kind: VNull))
-    result.yieldData[styleLabel] = applyContScaleIfAny(yieldDf, cont, style)
+    let key = ("", Value(kind: VNull))
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
     result.setXAttributes(yieldDf, x)
     when defined(defaultBackend):
       result.yScale = mergeScales(result.yScale,

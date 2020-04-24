@@ -7,11 +7,11 @@ else:
   import dataframe/arraymancer_backend
 import ginger
 
-iterator enumerateData(geom: FilledGeom): (StyleLabel, seq[GgStyle], DataFrame) =
+iterator enumerateData(geom: FilledGeom): (Value, GgStyle, seq[GgStyle], DataFrame) =
   ## yields the pairs of continuous styles for the current discrete style and
   ## its data from `yieldData`
-  for (styleLabel, tup) in pairs(geom.yieldData):
-    yield (styleLabel, tup[0], tup[1])
+  for (label, tup) in pairs(geom.yieldData):
+    yield (label, tup[0], tup[1], tup[2])
 
 proc drawStackedPolyLine(view: var Viewport,
                          prevVals: seq[float],
@@ -570,11 +570,9 @@ proc createGobjFromGeom*(view: var Viewport,
   var prevValsCont = newSeq[float]()
   var prevValsDiscr = initTable[int, float]()
   let anyDiscrete = if viewMap.len == 0: false else: true
-  for (styleLabel, styles, subDf) in enumerateData(fg):
-    if col.isSome:
-      let lab = styleLabel.label
-      let colStr = $(col.unsafeGet)
-      if not (colStr in lab and lab[colStr] == label.unsafeGet):
+  for (lab, baseStyle, styles, subDf) in enumerateData(fg):
+    if labelVal.isSome:
+      if labelVal.unsafeGet notin lab:
         # skip this label
         continue
     if fg.geom.position == pkStack and anyDiscrete:
