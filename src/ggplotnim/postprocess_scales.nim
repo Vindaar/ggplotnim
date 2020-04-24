@@ -341,7 +341,9 @@ func callHistogram[T: seq | Tensor](geom: Geom, data: T,
   ## and chooses the correct field for the calculation
   doAssert geom.statKind == stBin, "Can only bin `stBin` geoms!"
   when T is Tensor:
-    var data = data.toRawSeq
+    ## TODO: investigate! why is `data` here only a view of the full tensor?
+    ## Shouldn't `filter` + `groups` iterator return a new tensor?
+    var data = data.clone.toRawSeq
   var
     hist: seq[int]
     binEdges: seq[float]
