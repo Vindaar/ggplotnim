@@ -357,6 +357,8 @@ func callHistogram[T: seq | Tensor](geom: Geom, data: T,
     (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
   for i in 0 ..< binEdges.high:
     binWidths.add binEdges[i+1] - binEdges[i]
+  # add one element for `hist` with 0 entries to have hist.len == bin_edges.len
+  hist.add 0
   result = (hist, binEdges, binWidths)
 
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
