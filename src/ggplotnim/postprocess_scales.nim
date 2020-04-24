@@ -46,6 +46,8 @@ func getScales(gid: uint16, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.height))
   addIfAny(result[2], getScale(filledScales.text)) # not required
   addIfAny(result[2], getScale(filledScales.yRidges))
+  # finally add facets
+  result[2].add filledScales.facets
 
 func isEmpty(s: ginger.Scale): bool =
   ## checks if the given scale is empty
