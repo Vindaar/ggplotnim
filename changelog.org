@@ -1,3 +1,26 @@
+* v0.3.5
+- =facet_wrap= is finally back! Now finally allows to fix / not fix
+  the scale of each subplot and wrap by multiple columns.
+- fix pretty printing of =VObject Value=
+- add =toObject= overload for =Value= taking =(string, Value)=
+- add =contains= for Value in Value, which checks whether one
+  =VObject= contained in another
+- =yieldData= of =FilledGeom= is now keyed only by the =label (VObject
+  Value)= comprising the discrete values of N columns for the given
+  object, instead of baseStyle + label. This allows to access a
+  specific style / data frame for a given label (ridgeline plots +
+  facet need this).
+- =handleTicks= now still creates ticks and labels if =hideTickLabels=
+  is true, but doesn't assign them to the viewport. This way they can
+  still be accessed to e.g. draw grid lines.
+- =handleTicks= now handles custom margins
+- =facet_wrap= now also takes raw strings and a =scales= argument,
+  which is used to fix the scales of all plots in a facet_wrap to the
+  same scale or leave them free.
+- =Theme= now has =x/yTickLabelMargin= fields to customize margin for x and
+  y tick labels (currently not exposed, used internally for facet
+  plots, create Theme manually and set them if required).
+
 * v0.3.4
 - allow creation of colunms from other int and float types (other than
   =int64= and =float64=) via =toColumn=
