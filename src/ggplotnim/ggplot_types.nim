@@ -225,10 +225,12 @@ type
     xlabelMargin*: Option[float]
     xTicksRotate*: Option[float]
     xTicksTextAlign*: Option[TextAlignKind]
+    xTickLabelMargin*: Option[float] # tick label margin in cm
     ylabel*: Option[string]
     ylabelMargin*: Option[float]
     yTicksRotate*: Option[float]
     yTicksTextAlign*: Option[TextAlignKind]
+    yTickLabelMargin*: Option[float] # tick label margin in cm
     xLabelSecondary*: Option[string]
     yLabelSecondary*: Option[string]
     legendPosition*: Option[Coord]
