@@ -359,7 +359,6 @@ type
   ScaleData = tuple
     dataFrame: Option[DataFrame]
     scale: Scale
-    statKind: StatKind
 
 proc fillScale(df: DataFrame, scales: seq[Scale],
                scKind: static ScaleKind): seq[Scale] =
@@ -478,13 +477,11 @@ macro collect(p: GgPlot, field: untyped): untyped =
       # NOTE: the dataframe of GgPlot is always given individually to
       # the fill* procs, hence we give a none here
       let element = (dataFrame: none(DataFrame),
-                     scale: `p`.aes.`field`.get,
-                     statKind: stIdentity)
+                     scale: `p`.aes.`field`.get)
       sds.add element
     for g in `p`.geoms:
       if isSome(g.aes.`field`):
-        sds.add (dataFrame: g.data, scale: g.aes.`field`.get,
-                 statKind: g.statKind)
+        sds.add (dataFrame: g.data, scale: g.aes.`field`.get)
     sds
 
 proc collectScales*(p: GgPlot): FilledScales =
