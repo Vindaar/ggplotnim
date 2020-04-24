@@ -456,20 +456,23 @@ proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
     for fs in additional:
       result.add fs
 
-#template collect(p: GgPlot, f: untyped): untyped =
-#  var sds = newSeq[ScaleData]()
-#  if isSome(p.aes.f):
-#    # NOTE: the dataframe of GgPlot is always given individually to
-#    # the fill* procs, hence we give a none here
-#    let element = (data: none[DataFrame](),
-#                   scale: p.aes.f.get,
-#                   statKind: stIdentity)
-#    sds.add element
-#  for g in p.geoms:
-#    if isSome(g.aes.f):
-#      sds.add (data: g.data, scale: g.aes.f.get,
-#               statKind: g.statKind)
-#  sds
+proc addFacets(fs: var FilledScales, p: GgPlot) =
+  ## fills and adds the scales used as facets to the FilledScales object
+  doAssert p.facet.isSome
+  let facet = p.facet.unsafeGet
+  var facetCols = newSeq[ScaleData]()
+  for fc in facet.columns:
+    let sc = (
+      dataFrame: none[DataFrame](),
+      scale: Scale(col: f{fc},
+                   name: fc,
+                   dcKind: dcDiscrete,
+                   ids: {0'u16 .. high(uint16)}) # all geoms affected
+    )
+    # NOTE: we have to add each facet column individually to make sure their
+    # discrete data is not mangled together in the `labelSeq` of each scale.
+    fs.facets.add callFillScale(p.data, @[sc], scLinearData)
+
 macro collect(p: GgPlot, field: untyped): untyped =
   result = quote do:
     var sds = newSeq[ScaleData]()
@@ -561,4 +564,7 @@ proc collectScales*(p: GgPlot): FilledScales =
   let textFilled = callFillScale(p.data, texts, scText)
   fillField("text", textFilled)
 
+  # finally add all available facets if any
+  if p.facet.isSome:
+    result.addFacets(p)
   postProcessScales(result, p)

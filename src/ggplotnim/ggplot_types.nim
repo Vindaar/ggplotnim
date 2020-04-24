@@ -122,8 +122,16 @@ type
       # other `ScaleKinds`
       mapData*: proc(df: DataFrame): seq[ScaleValue]
 
+  ## enum to determine which scales in a facet plot are free
+  ScaleFreeKind* = enum
+    sfFixed = "fixed" # all fixed to same scale
+    sfFreeX = "free_x" # x is free
+    sfFreeY = "free_y" # y is free
+    sfFree = "free" # each subplot uses its own scale
+
   Facet* = object
     columns*: seq[string]
+    sfKind*: ScaleFreeKind
 
   Ridges* = object
     col*: FormulaNode
@@ -334,6 +342,7 @@ type
     height*: MainAddScales
     text*: MainAddScales # not needed, since we don't collect text
     yRidges*: MainAddScales
+    facets*: seq[Scale] # no difference between main / more
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.

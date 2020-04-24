@@ -479,15 +479,22 @@ proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
                   showTicks: showTicks,
                   labelOrder: labelOrder)
 
-proc facet_wrap*(fns: varargs[ FormulaNode]): Facet =
-  result = Facet()
+
+proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
+                                          scales = "fixed"): Facet =
+  let sfKind = parseEnum[ScaleFreeKind](scales)
+  result = Facet(sfKind: sfKind)
   for f in fns:
-    when defined(defaultBackend):
-      doAssert f.kind == fkTerm
-      doAssert f.rhs.val.kind == VString
-      result.columns.add f.rhs.val.str
+    when T is FormulaNode:
+      when defined(defaultBackend):
+        doAssert f.kind == fkTerm
+        doAssert f.rhs.val.kind == VString
+        result.columns.add f.rhs.val.str
+      else:
+        doAssert f.kind == fkVariable
+        result.columns.add f.name
     else:
-      result.columns.add f.name
+      result.columns.add f
 
 proc scale_x_log10*(): Scale =
   ## sets the X scale of the plot to a log10 scale
