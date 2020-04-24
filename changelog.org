@@ -20,6 +20,13 @@
 - =Theme= now has =x/yTickLabelMargin= fields to customize margin for x and
   y tick labels (currently not exposed, used internally for facet
   plots, create Theme manually and set them if required).
+- add =BinByKind= / =binBy= field for ~statKind="bin"~  to allow
+  binning to happen only on the current subset of data that is
+  actually considered. Useful if the data is in multiple different
+  ranges and binning should happen according to those ranges.
+- the count column after a histogram call is now not always an object
+  column. The last value contains the right most bin edge, the count
+  column is now filled with a 0.
 
 * v0.3.4
 - allow creation of colunms from other int and float types (other than
