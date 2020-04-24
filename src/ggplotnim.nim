@@ -1195,8 +1195,8 @@ proc plotLayoutWithoutLegend(view: var Viewport,
 proc createLayout(view: var Viewport,
                   filledScales: FilledScales, theme: Theme) =
   let drawLegend = filledScales.requiresLegend
-  let  hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
-                   else: false
+  let hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
+                  else: false
   let hideTickLabels = if theme.hideTickLabels.isSome: theme.hideTickLabels.unsafeGet
                        else: false
   let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
@@ -1340,17 +1340,19 @@ func hasSecondary(theme: Theme, axKind: AxisKind): bool =
 proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            scale: Scale, numTicks: int, theme: Theme,
                            isSecondary = false,
-                           hideTickLabels = false): seq[GraphObject] =
+                           hideTickLabels = false,
+                           margin = none[Coord1D]()): seq[GraphObject] =
   let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
   case scale.scKind
   of scLinearData:
     let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary,
                                boundScale = some(boundScale))
     var tickLabs: seq[GraphObject]
+    tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
+                               font = theme.tickLabelFont,
+                               margin = margin)
     if not hideTickLabels:
-      tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
-                                 font = theme.tickLabelFont)
-    view.addObj concat(ticks, tickLabs)
+      view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
     # for now assume log10 scale
@@ -1374,8 +1376,10 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
       view.yScale = (low: log10(minVal), high: log10(maxVal))
 
     let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary,
-                                              font = theme.tickLabelFont)
-    view.addObj concat(tickObjs, labObjs)
+                                              font = theme.tickLabelFont,
+                                              margin = margin)
+    if not hideTickLabels:
+      view.addObj concat(tickObjs, labObjs)
     result = tickObjs
   else: discard
 
@@ -1384,7 +1388,8 @@ proc handleDiscreteTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                          theme: Theme,
                          isSecondary = false,
                          hideTickLabels = false,
-                         centerTicks = true): seq[GraphObject] =
+                         centerTicks = true,
+                         margin = none[Coord1D]()): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -1430,8 +1435,10 @@ proc handleDiscreteTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     alignTo = theme.yTicksTextAlign
   let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind, rotate = rotate,
                                             alignToOverride = alignTo,
-                                            font = theme.tickLabelFont)
-  view.addObj concat(tickObjs, labObjs)
+                                            font = theme.tickLabelFont,
+                                            margin = margin)
+  if not hideTickLabels:
+    view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
 proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
@@ -1441,15 +1448,21 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
                  boundScaleOpt = none[ginger.Scale]()): seq[GraphObject] =
   ## This handles the creation of the tick positions and tick labels.
   ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
+  ## `margin` is the tick label margin in centimeter!
+  var marginOpt: Option[Coord1D]
   var scale: Scale
   var numTicks: int
   case axKind
   of akX:
     scale = filledScales.getXScale()
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numXTicks
+    if theme.xTickLabelMargin.isSome:
+      marginOpt = some(view.c1(theme.xTickLabelMargin.unsafeGet, axKind, ukCentimeter))
   of akY:
     scale = filledScales.getYScale()
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
+    if theme.yTickLabelMargin.isSome:
+      marginOpt = some(view.c1(theme.yTickLabelMargin.unsafeGet, axKind, ukCentimeter))
   when defined(defaultBackend):
     let hasScale = not scale.col.isNil
   else:
@@ -1458,20 +1471,24 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
     case scale.dcKind
     of dcDiscrete:
       result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
-                                        hideTickLabels = hideTickLabels)
+                                        hideTickLabels = hideTickLabels,
+                                        margin = marginOpt)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
-                                            hideTickLabels = hideTickLabels)
+                                            hideTickLabels = hideTickLabels,
+                                            margin = marginOpt)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
-                                          hideTickLabels = hideTickLabels)
+                                          hideTickLabels = hideTickLabels,
+                                          margin = marginOpt)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
                                               isSecondary = true,
-                                              hideTickLabels = hideTickLabels)
+                                              hideTickLabels = hideTickLabels,
+                                              margin = marginOpt)
   else:
     # this should mean the main geom is histogram like?
     doAssert axKind == akY, "we can have akX without scale now?"
@@ -1483,9 +1500,10 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
       boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
     let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
     var tickLabs: seq[GraphObject]
+    tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont,
+                               margin = marginOpt)
     if not hideTickLabels:
-      tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont)
-    view.addObj concat(ticks, tickLabs)
+      view.addObj concat(ticks, tickLabs)
     result = ticks
 
 template argMaxIt(s, arg: untyped): untyped =
