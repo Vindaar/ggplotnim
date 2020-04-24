@@ -149,7 +149,7 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
                                                        ukCentimeter)))
 
 template assignBinFields(res: var Geom, stKind, bins,
-                         binWidth, breaks: untyped): untyped =
+                         binWidth, breaks, bbVal: untyped): untyped =
   case stKind
   of stBin:
     if breaks.len > 0:
@@ -158,6 +158,7 @@ template assignBinFields(res: var Geom, stKind, bins,
       res.binWidth = some(binWidth)
     if bins > 0:
       res.numBins = bins
+    res.binBy = bbVal
   else: discard
 
 func initGgStyle(color = none[Color](),
@@ -190,6 +191,7 @@ proc geom_point*(aes: Aesthetics = aes(),
                  breaks: seq[float] = @[],
                  binPosition = "none",
                  position = "identity", # the position kind, "identity", "stack" etc.
+                 binBy = "full"
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -198,6 +200,7 @@ proc geom_point*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, size = size, marker = marker)
   let gid = incId()
   result = Geom(gid: gid,
@@ -208,7 +211,7 @@ proc geom_point*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_errorbar*(aes: Aesthetics = aes(),
                     data = DataFrame(),
@@ -221,6 +224,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                     breaks: seq[float] = @[],
                     binPosition = "none",
                     position = "identity", # the position kind, "identity", "stack" etc.
+                    binBy = "full"
                    ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -229,6 +233,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, size = size, lineType = lineType,
                           errorBarKind = some(ebLinesT))
   let gid = incId()
@@ -240,7 +245,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_linerange*(aes: Aesthetics = aes(),
                      data = DataFrame(),
@@ -253,6 +258,7 @@ proc geom_linerange*(aes: Aesthetics = aes(),
                      breaks: seq[float] = @[],
                      binPosition = "none",
                      position = "identity", # the position kind, "identity", "stack" etc.
+                     binBy = "full"
                    ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -261,6 +267,7 @@ proc geom_linerange*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, size = size, lineType = lineType,
                           errorBarKind = some(ebLines))
   let gid = incId()
@@ -272,7 +279,7 @@ proc geom_linerange*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 
 proc geom_bar*(aes: Aesthetics = aes(),
@@ -313,11 +320,13 @@ proc geom_line*(aes: Aesthetics = aes(),
                 binWidth = 0.0,
                 breaks: seq[float] = @[],
                 binPosition = "none",
-                position = "identity"
+                position = "identity",
+                binBy = "full"
                ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
                           fillColor = fillColor, alpha = alpha)
   let gid = incId()
@@ -328,7 +337,7 @@ proc geom_line*(aes: Aesthetics = aes(),
                 aes: aes.fillIds({gid}),
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
@@ -339,11 +348,13 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      position = "stack",
                      stat = "bin",
                      binPosition = "left",
+                     binBy = "full"
                     ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(lineType = some(ltSolid),
                           lineWidth = some(0.2), # draw 0.2 pt wide black line to avoid white pixels
                                                  # between bins at size of exactly 1.0 bin width
@@ -359,7 +370,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
                     data = DataFrame(),
@@ -373,12 +384,14 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     breaks: seq[float] = @[],
                     position = "identity",
                     stat = "bin",
-                    binPosition = "center"
+                    binPosition = "center",
+                    binBy = "full"
                    ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(lineType = lineType,
                           lineWidth = size,
                           color = color,
@@ -393,7 +406,7 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_tile*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -407,6 +420,7 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 breaks: seq[float] = @[],
                 binPosition = "none",
                 position = "identity", # the position kind, "identity", "stack" etc.
+                binBy = "full"
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -415,6 +429,7 @@ proc geom_tile*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, fillColor = fillColor, size = size,
                           alpha = alpha)
   let gid = incId()
@@ -426,7 +441,7 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 proc geom_text*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -441,6 +456,7 @@ proc geom_text*(aes: Aesthetics = aes(),
                 breaks: seq[float] = @[],
                 binPosition = "none",
                 position = "identity", # the position kind, "identity", "stack" etc.
+                binBy = "full"
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -449,6 +465,7 @@ proc geom_text*(aes: Aesthetics = aes(),
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
   let fontOpt = if font.isSome: font
                 else: some(font(12.0, alignKind = alignKind))
   let style = initGgStyle(color = color, size = size,
@@ -462,7 +479,7 @@ proc geom_text*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
 
 
 proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,

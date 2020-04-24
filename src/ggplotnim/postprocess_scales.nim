@@ -349,12 +349,24 @@ func callHistogram[T: seq | Tensor](geom: Geom, data: T,
     binEdges: seq[float]
     binWidths: seq[float]
   if geom.binEdges.isSome:
-    (hist, binEdges) = histogram(data, bins = geom.binEdges.get, range = (range.low, range.high))
+    case geom.binBy
+    of bbFull:
+      (hist, binEdges) = histogram(data, bins = geom.binEdges.get, range = (range.low, range.high))
+    of bbSubset:
+      (hist, binEdges) = histogram(data, bins = geom.binEdges.get)
   elif geom.binWidth.isSome:
     let bins = ((range.high - range.low) / geom.binWidth.get).round.int
-    (hist, binEdges) = histogram(data, bins = bins, range = (range.low, range.high))
+    case geom.binBy
+    of bbFull:
+      (hist, binEdges) = histogram(data, bins = bins, range = (range.low, range.high))
+    of bbSubset:
+      (hist, binEdges) = histogram(data, bins = bins)
   else:
-    (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
+    case geom.binBy:
+    of bbFull:
+      (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
+    of bbSubset:
+      (hist, binEdges) = histogram(data, bins = geom.numBins)
   for i in 0 ..< binEdges.high:
     binWidths.add binEdges[i+1] - binEdges[i]
   # add one element for `hist` with 0 entries to have hist.len == bin_edges.len

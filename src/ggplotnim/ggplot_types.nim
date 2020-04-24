@@ -177,6 +177,10 @@ type
     alpha*: Option[float]
     font*: Option[Font]
 
+  BinByKind* = enum
+    bbFull = "full"
+    bbSubset = "subset"
+
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar, gkText
   Geom* = object
@@ -195,6 +199,9 @@ type
       binWidth*: Option[float] # width of bins in terms of the data, overrides `numBins`
       # bin edges given in data values. Overrides `numBins` and `binWidth`
       binEdges*: Option[seq[float]]
+      binBy*: BinByKind # determine whether full data or only current subset is considered
+                        # as the range to call `histogram` with
+
     else:
       discard
 
