@@ -1767,50 +1767,181 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       view.handleLabels(theme)
     view.addObj @[grdLines]
 
+proc determineExistingCombinations(fs: FilledScales,
+                                   facet: Facet): OrderedSet[Value] =
+  # all possible combinations of the keys we group by
+  let facets = fs.facets
+  doAssert facets.len > 0
+  var combinations: seq[seq[Value]]
+  if facet.columns.len > 1:
+    combinations = product(facets.mapIt(it.labelSeq))
+  else:
+    combinations = facets[0].labelSeq.mapIt(@[it])
+  # create key / value pairs
+  var combLabels: seq[Value]
+  for c in combinations:
+    var comb: seq[(string, Value)]
+    for i, fc in facets:
+      comb.add ($fc.col, c[i])
+    combLabels.add toObject(comb)
+  # combinations possibly contains non existing combinations too!
+  result = initOrderedSet[Value]()
+  # now check each geom for each `yieldData` element and see which
+  # combination exists in them
+  for fg in fs.geoms:
+    for xk in keys(fg.yieldData):
+      for cb in combLabels:
+        if cb in xk:
+          result.incl cb
+  doAssert result.card <= combinations.len
+
+proc calcFacetViewMap(combLabels: OrderedSet[Value]): Table[Value, int] =
+  var idx = 0
+  for cb in combLabels:
+    result[cb] = idx
+    inc idx
+
+proc find(fg: FilledGeom, label: Value): DataFrame =
+  ## returns the `DataFrame` of the given `fg` of that label, which
+  ## contains `label` in `yieldData`
+  for key, val in fg.yieldData:
+    if label in key:
+      return val[2]
+  doAssert false, "Invalid call to find, `label` not found in `yieldData`!"
+
+proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale
+proc calcScalesForLabel(theme: var Theme, facet: Facet,
+                        fg: FilledGeom, label: Value) =
+  ## Given the `ScaleFreeKind` of the `facet` possibly calculate the
+  ## real data range of the current label
+  proc calcScale(df: DataFrame, col: string): ginger.Scale =
+    let data = df[col].toTensor(Value)
+    result = (low: min(data).toFloat(allowNull = true),
+              high: max(data).toFloat(allowNull = true))
+  if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
+    # find the correct DF in the `yieldData` table for this label
+    let labDf = fg.find(label)
+    if facet.sfKind in {sfFreeX, sfFree}:
+      let xScale = calcScale(labDf, fg.xcol)
+      # only change the scale, if it's not high == low
+      if xScale.low != xScale.high:
+        theme.xMarginRange = calculateMarginRange(theme, xScale, akX)
+      else:
+        # base on filled geom's scale instead
+        theme.xMarginRange = calculateMarginRange(theme, fg.xScale, akX)
+    if facet.sfKind in {sfFreeY, sfFree}:
+      let yScale = calcScale(labDf, fg.ycol)
+      # only change the scale, if it's not high == low
+      if yScale.low != yScale.high:
+        theme.yMarginRange = calculateMarginRange(theme, yScale, akY)
+      else:
+        # base on filled geom's scale instead
+        theme.yMarginRange = calculateMarginRange(theme, fg.yScale, akY)
+
+proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme
 proc generateFacetPlots(view: Viewport, p: GgPlot,
-                        theme: Theme) =
-  # first perform faceting by creating subgroups
-  # doAssert p.facet.isSome
-  # var mplt = p
-  # mplt.data = p.data.group_by(p.facet.unsafeGet.columns)
-  # result = view
-  # var pltSeq: seq[Viewport]
-  # for (pair, df) in groups(mplt.data):
-  #   mplt = p
-  #   mplt.data = df
-  #   var viewFacet = result
-  #   # add layout within `viewFacet` to accomodate the plot as well as the header
-  #   viewFacet.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
-  #                    margin = quant(0.01, ukRelative))
-  #   var headerView = viewFacet[0]
-  #   # set the background of the header
-  #   headerView.background()
-  #   # put in the text
-  #   let text = pair.mapIt($it[0] & ": " & $it[1]).join(", ")
-  #   let headerText = headerView.initText(c(0.5, 0.5),
-  #                                        text,
-  #                                        textKind = goText,
-  #                                        alignKind = taCenter,
-  #                                        name = "facetHeaderText")
-  #   headerView.addObj headerText
-  #   headerView.name = "facetHeader"
-  #   var plotView = viewFacet[1]
-  #   # now add dummy plt to pltSeq
-  #   let filledScales = collectScales(mplt)
-  #   plotView = plotView.generatePlot(mplt, filledScales, theme, hideLabels = true)
-  #   plotView.name = "facetPlot"
-  #   viewFacet[0] = headerView
-  #   viewFacet[1] = plotView
-  #   viewFacet.name = "facet_" & text
-  #   pltSeq.add viewFacet
-  #
-  # # now create layout in `view`, the actual canvas for all plots
-  # let (rows, cols) = calcRowsColumns(0, 0, pltSeq.len)
-  # result.layout(cols, rows, margin = quant(0.02, ukRelative))
-  # for i, plt in pltSeq:
-  #   result.children[i].objects = plt.objects
-  #   result.children[i].children = plt.children
-  discard
+                        filledScales: FilledScales,
+                        hideLabels = false,
+                        hideTicks = false) =
+  var p = p
+  doAssert p.facet.isSome
+  let facet = p.facet.unsafeGet
+  # combine scales / plot theme for final theme
+
+  let existComb = determineExistingCombinations(filledScales, facet)
+  let numExist = existComb.card
+  var theme = buildTheme(filledScales, p)
+  # create a theme, which ignores points outside the scale (which happens
+  # due to overlap!)
+  theme.xTickLabelMargin = some(0.4)
+  theme.yTickLabelMargin = some(-0.2)
+  # set margin of plot to avoid tick labels getting too close
+  theme.xMargin = some(0.05)
+  theme.yMargin = some(0.05)
+
+  theme.xMarginRange = calculateMarginRange(theme, filledScales.xScale, akX)
+  theme.yMarginRange = calculateMarginRange(theme, filledScales.yScale, akY)
+
+  var pltSeq = newSeq[Viewport](numExist)
+  # calculate number of rows and columns based on numGroups
+  let (rows, cols) = calcRowsColumns(0, 0, numExist)
+  let viewMap = calcFacetViewMap(existComb)
+  if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
+    view.layout(cols, rows, margin = quant(0.025, ukRelative))
+  else:
+    view.layout(cols, rows, margin = quant(0.005, ukRelative))
+
+  var
+    xticks: seq[GraphObject]
+    yticks: seq[GraphObject]
+  for label, idx in pairs(viewMap):
+    var viewLabel = view[idx]
+    for fg in filledScales.geoms:
+      # determine data scale of the current labels data if a scale is free.
+      # This changes `x/yMarginRange` of the theme
+      theme.calcScalesForLabel(facet, fg, label)
+      # assign theme ranges to this views scale
+      viewLabel.xScale = theme.xMarginRange
+      viewLabel.yScale = theme.yMarginRange
+      # create the layout for a facet + header
+      viewLabel.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
+                       margin = quant(0.01, ukRelative))
+      var headerView = viewLabel[0]
+      # set the background of the header
+      headerView.background()
+      # put in the text
+      let text = $label #pair.mapIt($it[0] & ": " & $it[1]).join(", ")
+      let headerText = headerView.initText(c(0.5, 0.5),
+                                           text,
+                                           textKind = goText,
+                                           alignKind = taCenter,
+                                           font = some(font(8.0)),
+                                           name = "facetHeaderText")
+      headerView.addObj headerText
+      headerView.name = "facetHeader"
+      # fill the plot
+      var plotView = viewLabel[1]
+      plotView.background(style = some(getPlotBackground(theme)))
+      let curRow = idx div cols
+      let curCol = idx mod cols
+      # hide the labels if scales not free and plot not in bottom row or
+      # left most column
+      let hideXLabels = if facet.sfKind in {sfFreeX, sfFree} or
+                           curRow == rows - 1: false
+                        else: true
+      let hideYLabels = if facet.sfKind in {sfFreeX, sfFree} or
+                           curCol == 0: false
+                        else: true
+      # change number of ticks from default 10 if numbers too large (i.e. we
+      # print between 100 and 9000); get's too crowded along x axis
+      let xTickNum = if theme.xMarginRange.high > 100.0 and
+                      theme.xMarginRange.high < 1e5:
+                     5
+                   else: 10
+
+      xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
+                                    numTicksOpt = some(xTickNum),
+                                    hideTickLabels = hideXLabels)
+      yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
+                                    hideTickLabels = hideYLabels)
+
+      let grdLines = plotView.initGridLines(some(xticks), some(yticks))
+      plotView.addObj grdLines
+
+      plotView.createGobjFromGeom(fg, theme, labelVal = some(label))
+      viewLabel.xScale = plotView.xScale
+      viewLabel.yScale = plotView.yScale
+
+      # finally assign names
+      plotView.name = "facetPlot"
+      viewLabel.name = "facet_" & text
+
+  if not hideLabels:
+    # set the theme margins to defaults since `view` does not have any tick label texts
+    # which can be used to determine the margin
+    theme.xLabelMargin = some(1.0)
+    theme.yLabelMargin = some(1.5)
+    view.handleLabels(theme)
 
 proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
@@ -2002,14 +2133,10 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var pltBase = img[4]
 
   if p.facet.isSome:
-    pltBase.generateFacetPlots(p, theme)
-    # TODO :clean labels up, combine with handleLabels!
-    # Have to consider what should happen for that though.
-    # Need flag to disable auto subtraction, because we don't have space or
-    # rather if done needs to be done on all subplots?
-    let xlabel = pltBase.xlabel(theme.xLabel.unwrap())
-    let ylabel = pltBase.ylabel(theme.yLabel.unwrap())
-    pltBase.addObj @[xlabel, ylabel]
+    pltBase.generateFacetPlots(p,
+                               filledScales,
+                               hideLabels = hideLabels,
+                               hideTicks = hideTicks)
   else:
     pltBase.generatePlot(p, filledScales, theme,
                          hideLabels = hideLabels,

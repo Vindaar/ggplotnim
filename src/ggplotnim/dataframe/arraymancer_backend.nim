@@ -58,7 +58,7 @@ type
     of dfGrouped:
       # a grouped data frame stores the keys of the groups and maps them to
       # a set of the categories
-      groupMap: OrderedTable[string, HashSet[Value]]
+      groupMap*: OrderedTable[string, HashSet[Value]]
     else: discard
 
 const ValueNull* = Value(kind: VNull)

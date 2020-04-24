@@ -298,6 +298,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+
   result = FilledGeom(geom: g,
                       xcol: getColName(x),
                       ycol: getColName(y),
