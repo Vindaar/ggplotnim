@@ -1,7 +1,10 @@
 ## .. include:: ./docs/ggplotnim.rst
 
 import sequtils, tables, sets, algorithm, strutils, macros
-import parsecsv, streams, strutils, hashes, sugar, math
+import parsecsv, streams, hashes, sugar, math
+
+when (NimMajor, NimMinor, NimPatch) > (1, 2, 0):
+  export strutils.nimIdentNormalize # for parseEnum to work
 
 import ginger except Scale
 export ginger.types
