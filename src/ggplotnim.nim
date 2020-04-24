@@ -1838,6 +1838,15 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
       else:
         result = "count"
 
+proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale =
+  var margin: float
+  case axKind
+  of akX: margin = if theme.xMargin.isSome: theme.xMargin.unsafeGet else: 0.0
+  of akY: margin = if theme.yMargin.isSome: theme.yMargin.unsafeGet else: 0.0
+  let diff = scale.high - scale.low
+  result = (low: scale.low - diff * margin,
+            high: scale.high + diff * margin)
+
 proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
   ## builds the final theme used for the plot. It takes the theme of the
   ## `GgPlot` object and fills in all missing fields as required from
@@ -1854,15 +1863,9 @@ proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
 
   # calculate `xMarginRange`, `yMarginRange` if any
   let xScale = if result.xRange.isSome: result.xRange.unsafeGet else: filledScales.xScale
-  let xM = if result.xMargin.isSome: result.xMargin.unsafeGet else: 0.0
-  let xdiff = xScale.high - xScale.low
-  result.xMarginRange = (low: xScale.low - xdiff * xM,
-                         high: xScale.high + xdiff * xM)
+  result.xMarginRange = result.calculateMarginRange(xScale, akX)
   let yScale = if result.yRange.isSome: result.yRange.unsafeGet else: filledScales.yScale
-  let yM = if result.yMargin.isSome: result.yMargin.unsafeGet else: 0.0
-  let ydiff = yScale.high - yScale.low
-  result.yMarginRange = (low: yScale.low - ydiff * yM,
-                         high: yScale.high + ydiff * yM)
+  result.yMarginRange = result.calculateMarginRange(yScale, akY)
 
 proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom: float] =
   ## Given an annotation this proc returns the relative `(left, bottom)`
