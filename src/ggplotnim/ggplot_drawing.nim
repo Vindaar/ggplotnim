@@ -560,8 +560,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
 proc createGobjFromGeom*(view: var Viewport,
                          fg: FilledGeom,
                          theme: Theme,
-                         col = none[FormulaNode](),
-                         label = none[Value]()) =
+                         labelVal = none[Value]()) =
   ## performs the required conversion of the data from the data
   ## frame according to the given `geom`
   view.prepareViews(fg, theme)
