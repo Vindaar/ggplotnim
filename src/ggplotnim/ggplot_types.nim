@@ -281,7 +281,9 @@ type
     reversedX*: bool
     reversedY*: bool
     # `GgStyle` stores base style for each value of the discrete (!) scales
-    yieldData*: OrderedTable[StyleLabel, (seq[GgStyle], DataFrame)]
+    # key is a VObject Value of all mapped columns, first value arg is base style
+    # second arg individual styles if cont scale involved, last arg is data
+    yieldData*: OrderedTable[Value, (GgStyle, seq[GgStyle], DataFrame)]
     # whether X or Y is discrete or continuous. Has direct implication for drawing
     case dcKindX*: DiscreteKind
     of dcDiscrete:
