@@ -53,6 +53,7 @@ ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   ggsave("media/recipes/rSimpleLinePlot.png")
 #+END_SRC
 This results in the following plot:
+
 [[./media/recipes/rSimpleLinePlot.png]]
 
 *** (Line) plot of specific size, different filetype
@@ -137,8 +138,6 @@ Notice how if a fill color is set, the lines are always drawn down to
 This generates:
 
 [[./media/recipes/rFreqPolyWithAlpha.png]]
-
-#+END_SRC
 
 *** Simple histogram with N bins
 
