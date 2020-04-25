@@ -32,6 +32,12 @@
   colunms)
 - =fn {}= formula syntax can now deal with =nnkTableConstr=
   (effectively allows type hints)
+- now only a single list of recipes to test / run in
+  ~recipes/recipeFiles.nim~, which is used in comparison test and
+  ~runRecipes.nim~
+- ~ggjson~ helper with same signature as ~ggsave~ to allow dumping
+  final plot viewport to JSON file (used for CI)
+- *all* recipes are now compared as JSON files!
 - add two more recipes:
   - ~rSimpleFacet.nim~: simple facetting example using mpg dataset
   - ~rFacetTpa.nim~: facetting example using TimepixAnalysis data
