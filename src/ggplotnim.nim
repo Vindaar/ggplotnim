@@ -2238,7 +2238,29 @@ proc `+`*(p: GgPlot, d: Draw) =
 
 proc ggvega*(): VegaDraw = VegaDraw()
 
-from json import nil
+import json
+from os import splitFile
+
+proc `%`*(t: tuple): JsonNode =
+  result = newJObject()
+  for k, v in t.fieldPairs:
+    result[k] = %v
+
+proc ggjson*(fname: string, width = 640.0, height = 480.0): JsonDummyDraw =
+  let (_, _, fext) = fname.splitFile
+  JsonDummyDraw(fname: fname.replace(fext, ".json"),
+                width: some(width),
+                height: some(height))
+
+proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
+  ## generate a JSON file from the given filename by replacing the file
+  ## extension by `.json` and converting the `Viewport` to JSON after
+  ## calling `ggcreate`. Used for CI.
+  doAssert jsDraw.width.isSome and jsDraw.height.isSome
+  let plt = p.ggcreate(width = jsDraw.width.get,
+                       height = jsDraw.height.get)
+  writeFile(jsDraw.fname, $(% plt.view))
+
 proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
   p.toVegaLite()
 
