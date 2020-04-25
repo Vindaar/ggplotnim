@@ -91,3 +91,30 @@ suite "Compare recipe output":
         echo "Comparison failed for file: ", fname
     for i in 0 ..< files.len:
       checkFiles(expected[i], isnow[i], files[i])
+
+  test "Compare recipe plots via JSON":
+    ## first generate JSON from all recipe files by creating temporary
+    ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
+    ## simply dumps
+    const tmpfile = "recipes/tmpfile.nim"
+    for f in RecipeFiles:
+      let fname = "recipes" / f
+      # read the file
+      let fcontent = readFile(fname & ".nim")
+      # replace `ggsave` by `ggjson` and write file back
+      const jsonImport = "from json import `%`\n"
+      writeFile(tmpfile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
+                                                              ("media/", "resources/")]))
+      # run the tmp file to generate json
+      #shell:
+      discard execCmd("nim c -r " & $tmpfile)
+      # compare generated json with expected json
+      let resFile = parseFile "resources/recipes" / f & ".json"
+      echo "Checking ", f & ".json"
+      let expFile = parseFile(("resources/expected" / f & ".json").replace("recipes/", "expected/"))
+      check compareJObjects(resFile, expFile)
+
+    ## NOTE: this is only safe against regressions of `ggplotnim`, because the
+    ## JSON we compare is ``before`` being embedded into the final root viewport
+    ## in ginger! It is simply the `Viewport` and all objects + children, as they
+    ## are handed to ginger to be drawn.
