@@ -1,4 +1,4 @@
-import ggplotnim, unittest, strutils, os, sequtils, osproc, shell
+import ggplotnim, unittest, strutils, os, sequtils, osproc, shell, json
 
 #[
 This test simply builds all recipes, runs them and compares the final image of
