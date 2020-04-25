@@ -27,6 +27,14 @@
 - the count column after a histogram call is now not always an object
   column. The last value contains the right most bin edge, the count
   column is now filled with a 0.
+- =gather= can now again gather columns of different data types again
+  (int + float is merged to float, other combinations to object
+  colunms)
+- =fn {}= formula syntax can now deal with =nnkTableConstr=
+  (effectively allows type hints)
+- add two more recipes:
+  - ~rSimpleFacet.nim~: simple facetting example using mpg dataset
+  - ~rFacetTpa.nim~: facetting example using TimepixAnalysis data
 
 * v0.3.4
 - allow creation of colunms from other int and float types (other than
