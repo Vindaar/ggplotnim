@@ -2238,11 +2238,11 @@ proc `+`*(p: GgPlot, d: Draw) =
 
 proc ggvega*(): VegaDraw = VegaDraw()
 
-import json
+from json import `%`
 from os import splitFile
 
-proc `%`*(t: tuple): JsonNode =
-  result = newJObject()
+proc `%`*(t: tuple): json.JsonNode =
+  result = json.newJObject()
   for k, v in t.fieldPairs:
     result[k] = %v
 
