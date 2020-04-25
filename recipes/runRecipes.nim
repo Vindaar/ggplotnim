@@ -45,7 +45,9 @@ const recipes = ["rStackedMpgHistogram",
                  "rPeriodicTable",
                  "rAutoColoredNeuralSpikes",
                  "rCustomColoredNeuralSpikes",
-                 "rNegativeBarPlot"]
+                 "rNegativeBarPlot",
+                 "rSimpleFacet",
+                 "rFacetTpa"]
 
 macro genCommands(prefix: static string,
                   suffix: static string = ""): untyped =

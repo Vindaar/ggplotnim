@@ -1155,6 +1155,99 @@ This results in this plot:
 
 [[media/recipes/rCustomColoredNeuralSpikes.png]]
 
+*** Facet wrap for simple grid of subplots
+
+Facet wraps are useful to display subplots consisting of different
+labels of a discrete variable. Essentially instead of e.g. coloring
+each geom based on each label an individual subplot is created. Of
+course those can be combined as well.
+
+The only important thing is that the variables by which facetting is
+done have to be discrete. For continuous data the data is still
+interpreted as discrete, so this might result in *many* subplots! 
+
+By default the scales of each subplot is fixed to the same scale,
+which is the one determined from the x and y aesthetics (in the below
+~displ~ and ~hwy~). This can be overriden by the =scales= argument to
+=facet_wrap=, which can be one of the following:
+- ~"fixed"~: default, all the same scale
+- ~"free_x"~: x axis is free and will be determined based on the data
+  of each label
+- ~"free_x"~: y axis is free and will be determined based on the data
+  of each label
+- ~"free"~: both axes are free and will be determined based on the
+  data of each label
+
+Facetting can be done by as many variables as one likes, but again,
+this will result in a combinatorial explosion. 
+#+BEGIN_SRC nim :tangle recipes/rSimpleFacet.nim
+import ggplotnim
+
+let mpg = toDf(readCsv("data/mpg.csv"))
+ggplot(mpg, aes("displ", "hwy")) +
+  geom_point(aes(color = "manufacturer")) +
+  facet_wrap(["drv", "cyl"]) + 
+  ggsave("media/recipes/rSimpleFacet.png")
+#+END_SRC
+
+This gives us:
+[[media/recipes/rSimpleFacet.png]]
+
+*** Facet wrap for data of different ranges
+
+Facet wraps can also be (ab)used to display data that is not quite the
+same data just for different labels, but rather different data sets,
+which may be somehow related and one wishes to get a glimpse of some
+geom for all those data sets.
+
+Consider the example below. It is based on background data from my
+[[work][https://github.com/Vindaar/TimepixAnalysis]] of a gaseous detector with
+a pixelized readout (~256x256~ pixels) consisting mostly of cosmic
+muons, which typically look something like this:
+
+[[media/event_run_305_num_59.png]]
+
+For every event such as this clusters are identified and then
+(geometric) properties of each event are calculated. The ones we are
+going to look at here:
+- ~hits~: number of active pixels in a cluster
+- ~pos_x~: center position along x of the cluster
+- ~pos_y~: center position along y of the cluster
+- ~ecc~: eccentricity of the cluster (essentially ratio of long to short axis)
+- ~rms_trans~: RMS of the cluster along the short axis
+
+The other day I had a weird issue with one dataset, so I wanted to get
+an overview of the distributions of these properties. Thanks to
+~facet_wrap~ that's a few lines of code:
+
+#+BEGIN_SRC nim :tangle recipes/rFacetTpa.nim
+import ggplotnim
+let df = toDf(readCsv("data/run_305_tpa_data.csv"))
+# gather all columns to a long format df
+echo df
+let dfLong = df.gather(getKeys(df), key = "Property", value = "Value")
+ggplot(dfLong, aes("Value")) +
+  facet_wrap("Property", 
+             scales = "free") + # each property has very different data ranges, Leave free
+  geom_histogram(bins = 100, position = "identity", 
+                 binBy = "subset") + # `binBy subset` means the histogram will be calculated 
+                                     # in the data range of each properties data range
+  ggsave("media/recipes/rFacetTpa.png", width = 800, height = 600)
+#+END_SRC
+
+Which gives us the following plot:
+
+[[media/recipes/rFacetTpa.png]]
+
+Notice how in this facetting example each subplot has its own x and y
+axes and tick labels. That is because we set the scales to ~"free"~. 
+
+Also note that if we didn't set the ~binBy = "subset"~ argument, all
+subplots would be binned to 100 bins in the same data range, which is
+the encompassing data range of all subplots. Especially thanks to
+having the =hits= property in there, this would lead to useless
+binning.
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
