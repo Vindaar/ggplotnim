@@ -407,10 +407,10 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # before we assign calculate histogram
       when defined(defaultBackend):
         let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
-                                                      range = x.dataScale)
+                                              range = x.dataScale)
       else:
         let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).toTensor(float),
-                                                      range = x.dataScale)
+                                              range = x.dataScale)
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
       sumHist.addBinCountsByPosition(hist, g.position)

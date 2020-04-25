@@ -1309,7 +1309,7 @@ macro `{}`*(x: untyped{ident}, y: untyped): untyped =
 
 macro `fn`*(x: untyped): untyped =
   let arg = if x.kind == nnkStmtList: x[0] else: x
-  expectKind arg, nnkCurly
+  doAssert arg.kind in {nnkCurly, nnkTableConstr}
   result = compileFormula(arg[0], isRaw = false)
 
 #iterator pairs*(df: DataFrame): (int, Value) =
