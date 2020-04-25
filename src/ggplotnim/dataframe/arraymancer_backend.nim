@@ -204,6 +204,33 @@ proc clone*(df: DataFrame): DataFrame =
     result.groupMap = df.groupMap
   else: discard
 
+template withCombinedType*(df: DataFrame,
+                           body: untyped): untyped =
+  ## A helper template to work with a `dtype` of that encompasses all
+  ## data types found in the `df`.
+  let keys = getKeys(df)
+  var colKinds = newSeq[ColKind]()
+  for k in keys:
+    colKinds.add df[k].kind
+  let combKind = combinedColKind(colKinds)
+  case combKind
+  of colInt:
+    type dtype {.inject.} = int
+    body
+  of colFloat:
+    type dtype {.inject.} = float
+    body
+  of colString:
+    type dtype {.inject.} = string
+    body
+  of colBool:
+    type dtype {.inject.} = bool
+    body
+  of colObject:
+    type dtype {.inject.} = Value
+    body
+  of colNone: doAssert false, "No valid type!"
+
 proc `[]=`*[T: Tensor | seq | array](df: var DataFrame, k: string, t: T) {.inline.} =
   df[k] = toColumn t
 
@@ -2091,9 +2118,8 @@ proc gather*(df: DataFrame, cols: varargs[string],
   let newLen = cols.len * df.len
   # assert all columns same type
   # TODO: relax this restriction, auto convert to `colObject` if non matching
-  assert cols.mapIt(df[it].kind).deduplicate.len == 1, "all gathered columns must be of the same type!"
   var keyTensor = newTensorUninit[string](newLen)
-  withNativeDtype(df[cols[0]]):
+  withCombinedType(df):
     var valTensor = newTensorUninit[dtype](newLen)
     for i in 0 ..< cols.len:
       # for each column, clone the `col` tensor once to the correct position

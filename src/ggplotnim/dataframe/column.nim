@@ -1,5 +1,6 @@
 import arraymancer
 import value, sugar, math, strformat
+from sequtils import allIt
 
 type
   ColKind* = enum
@@ -128,6 +129,17 @@ template withNativeTensor*(c: Column,
     let `valName` {.inject.} =  c.oCol
     body
   of colNone: raise newException(ValueError, "Accessed column is empty!")
+
+proc combinedColKind*(c: seq[ColKind]): ColKind =
+  if c.allIt(it == c[0]):
+    # all the same, take any
+    result = c[0]
+  elif c.allIt(it in {colInt, colFloat}):
+    # int and float can be combined to float, since we're lenient like that
+    result = colFloat
+  else:
+    # the rest can only be merged via object columns of `Values`.
+    result = colObject
 
 template `%~`*(v: Value): Value = v
 
