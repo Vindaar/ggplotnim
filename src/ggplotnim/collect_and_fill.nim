@@ -466,6 +466,7 @@ proc addFacets(fs: var FilledScales, p: GgPlot) =
       dataFrame: none[DataFrame](),
       scale: Scale(col: f{fc},
                    name: fc,
+                   hasDiscreteness: true,
                    dcKind: dcDiscrete,
                    ids: {0'u16 .. high(uint16)}) # all geoms affected
     )
