@@ -1,58 +1,11 @@
 import shell, os, macros, times
 
-const recipes = ["rStackedMpgHistogram",
-                 "rNewtonAcceleration",
-                 "rMpgStackedPointPlot",
-                 "rLinePlotSize",
-                 "rMpgHistoBinWidth",
-                 "rMpgContinuousColorPoints",
-                 "rAxionMassVsDensity",
-                 "rMpgHistoNumBins",
-                 "rMpgHistoCustomBreaks",
-                 "rMpgCustomColorPoint",
-                 "rMpgHistoPlusPoints",
-                 "rSimpleLinePlot",
-                 "rMpgSimpleBarPlot",
-                 "rTwoSensorsBadStyle",
-                 "rTwoSensorsGoodStyle",
-                 "rPrebinnedHisto",
-                 "rMassAttenuationFunction",
-                 "rAxionMassesLogLog",
-                 "rStackedMpgFreqpoly",
-                 "rMpgStackedBarPlot",
-                 "rBarPlotRotatedLabels",
-                 "rBarPlotCompStats",
-                 "rCustomAnnotations",
-                 "rMpgDiscreteXScale",
-                 "rDiscreteXLine",
-                 "rEnlargeXRange",
-                 "rLimitXRange",
-                 "rCreateMarginBuffer",
-                 "rHighlightMinMax",
-                 "rFormulaAesthetic",
-                 "rErrorBar",
-                 "rDiscreteYAxis",
-                 "rBothDiscreteAxes",
-                 "rFreqPolyWithAlpha",
-                 "rMultipleLegends",
-                 "rSimpleTile",
-                 "rSimpleGeomText",
-                 "rClassifiedGeomText",
-                 "rAnnotateUsingGeomText",
-                 "rAnnotateMaxValues",
-                 "rAnnotatedHeatmap",
-                 "rMultiSubplots",
-                 "rPeriodicTable",
-                 "rAutoColoredNeuralSpikes",
-                 "rCustomColoredNeuralSpikes",
-                 "rNegativeBarPlot",
-                 "rSimpleFacet",
-                 "rFacetTpa"]
+import recipeFiles
 
 macro genCommands(prefix: static string,
                   suffix: static string = ""): untyped =
   var cmds = newStmtList()
-  for r in recipes:
+  for r in RecipeFiles:
     let cmd = prefix & r & suffix
     cmds.add quote do:
       `cmd`

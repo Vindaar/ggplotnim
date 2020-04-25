@@ -7,8 +7,47 @@ all recipes with the expected plots in `media/expected`
 NOTE: this test depends on imagemagick, since it converts the PNG files to PPM!
 ]#
 
+import ../recipes/recipeFiles
+
+proc echoFields(j1, j2: JsonNode) =
+  doAssert j1.len >= j2.len
+  for kx, vx in pairs(j1):
+    echo "Is ", kx, ", with val: ", vx, " in j2? ", kx in j2
+    if kx notin j2:
+      echo "^^^^^^\n"
+
+proc compareJObjects*(j1, j2: JsonNode): bool =
+  template returnOnFalse(c1, c2: untyped): untyped =
+    result = c1 == c2
+    if not result:
+      echo "Didn't match ", astToStr(c1), " == ", astToStr(c2)
+      echo "Was ", c1, " and ", c2
+      return false
+  returnOnFalse(j1.kind, JObject)
+  returnOnFalse(j2.kind, JObject)
+  if j1.len > j2.len:
+    echo "j1 contains more elements than j2!"
+    echoFields(j1, j2)
+  elif j2.len > j1.len:
+    echo "j2 contains more elements than j1!"
+    echoFields(j2, j1)
+  else:
+    # all good, same field number
+    discard
+  #returnOnFalse(j1.len, j2.len)
+  for k, v in pairs(j1):
+    returnOnFalse(k in j2, true)
+    returnOnFalse(v.kind, j2[k].kind)
+    case v.kind
+    of JObject:
+      returnOnFalse(compareJObjects(v, j2[k]), true)
+    of JFloat:
+      returnOnFalse(almostEqual(v.getFloat, j2[k].getFloat), true)
+    else:
+      returnOnFalse(v, j2[k])
+
 suite "Compare recipe output":
-  test "Compare recipe output":
+  test "Compare recipe generated plots":
     # first run recipes to make sure we have current recipe plots in
     # media/recipes which we can compare with media/expected
     let runRecipes = shellVerbose:
@@ -17,55 +56,24 @@ suite "Compare recipe output":
     check toContinue
     if not toContinue:
       quit("Could not run recipes successfully, quitting recipe comparison")
-    let files = @["rStackedMpgHistogram.png",
-                  "rNewtonAcceleration.png",
-                  "rMpgStackedPointPlot.png",
-                  "rLinePlotSize.png",
-                  "rMpgHistoBinWidth.png",
-                  "rMpgContinuousColorPoints.png",
-                  "rAxionMassVsDensity.png",
-                  "rMpgHistoNumBins.png",
-                  "rMpgHistoCustomBreaks.png",
-                  "rMpgCustomColorPoint.png",
-                  "rMpgHistoPlusPoints.png",
-                  "rSimpleLinePlot.png",
-                  "rMpgSimpleBarPlot.png",
-                  "rTwoSensorsBadStyle.png",
-                  "rTwoSensorsGoodStyle.png",
-                  "rPrebinnedHisto.png",
-                  "rMassAttenuationFunction.png",
-                  "rAxionMassesLogLog.png",
-                  "rStackedMpgFreqpoly.png",
-                  "rMpgStackedBarPlot.png",
-                  "rBarPlotRotatedLabels.png",
-                  "rBarPlotCompStats.png",
-                  #"rCustomAnnotations.png" # not compared, because it's too finicky
-                  "rMpgDiscreteXScale.png",
-                  "rDiscreteXLine.png",
-                  "rEnlargeXRange.png",
-                  "rLimitXRange.png",
-                  "rCreateMarginBuffer.png",
-                  "rHighlightMinMax.png",
-                  "rFormulaAesthetic.png",
-                  "rErrorBar.png",
-                  "rDiscreteYAxis.png",
-                  "rBothDiscreteAxes.png",
-                  "rFreqPolyWithAlpha.png",
-                  "rMultipleLegends.png",
-                  "rSimpleTile.png",
-                  #"rSimpleGeomText.png",
-                  #"rClassifiedGeomText.png",
-                  #"rAnnotateUsingGeomText.png",
-                  #"rAnnotateMaxValues.png"]
-                  "rAutoColoredNeuralSpikes.png",
-                  "rCustomColoredNeuralSpikes.png",
-                  "rNegativeBarPlot.png",
-                  "rSimpleFacet.png",
-                  "rFacetTpa.png"]
+
+    ## NOTE: these files cannot be compared as image files, because they contain
+    ## text on non white (transparent) background, which is turned black after conversion
+    ## to `ppm`. The text rendering on the cairo library on travis is different than
+    ## locally, so it fails. These files are only tested using JSON below.
+    const FilesToSkip = @["rCustomAnnotations"
+                          "rSimpleGeomText",
+                          "rClassifiedGeomText",
+                          "rAnnotateUsingGeomText",
+                          "rAnnotateMaxValues",
+                          "rPeriodicTable",
+                          "rSimpleFacet",
+                          "rFacetTpa"]
 
     proc convertRead(path: string): seq[seq[string]] =
-      for i, f in files:
-        let pathF = path / $f
+      for i, f in RecipeFiles: # from `recipeFiles`
+        if f in FilesToSkip: continue
+        let pathF = path / $f & ".png"
         check fileExists(pathF)
         let (_, _, fext) = pathF.splitFile
         let res = shellVerbose:
