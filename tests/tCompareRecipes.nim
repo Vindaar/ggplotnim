@@ -61,7 +61,7 @@ suite "Compare recipe output":
     ## text on non white (transparent) background, which is turned black after conversion
     ## to `ppm`. The text rendering on the cairo library on travis is different than
     ## locally, so it fails. These files are only tested using JSON below.
-    const FilesToSkip = @["rCustomAnnotations"
+    const FilesToSkip = @["rCustomAnnotations",
                           "rSimpleGeomText",
                           "rClassifiedGeomText",
                           "rAnnotateUsingGeomText",
@@ -89,8 +89,11 @@ suite "Compare recipe output":
       check comp
       if not comp:
         echo "Comparison failed for file: ", fname
-    for i in 0 ..< files.len:
-      checkFiles(expected[i], isnow[i], files[i])
+    var idx = 0
+    for f in RecipeFiles:
+      if f in FilesToSkip: continue
+      checkFiles(expected[idx], isnow[idx], f)
+      inc idx
 
   test "Compare recipe plots via JSON":
     ## first generate JSON from all recipe files by creating temporary
