@@ -465,62 +465,59 @@ suite "Data frame tests":
       check dfY3FromLong["x"].toTensor(float) == toTensor(df["x"], float)
 
 
-  when defined(defaultBackend):
-    ## NOTE: this is currently ``not`` supported on the arraymancer backend.
-    ## We could do it by converting the columns to `colObject`, but should we?
-    test "Gather - string and float column":
-      ## while it may be questionable to combine string and float columns in general
-      ## it should still work
-      let x = toSeq(0 ..< 100)
-      let y1 = x.mapIt(sin(it.float))
-      let yStr = x.mapIt($it)
-      let yComb = concat(%~ y1, %~ yStr)
-      let df = seqsToDf(x, y1, yStr)
-      check df.len == 100
-      let dfLong = df.gather(["y1", "yStr"], key = "from", value = "y")
-      check dfLong.len == 200
-      when defined(defaultBackend):
-        check dfLong["from"].unique == %~ @["y1", "yStr"]
-        check dfLong["y"].vToSeq == yComb
-      else:
-        check dfLong["from"].unique.toTensor(string) == toTensor @["y1", "yStr"]
-        check dfLong["y"].toTensor(Value) == toTensor yComb
-      let dfY1FromLong = dfLong.filter(f{c"from" == "y1"})
-      let dfYSTRFromLong = dfLong.filter(f{c"from" == "yStr"})
-      when defined(defaultBackend):
-        check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
-        check dfYSTRFromLong["y"].vToSeq == df["yStr"].vToSeq
-        check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
-        check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
-      else:
-        check dfY1FromLong["y"].toTensor(float) == df["y1"].toTensor(float)
-        check dfYSTRFromLong["y"].toTensor(string) == df["yStr"].toTensor(string)
-        check dfY1FromLong["x"].toTensor(float) == df["x"].toTensor(float)
-        check dfYSTRFromLong["x"].toTensor(float) == df["x"].toTensor(float)
+  test "Gather - string and float column":
+    ## while it may be questionable to combine string and float columns in general
+    ## it should still work
+    let x = toSeq(0 ..< 100)
+    let y1 = x.mapIt(sin(it.float))
+    let yStr = x.mapIt($it)
+    let yComb = concat(%~ y1, %~ yStr)
+    let df = seqsToDf(x, y1, yStr)
+    check df.len == 100
+    let dfLong = df.gather(["y1", "yStr"], key = "from", value = "y")
+    check dfLong.len == 200
+    when defined(defaultBackend):
+      check dfLong["from"].unique == %~ @["y1", "yStr"]
+      check dfLong["y"].vToSeq == yComb
+    else:
+      check dfLong["from"].unique.toTensor(string) == toTensor @["y1", "yStr"]
+      check dfLong["y"].toTensor(Value) == toTensor yComb
+    let dfY1FromLong = dfLong.filter(f{c"from" == "y1"})
+    let dfYSTRFromLong = dfLong.filter(f{c"from" == "yStr"})
+    when defined(defaultBackend):
+      check dfY1FromLong["y"].vToSeq == df["y1"].vToSeq
+      check dfYSTRFromLong["y"].vToSeq == df["yStr"].vToSeq
+      check dfY1FromLong["x"].vToSeq == df["x"].vToSeq
+      check dfYSTRFromLong["x"].vToSeq == df["x"].vToSeq
+    else:
+      check dfY1FromLong["y"].toTensor(float) == df["y1"].toTensor(float)
+      check dfYSTRFromLong["y"].toTensor(string) == df["yStr"].toTensor(string)
+      check dfY1FromLong["x"].toTensor(float) == df["x"].toTensor(float)
+      check dfYSTRFromLong["x"].toTensor(float) == df["x"].toTensor(float)
 
-    test "Gather - dropping null values":
-      ## check that it works for 3 columns too
-      let x = toSeq(0 ..< 100)
-      var
-        y1: seq[float]
-        y2: seq[Value]
-        x2s: seq[int]
-      for i, val in x:
-        y1.add sin(val.float)
-        if val mod 3 == 0:
-          y2.add (%~ (sin(val.float - PI / 2.0) - 0.5))
-          x2s.add i
-        else:
-          y2.add Value(kind: VNull)
-      let df = seqsToDf(x, y1, y2)
-      let gathered = df.gather(["y1", "y2"], dropNulls = false)
-      let onlyy2 = gathered.filter(f{Value: isNull(df["value"][idx]).toBool == false and
-                                    c"key" == %~ "y2"})
-      when defined(defaultBackend):
-        check onlyy2["x"].vToSeq == %~ x2s
+  test "Gather - dropping null values":
+    ## check that it works for 3 columns too
+    let x = toSeq(0 ..< 100)
+    var
+      y1: seq[float]
+      y2: seq[Value]
+      x2s: seq[int]
+    for i, val in x:
+      y1.add sin(val.float)
+      if val mod 3 == 0:
+        y2.add (%~ (sin(val.float - PI / 2.0) - 0.5))
+        x2s.add i
       else:
-        check onlyy2["x"].toTensor(int) == toTensor x2s
-      check onlyy2.len == x2s.len
+        y2.add Value(kind: VNull)
+    let df = seqsToDf(x, y1, y2)
+    let gathered = df.gather(["y1", "y2"], dropNulls = false)
+    let onlyy2 = gathered.filter(f{Value: isNull(df["value"][idx]).toBool == false and
+                                  c"key" == %~ "y2"})
+    when defined(defaultBackend):
+      check onlyy2["x"].vToSeq == %~ x2s
+    else:
+      check onlyy2["x"].toTensor(int) == toTensor x2s
+    check onlyy2.len == x2s.len
 
   test "Pretty printing of DFs":
     var
