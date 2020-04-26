@@ -109,8 +109,8 @@ suite "Compare recipe output":
       writeFile(tmpfile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
                                                               ("media/", "resources/")]))
       # run the tmp file to generate json
-      #shell:
-      discard execCmd("nim c -r " & $tmpfile)
+      shell:
+        nim c "-r" ($tmpfile)
       # compare generated json with expected json
       let resFile = parseFile "resources/recipes" / f & ".json"
       echo "Checking ", f & ".json"
