@@ -1891,6 +1891,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   var
     xticks: seq[GraphObject]
     yticks: seq[GraphObject]
+  let lastCol = numExist mod cols
   for label, idx in pairs(viewMap):
     var viewLabel = view[idx]
     for fg in filledScales.geoms:
@@ -1924,7 +1925,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       # hide the labels if scales not free and plot not in bottom row or
       # left most column
       let hideXLabels = if facet.sfKind in {sfFreeX, sfFree} or
-                           curRow == rows - 1: false
+                           curRow == rows - 1 or
+                           (curRow == rows - 2 and
+                            curCol >= lastCol and
+                            lastCol > 0):
+                          false
                         else: true
       let hideYLabels = if facet.sfKind in {sfFreeX, sfFree} or
                            curCol == 0: false
