@@ -100,6 +100,7 @@ suite "Compare recipe output":
     ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
     ## simply dumps
     const tmpfile = "recipes/tmpfile.nim"
+    discard existsOrCreateDir("resources/recipes")
     for f in RecipeFiles:
       let fname = "recipes" / f
       # read the file
