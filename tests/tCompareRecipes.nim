@@ -42,7 +42,9 @@ proc compareJObjects*(j1, j2: JsonNode): bool =
     of JObject:
       returnOnFalse(compareJObjects(v, j2[k]), true)
     of JFloat:
-      returnOnFalse(almostEqual(v.getFloat, j2[k].getFloat), true)
+      returnOnFalse(almostEqual(v.getFloat, j2[k].getFloat,
+                                epsilon = 1e-4),
+                    true)
     else:
       returnOnFalse(v, j2[k])
 
