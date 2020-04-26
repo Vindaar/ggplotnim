@@ -2244,7 +2244,7 @@ from os import splitFile
 proc `%`*(t: tuple): json.JsonNode =
   result = json.newJObject()
   for k, v in t.fieldPairs:
-    result[k] = %v
+    json.`[]=`(result, k, %v)
 
 proc ggjson*(fname: string, width = 640.0, height = 480.0): JsonDummyDraw =
   let (_, _, fext) = fname.splitFile
@@ -2259,7 +2259,7 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   doAssert jsDraw.width.isSome and jsDraw.height.isSome
   let plt = p.ggcreate(width = jsDraw.width.get,
                        height = jsDraw.height.get)
-  writeFile(jsDraw.fname, $(% plt.view))
+  writeFile(jsDraw.fname, json.`$`(% plt.view))
 
 proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
   p.toVegaLite()
