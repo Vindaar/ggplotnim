@@ -557,10 +557,10 @@ func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
   result = SecondaryAxis(trans: fn,
                          name: name)
 
-proc scale_x_continuous*(name: string = "",
+proc scale_x_discrete*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
-                         dcKind: DiscreteKind = dcContinuous): Scale =
-  ## creates a continuous x axis with a possible secondary axis.
+                         labels: proc(x: Value): string = nil): Scale =
+  ## creates a discrete x axis with a possible secondary axis.
   # NOTE: See note for y axis below
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
@@ -571,17 +571,37 @@ proc scale_x_continuous*(name: string = "",
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
-                 dcKind: dcKind,
+                 dcKind: dcDiscrete,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt)
+                 secondaryAxis: secAxisOpt,
+                 formatDiscreteLabel: labels)
+
+proc scale_x_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis(),
+                         labels: proc(x: float): string = nil): Scale =
+  ## creates a continuous x axis with a possible secondary axis.
+  # NOTE: See note for y continuous axis below
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akX
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akX,
+                 dcKind: dcContinuous,
+                 hasDiscreteness: true,
+                 secondaryAxis: secAxisOpt,
+                 formatContinuousLabel: labels)
 
 proc scale_y_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
-                         dcKind: DiscreteKind = dcContinuous): Scale =
+                         labels: proc(x: float): string = nil): Scale =
   ## creates a continuous y axis with a possible secondary axis.
   # NOTE: so far this only allows to set the name (read label) of the
-  # axis. Also the possible transformation for the secondary axis
-  # is ignored!
+  # axis and to provide a format function for the axis labels.
+  # Also the possible transformation for the secondary axis is ignored!
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
@@ -591,9 +611,29 @@ proc scale_y_continuous*(name: string = "",
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akY,
-                 dcKind: dcKind,
+                 dcKind: dcContinuous,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt)
+                 secondaryAxis: secAxisOpt,
+                 formatContinuousLabel: labels)
+
+proc scale_y_discrete*(name: string = "",
+                       secAxis: SecondaryAxis = sec_axis(),
+                       labels: proc(x: Value): string = nil): Scale =
+  ## creates a discrete y axis with a possible secondary axis.
+  # NOTE: see note for y continuous axis above
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akY
+    secAxisOpt = some(msecAxis)
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akY,
+                 dcKind: dcDiscrete,
+                 hasDiscreteness: true,
+                 secondaryAxis: secAxisOpt,
+                 formatDiscreteLabel: labels)
 
 proc scale_x_reverse*(name: string = "",
                       secAxis: SecondaryAxis = sec_axis(),
@@ -1260,7 +1300,7 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
       let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
                                  isSecondary = true)
       let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
-                                     margin = some(plt.c1(0.3, akX, ukCentimeter)))
+                                     margin = some(plt.c1(0.3, akX, ukCentimeter)), format = scale.formatContinuousLabel)
       result = concat(tickLabs, ticks)
   of scShape:
     for i in 0 ..< scale.valueMap.len:
@@ -1303,7 +1343,8 @@ proc largestPow(x: float): float =
 
 proc tickposlog(minv, maxv: float,
                 boundScale: ginger.Scale,
-                hideTickLabels = false): (seq[string], seq[float]) =
+                hideTickLabels = false,
+                format: proc(x: float): string): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
@@ -1314,7 +1355,7 @@ proc tickposlog(minv, maxv: float,
   for i in 0 ..< numTicks div 10:
     let base = (minv * pow(10, i.float))
     if not hideTickLabels:
-      labs.add formatTickValue(base)
+      labs.add format(base)
     let minors = linspace(base, 9 * base, 9)
     labPos.add minors.mapIt(it.log10)
     labs.add toSeq(0 ..< 8).mapIt("")
@@ -1374,7 +1415,8 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     var tickLabs: seq[GraphObject]
     tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
                                font = theme.tickLabelFont,
-                               margin = margin)
+                               margin = margin,
+                               format = scale.formatContinuousLabel)
     if not hideTickLabels:
       view.addObj concat(ticks, tickLabs)
     result = ticks
@@ -1382,8 +1424,11 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     # for now assume log10 scale
     let minVal = pow(10, scale.dataScale.low).smallestPow
     let maxVal = pow(10, scale.dataScale.high).largestPow
+    let format = if scale.formatContinuousLabel != nil: scale.formatContinuousLabel
+                 else: (proc(x: float): string = formatTickValue(x))
     let (labs, labelpos) = tickposlog(minVal, maxVal, boundScale,
-                                      hideTickLabels = hideTickLabels)
+                                      hideTickLabels = hideTickLabels,
+                                      format = format)
     var tickLocs: seq[Coord1D]
     case axKind
     of akX:
@@ -1413,7 +1458,8 @@ proc handleDiscreteTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                          isSecondary = false,
                          hideTickLabels = false,
                          centerTicks = true,
-                         margin = none[Coord1D]()): seq[GraphObject] =
+                         margin = none[Coord1D](),
+                         format: proc(x: Value): string): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -1440,7 +1486,7 @@ proc handleDiscreteTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     of akX: centerPos = 0.0
     of akY: centerPos = barViewWidth
   for i in 0 ..< numTicks:
-    if not hideTickLabels: tickLabels.add $labelSeq[i]
+    if not hideTickLabels: tickLabels.add format(labelSeq[i])
     else: tickLabels.add ""
     # in case of a discrete scale we have categories, which are evenly spaced.
     # taking into account the margin of the plot, calculate center of all categories
@@ -1494,15 +1540,20 @@ proc handleTicks(view: Viewport, filledScales: FilledScales, p: GgPlot,
   if hasScale:
     case scale.dcKind
     of dcDiscrete:
+      let format =
+        if scale.formatDiscreteLabel != nil: scale.formatDiscreteLabel
+        else: (proc(x: Value): string = $x)
       result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                         hideTickLabels = hideTickLabels,
-                                        margin = marginOpt)
+                                        margin = marginOpt,
+                                        format = format)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
                                             hideTickLabels = hideTickLabels,
-                                            margin = marginOpt)
+                                            margin = marginOpt,
+                                            format = format)
     of dcContinuous:
       result = view.handleContinuousTicks(p, axKind, scale, numTicks, theme = theme,
                                           hideTickLabels = hideTickLabels,
@@ -1706,9 +1757,13 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
 
   if not hideTicks:
     var xticks = view.handleTicks(filledScales, p, akX, theme = theme)
+    let format =
+      if yRidgeScale.formatDiscreteLabel != nil: yRidgeScale.formatDiscreteLabel
+      else: (proc(x: Value): string = $x)
     # we create the ticks manually with `discreteTickLabels` to set the labels
     var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
-                                          theme = theme, centerTicks = false)
+                                          theme = theme, centerTicks = false,
+                                          format = format)
     let grdLines = view.initGridLines(some(xticks), some(yticks))
     view.addObj @[grdLines]
   if not hideLabels:

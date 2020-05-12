@@ -113,6 +113,7 @@ type
       valueMap*: OrderedTable[Value, ScaleValue]
       # seq of labels to access via index
       labelSeq*: seq[Value]
+      formatDiscreteLabel*: proc(x: Value): string
     of dcContinuous:
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
@@ -121,6 +122,7 @@ type
       # `scTransformedData`, but contains the correct style calculations for the
       # other `ScaleKinds`
       mapData*: proc(df: DataFrame): seq[ScaleValue]
+      formatContinuousLabel*: proc(x: float): string
 
   ## enum to determine which scales in a facet plot are free
   ScaleFreeKind* = enum
