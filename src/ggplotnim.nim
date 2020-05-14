@@ -3,7 +3,7 @@
 import sequtils, tables, sets, algorithm, strutils, macros
 import parsecsv, streams, hashes, sugar, math
 
-when (NimMajor, NimMinor, NimPatch) > (1, 2, 0):
+when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
   export strutils.nimIdentNormalize # for parseEnum to work
 
 import ginger except Scale
