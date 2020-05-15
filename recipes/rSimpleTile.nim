@@ -12,5 +12,5 @@ let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
   #scale_x_discrete() +
-  #scale_y_discreate() +
+  #scale_y_discrete() +
   ggsave("media/recipes/rSimpleTile.png")

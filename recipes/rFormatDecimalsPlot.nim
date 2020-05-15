@@ -8,6 +8,6 @@ let df = seqsToDf(x, y)
 ggplot(df, aes("x", "y")) + 
   geom_line() +
   scale_x_continuous(labels = proc(x: float): string =
-                                x.formatFloat(ffDecimal, 2)) +
+                              x.formatFloat(ffDecimal, 2)) +
   xlab(label = " ") +
   ggsave("media/recipes/rFormatDecimalsPlot.png")

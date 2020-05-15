@@ -321,7 +321,7 @@ let dfMean = df.group_by("Channel").summarize(f{float: "Mean counts / min" << me
 # calculate mean for each channel
 ggplot(dfMean, aes("Channel", "Mean counts / min")) +
   geom_bar(stat = "identity", position = "identity") +
-  scale_x_continuous(name = "Channel number", dcKind = dcDiscrete) +
+  scale_x_discrete(name = "Channel number") +
   ggtitle("Mean counts per channel") +
   ggsave("media/recipes/rBarPlotCompStats.png")
 #+END_SRC
@@ -874,8 +874,8 @@ for x in 0 ..< 28:
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
-  #scale_x_continuous(dcKind = dcDiscrete) +
-  #scale_y_continuous(dcKind = dcDiscrete) +
+  #scale_x_discrete() +
+  #scale_y_discrete() +
   ggsave("media/recipes/rSimpleTile.png")
 #+END_SRC
 
@@ -998,7 +998,7 @@ let meanHwyCol = "meanHwy"
 ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
-  scale_y_continuous(dcKind = dcDiscrete) +
+  scale_y_discrete() +
   ggsave("media/recipes/rAnnotatedHeatmap.png")
 #+END_SRC
 
@@ -1247,6 +1247,70 @@ the encompassing data range of all subplots. Especially thanks to
 having the =hits= property in there, this would lead to useless
 binning.
 
+*** Custom tick labels via callback for dates 
+
+Starting from version =v0.3.7= (thanks to @cooldome !) it's possible
+to hand a callback to define custom tick labels. 
+
+This example shows how to get tick labels showing dates (especially
+useful, since ggplotnim does not natively support =DateTime= objects
+so far!).
+
+The callback is given to the =scale_x/y_discrete/continuous= procs via
+the =labels= parameter. For continuous labels the signature is:
+#+BEGIN_SRC nim
+proc(x: float): string
+#+END_SRC
+while for discrete labels it is:
+#+BEGIN_SRC nim
+proc(x: Value): string
+#+END_SRC
+where the =Value= corresponds to each discrete label on the discrete scale.
+#+BEGIN_SRC nim :tangle recipes/rFormatDatesPlot.nim
+import ggplotnim, strutils, sequtils, seqmath, times
+
+let x = linspace(0.0, 30.0, 1000)
+let y = x.mapIt(pow(sin(it), 2.0))
+
+let df = seqsToDf(x, y)
+
+ggplot(df, aes("x", "y")) +
+  geom_line() +
+  scale_y_continuous(labels = proc(x: float): string =
+                              x.formatFloat(ffDecimal, 1)) +
+  scale_x_continuous(labels = proc(x: float): string =
+                              getDateStr(now() - int(x).months)) +
+  xlab(label = " ") +
+  ggsave("media/recipes/rFormatDatesPlot.png")
+#+END_SRC
+
+This gives us:
+[[media/recipes/rFormatDatesPlot.png]]
+
+*** Custom tick labels to use decimals with specific precision
+
+In the same vain as the above, it might sometimes be useful to have
+control over the precision of the tick labels shown on the plot. This
+can also be done using the =labels= callback approach:
+#+BEGIN_SRC nim :tangle recipes/rFormatDecimalsPlot.nim
+import ggplotnim, strutils, sequtils, seqmath
+
+let x = linspace(0.0, 30.0, 1000)
+let y = x.mapIt(pow(sin(it), 2.0))
+
+let df = seqsToDf(x, y)
+
+ggplot(df, aes("x", "y")) + 
+  geom_line() +
+  scale_x_continuous(labels = proc(x: float): string =
+                              x.formatFloat(ffDecimal, 2)) +
+  xlab(label = " ") +
+  ggsave("media/recipes/rFormatDecimalsPlot.png")
+#+END_SRC
+
+This gives us:
+[[media/recipes/rFormatDecimalsPlot.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
@@ -1353,7 +1417,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
             aes = aes(x = f{3 - tileWidth/4.0 + 0.25},
                       width = f{tileWidth / 2.0},
                       height = f{tileHeight})) +
-  scale_y_continuous(dcKind = dcContinuous) +
+  scale_y_continuous() +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
                 text = "atomic number"),
@@ -1383,7 +1447,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   legendPosition(0.82, 0.1) +
   theme_void() +
   scale_y_reverse() +
-  scale_x_continuous(dcKind = dcContinuous) +
+  scale_x_continuous() +
   ggsave("media/recipes/rPeriodicTable.png",
          width = 1000,
          height = 500)
