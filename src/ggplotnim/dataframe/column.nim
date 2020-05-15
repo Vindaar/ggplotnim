@@ -183,6 +183,25 @@ template withNativeDtype*(c: Column, body: untyped): untyped =
     body
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
+template withDtypeByColKind*(colKind: ColKind, body: untyped): untyped =
+  case colKind
+  of colInt:
+    type dtype {.inject.} = int
+    body
+  of colFloat:
+    type dtype {.inject.} = float
+    body
+  of colString:
+    type dtype {.inject.} = string
+    body
+  of colBool:
+    type dtype {.inject.} = bool
+    body
+  of colObject:
+    type dtype {.inject.} = Value
+    body
+  of colNone: raise newException(ValueError, "Invalid column kind!")
+
 proc asValue*[T](t: Tensor[T]): Tensor[Value] {.noInit.} =
   ## Apply type conversion on the whole tensor
   result = t.map(x => (%~ x))
@@ -366,13 +385,6 @@ proc `[]=`*[T](c: var Column, idx: int, val: T) =
     c = c.toObjectColumn()
     c.oCol[idx] = %~ val
 
-proc equal*(c1: Column, idx1: int, c2: Column, idx2: int): bool =
-  ## checks if the value in `c1` at `idx1` is equal to the
-  ## value in `c2` at `idx2`
-  if c1.kind != c2.kind: return false
-  withNativeDtype(c1):
-    result = c1[idx1, dtype] == c2[idx2, dtype]
-
 template withNative2*(c1, c2: Column, idx1, idx2: int,
                       valName1, valName2: untyped,
                       body: untyped): untyped =
@@ -406,6 +418,20 @@ proc compatibleColumns*(c1, c2: Column): bool {.inline.} =
        c2.kind in {colInt, colFloat}:
     result = true
   else: result = false
+
+proc equal*(c1: Column, idx1: int, c2: Column, idx2: int): bool =
+  ## checks if the value in `c1` at `idx1` is equal to the
+  ## value in `c2` at `idx2`
+  if not compatibleColumns(c1, c2): return false
+  elif c1.kind == c2.kind:
+    withNativeDtype(c1):
+      result = c1[idx1, dtype] == c2[idx2, dtype]
+  else:
+    # need to get the enveloping kind and read the data using that corresponding
+    # data type
+    let kind = combinedColKind(@[c1.kind, c2.kind])
+    withDtypeByColKind(kind):
+      result = c1[idx1, dtype] == c2[idx2, dtype]
 
 proc toObject*(c: Column): Column {.inline.} =
   case c.kind

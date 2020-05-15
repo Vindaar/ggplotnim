@@ -1773,7 +1773,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     for k in allKeys:
       if k in df1S and k in df2S:
         doAssert compatibleColumns(df1S[k], df2S[k]), " Key: " & $k & ", df1: " & $df1S[k].kind & ", df2: " & $df2S[k].kind
-        result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
+        result.asgn(k, newColumn(kind = combinedColKind(@[df1S[k].kind, df2S[k].kind]),
+                                 length = resLen))
       elif k in df1S and k notin df2S:
         result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
       if k notin df1S and k in df2S:
