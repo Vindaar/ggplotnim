@@ -7,5 +7,5 @@ let meanHwyCol = "meanHwy"
 ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
-  scale_y_continuous(dcKind = dcDiscrete) +
+  scale_y_discrete() +
   ggsave("media/recipes/rAnnotatedHeatmap.png")
