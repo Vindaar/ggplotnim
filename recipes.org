@@ -80,6 +80,7 @@ extension. Supported are:
 - =.svg=
 - =.png=
 The above generates the following plot:
+
 [[./media/recipes/rLinePlotSize.png]]
 
 *** Stacked histogram colored by some class
@@ -1003,6 +1004,7 @@ ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
 #+END_SRC
 
 Which results in:
+
 [[media/recipes/rAnnotatedHeatmap.png]]
 
 *** Plot consisting of multiple subplots
@@ -1053,6 +1055,7 @@ plt.draw("media/recipes/rMultiSubplots.png")
 #+END_SRC
 
 Which gives us:
+
 [[media/recipes/rMultiSubplots.png]]
 
 *** Creating a neural spike plot in =ggplotnim=
@@ -1190,6 +1193,7 @@ ggplot(mpg, aes("displ", "hwy")) +
 #+END_SRC
 
 This gives us:
+
 [[media/recipes/rSimpleFacet.png]]
 
 *** Facet wrap for data of different ranges
@@ -1285,6 +1289,7 @@ ggplot(df, aes("x", "y")) +
 #+END_SRC
 
 This gives us:
+
 [[media/recipes/rFormatDatesPlot.png]]
 
 *** Custom tick labels to use decimals with specific precision
@@ -1309,6 +1314,7 @@ ggplot(df, aes("x", "y")) +
 #+END_SRC
 
 This gives us:
+
 [[media/recipes/rFormatDecimalsPlot.png]]
 
 *** TODO Example of changing font size in plot
@@ -1454,6 +1460,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
 #+END_SRC
 
 which gives the following amazing result (better to look at a PDF!):
+
 [[media/recipes/rPeriodicTable.png]]
 
 *** Plot a function
