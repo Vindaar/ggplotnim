@@ -72,7 +72,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
             aes = aes(x = f{3 - tileWidth/4.0 + 0.25},
                       width = f{tileWidth / 2.0},
                       height = f{tileHeight})) +
-  scale_y_continuous(dcKind = dcContinuous) +
+  scale_y_discrete() +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
                 text = "atomic number"),
@@ -102,7 +102,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   legendPosition(0.82, 0.1) +
   theme_void() +
   scale_y_reverse() +
-  scale_x_continuous(dcKind = dcContinuous) +
+  scale_x_discete() +
   ggsave("media/recipes/rPeriodicTable.png",
          width = 1000,
          height = 500)
