@@ -2032,7 +2032,7 @@ proc add*(df: var DataFrame, dfToAdd: DataFrame) =
   ## The simplest form of "adding" a data frame. If the keys match exactly or
   ## `df` is empty `dfToAdd` will be stacked below. This makes a key check and then
   ## calls `bind_rows` for the job.
-  if df.len == 0:
+  if df.isNil or df.len == 0:
     df = dfToAdd
   else:
     doAssert df.getKeys.sorted == dfToAdd.getKeys.sorted, "all keys must match to add dataframe!"
