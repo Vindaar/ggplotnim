@@ -43,4 +43,7 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rCustomColoredNeuralSpikes",
                        "rNegativeBarPlot",
                        "rSimpleFacet",
-                       "rFacetTpa"]
+                       "rFacetTpa",
+                       "rFormatDatesPlot",
+                       "rFormatDecimalsPlot"
+                       ]

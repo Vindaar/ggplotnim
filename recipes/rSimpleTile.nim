@@ -11,6 +11,6 @@ for x in 0 ..< 28:
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
-  #scale_x_continuous(dcKind = dcDiscrete) +
-  #scale_y_continuous(dcKind = dcDiscrete) +
+  #scale_x_discrete() +
+  #scale_y_discreate() +
   ggsave("media/recipes/rSimpleTile.png")

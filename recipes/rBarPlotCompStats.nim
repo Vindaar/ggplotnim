@@ -12,6 +12,6 @@ let dfMean = df.group_by("Channel").summarize(f{float: "Mean counts / min" << me
 # calculate mean for each channel
 ggplot(dfMean, aes("Channel", "Mean counts / min")) +
   geom_bar(stat = "identity", position = "identity") +
-  scale_x_continuous(name = "Channel number", dcKind = dcDiscrete) +
+  scale_x_discrete(name = "Channel number") +
   ggtitle("Mean counts per channel") +
   ggsave("media/recipes/rBarPlotCompStats.png")

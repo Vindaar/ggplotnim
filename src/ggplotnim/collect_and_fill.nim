@@ -418,6 +418,12 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
+      # `dcKind` is already populated and won't be deduced
+      # so that `s.dcKind` and `isDiscrete` are consistent
+      if s.dcKind == dcDiscrete and isDiscrete:
+        filled.formatDiscreteLabel = s.formatDiscreteLabel
+      elif s.dcKind == dcContinuous and not isDiscrete:
+        filled.formatContinuousLabel = s.formatContinuousLabel
     filled.ids = s.ids
     result.add filled
 
