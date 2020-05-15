@@ -897,3 +897,14 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 
     # combine with calculation
     check almostEqual(reduce(f{float: 235 / mean(c"hwy")}, mpg).toFloat, 10.0255, 1e-3)
+
+  test "Allow `add` if first argument is still uninitialized":
+    # uninitialized data frame (DataFrame is ref object)
+    var df: DataFrame
+    check df.isNil
+    let dfToAdd = seqsToDf({ "x" : @[1, 2, 3],
+                             "y" : @[4, 5, 6] })
+    df.add dfToAdd
+    check df == dfToAdd
+    check dfToAdd["x"].toTensor(int) == [1, 2, 3].toTensor
+    check dfToAdd["y"].toTensor(int) == [4, 5, 6].toTensor
