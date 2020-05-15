@@ -1766,11 +1766,13 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       keys1 = getKeys(df1S).toSet
       keys2 = getKeys(df2S).toSet
       allKeys = keys1 + keys2
+      commonKeys = keys1 * keys2
+      restKeys = allKeys - commonKeys
     result = newDataFrame(allKeys.card)
     let resLen = (max(df1S.len, df2S.len))
     for k in allKeys:
       if k in df1S and k in df2S:
-        doAssert df1S[k].kind == df2S[k].kind
+        doAssert compatibleColumns(df1S[k], df2S[k]), " Key: " & $k & ", df1: " & $df1S[k].kind & ", df2: " & $df2S[k].kind
         result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
       elif k in df1S and k notin df2S:
         result.asgn(k, newColumn(kind = df1S[k].kind, length = resLen))
@@ -1786,11 +1788,13 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       let jl = idxDf2[j]
       # indices point to same row, merge row
       if df1By[il] == df2By[jl]:
-        for k in allKeys:
-          if k in keys1 and k in keys2:
-            doAssert equal(df1S[k], il, df2S[k], jl)
-            result.assign(k, count, df1S[k], il)
-          elif k in keys1:
+        for k in commonKeys:
+          if not equal(df1S[k], il, df2S[k], jl):
+            # skip this element
+            break
+          result.assign(k, count, df1S[k], il)
+        for k in restKeys:
+          if k in keys1:
             result.assign(k, count, df1S[k], il)
           elif k in keys2:
             result.assign(k, count, df2S[k], jl)
@@ -1810,8 +1814,12 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
       else:
         raise newException(Exception, "This should not happen")
     result.len = count
-    #for k in keys(seqTab):
-    #  result[k] = seqTab[k].toPersistentVector
+    # possibly shorten the columns
+    if result.len < resLen:
+      for k in getKeys(result):
+        withNativeTensor(result[k], t):
+          result.asgn(k, toColumn(t[_ ..< result.len]))
+        result[k].len = result.len
 
 proc toSet*[T](t: Tensor[T]): HashSet[T] =
   for el in t:
