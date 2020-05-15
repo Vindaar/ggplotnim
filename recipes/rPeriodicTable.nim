@@ -102,7 +102,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   legendPosition(0.82, 0.1) +
   theme_void() +
   scale_y_reverse() +
-  scale_x_discete() +
+  scale_x_discrete() +
   ggsave("media/recipes/rPeriodicTable.png",
          width = 1000,
          height = 500)
