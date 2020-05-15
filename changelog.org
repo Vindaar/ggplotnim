@@ -1,3 +1,12 @@
+* v0.3.7
+- tick labels can now be provided to =scale_x/y_discrete/continuous=
+  via a callback, PR #70 by @cooldome
+- adds two recipes:
+  - =rFormatDecimalsPlot=: example to provide custom formatting for
+    decimals in tick labels
+  - =rFormatDatesPlot=: example to provide custom formatting for dates
+    as tick labels
+
 * v0.3.6
 - hot fix for =nimIdentNormalize= usage in =1.2.x= by accident (only
   available from =1.3.x=)
