@@ -66,8 +66,6 @@ func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
   else:
     result = s2
 
-from sugar import capture
-
 proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## Given a sequence of scales applies all transformations of the `scales`.
   ## That is for each `scTransformedData` scale the according transformation
@@ -80,7 +78,9 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   # transformations have been applied!
   var fns: seq[FormulaNode]
   for s in scales:
-    # let s = s # this would've also worked but less efficient
+    let s = s
+      # refs https://github.com/nim-lang/Nim/pull/14447
+      # alternative would be to use `sugar.capture(s)` instead of `closureScope`
     if s.scKind == scTransformedData:
       when defined(defaultBackend):
         let col = evaluate(s.col)
@@ -89,7 +89,7 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
       else:
         # create a closureScope to capture the value of `s` and `col` instead
         # of the reference
-        capture(s): # refs https://github.com/nim-lang/Nim/pull/14447
+        closureScope:
           let col = evaluate(s.col)
           let colStr = getColName(s)
           # make a copy of `s` which we hand to the closure
