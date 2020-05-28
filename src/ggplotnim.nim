@@ -2106,6 +2106,7 @@ proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom
                                        axis: akY,
                                        scale: view.yScale)).pos
 
+
 proc drawAnnotations*(view: var Viewport, p: GgPlot) =
   ## draws all annotations from `p` onto the mutable view `view`.
   # this is 0.5 times the string height. Margin between text and
