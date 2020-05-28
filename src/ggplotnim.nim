@@ -2131,7 +2131,6 @@ proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom
                                        axis: akY,
                                        scale: view.yScale)).pos
 
-
 proc drawAnnotations*(view: var Viewport, p: GgPlot) =
   ## draws all annotations from `p` onto the mutable view `view`.
   # this is 0.5 times the string height. Margin between text and
@@ -2154,8 +2153,9 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       marginH.pos * 2.0,
       unit = ukRelative)
     # find longest line of annotation to base background on
+    let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
     let maxLine = annot.text.strip.splitLines.sortedByIt(
-      getStrWidth(it, annot.font).val
+      getStrWidth(it, font).val
     )[^1]
     let maxWidth = getStrWidth(maxLine, annot.font)
     # calculate required width for background rectangle. string width +
