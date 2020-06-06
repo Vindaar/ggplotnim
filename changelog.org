@@ -1,3 +1,6 @@
+* v0.3.8
+Hotfix for broken CI, due to one recipe =rFormatDatesPlot.nim= being
+dependent on time recipe is being run.
 * v0.3.7
 - tick labels can now be provided to =scale_x/y_discrete/continuous=
   via a callback, PR #70 by @cooldome
