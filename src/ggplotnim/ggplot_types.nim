@@ -35,6 +35,7 @@ type
     height*: Option[Scale] # height of tile / rect / raster
     text*: Option[Scale] # text to display
     yRidges*: Option[Scale]
+    weight*: Option[Scale]
 
   ScaleKind* = enum
     scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize, scText
@@ -360,6 +361,7 @@ type
     height*: MainAddScales
     text*: MainAddScales # not needed, since we don't collect text
     yRidges*: MainAddScales
+    weight*: MainAddScales
     facets*: seq[Scale] # no difference between main / more
 
   # `PlotView` describes the object the final representation of a `GgPlot` before

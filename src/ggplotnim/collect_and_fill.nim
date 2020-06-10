@@ -571,6 +571,10 @@ proc collectScales*(p: GgPlot): FilledScales =
   let textFilled = callFillScale(p.data, texts, scText)
   fillField("text", textFilled)
 
+  let weights = collect(p, weight)
+  let weightFilled = callFillScale(p.data, weights, scLinearData)
+  fillField("weight", weightFilled)
+
   # finally add all available facets if any
   if p.facet.isSome:
     result.addFacets(p)

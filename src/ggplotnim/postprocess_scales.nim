@@ -46,6 +46,7 @@ func getScales(gid: uint16, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.height))
   addIfAny(result[2], getScale(filledScales.text)) # not required
   addIfAny(result[2], getScale(filledScales.yRidges))
+  addIfAny(result[2], getScale(filledScales.width))
   # finally add facets
   result[2].add filledScales.facets
 
@@ -225,7 +226,7 @@ else:
     of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
 
 
-proc addBinCountsByPosition(sumHist: var seq[int], hist: seq[int],
+proc addBinCountsByPosition(sumHist: var seq[float], hist: seq[float],
                             pos: PositionKind) =
   ## adds the `hist` sequence elements to the `sumHist` sequence taking into
   ## account the geom position kind
@@ -238,7 +239,7 @@ proc addBinCountsByPosition(sumHist: var seq[int], hist: seq[int],
         sumHist[i] += hist[i]
   of pkIdentity, pkDodge:
     sumHist = hist
-  of pkFill: sumHist = @[1] # max for fill always 1.0
+  of pkFill: sumHist = @[1.0] # max for fill always 1.0
 
 when defined(defaultBackend):
   proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
@@ -332,45 +333,47 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
-func callHistogram[T: seq | Tensor](geom: Geom, data: T,
-                                    range: ginger.Scale): (seq[int], seq[float], seq[float]) =
+proc callHistogram(geom: Geom,
+                   df: DataFrame,
+                   scale: Scale,
+                   weightScale: Option[Scale],
+                   range: ginger.Scale): (seq[float], seq[float], seq[float]) =
   ## calls the `histogram` proc taking into account the `geom` fields for
   ## - numBins
   ## - binWidth
   ## - binEdges
   ## and chooses the correct field for the calculation
   doAssert geom.statKind == stBin, "Can only bin `stBin` geoms!"
-  when T is Tensor:
-    ## TODO: investigate! why is `data` here only a view of the full tensor?
-    ## Shouldn't `filter` + `groups` iterator return a new tensor?
-    var data = data.clone.toRawSeq
+  template readTmpl(sc: untyped): untyped =
+    when defined(defaultBackend):
+      sc.col.evaluate(df).vToSeq.mapIt(it.toFloat)
+    else:
+      ## TODO: investigate! why is `data` here only a view of the full tensor?
+      ## Shouldn't `filter` + `groups` iterator return a new tensor?
+      sc.col.evaluate(df).toTensor(float).clone.toRawSeq
+  let data = readTmpl(scale)
   var
-    hist: seq[int]
+    hist: seq[float]
     binEdges: seq[float]
     binWidths: seq[float]
+  template call(binsArg: untyped): untyped =
+    let range = if geom.binBy == bbFull: (range.low, range.high) else: (0.0, 0.0)
+    let weightData = if weightScale.isSome: readTmpl(weightScale.unsafeGet)
+                     else: newSeq[float]()
+    (hist, binEdges) = histogram(data,
+                                 weights = weightData,
+                                 bins = binsArg, range = range)
   if geom.binEdges.isSome:
-    case geom.binBy
-    of bbFull:
-      (hist, binEdges) = histogram(data, bins = geom.binEdges.get, range = (range.low, range.high))
-    of bbSubset:
-      (hist, binEdges) = histogram(data, bins = geom.binEdges.get)
+    call(geom.binEdges.get)
   elif geom.binWidth.isSome:
     let bins = ((range.high - range.low) / geom.binWidth.get).round.int
-    case geom.binBy
-    of bbFull:
-      (hist, binEdges) = histogram(data, bins = bins, range = (range.low, range.high))
-    of bbSubset:
-      (hist, binEdges) = histogram(data, bins = bins)
+    call(bins)
   else:
-    case geom.binBy:
-    of bbFull:
-      (hist, binEdges) = histogram(data, bins = geom.numBins, range = (range.low, range.high))
-    of bbSubset:
-      (hist, binEdges) = histogram(data, bins = geom.numBins)
+    call(geom.numBins)
   for i in 0 ..< binEdges.high:
     binWidths.add binEdges[i+1] - binEdges[i]
   # add one element for `hist` with 0 entries to have hist.len == bin_edges.len
-  hist.add 0
+  hist.add 0.0
   result = (hist, binEdges, binWidths)
 
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
@@ -399,18 +402,17 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
-    # sumHist used to calculate height of stacked histogram
-    var sumHist: seq[int]
+    # sumHist used to calculate height of stacked histogram. Stored as `float`,
+    # since histogram may be float (if weights used)
+    var sumHist: seq[float]
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      when defined(defaultBackend):
-        let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).vToSeq.mapIt(it.toFloat),
-                                              range = x.dataScale)
-      else:
-        let (hist, bins, _) = g.callHistogram(x.col.evaluate(subDf).toTensor(float),
-                                              range = x.dataScale)
+      let (hist, bins, _) = g.callHistogram(df,
+                                            x,
+                                            weightScale = filledScales.getWeightScale(g),
+                                            range = x.dataScale)
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
       sumHist.addBinCountsByPosition(hist, g.position)
@@ -424,12 +426,13 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       result.yScale = mergeScales(result.yScale, (low: 0.0,
                                                   high: sumHist.max.float))
   else:
-    when defined(defaultBackend):
-      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).vToSeq.mapIt(it.toFloat),
-                                                    range = x.dataScale)
-    else:
-      let (hist, bins, binWidths) = g.callHistogram(x.col.evaluate(df).toTensor(float),
-                                                    range = x.dataScale)
+    # before we assign calculate histogram
+    let (hist, bins, binWidths) = g.callHistogram(
+      df,
+      x,
+      weightScale = filledScales.getWeightScale(g),
+      range = x.dataScale
+    )
     let yieldDf = seqsToDf({ getColName(x) : bins,
                              countCol: hist,
                              widthCol: binWidths})
