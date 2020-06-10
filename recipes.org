@@ -1331,6 +1331,8 @@ ggplot(df, aes("carat", weight = "price")) +
   ggsave("media/recipes/rWeightedHistogram.png")
 #+END_SRC
 
+[[./media/recipes/rWeightedHistogram.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot

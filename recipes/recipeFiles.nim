@@ -45,5 +45,6 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rSimpleFacet",
                        "rFacetTpa",
                        "rFormatDatesPlot",
-                       "rFormatDecimalsPlot"
+                       "rFormatDecimalsPlot",
+                       "rWeightedHistogram"
                        ]
