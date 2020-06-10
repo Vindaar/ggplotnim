@@ -1,3 +1,6 @@
+* v0.3.9
+- add support for weighted bin count statistics (=weight= field for
+  e.g. =geom_histogram=)
 * v0.3.8
 Hotfix for broken CI, due to one recipe =rFormatDatesPlot.nim= being
 dependent on time recipe is being run.
