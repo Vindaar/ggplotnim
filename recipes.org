@@ -1320,6 +1320,17 @@ This gives us:
 
 [[media/recipes/rFormatDecimalsPlot.png]]
 
+*** Histogram with weights for each entry
+
+#+BEGIN_SRC nim :tangle recipes/rWeightedHistogram.nim
+import ggplotnim
+let df = toDf(readCsv("data/diamonds.csv"))
+ggplot(df, aes("carat", weight = "price")) + 
+  geom_histogram() + 
+  ylab("Binned carat weighted by price") + 
+  ggsave("media/recipes/rWeightedHistogram.png")
+#+END_SRC
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot

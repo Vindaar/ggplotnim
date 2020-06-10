@@ -83,7 +83,8 @@ proc orNoneScale[T: string | SomeNumber | FormulaNode](s: T, scKind: static Scal
   else:
     result = none[Scale]()
 
-proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | SomeNumber | FormulaNode](
+# TODO: replace this, it got out of hand :P
+proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N, O: string | SomeNumber | FormulaNode](
   x: A = "",
   y: B = "",
   color: C = "",
@@ -97,7 +98,8 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | SomeNumber | Formul
   width: K = "",
   height: L = "",
   text: M = "",
-  yRidges: N = ""): Aesthetics =
+  yRidges: N = "",
+  weight: O = ""): Aesthetics =
     result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
                         y: y.orNoneScale(scLinearData, akY),
                         color: color.orNoneScale(scColor),
@@ -113,7 +115,10 @@ proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N: string | SomeNumber | Formul
                         # TODO: should we fix this axis here?... :| Use something
                         # other than `scLinearData`?
                         text: text.orNoneScale(scText),
-                        yRidges: yRidges.orNoneScale(scLinearData, akY))
+                        yRidges: yRidges.orNoneScale(scLinearData, akY),
+                        # axis of weight does not matter, since it will be assigned to
+                        # the axis on which bin count is done
+                        weight: weight.orNoneScale(scLinearData, akY))
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
@@ -136,6 +141,7 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.height)
   fillIt(result.text)
   fillIt(result.yRidges)
+  fillIt(result.weight)
 
 proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
   result = GgPlot[T](data: data,

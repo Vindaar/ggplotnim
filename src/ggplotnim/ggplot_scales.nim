@@ -80,6 +80,8 @@ iterator enumerateScalesByIds*(filledScales: FilledScales): Scale =
   #genYield(width)
   #genYield(height)
   #genYield(text)
+  # weight does not exist by the time the final DF is created
+  # genYield(weight)
   genYield(yRidges)
 
 iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
@@ -115,6 +117,7 @@ macro genGetOptScale(field: untyped): untyped =
       else:
         # find scale matching `gid`
         for s in filledScales.`field`.more:
+          echo "more ", s
           if geom.gid == 0 or geom.gid in s.ids:
             return some(s)
 
@@ -129,6 +132,7 @@ genGetOptScale(width)
 genGetOptScale(height)
 genGetScale(text)
 genGetScale(yRidges)
+genGetOptScale(weight)
 # not used at the moment
 #genGetScale(color)
 #genGetScale(size)
