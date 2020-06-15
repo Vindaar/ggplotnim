@@ -1,3 +1,8 @@
+* v0.3.10
+- fix bug in =add= for data frames if first argument was still =nil= 
+- allow multiple types in =innerJoin=, requirement is that columns to
+  be combined are compatible (mainly means int + float -> float)
+- add some tests for =innerJoin=
 * v0.3.9
 - add support for weighted bin count statistics (=weight= field for
   e.g. =geom_histogram=)
