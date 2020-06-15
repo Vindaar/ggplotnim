@@ -1322,6 +1322,16 @@ This gives us:
 
 *** Histogram with weights for each entry
 
+Since version =v0.3.9= it's finally possible to give the elements
+being binned when using =geom_histogram= (or any other geom with ~stat =
+"bin"~). 
+
+Note that for the time being the default label for the weighted axis
+is still "count"!
+
+If each element to be binned has a corresponding weight, this is
+simply done by using the =weight= aes pointing to said column:
+
 #+BEGIN_SRC nim :tangle recipes/rWeightedHistogram.nim
 import ggplotnim
 let df = toDf(readCsv("data/diamonds.csv"))
@@ -1331,7 +1341,33 @@ ggplot(df, aes("carat", weight = "price")) +
   ggsave("media/recipes/rWeightedHistogram.png")
 #+END_SRC
 
+Which gives the following:
+
 [[./media/recipes/rWeightedHistogram.png]]
+
+Feel free to compare this result to the same plot with a weight of 1
+for each element!
+
+*** Histograms showing density instead of counts
+
+Another addition for binned geoms in version =v0.3.9= is the support
+for density calculations. Instead of associating to each bin the
+number of counts, the density of each bin is returned instead. 
+
+Don't confuse this with the (soon to be added™) =geom_density=, which
+calculates a kernel density estimation given a set of samples and
+returns a smooth estimation of the underlying distribution. 
+
+#+BEGIN_SRC nim :tangle recipes/rHistogramDensity.nim
+import ggplotnim
+let df = toDf(readCsv("data/diamonds.csv"))
+ggplot(df, aes("carat")) + 
+  geom_histogram(density = true) + 
+  ggsave("media/recipes/rHistogramDensity.png")
+#+END_SRC
+
+[[./media/recipes/rHistogramDensity.png]]
+
 
 *** TODO Example of changing font size in plot
 
