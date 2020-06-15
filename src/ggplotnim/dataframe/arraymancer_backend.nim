@@ -2214,6 +2214,32 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
     # fill each key with the non zero elements
   result.len = idxToKeep.size
 
+proc drop_null*(df: DataFrame, cols: varargs[string],
+                convertColumnKind = false): DataFrame =
+  ## returns a DF with only those rows left, which contain no null values.
+  ## By default this includes all columns in the data frame. If one or more
+  ## args are given, only those columns will be considered.
+  ##
+  ## By default no attempt is made to convert the new columns to a unified
+  ## data type. Each column containing null values is an object column.
+  ## Conversion requires a trial and error approach, which is inefficient.
+  ## It's better done by the user who knows whether the resulting column
+  ## should now be a pure column.
+  var mcols = @cols
+  if mcols.len == 0:
+    mcols = getKeys(df)
+  var colsNeedPruning = newSeq[string]()
+  for col in mcols:
+    if df[col].kind == colObject: # cols which aren't object cannot contain null
+      colsNeedPruning.add col
+  # now have to check all those cols for null, advantage: all cols use Value
+  # -> can read all
+  result = df
+  for col in colsNeedPruning:
+    ## TODO: avoid filtering several times somehow?
+    ## can read all cols first and then iterate over them? Not necessarily faster
+    result = result.filter(f{Value: isNull(df[col][idx]).toBool == false})
+
 func evaluate*(node: FormulaNode): Value =
   ## tries to return a single `Value` from a FormulaNode.
   ## Works either if formula is `fkNone` or `fkVariable`.

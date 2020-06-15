@@ -1034,3 +1034,43 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     check dfRes["Ids"].kind == colFloat
     check dfRes["Ids"].toTensor(float) == dfExp["Ids"].toTensor(float)
     check dfRes["Words"].toTensor(string) == dfExp["Words"].toTensor(string)
+
+  test "Remove 'null' values from DF":
+    let idents = @["A", "B", "C", "D", "E"]
+    let ids = @[1, 2, 3, 4, 5]
+    let ages = @[43, 27, 32, 43]
+    let cities = @[%~ "NYC", %~ "London", %~ "Sydney", Value(kind: VNull),
+                   %~ "Berlin"]
+    let df = seqsToDf({ "Ident" : idents,
+                        "Id" : ids,
+                        "Age" : ages,
+                        "City" : cities})
+    # now check for:
+    # -> filter by each individual column
+    # -> filter by both columns in one call
+    let dfExp1 = seqsToDf({ "Ident" : idents[0 ..< ^1],
+                            "Id" : ids[0 ..< ^1],
+                            "Age" : ages,
+                            "City" : cities[0 ..< ^1] })
+    let dfExp2 = seqsToDf({ "Ident" : @["A", "B", "C", "E"],
+                            "Id" : @[1, 2, 3, 5],
+                            "Age" : @[%~ 43, %~ 27, %~ 32, Value(kind: VNull)],
+                            "City" : cities.filterIt(it.kind != VNull) })
+    let dfExp3 = seqsToDf({ "Ident" : @["A", "B", "C"],
+                            "Id" : @[1, 2, 3],
+                            "Age" : %~ @[43, 27, 32],
+                            "City" : %~ cities[0 ..< ^2]})
+    let dfRes1 = df.drop_null("Age")
+    check dfRes1["Age"].kind == colObject
+    check dfRes1["City"].kind == colObject
+    let dfRes2 = df.drop_null("City")
+    check dfRes2["Age"].kind == colObject
+    check dfRes2["City"].kind == colObject
+    let dfRes3 = df.drop_null()
+    check dfRes3["Age"].kind == colObject
+    check dfRes3["City"].kind == colObject
+    let keys = getKeys(df)
+    for k in keys:
+      check dfRes1[k].toTensor(Value) == dfExp1[k].toTensor(Value)
+      check dfRes2[k].toTensor(Value) == dfExp2[k].toTensor(Value)
+      check dfRes3[k].toTensor(Value) == dfExp3[k].toTensor(Value)
