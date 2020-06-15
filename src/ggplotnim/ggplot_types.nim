@@ -211,6 +211,8 @@ type
       binEdges*: Option[seq[float]]
       binBy*: BinByKind # determine whether full data or only current subset is considered
                         # as the range to call `histogram` with
+      density*: bool ## if true will compute the density instead of counts in
+                     ## each bin
 
     else:
       discard

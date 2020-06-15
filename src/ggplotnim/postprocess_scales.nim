@@ -360,9 +360,16 @@ proc callHistogram(geom: Geom,
     let range = if geom.binBy == bbFull: (range.low, range.high) else: (0.0, 0.0)
     let weightData = if weightScale.isSome: readTmpl(weightScale.unsafeGet)
                      else: newSeq[float]()
-    (hist, binEdges) = histogram(data,
-                                 weights = weightData,
-                                 bins = binsArg, range = range)
+    template inner(dens: untyped): untyped =
+      # need static arg to `density`, thus this inner template
+      (hist, binEdges) = histogram(data,
+                                   weights = weightData,
+                                   bins = binsArg, range = range,
+                                   density = dens)
+    if geom.density:
+      inner(true)
+    else:
+      inner(false)
   if geom.binEdges.isSome:
     call(geom.binEdges.get)
   elif geom.binWidth.isSome:
@@ -377,7 +384,7 @@ proc callHistogram(geom: Geom,
   result = (hist, binEdges, binWidths)
 
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
-  const countCol = "count" # do not hardcode!
+  let countCol = if g.density: "density" else: "count" # do not hardcode!
   const widthCol = "binWidths"
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
