@@ -3,6 +3,11 @@
   e.g. =geom_histogram=)
 - add suport for =density= computation when using bin count statistics 
   (=density= argument to =geom_*= procedures)
+- add two recipes:
+  - =rWeightedHistogram.nim=: histogram of carat of diamonds weighted
+    by price
+  - =rHistogramDensity.nim=: histogram of carat of diamonds as a
+    density instead of counts
 * v0.3.8
 Hotfix for broken CI, due to one recipe =rFormatDatesPlot.nim= being
 dependent on time recipe is being run.
