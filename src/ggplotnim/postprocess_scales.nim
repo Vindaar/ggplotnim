@@ -409,7 +409,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      let (hist, bins, _) = g.callHistogram(df,
+      let (hist, bins, _) = g.callHistogram(subDf,
                                             x,
                                             weightScale = filledScales.getWeightScale(g),
                                             range = x.dataScale)
