@@ -155,7 +155,7 @@ proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
                                                        ukCentimeter)))
 
 template assignBinFields(res: var Geom, stKind, bins,
-                         binWidth, breaks, bbVal: untyped): untyped =
+                         binWidth, breaks, bbVal, density: untyped): untyped =
   case stKind
   of stBin:
     if breaks.len > 0:
@@ -165,6 +165,7 @@ template assignBinFields(res: var Geom, stKind, bins,
     if bins > 0:
       res.numBins = bins
     res.binBy = bbVal
+    res.density = density
   else: discard
 
 func initGgStyle(color = none[Color](),
@@ -197,7 +198,8 @@ proc geom_point*(aes: Aesthetics = aes(),
                  breaks: seq[float] = @[],
                  binPosition = "none",
                  position = "identity", # the position kind, "identity", "stack" etc.
-                 binBy = "full"
+                 binBy = "full",
+                 density = false
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -217,7 +219,7 @@ proc geom_point*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_errorbar*(aes: Aesthetics = aes(),
                     data = DataFrame(),
@@ -230,7 +232,8 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                     breaks: seq[float] = @[],
                     binPosition = "none",
                     position = "identity", # the position kind, "identity", "stack" etc.
-                    binBy = "full"
+                    binBy = "full",
+                    density = false
                    ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -251,7 +254,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_linerange*(aes: Aesthetics = aes(),
                      data = DataFrame(),
@@ -264,7 +267,8 @@ proc geom_linerange*(aes: Aesthetics = aes(),
                      breaks: seq[float] = @[],
                      binPosition = "none",
                      position = "identity", # the position kind, "identity", "stack" etc.
-                     binBy = "full"
+                     binBy = "full",
+                     density = false
                    ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -285,7 +289,7 @@ proc geom_linerange*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 
 proc geom_bar*(aes: Aesthetics = aes(),
@@ -327,7 +331,8 @@ proc geom_line*(aes: Aesthetics = aes(),
                 breaks: seq[float] = @[],
                 binPosition = "none",
                 position = "identity",
-                binBy = "full"
+                binBy = "full",
+                density = false
                ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
@@ -343,7 +348,7 @@ proc geom_line*(aes: Aesthetics = aes(),
                 aes: aes.fillIds({gid}),
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
@@ -354,7 +359,8 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      position = "stack",
                      stat = "bin",
                      binPosition = "left",
-                     binBy = "full"
+                     binBy = "full",
+                     density = false
                     ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
@@ -376,7 +382,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
                     data = DataFrame(),
@@ -391,7 +397,8 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     position = "identity",
                     stat = "bin",
                     binPosition = "center",
-                    binBy = "full"
+                    binBy = "full",
+                    density = false
                    ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
@@ -412,7 +419,7 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 position: pkKind,
                 binPosition: bpKind,
                 statKind: stKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_tile*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -426,7 +433,8 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 breaks: seq[float] = @[],
                 binPosition = "none",
                 position = "identity", # the position kind, "identity", "stack" etc.
-                binBy = "full"
+                binBy = "full",
+                density = false
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -447,7 +455,7 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_text*(aes: Aesthetics = aes(),
                 data = DataFrame(),
@@ -462,7 +470,8 @@ proc geom_text*(aes: Aesthetics = aes(),
                 breaks: seq[float] = @[],
                 binPosition = "none",
                 position = "identity", # the position kind, "identity", "stack" etc.
-                binBy = "full"
+                binBy = "full",
+                density = false
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -485,7 +494,7 @@ proc geom_text*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 position: pKind)
-  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 
 proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
@@ -2050,14 +2059,24 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
       elif not yScale.col.isNil:
         result = $yScale.col
       else:
-        result = "count"
+        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
+                                             it.geom.density):
+                   "density"
+                 else:
+                   "count"
     else:
       if yScale.name.len > 0:
         result = yScale.name
       elif yScale.col.name.len > 0:
         result = $yScale.col
       else:
-        result = "count"
+        ## TODO: make this nicer by having a better approach to propagate
+        ## the density information from geoms to here!
+        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
+                                             it.geom.density):
+                   "density"
+                 else:
+                   "count"
 
 proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale =
   var margin: float
