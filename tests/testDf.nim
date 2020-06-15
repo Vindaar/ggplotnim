@@ -948,3 +948,25 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     check dfRes["Ids"].kind == colFloat
     check dfRes["Ids"].toTensor(float) == dfExp["Ids"].toTensor(float)
     check dfRes["Words"].toTensor(string) == dfExp["Words"].toTensor(string)
+
+  test "Inner join - missing elements":
+    let idents = @["A", "B", "C", "D", "E"]
+    let ids = @[1, 2, 3, 4, 5]
+    let idsFloat = @[1'f64, 2, 3, 4]
+    let words = @["suggest", "result", "from", "to"]
+    let df1 = seqsToDf({ "Ident" : idents,
+                         "Ids" : ids})
+    let df2 = seqsToDf({ "Ident" : idents[0 ..< ^1],
+                         "Ids" : idsFloat,
+                         "Words" : words})
+    let dfExp = seqsToDf({ "Ident" : idents[0 ..< ^1],
+                           "Ids" : idsFloat,
+                           "Words" : words })
+    let dfRes = df1.innerJoin(df2, by = "Ident")
+    check dfRes.len == dfExp.len
+    check dfRes.getKeys == dfExp.getKeys
+    check dfRes["Ident"].toTensor(string) == dfExp["Ident"].toTensor(string)
+    # result has enveloping column kind float
+    check dfRes["Ids"].kind == colFloat
+    check dfRes["Ids"].toTensor(float) == dfExp["Ids"].toTensor(float)
+    check dfRes["Words"].toTensor(string) == dfExp["Words"].toTensor(string)
