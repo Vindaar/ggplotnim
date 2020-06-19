@@ -1116,3 +1116,17 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       check dfRes1[k].toTensor(Value) == dfExp1[k].toTensor(Value)
       check dfRes2[k].toTensor(Value) == dfExp2[k].toTensor(Value)
       check dfRes3[k].toTensor(Value) == dfExp3[k].toTensor(Value)
+
+    # convert manually to correct dtypes
+    check dfRes1["Age"].toNativeColumn.kind == colInt
+    expect(AssertionDefect):
+      check dfRes1["City"].toNativeColumn.kind == colString
+    check dfRes1["City"].toNativeColumn(failIfImpossible = false).kind == colObject
+
+    check dfRes2["City"].toNativeColumn.kind == colString
+    expect(AssertionDefect):
+      check dfRes2["Age"].toNativeColumn.kind == colInt
+    check dfRes2["Age"].toNativeColumn(failIfImpossible = false).kind == colObject
+
+    check dfRes3["Age"].toNativeColumn.kind == colInt
+    check dfRes3["City"].toNativeColumn.kind == colString
