@@ -1035,6 +1035,48 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     check dfRes["Ids"].toTensor(float) == dfExp["Ids"].toTensor(float)
     check dfRes["Words"].toTensor(string) == dfExp["Words"].toTensor(string)
 
+  test "Convert (one typed) object column to native":
+    let a = @["A", "B", "C", "D", "E"]
+    let b = @[1, 2, 3, 4, 5]
+    let c = @[1.1, 1.2, 1.3, 1.5]
+    let d = @[true, true, false, true]
+    let aCol = toColumn(%~ a)
+    let bCol = toColumn(%~ b)
+    let cCol = toColumn(%~ c)
+    let dCol = toColumn(%~ d)
+    check aCol.kind == colObject
+    check bCol.kind == colObject
+    check cCol.kind == colObject
+    check dCol.kind == colObject
+    check aCol.toNativeColumn.kind == colString
+    check bCol.toNativeColumn.kind == colInt
+    check cCol.toNativeColumn.kind == colFloat
+    check dCol.toNativeColumn.kind == colBool
+
+  test "Convert multi typed (real object) column to native fails":
+    let a = @["A", "B", "C", "D", "E"]
+    let b = @[1, 2, 3, 4, 5]
+    let ab = concat(%~ a, %~ b)
+    let c = @[1.1, 1.2, 1.3, 1.5]
+    let d = @[true, true, false, true]
+    let cd = concat(%~ c, %~ d)
+    let abCol = toColumn(%~ ab)
+    let cdCol = toColumn(%~ cd)
+    check abCol.kind == colObject
+    check cdCol.kind == colObject
+    try:
+      # This actually works because ints can be converted to string!
+      # that's not really desired behavior, is it?
+      check abCol.toNativeColumn.kind == colString
+      check false
+    except AssertionError:
+      check true
+    try:
+      check cdCol.toNativeColumn.kind == colFloat
+      check false
+    except AssertionError:
+      check true
+
   test "Remove 'null' values from DF":
     let idents = @["A", "B", "C", "D", "E"]
     let ids = @[1, 2, 3, 4, 5]
