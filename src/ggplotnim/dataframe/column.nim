@@ -534,6 +534,37 @@ proc toNativeColumn*(s: openArray[Value]): Column =
         data[i] = get(x)
       result = toColumn data
 
+proc toNativeColumn*(c: Column, failIfImpossible: static bool = true): Column =
+  ## attempts to convert the given column from `colObject` to its
+  ## native type, if possible. This is mainly useful after removal
+  ## of null values. If it fails (i.e. floats and strings in one
+  ## col) the result stays a colObject.
+  ##
+  ## In the default case `failIfImpossible = true` this procedure will
+  ## fail with an `AssertionDefect` if a column contains multiple datatypes.
+  ## This can be disabled so that at worst the input is returned as an
+  ## object type column.
+  if c.kind != colObject: return c
+  # assuming the column ``can`` be converted to native type, the
+  # first element contains all information we need, namely the
+  # value kind of ``all`` elements in the column
+  # exception: first element is int, but mixed with float
+  let vKind = c[0, Value].kind
+  ## TODO: this can fail...
+  withNativeConversion(vKind, get):
+    var data = newTensor[dtype](c.len)
+    let cValue = c.toTensor(Value)
+    for i in 0 ..< c.len:
+      when failIfImpossible:
+        doAssert cValue[i].kind == vKind, "Column contains actual multiple datatypes! " &
+          $vKind & " and " & $cValue[i].kind & "!"
+      else:
+        if cValue[i].kind != vKind:
+          # not possible to convert, return input
+          return c
+      data[i] = get cValue[i]
+    result = toColumn data
+
 proc nullColumn*(num: int): Column =
   ## returns an object `Column` with `N` values, which are
   ## all `VNull`
