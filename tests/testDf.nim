@@ -1105,31 +1105,47 @@ t_in_s,  C1_in_V,  C2_in_V,  type
                             "Id" : @[1, 2, 3],
                             "Age" : %~ @[43, 27, 32],
                             "City" : %~ cities[0 ..< ^2]})
-    let dfRes1 = df.drop_null("Age")
-    check dfRes1["Age"].kind == colObject
-    check dfRes1["City"].kind == colObject
-    let dfRes2 = df.drop_null("City")
-    check dfRes2["Age"].kind == colObject
-    check dfRes2["City"].kind == colObject
-    let dfRes3 = df.drop_null()
-    check dfRes3["Age"].kind == colObject
-    check dfRes3["City"].kind == colObject
-    let keys = getKeys(df)
-    for k in keys:
-      check dfRes1[k].toTensor(Value) == dfExp1[k].toTensor(Value)
-      check dfRes2[k].toTensor(Value) == dfExp2[k].toTensor(Value)
-      check dfRes3[k].toTensor(Value) == dfExp3[k].toTensor(Value)
+    block noNativeConversion:
+      let dfRes1 = df.drop_null("Age")
+      check dfRes1["Age"].kind == colObject
+      check dfRes1["City"].kind == colObject
+      let dfRes2 = df.drop_null("City")
+      check dfRes2["Age"].kind == colObject
+      check dfRes2["City"].kind == colObject
+      let dfRes3 = df.drop_null()
+      check dfRes3["Age"].kind == colObject
+      check dfRes3["City"].kind == colObject
+      let keys = getKeys(df)
+      for k in keys:
+        check dfRes1[k].toTensor(Value) == dfExp1[k].toTensor(Value)
+        check dfRes2[k].toTensor(Value) == dfExp2[k].toTensor(Value)
+        check dfRes3[k].toTensor(Value) == dfExp3[k].toTensor(Value)
 
-    # convert manually to correct dtypes
-    check dfRes1["Age"].toNativeColumn.kind == colInt
-    expect(AssertionDefect):
-      check dfRes1["City"].toNativeColumn.kind == colString
-    check dfRes1["City"].toNativeColumn(failIfImpossible = false).kind == colObject
+      # convert manually to correct dtypes
+      check dfRes1["Age"].toNativeColumn.kind == colInt
+      expect(AssertionDefect):
+        check dfRes1["City"].toNativeColumn.kind == colString
+      check dfRes1["City"].toNativeColumn(failIfImpossible = false).kind == colObject
 
-    check dfRes2["City"].toNativeColumn.kind == colString
-    expect(AssertionDefect):
-      check dfRes2["Age"].toNativeColumn.kind == colInt
-    check dfRes2["Age"].toNativeColumn(failIfImpossible = false).kind == colObject
+      check dfRes2["City"].toNativeColumn.kind == colString
+      expect(AssertionDefect):
+        check dfRes2["Age"].toNativeColumn.kind == colInt
+      check dfRes2["Age"].toNativeColumn(failIfImpossible = false).kind == colObject
 
-    check dfRes3["Age"].toNativeColumn.kind == colInt
-    check dfRes3["City"].toNativeColumn.kind == colString
+      check dfRes3["Age"].toNativeColumn.kind == colInt
+      check dfRes3["City"].toNativeColumn.kind == colString
+
+    block nativeConversion:
+      let dfRes1 = df.drop_null("Age", convertColumnKind = true)
+      let dfRes2 = df.drop_null("City", convertColumnKind = true)
+      let dfRes3 = df.drop_null(convertColumnKind = true)
+
+      # convert manually to correct dtypes
+      check dfRes1["Age"].kind == colInt
+      check dfRes1["City"].kind == colObject
+
+      check dfRes2["City"].kind == colString
+      check dfRes2["Age"].kind == colObject
+
+      check dfRes3["Age"].kind == colInt
+      check dfRes3["City"].kind == colString
