@@ -2215,16 +2215,25 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
   result.len = idxToKeep.size
 
 proc drop_null*(df: DataFrame, cols: varargs[string],
-                convertColumnKind = false): DataFrame =
+                convertColumnKind = false,
+                failIfConversionFails: bool = false): DataFrame =
   ## returns a DF with only those rows left, which contain no null values.
   ## By default this includes all columns in the data frame. If one or more
   ## args are given, only those columns will be considered.
   ##
   ## By default no attempt is made to convert the new columns to a unified
-  ## data type. Each column containing null values is an object column.
-  ## Conversion requires a trial and error approach, which is inefficient.
-  ## It's better done by the user who knows whether the resulting column
-  ## should now be a pure column.
+  ## data type, since it introduces another walk over the data. If `convertColumnKind`
+  ## is true, conversion is attempted. Whether that throws an assertion error
+  ## if the conversion is not possible to a single native type is controlled
+  ## by the static `failIfConversionFails`.
+  ##
+  ## Note that in general this is not a particularly fast proc, since each column
+  ## which should drop null values causes a filter of the DF, i.e. a full run over
+  ## the lenght of the DF.
+  # NOTE: `failIfConversionFails` can't be a static bool right now, because that
+  # results in a weird overload resolution bug in the `filter` line below
+  # TODO: we could use `column.toTensor` / `column.valueTo` with the `dropNull`
+  # argument too. Unify? :/ Which way though?
   var mcols = @cols
   if mcols.len == 0:
     mcols = getKeys(df)
@@ -2239,6 +2248,11 @@ proc drop_null*(df: DataFrame, cols: varargs[string],
     ## TODO: avoid filtering several times somehow?
     ## can read all cols first and then iterate over them? Not necessarily faster
     result = result.filter(f{Value: isNull(df[col][idx]).toBool == false})
+    if convertColumnKind:
+      if failIfConversionFails: # ugly workaround
+        result[col] = result[col].toNativeColumn(failIfImpossible = true)
+      else:
+        result[col] = result[col].toNativeColumn(failIfImpossible = false)
 
 func evaluate*(node: FormulaNode): Value =
   ## tries to return a single `Value` from a FormulaNode.
