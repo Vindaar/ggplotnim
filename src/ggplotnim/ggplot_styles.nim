@@ -20,6 +20,10 @@ const LineDefaultStyle = Style(lineWidth: 1.0,
                                size: 5.0, # used to draw error bar 'T' horizontal
                                color: grey20,
                                fillColor: transparent)
+const RibbonDefaultStyle = Style(lineWidth: 1.0,
+                               lineType: ltNone,
+                               color: transparent,
+                               fillColor: grey20)
 const BarDefaultStyle = Style(lineWidth: 1.0,
                               lineType: ltSolid,
                               color: grey20,
@@ -42,6 +46,8 @@ func defaultStyle(geomKind: GeomKind): Style =
     result = PointDefaultStyle
   of gkLine, gkFreqPoly, gkErrorBar:
     result = LineDefaultStyle
+  of gkRibbon:
+    result = RibbonDefaultStyle
   of gkBar:
     result = BarDefaultStyle
   of gkHistogram:
