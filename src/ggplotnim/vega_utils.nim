@@ -51,7 +51,7 @@ proc collectCols(p: GgPlot): seq[string] =
   ## returns all required columns for the plot
   # iterate all aesthetics and extract columns that are "some"
   # TODO: replace by actual impl
-  result = @[p.aes.x.get.col, p.aes.y.get.col, p.aes.color.get.col]
+  result = @[$p.aes.x.get.col, $p.aes.y.get.col, $p.aes.color.get.col]
 
 proc dataAsJson(p: GgPlot): JsonNode =
   let cols = collectCols(p)
@@ -70,13 +70,13 @@ proc toVegaLite*(p: GgPlot): JsonNode =
   var encoding = newJObject()
   # iterate aes / scales here
   if p.aes.x.isSome:
-    encoding["x"] = %* { "field" : p.aes.x.get.col,
+    encoding["x"] = %* { "field" : $p.aes.x.get.col,
                          "type" : "quantitative" }
   if p.aes.y.isSome:
-    encoding["y"] = %* { "field" : p.aes.y.get.col,
+    encoding["y"] = %* { "field" : $p.aes.y.get.col,
                          "type" : "quantitative" }
   if p.aes.color.isSome:
-    encoding["color"] = %* { "field" : p.aes.color.get.col,
+    encoding["color"] = %* { "field" : $p.aes.color.get.col,
                              "type" : "nominal" }
   result["encoding"] = encoding
   result["data"] = %* {"values" : % p.dataAsJson}

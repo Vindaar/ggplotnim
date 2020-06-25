@@ -143,8 +143,8 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.yRidges)
   fillIt(result.weight)
 
-proc ggplot*[T](data: T, aes: Aesthetics = aes()): GgPlot[T] =
-  result = GgPlot[T](data: data,
+proc ggplot*(data: DataFrame, aes: Aesthetics = aes()): GgPlot =
+  result = GgPlot(data: data,
                      numXticks: 10,
                      numYticks: 10)
   #result.addAes aes
