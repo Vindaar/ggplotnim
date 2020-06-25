@@ -7,7 +7,7 @@ for x in 0 ..< 28:
   for y in 0 ..< 28:
     xs.add x.float
     ys.add y.float
-    zs.add random(1.0)
+    zs.add rand(1.0)
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
