@@ -276,8 +276,8 @@ type
     font*: Font
     backgroundColor*: Color
 
-  GgPlot*[T] = object
-    data*: T
+  GgPlot* = object
+    data*: DataFrame
     title*: string
     subtitle*: string
     # GgPlot can only contain a single `aes` by itself. Geoms may contain
@@ -560,8 +560,8 @@ macro typeName(x: typed): untyped =
   result = quote do:
     `str`
 
-proc `$`*[T](p: GgPlot[T]): string =
-  result = "(data: " & typeName(p.data)
+proc `$`*(p: GgPlot): string =
+  result = "(data:\n" & $p.data & "\n"
   result.add ", title: " & $p.title
   result.add ", subtitle: " & $p.subtitle
   result.add ", aes: " & $p.aes

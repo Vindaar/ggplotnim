@@ -498,82 +498,76 @@ proc collectScales*(p: GgPlot): FilledScales =
   ## Collects all scales required to draw the plot. This means comparing each
   ## possible aesthetic scale of the `GgPlot p` itself with its geoms and
   ## building the final `Scale` for each.
-  # TODO: clean up
-  # if we either put `collect` as template in here or `fillField` as template
-  # (even outside) we get undeclared identifier errors
-  macro fillField(f: static string, arg: typed): untyped =
-    let field = ident(f)
-    let argId = ident(arg.strVal)
-    result = quote do:
-      if `argId`.len > 0 and `argId`[0].ids == {0'u16 .. high(uint16)}:
-        result.`field` = (main: some(`argId`[0]), more: `argId`[1 .. ^1])
-      else:
-        result.`field` = (main: none[Scale](), more: `argId`)
+  template fillField(f: untyped, arg: typed): untyped =
+    if arg.len > 0 and arg[0].ids == {0'u16 .. high(uint16)}:
+      result.f = (main: some(arg[0]), more: arg[1 .. ^1])
+    else:
+      result.f = (main: none[Scale](), more: arg)
   let xs = collect(p, x)
   # NOTE: transformed data handled from this in `callFillScale`!
   let xFilled = callFillScale(p.data, xs, scLinearData)
-  fillField("x", xFilled)
+  fillField(x, xFilled)
   # possibly assign `reversedX` for filledScales
   if xs.anyIt(it.scale.reversed):
     result.reversedX = true
 
   let xsMin = collect(p, xMin)
   let xMinFilled = callFillScale(p.data, xsMin, scLinearData)
-  fillField("xMin", xMinFilled)
+  fillField(xMin, xMinFilled)
 
   let xsMax = collect(p, xMax)
   let xMaxFilled = callFillScale(p.data, xsMax, scLinearData)
-  fillField("xMax", xMaxFilled)
+  fillField(xMax, xMaxFilled)
 
   var ys = collect(p, y)
   # NOTE: transformed data handled from this in `callFillScale`!
   let yFilled = callFillScale(p.data, ys, scLinearData)
-  fillField("y", yFilled)
+  fillField(y, yFilled)
   # possibly assign `reversedX` for filledScales
   if ys.anyIt(it.scale.reversed):
     result.reversedY = true
 
   let ysMin = collect(p, yMin)
   let yMinFilled = callFillScale(p.data, ysMin, scLinearData)
-  fillField("yMin", yMinFilled)
+  fillField(yMin, yMinFilled)
 
   let ysMax = collect(p, yMax)
   let yMaxFilled = callFillScale(p.data, ysMax, scLinearData)
-  fillField("yMax", yMaxFilled)
+  fillField(yMax, yMaxFilled)
 
   let ysRidges = collect(p, yRidges)
   let yRidgesFilled = callFillScale(p.data, ysRidges, scLinearData)
-  fillField("yRidges", yRidgesFilled)
+  fillField(yRidges, yRidgesFilled)
 
   let colors = collect(p, color)
   let colorFilled = callFillScale(p.data, colors, scColor)
-  fillField("color", colorFilled)
+  fillField(color, colorFilled)
   let fills = collect(p, fill)
   let fillFilled = callFillScale(p.data, fills, scFillColor)
-  fillField("fill", fillFilled)
+  fillField(fill, fillFilled)
   let sizes = collect(p, size)
   let sizeFilled = callFillScale(p.data, sizes, scSize)
-  fillField("size", sizeFilled)
+  fillField(size, sizeFilled)
   let shapes = collect(p, shape)
   let shapeFilled = callFillScale(p.data, shapes, scShape)
-  fillField("shape", shapeFilled)
+  fillField(shape, shapeFilled)
 
   let widths = collect(p, width)
   let widthFilled = callFillScale(p.data, widths, scLinearData)
-  fillField("width", widthFilled)
+  fillField(width, widthFilled)
 
   let heights = collect(p, height)
   let heightFilled = callFillScale(p.data, heights, scLinearData)
-  fillField("height", heightFilled)
+  fillField(height, heightFilled)
   # `text` is essentially a "dummy" scale, not required. Only care about
   # the column
   let texts = collect(p, text)
   let textFilled = callFillScale(p.data, texts, scText)
-  fillField("text", textFilled)
+  fillField(text, textFilled)
 
   let weights = collect(p, weight)
   let weightFilled = callFillScale(p.data, weights, scLinearData)
-  fillField("weight", weightFilled)
+  fillField(weight, weightFilled)
 
   # finally add all available facets if any
   if p.facet.isSome:
