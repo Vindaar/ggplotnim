@@ -1102,7 +1102,13 @@ proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
       discard
 
 proc parseBool(n: NimNode): bool =
-  result = if n[1].eqIdent(ident"true"): true else: false
+  case n.kind
+  of nnkSym:
+    # should be devel (1.3.5)
+    result = if n.eqIdent(ident"true"): true else: false
+  else:
+    # stable 1.2
+    result = if n[1].eqIdent(ident"true"): true else: false
 
 macro compileFormulaImpl*(rawName, name, body: untyped,
                           bools: untyped,
