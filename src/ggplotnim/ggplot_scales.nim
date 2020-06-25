@@ -117,7 +117,6 @@ macro genGetOptScale(field: untyped): untyped =
       else:
         # find scale matching `gid`
         for s in filledScales.`field`.more:
-          echo "more ", s
           if geom.gid == 0 or geom.gid in s.ids:
             return some(s)
 
