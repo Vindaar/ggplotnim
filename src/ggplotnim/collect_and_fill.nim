@@ -542,12 +542,15 @@ proc collectScales*(p: GgPlot): FilledScales =
   let colors = collect(p, color)
   let colorFilled = callFillScale(p.data, colors, scColor)
   fillField(color, colorFilled)
+
   let fills = collect(p, fill)
   let fillFilled = callFillScale(p.data, fills, scFillColor)
   fillField(fill, fillFilled)
+
   let sizes = collect(p, size)
   let sizeFilled = callFillScale(p.data, sizes, scSize)
   fillField(size, sizeFilled)
+
   let shapes = collect(p, shape)
   let shapeFilled = callFillScale(p.data, shapes, scShape)
   fillField(shape, shapeFilled)

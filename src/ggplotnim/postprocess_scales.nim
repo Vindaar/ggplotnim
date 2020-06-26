@@ -410,6 +410,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   var style: GgStyle
   for setVal in setDiscCols:
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
+
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
     # sumHist used to calculate height of stacked histogram. Stored as `float`,
