@@ -145,8 +145,8 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
 
 proc ggplot*(data: DataFrame, aes: Aesthetics = aes()): GgPlot =
   result = GgPlot(data: data,
-                     numXticks: 10,
-                     numYticks: 10)
+                  numXticks: 10,
+                  numYticks: 10)
   #result.addAes aes
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
   # TODO: fill others with defaults
