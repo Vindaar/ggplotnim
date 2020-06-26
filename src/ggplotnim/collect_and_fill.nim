@@ -242,7 +242,8 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
       proc(df: DataFrame): seq[ScaleValue] =
         result = newSeq[ScaleValue](df.len)
         let t = col.evaluate(df).toTensor(float)
-        for idx in 0 ..< df.len:
+        assert t.size == df.len, "Resulting tensor size does not match df len!"
+        for idx in 0 ..< t.size:
           var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
                                    (dataScale.high - dataScale.low))).round.int
           colorIdx = min(255, colorIdx)
@@ -278,7 +279,8 @@ proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
       proc(df: DataFrame): seq[ScaleValue] =
         let t = col.evaluate(df).toTensor(float)
         result = newSeq[ScaleValue](df.len)
-        for idx in 0 ..< df.len:
+        assert t.size == df.len, "Resulting tensor size does not match df len!"
+        for idx in 0 ..< t.size:
           let size = (t[idx] - minSize) /
                      (maxSize - minSize)
           result[idx] = ScaleValue(kind: scSize,
