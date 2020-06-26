@@ -1102,13 +1102,12 @@ proc extractTypes(idents: NimNode): seq[(ReplaceKind, NimNode)] =
       discard
 
 proc parseBool(n: NimNode): bool =
-  case n.kind
-  of nnkSym:
-    # should be devel (1.3.5)
-    result = if n.eqIdent(ident"true"): true else: false
+  when (NimMajor, NimMinor, NimPatch) >= (1, 3, 5):
+    # change to named tuples on Nim devel
+    result = n.eqIdent(ident"true")
   else:
     # stable 1.2
-    result = if n[1].eqIdent(ident"true"): true else: false
+    result = n[1].eqIdent(ident"true")
 
 macro compileFormulaImpl*(rawName, name, body: untyped,
                           bools: untyped,
