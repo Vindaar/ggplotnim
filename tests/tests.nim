@@ -6,6 +6,9 @@ import tables, sets, options
 import sequtils, seqmath
 import math
 
+import random
+randomize(42)
+
 proc almostEq(a, b: float, epsilon = 1e-8): bool =
   ## version of `almostEqual` for testing, which prints the values, if
   ## they mismatch
@@ -294,6 +297,120 @@ suite "Geom":
     # applied for all geoms!
     # Take a look at the style check in the first GgPlot test
     discard
+
+suite "Aesthetics":
+
+  template compileFails(body: untyped): untyped =
+    when not compiles(body):
+      true
+    else:
+      false
+
+  test "aes macro - simple valid inputs, all named args":
+    let a = aes(x = "x", y = "y", color = "class")
+    check a.x.isSome
+    check a.y.isSome
+    check a.color.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.color.get.col == "class"
+
+  test "aes macro - simple valid inputs, some unnamed args":
+    let a = aes("x", "y", color = "class")
+    check a.x.isSome
+    check a.y.isSome
+    check a.color.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.color.get.col == "class"
+
+  test "aes macro - unnamed after named arg":
+    ## this is not necessarily a "nice" feature...
+    let a = aes(x = "x", "y", color = "class")
+    check a.x.isSome
+    check a.y.isSome
+    check a.color.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.color.get.col == "class"
+
+  test "aes macro - invalid argument":
+    check compileFails(aes(x = "x", y = "y", badArg = "class"))
+
+  test "aes macro - invalid argument type":
+    check compileFails(aes(x = "x", y = "y", color = {"I'm not" : "supported"}))
+
+  test "aes macro - explicit formula":
+    let a = aes("x", "y", xMin = f{0.2})
+    check a.x.isSome
+    check a.y.isSome
+    check a.xMin.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.xMin.get.col == "0.2"
+
+  test "aes macro - explicit complicated formula":
+    let a = aes("x", "y", xMin = f{235 / `cty`})
+    check a.x.isSome
+    check a.y.isSome
+    check a.xMin.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.xMin.get.col == "(/ 235 cty)"
+
+  test "aes macro - explicit complicated formula for unnamed arg":
+    let a = aes(f{235 / `cty`}, "y")
+    check a.x.isSome
+    check a.y.isSome
+
+    check $a.x.get.col == "(/ 235 cty)"
+    check $a.y.get.col == "y"
+
+  test "aes macro - idents as strings":
+    let a = aes("x", "y", color = hwy)
+    check a.x.isSome
+    check a.y.isSome
+    check a.color.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.color.get.col == "hwy"
+
+  test "aes macro - local variable overrides ident as string":
+    let hwy = "cty"
+    let a = aes("x", "y", color = hwy)
+    check a.x.isSome
+    check a.y.isSome
+    check a.color.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.color.get.col == "cty"
+
+  test "aes macro - force factorization (discrete) scale":
+    let a = aes("x", "y", size = factor("shell"))
+    check a.x.isSome
+    check a.y.isSome
+    check a.size.isSome
+
+    check $a.x.get.col == "x"
+    check $a.y.get.col == "y"
+    check $a.size.get.col == "shell"
+    check a.size.get.hasDiscreteness == true
+    check a.size.get.dcKind == dcDiscrete
+
+  when false:
+    ## This test case does not work. Can't be checked via `compiles` I think because
+    ## the `orNoneScales` is a generic proc, which essentially fails ``after``
+    ## the `compiles` macro checks what's what.. But this does indeed fail, as it should!
+    test "aes macro - proc of arg ident causes compile error":
+      proc hwy(): float = 5.5
+      let a = aes("x", "y", color = hwy)
 
 suite "GgPlot":
   test "Histogram with discrete scale fails":
@@ -864,3 +981,34 @@ suite "Annotations":
     let expScale = (-1.0, 1.0)
     check plt.view[4].yScale == expScale
     check plt.filledScales.yScale == expScale
+
+  test "application of `factor` on aes has desired effect":
+    let xs = arange(0, 30)
+    let ys = xs.mapIt(it * it)
+    let cs = xs.mapIt(rand(8))
+    let df = seqsToDf({ "x" : xs, "y" : ys, "class" : cs })
+    block ClassIndeedContinuous:
+      # first check that this does indeed result in a classification by
+      # guessType that's continuous
+      let plt = ggcreate(
+        ggplot(df, aes(x, y, color = class)) +
+          geom_line()
+      )
+      check plt.filledScales.color.main.isSome
+      let cScale = plt.filledScales.color.main.get
+      check $cScale.col == "class"
+      check not cScale.hasDiscreteness
+      check cScale.dcKind == dcContinuous
+
+    block FactorMakesDiscrete:
+      # now check factor has desired effect
+      let plt = ggcreate(
+        ggplot(df, aes(x, y, color = factor(class))) +
+          geom_line()
+      )
+      check plt.filledScales.color.main.isSome
+      let cScale = plt.filledScales.color.main.get
+      check $cScale.col == "class"
+      # NOTE: `hasDiscreteness` is ``not`` copied over during `collect_and_fill.fillScale`!
+      # check cScale.hasDiscreteness
+      check cScale.dcKind == dcDiscrete
