@@ -588,6 +588,7 @@ proc `$`*(s: Scale): string =
     result.add &", trans.isNil?: {s.trans.isNil}"
     result.add &", secondaryAxis: {s.secondaryAxis}"
   else: discard
+  result.add &", hasDiscreteness: {s.hasDiscreteness}"
   result.add &", dcKind: {s.dcKind}"
   case s.dcKind
   of dcDiscrete:
