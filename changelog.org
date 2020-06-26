@@ -1,3 +1,14 @@
+* v0.3.12
+- =GgPlot= is not a generic anylonger. Originally the idea was to
+  provide support for multiple data types, but nowadays the code base
+  is too intertwined with the =DataFrame= that this doesn't make sense
+  anylonger and in fact produces problems (e.g. "undeclared
+  identifier" when combining implicit generic + template)
+- fix for Nim devel regarding change of named / not named tuples 
+- avoid usage of =random= which is now removed on devel
+* v0.3.11
+Hotfix for Nim devel by @timotheecour. Fixes issues regarding lent
+iterators.
 * v0.3.10
 - fix bug in =add= for data frames if first argument was still =nil= 
 - allow multiple types in =innerJoin=, requirement is that columns to
