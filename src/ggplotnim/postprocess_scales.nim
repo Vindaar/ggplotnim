@@ -448,6 +448,15 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                              countCol: hist,
                              widthCol: binWidths})
     let key = ("", Value(kind: VNull))
+    # TODO: does it make sense to apply continuous scales to a histogram result?
+    # because: The input DF does not match (element wise) to the resulting DF of
+    # the histogram call. That's a problem, because if one wishes to apply continuous
+    # styling based on some column not part of the histogram call, that column won't
+    # exist for the histogram DF anymore. There isn't really a way to preserve that
+    # information, because it's not well defined how to merge individual rows with
+    # continuous styling to a single bin.
+    # Chances are we end up here, because the "continuous" scale was misclassified
+    doAssert cont.len == 0, "Was " & $cont.mapIt($it.col) & " supposed to be discrete?"
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
     result.numX = yieldDf.len
     result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
