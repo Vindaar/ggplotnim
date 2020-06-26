@@ -65,7 +65,10 @@ proc orNone(f: float): Option[float] =
   if classify(f) != fcNaN: some(f)
   else: none[float]()
 
-proc orNoneScale[T: string | SomeNumber | FormulaNode](s: T, scKind: static ScaleKind, axKind = akX): Option[Scale] =
+proc orNoneScale*[T: string | SomeNumber | FormulaNode](
+  s: T, scKind: static ScaleKind,
+  axKind = akX,
+  hasDiscreteness = false): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
   if ($s).len > 0:
@@ -75,50 +78,131 @@ proc orNoneScale[T: string | SomeNumber | FormulaNode](s: T, scKind: static Scal
       let fs = s
     case scKind
     of scLinearData:
-      result = some(Scale(scKind: scLinearData, col: fs, axKind: axKind))
+      result = some(Scale(scKind: scLinearData, col: fs, axKind: axKind,
+                          hasDiscreteness: hasDiscreteness))
     of scTransformedData:
-      result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind))
+      result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind,
+                          hasDiscreteness: hasDiscreteness))
     else:
-      result = some(Scale(scKind: scKind, col: fs))
+      result = some(Scale(scKind: scKind, col: fs,
+                          hasDiscreteness: hasDiscreteness))
   else:
     result = none[Scale]()
 
-# TODO: replace this, it got out of hand :P
-proc aes*[A; B; C; D; E; F; G; H; I; J; K; L; M; N, O: string | SomeNumber | FormulaNode](
-  x: A = "",
-  y: B = "",
-  color: C = "",
-  fill: D = "",
-  shape: E = "",
-  size: F = "",
-  xMin: G = "",
-  xMax: H = "",
-  yMin: I = "",
-  yMax: J = "",
-  width: K = "",
-  height: L = "",
-  text: M = "",
-  yRidges: N = "",
-  weight: O = ""): Aesthetics =
-    result = Aesthetics(x: x.orNoneScale(scLinearData, akX),
-                        y: y.orNoneScale(scLinearData, akY),
-                        color: color.orNoneScale(scColor),
-                        fill: fill.orNoneScale(scFillColor),
-                        shape: shape.orNoneScale(scShape),
-                        size: size.orNoneScale(scSize),
-                        xMin: xMin.orNoneScale(scLinearData, akX),
-                        xMax: xMax.orNoneScale(scLinearData, akX),
-                        yMin: yMin.orNoneScale(scLinearData, akY),
-                        yMax: yMax.orNoneScale(scLinearData, akY),
-                        width: width.orNoneScale(scLinearData, akX),
-                        height: height.orNoneScale(scLinearData, akY),
-                        # TODO: should we fix this axis here?... :| Use something
-                        # other than `scLinearData`?
-                        text: text.orNoneScale(scText),
-                        yRidges: yRidges.orNoneScale(scLinearData, akY),
-                        # axis of weight does not matter, since it will be assigned to
-                        # the axis on which bin count is done
-                        weight: weight.orNoneScale(scLinearData, akY))
+template hasFactor(n: NimNode): untyped = n.kind == nnkCall and n[0].strVal == "factor"
+
+proc initField*(name: string, val: NimNode): NimNode =
+  # determine if magic `factor` used to designate a scale as discrete
+  let hasDiscreteness = hasFactor(val)
+  # if so, use the actual arg as value
+  var val = if hasDiscreteness: val[1] else: val
+  template call(kind: untyped, ax = akX): untyped =
+    result = nnkCall.newTree(ident"orNoneScale", val, newLit kind, newLit ax,
+                             newLit hasDiscreteness)
+  case name.normalize
+  of "x" : call(scLinearData, akX)
+  of "y" : call(scLinearData, akY)
+  of "color" : call(scColor)
+  of "fill" : call(scColor)
+  of "shape" : call(scShape)
+  of "size" : call(scSize)
+  of "xmin" : call(scLinearData, akX)
+  of "xmax" : call(scLinearData, akX)
+  of "ymin" : call(scLinearData, akY)
+  of "ymax" : call(scLinearData, akY)
+  of "width" : call(scLinearData, akX)
+  of "height" : call(scLinearData, akY)
+  of "text" : call(scText)
+  of "yridges" : call(scLinearData, akY)
+  of "weight" : call(scLinearData, akY)
+  else: doAssert false, "not reachable"
+
+proc getArgValue(n: NimNode, arg: string): NimNode =
+  case n.kind
+  of nnkIdent:
+    let valAsStr = n.strVal
+    result = quote do:
+      when declared(`n`):
+        # is a variable in existing scope. Use it
+        `n`
+      else:
+        # doesn't exist, interpret as string for a column
+        `valAsStr`
+  of nnkIntLit .. nnkFloat64Lit, nnkStrLit, nnkTripleStrLit, nnkRStrLit:
+    result = n
+  of nnkCurlyExpr:
+    # Formula node via `f{}`
+    result = n
+  of nnkPar:
+    # e.g. `("someString" & $var)`
+    result = n
+  of nnkInfix:
+    # some compuatition, e.g. `someVar + 2.0`
+    result = n
+  of nnkCall:
+    # either function call returning some normal value or magic `factor`
+    if hasFactor(n):
+      result = nnkCall.newTree(n[0], getArgValue(n[1], arg))
+    else:
+      result = n
+  else:
+    error("Invalid value for argument `" & $arg & "`: " & $n.repr & " of node " &
+      "kind " & $n.kind)
+
+macro aes*(args: varargs[untyped]): untyped =
+  ## This macro parses the given arguments and returns an `Aesthetics` object
+  ## based on the given input.
+  ## The argument has to be an argument list, which can have have elements of
+  ## different forms.
+  ##
+  ## - named / unnamed arguments:
+  ##   - for named arguments, the name *must* be a valid field of the `Aesthetics`
+  ##     object
+  ##   - unnamed arguments are supported. The macro picks the field corresponding
+  ##     to the index of each field in the order of the fields of `Aesthetics`
+  ##     fields
+  ##   In principle unnamed arguments *can* follow named ones, but better do not
+  ##   abuse that...
+  ## - Different types are supported for the values
+  ##   - literals: string, int, float. Will be treated as constant `FormulaNode`
+  ##     values for the associated scale (useful for e.g. `width = 0.5`)
+  ##   - formula nodes: formula nodes are simply assigned as the columns for
+  ##     the generated scale. Can refer to a column or a complicated expression.
+  ##   - idents: raw idents are supported. If the identifier refers to something
+  ##     declared, the value of that is used. Else the identifier is treated as
+  ##     a string. Be careful with this feature!
+  const allowedArgs = [ "x", "y", "color", "fill", "shape", "size", "xmin",
+                        "xmax", "ymin", "ymax", "width", "height", "text",
+                        "yridges", "weight" ]
+  # first check if all `args` are allowed
+  expectKind(args, nnkArglist)
+  # given valid arguments, parse as required and create the `Aesthetic` object
+  var aesArgs = nnkObjConstr.newTree(ident"Aesthetics")
+  # now walk args again and create the output fields; things to note:
+  # If no field name given, we go by idx -> index `allowedArgs` with it
+  for idx, arg in args:
+    case arg.kind
+    of nnkExprEqExpr:
+      if arg[0].strVal.normalize notin allowedArgs:
+        error("Invalid aesthetic: " & $arg[0].strVal & "!")
+      else:
+        aesArgs.add nnkExprColonExpr.newTree(
+          arg[0],
+          initField(arg[0].strVal,
+                    getArgvalue(arg[1], arg[0].strVal))
+        )
+    of nnkIdent,
+       nnkIntLit .. nnkFloat64Lit,
+       nnkStrLit, nnkTripleStrLit, nnkRStrLit,
+       nnkCurlyExpr:
+      aesArgs.add nnkExprColonExpr.newTree(
+        ident(allowedArgs[idx]),
+        initField(allowedArgs[idx],
+                  getArgValue(arg, allowedArgs[idx]))
+      )
+    else:
+      error("Invalid `aes` argument of node kind " & $arg.kind & ": " & $arg.repr)
+  result = aesArgs
 
 func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   result = aes
