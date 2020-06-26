@@ -1,3 +1,13 @@
+* v0.3.13
+- make =aes= a macro
+  - allows for named / unnamed arguments
+  - raw identifiers will be interpreted as strings, if not symbol is
+    declared with the identifiers name
+  - =factor= can be applied to an argument to force this scale to be
+    discrete. For every scale that is not x/y this wasn't possible
+    (for x/y via =scale_x/y_discrete=)
+- provide better error messages for some mixtures of geoms +
+  continuous scales
 * v0.3.12
 - =GgPlot= is not a generic anylonger. Originally the idea was to
   provide support for multiple data types, but nowadays the code base
