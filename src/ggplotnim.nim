@@ -2422,6 +2422,9 @@ proc ggjson*(fname: string, width = 640.0, height = 480.0): JsonDummyDraw =
                 width: some(width),
                 height: some(height))
 
+proc `%`(fn: proc(): seq[uint32] {.closure.}): json.JsonNode =
+  result = % fn()
+
 proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   ## generate a JSON file from the given filename by replacing the file
   ## extension by `.json` and converting the `Viewport` to JSON after
