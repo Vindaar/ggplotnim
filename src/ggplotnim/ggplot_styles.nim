@@ -50,6 +50,9 @@ func defaultStyle(geomKind: GeomKind): Style =
     result = TileDefaultStyle
   of gkText:
     result = TextDefaultStyle
+  of gkRaster:
+    # raster doesn't have default style atm (what would that imply?)
+    discard
 
 func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   ## merges the given `Style` with the desired `userStyle`.
