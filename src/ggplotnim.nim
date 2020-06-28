@@ -541,6 +541,43 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
+proc geom_raster*(aes: Aesthetics = aes(),
+                  data = DataFrame(),
+                  color = none[Color](),
+                  fillColor = none[Color](),
+                  alpha = none[float](),
+                  size = none[float](),
+                  stat = "identity",
+                  bins = 30,
+                  binWidth = 0.0,
+                  breaks: seq[float] = @[],
+                  binPosition = "none",
+                  position = "identity", # the position kind, "identity", "stack" etc.
+                  binBy = "full",
+                  density = false
+                  ): Geom =
+  ## NOTE: When using a different position than `identity`, be careful reading the plot!
+  ## If N classes are stacked and an intermediate class has no entries, it will be drawn
+  ## on top of the previous value!
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let stKind = parseEnum[StatKind](stat)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let pKind = parseEnum[PositionKind](position)
+  let bbKind = parseEnum[BinByKind](binBy)
+  let style = initGgStyle(color = color, fillColor = fillColor, size = size,
+                          alpha = alpha)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkRaster,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stKind,
+                position: pKind)
+  assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
+
+
 proc geom_text*(aes: Aesthetics = aes(),
                 data = DataFrame(),
                 color = none[Color](),

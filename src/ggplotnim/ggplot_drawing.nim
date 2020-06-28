@@ -1,5 +1,5 @@
 import sequtils, tables
-import ggplot_types, ggplot_styles, ggplot_scales
+import ggplot_types, ggplot_styles, ggplot_scales, sets
 when defined(defaultBackend):
   import dataframe/fallback/formula
   import persvector
@@ -293,6 +293,8 @@ proc getDrawPosImpl(
       result = getDiscreteHisto(fg, width, axKind)
     of gkTile:
       result = getDiscreteHisto(fg, width, axKind)
+    of gkRaster:
+      result = getDiscreteHisto(fg, 1.0, axKind)
     of gkText:
       result = getDiscretePoint(fg, axKind)
   of dcContinuous:
@@ -303,7 +305,7 @@ proc getDrawPosImpl(
       result = view.getContinuous(fg, val, axKind)
     of gkHistogram, gkBar:
       result = view.getContinuous(fg, val, axKind)
-    of gkTile:
+    of gkTile, gkRaster:
       result = view.getContinuous(fg, val, axKind)
     of gkText:
       result = view.getContinuous(fg, val, axKind)
@@ -406,6 +408,8 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
                               quant(binWidths.x, ukData),
                               quant(-binWidths.y, ukData),
                               style = some(style))
+  of gkRaster:
+    doAssert false, "Already handled in `drawSubDf`!"
   of gkText:
     view.addObj view.initText(pos,
                               text = readText(df, idx, fg),
@@ -423,6 +427,7 @@ proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] 
       result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
   of gkTile:
     (result.x, result.y) = readWidthHeight(df, idx, fg)
+  of gkRaster: result = (x: 1.0, y: 1.0)
 
 func moveBinPositions(p: var tuple[x, y: Value],
                       binWidths: tuple[x, y: float],
@@ -522,11 +527,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     case fg.geom.position
     of pkIdentity:
       case fg.geom.kind
-      of gkLine, gkFreqPoly: linePoints.add pos
+      of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
       else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkStack:
       case fg.geom.kind
-      of gkLine, gkFreqPoly: linePoints.add pos
+      of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
       else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
     of pkDodge:
       discard
@@ -537,7 +542,8 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   if viewMap.len == 0:
     view = locView
   # for `gkLine`, `gkFreqPoly` now draw the lines
-  if fg.geom.kind in {gkLine, gkFreqPoly}:
+  case fg.geom.kind
+  of gkLine, gkFreqPoly:
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
       # connect line down to axis, if fill color is not transparent
@@ -556,6 +562,35 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
       for i in 0 ..< styles.high: # last element covered by i + 1
         let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
+  of gkRaster:
+    doAssert styles.len == df.len, "Raster only supports continuous data!"
+    let
+      xCol = df[fg.xCol].toTensor(float)
+      yCol = df[fg.yCol].toTensor(float)
+      numX = xCol.toHashSet.card
+      numY = yCol.toHashSet.card
+    let height = max(yCol) - min(yCol) + 1.0
+
+    var drawCb = proc(): seq[uint32] =
+      result = newSeq[uint32](df.len)
+      doAssert linePoints.len == df.len
+      for idx in 0 ..< df.len:
+        let coord = linePoints[idx]
+        echo coord
+        let (x, y) = (coord.x.pos.int, coord.y.pos.int)
+        let c = styles[idx].fillColor.get.to(ColorRGB)
+        result[((numY - y - 1) * numX) + x] = (255 shl 24 or
+                                c.r.int shl 16 or
+                                c.g.int shl 8 or
+                                c.b.int).uint32
+    #view.addObj view.initRaster(c(min(xCol), min(yCol), ukData),
+    view.addObj view.initRaster(c(min(xCol), fg.yScale.high - min(yCol) - height, ukData),
+                                quant(max(xCol) - min(xCol) + 1.0, ukData),
+                                quant(height, ukData),
+                                numX = numX,
+                                numY = numY,
+                                drawCb = drawCb)
+  else: discard
 
 proc createGobjFromGeom*(view: var Viewport,
                          fg: FilledGeom,
