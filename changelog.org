@@ -1,3 +1,7 @@
+* v0.3.14
+- hotfix release to unbreak Nim CI
+  -> fixes a regression due to an additional field in ginger, for
+  which by default no =%= is provided in json.nim
 * v0.3.13
 - make =aes= a macro
   - allows for named / unnamed arguments
