@@ -1644,8 +1644,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   let
     col1 = toSeq(df1S, by)
     col2 = toSeq(df2S, by)
-  let colSet1 = col1.toSet
-  let colSet2 = col2.toSet
+  let colSet1 = col1.toHashSet
+  let colSet2 = col2.toHashSet
   let intersection = colSet1 * colSet2
   let idxDf1 = toSeq(0 ..< col1.len).filterIt(col1[it] in intersection)
   let idxDf2 = toSeq(0 ..< col2.len).filterIt(col2[it] in intersection)
@@ -1656,8 +1656,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
   let
     # for some reason we can't do toSeq(keys(df1S)) anymore...
     # This is due to https://github.com/nim-lang/Nim/issues/7322. `toSeq` isn't exported for now.
-    keys1 = getKeys(df1S).toSet
-    keys2 = getKeys(df2S).toSet
+    keys1 = getKeys(df1S).toHashSet
+    keys2 = getKeys(df2S).toHashSet
     allKeys = keys1 + keys2
   var row = Value(kind: VObject)
   var seqTab = initOrderedTable[string, seq[Value]]()
@@ -1737,7 +1737,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
     result.data = df.data
     result.len = df.len
   for key in by:
-    result.groupMap[key] = toSet(toSeq(result[key]))
+    result.groupMap[key] = toHashSet(toSeq(result[key]))
 
 iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Value)], DataFrame) =
   ## yields the subgroups of a grouped DataFrame `df` and the `(key, Value)`
@@ -1915,7 +1915,7 @@ proc gather*(df: DataFrame, cols: varargs[string],
   ## gathers the `cols` from `df` and merges these columns into two new columns
   ## where the `key` column contains the name of the column from which the `value`
   ## entry is taken. I.e. transforms `cols` from wide to long format.
-  let remainCols = getKeys(df).toSet.difference(cols.toSet)
+  let remainCols = getKeys(df).toHashSet.difference(cols.toHashSet)
   var newLen = 0
   # TODO: improve this...
   for col in cols:
