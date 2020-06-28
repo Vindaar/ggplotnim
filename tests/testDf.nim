@@ -703,12 +703,12 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       # hence another test below with known numbers and their sum
       let exp = @[24.8, 24.8, 29.47, 29.47, 29, 29, 25.31, 25.31, 29.19, 29.19, 26.26, 26.26, 24, 24, 24, 24, 22.2, 22.2, 20.67, 20.67, 17.9, 17.9, 15.8, 15.8, 30.81, 30.81, 28.5, 28.5, 24.71, 24.71, 21.6, 21.6, 23.75, 23.75, 18.5, 18.5, 16.79, 16.79]
       when defined(defaultBackend):
-        let resSet = res[$f{mean("hwy")}].vToSeq.toSet
-        let expValSet = exp.mapIt(%~ it).toSet
+        let resSet = res[$f{mean("hwy")}].vToSeq.toHashSet
+        let expValSet = exp.mapIt(%~ it).toHashSet
         check resSet == expValSet
       else:
-        let resSet = res[$f{float: mean(c"hwy")}].toTensor(float).map(x => x.round(2)).toSet
-        let expSet = exp.toSet
+        let resSet = res[$f{float: mean(c"hwy")}].toTensor(float).map(x => x.round(2)).toHashSet
+        let expSet = exp.toHashSet
         check resSet == expSet
     block:
       # generate numbers
@@ -741,7 +741,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     # count elements by group. Useful combination of group_by and summarize(len)
     let mpg = toDf(readCsv("data/mpg.csv"))
     # in manual case the order is not preserved, due to `summarize` impl!
-    let exp = toSet({6 : 79, 8 : 70, 4 : 81, 5 : 4})
+    let exp = toHashSet({6 : 79, 8 : 70, 4 : 81, 5 : 4})
     block:
       # manually
       let res = mpg.group_by("cyl").summarize(f{int: "num" << c"cyl".len})
