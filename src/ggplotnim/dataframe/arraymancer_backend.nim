@@ -1006,9 +1006,9 @@ proc determineFuncKind(body: NimNode,
     # which allows for something like
     # `"10." & "5" == $(val + 0.5)` as a valid bool expression
     # walk tree and check for symbols
-    const floatSet = toSet(@["+", "-", "*", "/", "mod"])
-    const stringSet = toSet(@["&", "$"])
-    const boolSet = toSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
+    const floatSet = toHashSet(@["+", "-", "*", "/", "mod"])
+    const stringSet = toHashSet(@["&", "$"])
+    const boolSet = toHashSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
                             "true", "false", "in", "notin"])
     let (isFloat, isString, isBool) = checkDtype(body, floatSet, stringSet, boolSet)
     result[0] = newNilLit()
@@ -1756,8 +1756,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     let
       col1 = df1S[by].toTensor(dtype).toRawSeq
       col2 = df2S[by].toTensor(dtype).toRawSeq
-    let colSet1 = col1.toSet
-    let colSet2 = col2.toSet
+    let colSet1 = col1.toHashSet
+    let colSet2 = col2.toHashSet
     let intersection = colSet1 * colSet2
     let idxDf1 = toSeq(0 ..< col1.len).filterIt(col1[it] in intersection)
     let idxDf2 = toSeq(0 ..< col2.len).filterIt(col2[it] in intersection)
@@ -1768,8 +1768,8 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
     let
       # for some reason we can't do toSeq(keys(df1S)) anymore...
       # This is due to https://github.com/nim-lang/Nim/issues/7322. `toSeq` isn't exported for now.
-      keys1 = getKeys(df1S).toSet
-      keys2 = getKeys(df2S).toSet
+      keys1 = getKeys(df1S).toHashSet
+      keys2 = getKeys(df2S).toHashSet
       allKeys = keys1 + keys2
       commonKeys = keys1 * keys2
       restKeys = allKeys - commonKeys
@@ -1827,7 +1827,7 @@ proc innerJoin*(df1, df2: DataFrame, by: string): DataFrame =
           result.asgn(k, toColumn(t[_ ..< result.len]))
         result[k].len = result.len
 
-proc toSet*[T](t: Tensor[T]): HashSet[T] =
+proc toHashSet*[T](t: Tensor[T]): HashSet[T] =
   for el in t:
     result.incl el
 
@@ -1848,7 +1848,7 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
     result.data = df.data
     result.len = df.len
   for key in by:
-    result.groupMap[key] = toSet(result[key].toTensor(Value))
+    result.groupMap[key] = toHashSet(result[key].toTensor(Value))
 
 proc hashColumn(s: var seq[Hash], c: Column, finish: static bool = false) =
   ## performs a partial hash of a DF. I.e. a single column, where
@@ -2075,7 +2075,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
   # given hashes apply set difference
   var diff: HashSet[Hash]
   if symmetric:
-    diff = symmetricDifference(toSet(h1), toSet(h2))
+    diff = symmetricDifference(toHashSet(h1), toHashSet(h2))
     var idxToKeep1 = newSeqOfCap[int](diff.card)
     var idxToKeep2 = newSeqOfCap[int](diff.card)
     for idx, h in h1:
@@ -2099,7 +2099,7 @@ proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
     # stack the two data frames
     result.add df2Res
   else:
-    diff = toSet(h1) - toSet(h2)
+    diff = toHashSet(h1) - toHashSet(h2)
     # easy
     var idxToKeep = newTensor[int](diff.card)
     var i = 0
@@ -2128,7 +2128,7 @@ proc gather*(df: DataFrame, cols: varargs[string],
   ## where the `key` column contains the name of the column from which the `value`
   ## entry is taken. I.e. transforms `cols` from wide to long format.
   result = newDataFrame(df.ncols)
-  let remainCols = getKeys(df).toSet.difference(cols.toSet)
+  let remainCols = getKeys(df).toHashSet.difference(cols.toHashSet)
   let newLen = cols.len * df.len
   # assert all columns same type
   # TODO: relax this restriction, auto convert to `colObject` if non matching
@@ -2161,7 +2161,7 @@ proc unique*(c: Column): Column =
   var hashes = newSeq[Hash](c.len)
   hashes.hashColumn(c, finish = true)
   # finalize the hashes
-  var hSet = toSet(hashes)
+  var hSet = toHashSet(hashes)
   var idxToKeep = newTensor[int](hSet.card)
   var idx = 0
   for i in 0 ..< c.len:
@@ -2185,7 +2185,7 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
   if mcols.len == 0:
     mcols = getKeys(df)
   let hashes = buildColHashes(df, mcols)
-  var hSet = toSet(hashes)
+  var hSet = toHashSet(hashes)
   # walk df, build indices from `hashes` which differ
   var idxToKeep = newTensor[int](hSet.card)
   var idx = 0
