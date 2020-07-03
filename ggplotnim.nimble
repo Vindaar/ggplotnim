@@ -39,7 +39,7 @@ task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/test_issue28.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
 
-import ospaths, strutils, strformat
+import os, strutils, strformat
 const
   pkgName = "ggplotnim"
   orgFile = "docs" / (pkgName & ".org")
