@@ -335,7 +335,7 @@ type
       yMin*: Option[string]
       xMax*: Option[string]
       yMax*: Option[string]
-    of gkTile:
+    of gkTile, gkRaster:
       width*: Option[string]
       height*: Option[string]
     of gkText:

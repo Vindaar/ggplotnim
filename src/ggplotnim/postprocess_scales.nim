@@ -548,7 +548,7 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
     fg.assignIfAny(getXMaxScale(fs, fg.geom), xMax)
     fg.assignIfAny(getYMinScale(fs, fg.geom), yMin)
     fg.assignIfAny(getYMaxScale(fs, fg.geom), yMax)
-  of gkTile:
+  of gkTile, gkRaster:
     fg.assignIfAny(getHeightScale(fs, fg.geom), height)
     fg.assignIfAny(getWidthScale(fs, fg.geom), width)
   of gkText:

@@ -385,6 +385,41 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
                           ebKind = style.errorBarKind,
                           style = some(style))
 
+proc drawRaster(view: var Viewport, fg: FilledGeom,
+                df: DataFrame, linepoints: seq[Coord],
+                styles: seq[GgStyle]) =
+  doAssert styles.len == df.len, "Raster only supports continuous data!"
+  let
+    xCol = df[fg.xCol].toTensor(float)
+    yCol = df[fg.yCol].toTensor(float)
+    maxXCol = max(xCol)
+    minXCol = min(xCol)
+    maxYCol = max(yCol)
+    minYCol = min(yCol)
+    numX = xCol.toHashSet.card
+    numY = yCol.toHashSet.card
+    # TODO: check that really all sizes are same / warn otherwise?
+    (wv, hv) = readWidthHeight(df, 0, fg)
+  let height = (maxYCol - minYCol + hv)
+  let width = (maxXCol - minXCol + wv)
+  var drawCb = proc(): seq[uint32] =
+    result = newSeq[uint32](df.len)
+    doAssert linePoints.len == df.len
+    for idx in 0 ..< df.len:
+      let coord = linePoints[idx]
+      let (x, y) = (((coord.x.pos - minXCol) / wv).int, ((coord.y.pos - minYCol)/ hv).int)
+      let c = styles[idx].fillColor.get.to(ColorRGB)
+      result[((numY - y - 1) * numX) + x] = (255 shl 24 or
+                                             c.r.int shl 16 or
+                                             c.g.int shl 8 or
+                                             c.b.int).uint32
+  view.addObj view.initRaster(c(minXCol, maxYCol + hv, ukData),
+                              quant(width, ukData),
+                              quant(height, ukData),
+                              numX = numX,
+                              numY = numY,
+                              drawCb = drawCb)
+
 proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
           y: Value, # the actual y value, needed for height of a histogram / bar!
           binWidths: tuple[x, y: float],
@@ -425,9 +460,8 @@ proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] 
       result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
     else:
       result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
-  of gkTile:
+  of gkTile, gkRaster:
     (result.x, result.y) = readWidthHeight(df, idx, fg)
-  of gkRaster: result = (x: 1.0, y: 1.0)
 
 func moveBinPositions(p: var tuple[x, y: Value],
                       binWidths: tuple[x, y: float],
@@ -495,7 +529,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     p: tuple[x, y: Value]
     pos: Coord
     binWidths: tuple[x, y: float]
-  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile} or
+  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile, gkRaster} or
                       fg.geom.binPosition in {bpCenter, bpRight})
 
   when defined(defaultBackend):
@@ -563,33 +597,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
         let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
   of gkRaster:
-    doAssert styles.len == df.len, "Raster only supports continuous data!"
-    let
-      xCol = df[fg.xCol].toTensor(float)
-      yCol = df[fg.yCol].toTensor(float)
-      numX = xCol.toHashSet.card
-      numY = yCol.toHashSet.card
-    let height = max(yCol) - min(yCol) + 1.0
-
-    var drawCb = proc(): seq[uint32] =
-      result = newSeq[uint32](df.len)
-      doAssert linePoints.len == df.len
-      for idx in 0 ..< df.len:
-        let coord = linePoints[idx]
-        echo coord
-        let (x, y) = (coord.x.pos.int, coord.y.pos.int)
-        let c = styles[idx].fillColor.get.to(ColorRGB)
-        result[((numY - y - 1) * numX) + x] = (255 shl 24 or
-                                c.r.int shl 16 or
-                                c.g.int shl 8 or
-                                c.b.int).uint32
-    #view.addObj view.initRaster(c(min(xCol), min(yCol), ukData),
-    view.addObj view.initRaster(c(min(xCol), fg.yScale.high - min(yCol) - height, ukData),
-                                quant(max(xCol) - min(xCol) + 1.0, ukData),
-                                quant(height, ukData),
-                                numX = numX,
-                                numY = numY,
-                                drawCb = drawCb)
+    view.drawRaster(fg, df, linepoints, styles)
   else: discard
 
 proc createGobjFromGeom*(view: var Viewport,
