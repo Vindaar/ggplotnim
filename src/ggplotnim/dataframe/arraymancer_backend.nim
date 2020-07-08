@@ -51,7 +51,7 @@ type
   # then
   DataFrame* = ref object
     len*: int
-    data*: Table[string, Column]
+    data*: OrderedTable[string, Column]
     case kind: DataFrameKind
     of dfGrouped:
       # a grouped data frame stores the keys of the groups and maps them to
@@ -62,11 +62,11 @@ type
 const ValueNull* = Value(kind: VNull)
 
 proc newDataFrame*(size = 8,
-                    kind = dfNormal): DataFrame =
+                   kind = dfNormal): DataFrame =
   ## initialize a DataFrame, which initializes the table for `size` number
   ## of columns. Given size will be rounded up to the next power of 2!
   result = DataFrame(kind: kind,
-                     data: initTable[string, Column](nextPowerOfTwo(size)),
+                     data: initOrderedTable[string, Column](nextPowerOfTwo(size)),
                      len: 0)
 
 template ncols*(df: DataFrame): int = df.data.len
@@ -192,9 +192,9 @@ proc asgn(df: var DataFrame, k: string, col: Column) {.inline.} =
   # Shorter columns are extended afterwards.
   df.data[k] = col
 
-proc clone(data: Table[string, Column]): Table[string, Column] =
+proc clone(data: OrderedTable[string, Column]): OrderedTable[string, Column] =
   ## clones the given table by making sure the columns are copied
-  result = initTable[string, Column]()
+  result = initOrderedTable[string, Column]()
   for key in keys(data):
     result[key] = data[key].clone
 
@@ -702,7 +702,7 @@ proc collectColumns(body: NimNode): seq[NimNode] =
 
 proc genIdentsFromColumns(columns: seq[NimNode]): seq[NimNode] =
   result = newSeq[NimNode]()
-  var cols = initTable[string, string]()
+  var cols = initOrderedTable[string, string]()
   for i, c in columns:
     if c.strVal notin cols:
       let col = "col" & $i
@@ -1956,8 +1956,8 @@ proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   of dfGrouped:
     # since `df.len >> fns.len = result.len` the overhead of storing the result
     # in a `Value` first does not matter in practice
-    var sumStats = initTable[string, seq[Value]]()
-    var keys = initTable[string, seq[Value]](df.groupMap.len)
+    var sumStats = initOrderedTable[string, seq[Value]]()
+    var keys = initOrderedTable[string, seq[Value]](df.groupMap.len)
     var idx = 0
     var keyLabelsAdded = false
     for fn in fns:
@@ -1989,7 +1989,7 @@ proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
   result = DataFrame()
   let grouped = df.group_by(col, add = true)
   var counts = newSeqOfCap[int](1000) # just start with decent size
-  var keys = initTable[string, seq[Value]](grouped.groupMap.len)
+  var keys = initOrderedTable[string, seq[Value]](grouped.groupMap.len)
   var idx = 0
   for class, subdf in groups(grouped):
     for (c, val) in class:

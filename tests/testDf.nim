@@ -903,8 +903,8 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let df2 = seqsToDf({ "Ident" : idents,
                          "Words" : words })
     let dfExp = seqsToDf({ "Ident" : idents,
-                           "Ids" : ids,
-                           "Words" : words })
+                           "Words" : words,
+                           "Ids" : ids })
     let dfRes = df1.innerJoin(df2, by = "Ident")
     check dfRes.len == dfExp.len
     check dfRes.getKeys == dfExp.getKeys
@@ -923,8 +923,8 @@ t_in_s,  C1_in_V,  C2_in_V,  type
                          "Ids" : idsFloat,
                          "Words" : words})
     let dfExp = seqsToDf({ "Ident" : idents,
-                           "Ids" : idsFloat,
-                           "Words" : words })
+                           "Words" : words,
+                           "Ids" : idsFloat })
     let dfRes = df1.innerJoin(df2, by = "Ident")
     check dfRes.len == dfExp.len
     check dfRes.getKeys == dfExp.getKeys
@@ -945,8 +945,8 @@ t_in_s,  C1_in_V,  C2_in_V,  type
                          "Ids" : idsFloat,
                          "Words" : words})
     let dfExp = seqsToDf({ "Ident" : idents[0 ..< ^1],
-                           "Ids" : idsFloat,
-                           "Words" : words })
+                           "Words" : words,
+                           "Ids" : idsFloat })
     let dfRes = df1.innerJoin(df2, by = "Ident")
     check dfRes.len == dfExp.len
     check dfRes.getKeys == dfExp.getKeys
