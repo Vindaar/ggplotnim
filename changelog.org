@@ -1,3 +1,14 @@
+* v0.3.15
+- add geom raster for efficient drawing of evenly spaced tile maps
+  (e.g. many pixel heatmaps)
+- make code ready for =--gc:arc= by removing =deepCopy= calls
+- allow real constant columns in data frame (only store a single
+  value), which behave like real columns
+- slight code clean up
+- data frame meta information now returned by pretty instead of being
+  echoed
+- data frame now uses =OrderedTable= to properly keep order of keys
+
 * v0.3.14
 - hotfix release to unbreak Nim CI
   -> fixes a regression due to an additional field in ginger, for
