@@ -136,7 +136,7 @@ proc splitDiscreteSetMap(df: DataFrame,
   var mapDiscCols = newSeq[string]()
   for d in scales:
     # for discrete scales, build the continuous (if any) scales
-    if d.col.isColumn(df):
+    if d.col.isColumn(df) and not d.col.isConstant(df):
       mapDiscCols.add getColName(d)
     else:
       # setting columns are returned as is, since they don't refer to a column, but a
