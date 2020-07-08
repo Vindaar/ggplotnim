@@ -156,6 +156,9 @@ proc `[]`*(df: DataFrame, k: Value): Column {.inline.} =
 func isColumn*(fn: FormulaNode, df: DataFrame): bool =
   result = $fn in df
 
+func isConstant*(fn: FormulaNode, df: DataFrame): bool =
+  result = $fn in df and df[$fn].isConstant
+
 proc `[]`*(df: DataFrame, k: string, idx: int): Value {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
   ## returning the whole vector first
@@ -229,7 +232,7 @@ template withCombinedType*(df: DataFrame,
   of colObject:
     type dtype {.inject.} = Value
     body
-  of colNone: doAssert false, "No valid type!"
+  of colNone, colConstant: doAssert false, "No valid type!"
 
 proc `[]=`*[T: Tensor | seq | array](df: var DataFrame, k: string, t: T) {.inline.} =
   df[k] = toColumn t

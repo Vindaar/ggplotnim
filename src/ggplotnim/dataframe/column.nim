@@ -4,7 +4,7 @@ from sequtils import allIt
 
 type
   ColKind* = enum
-    colNone, colFloat, colInt, colBool, colString, colObject
+    colNone, colFloat, colInt, colBool, colString, colObject, colConstant
   Column* = ref object
     len*: int
     case kind*: ColKind
@@ -13,12 +13,17 @@ type
     of colBool: bCol*: Tensor[bool]
     of colString: sCol*: Tensor[string]
     of colObject: oCol*: Tensor[Value]
+    of colConstant: cCol*: Value
     of colNone: discard
+
+template `%~`*(v: Value): Value = v
 
 # just a no-op
 template toColumn*(c: Column): Column = c
 
 func high*(c: Column): int = c.len - 1
+
+func isConstant*(c: Column): bool = c.kind == colConstant
 
 proc toColumn*[T: SomeFloat | SomeInteger | string | bool | Value](t: Tensor[T]): Column =
   when T is SomeInteger:
@@ -44,11 +49,13 @@ proc toColumn*[T: SomeFloat | SomeInteger | string | bool | Value](t: Tensor[T])
 
 proc constantColumn*[T](val: T, len: int): Column =
   ## creates a constant column based on `val` and its type
-  when T is Value:
-    withNative(val, x):
-      result = toColumn newTensorWith[type(x)](len, x)
-  else:
-    result = toColumn newTensorWith[T](len, val)
+  result = Column(len: len, kind: colConstant, cCol: %~ val)
+
+proc constantToFull*(c: Column): Column =
+  ## creates a real constant full tensor column based on a constant column
+  if c.kind != colConstant: return c
+  withNative(c.cCol, val):
+    result = toColumn newTensorWith[type(val)](c.len, val)
 
 proc `[]`*(c: Column, slice: Slice[int]): Column =
   case c.kind
@@ -57,6 +64,7 @@ proc `[]`*(c: Column, slice: Slice[int]): Column =
   of colString: result = toColumn c.sCol[slice.a .. slice.b]
   of colBool: result = toColumn c.bCol[slice.a .. slice.b]
   of colObject: result = toColumn c.oCol[slice.a .. slice.b]
+  of colConstant: result = c
   of colNone: raise newException(IndexError, "Accessed column is empty!")
 
 proc newColumn*(kind = colNone, length = 0): Column =
@@ -66,6 +74,7 @@ proc newColumn*(kind = colNone, length = 0): Column =
   of colString: result = toColumn newTensor[string](length)
   of colBool: result = toColumn newTensor[bool](length)
   of colObject: result = toColumn newTensor[Value](length)
+  of colConstant: result = constantColumn(Value(kind: VNull), length)
   of colNone: result = Column(kind: colNone, len: 0)
 
 
@@ -97,6 +106,7 @@ proc toValueKind*(colKind: ColKind): ValueKind =
   of colString: result = VString
   of colBool: result = VBool
   of colObject: result = VObject
+  of colConstant: result = VObject
   of colNone: result = VNull
 
 proc toNimType*(colKind: ColKind): string =
@@ -107,6 +117,7 @@ proc toNimType*(colKind: ColKind): string =
   of colString: result = "string"
   of colBool: result = "bool"
   of colObject: result = "object"
+  of colConstant: result = "constant"
   of colNone: result = "null"
 
 template withNativeTensor*(c: Column,
@@ -128,6 +139,10 @@ template withNativeTensor*(c: Column,
   of colObject:
     let `valName` {.inject.} =  c.oCol
     body
+  of colConstant:
+    withNative(c.cCol, realVal):
+      let `valName` {.inject.} = newTensorWith(c.len, realVal)
+      body
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc combinedColKind*(c: seq[ColKind]): ColKind =
@@ -140,8 +155,6 @@ proc combinedColKind*(c: seq[ColKind]): ColKind =
   else:
     # the rest can only be merged via object columns of `Values`.
     result = colObject
-
-template `%~`*(v: Value): Value = v
 
 template withNative*(c: Column, idx: int,
                      valName: untyped,
@@ -162,6 +175,9 @@ template withNative*(c: Column, idx: int,
   of colObject:
     let `valName` {.inject.} =  c[idx, Value]
     body
+  of colConstant:
+    let `valName` {.inject.} =  c[idx, Value]
+    body
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 template withNativeDtype*(c: Column, body: untyped): untyped =
@@ -178,7 +194,7 @@ template withNativeDtype*(c: Column, body: untyped): untyped =
   of colBool:
     type dtype {.inject.} = bool
     body
-  of colObject:
+  of colObject, colConstant:
     type dtype {.inject.} = Value
     body
   of colNone: raise newException(ValueError, "Accessed column is empty!")
@@ -197,7 +213,7 @@ template withDtypeByColKind*(colKind: ColKind, body: untyped): untyped =
   of colBool:
     type dtype {.inject.} = bool
     body
-  of colObject:
+  of colObject, colConstant:
     type dtype {.inject.} = Value
     body
   of colNone: raise newException(ValueError, "Invalid column kind!")
@@ -273,6 +289,8 @@ proc toTensor*[T](c: Column, dtype: typedesc[T],
       result = c.bCol.asValue
   of colObject:
     result = c.oCol.valueTo(T, dropNulls = dropNulls)
+  of colConstant:
+    result = c.constantToFull.toTensor(dtype, dropNulls)
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
@@ -295,6 +313,8 @@ proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
       result = c.bCol[slice.a .. slice.b]
   of colObject:
     result = c.oCol[slice.a .. slice.b].valueTo(T)
+  of colConstant:
+    result = c.cCol.valueTo(T)
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
@@ -331,6 +351,15 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
         result = c.oCol[idx].toInt
       elif T is bool:
         result = c.oCol[idx].toBool
+    of colConstant:
+      when T is string:
+        result = c.cCol.toStr
+      elif T is float:
+        result = c.cCol.toFloat
+      elif T is int:
+        result = c.cCol.toInt
+      elif T is bool:
+        result = c.cCol.toBool
     of colNone: raise newException(ValueError, "Accessed column is empty!")
   else:
     case c.kind
@@ -339,6 +368,7 @@ proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
     of colString: result = %~ c.sCol[idx]
     of colBool: result = %~ c.bCol[idx]
     of colObject: result = c.oCol[idx]
+    of colConstant: result = c.cCol
     of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc toObjectColumn*(c: Column): Column =
@@ -379,6 +409,8 @@ proc `[]=`*[T](c: var Column, idx: int, val: T) =
       rewriteAsValue = true
   of colObject:
     c.oCol[idx] = %~ val
+  of colConstant:
+    c.cCol = %~ val
   of colNone: raise newException(ValueError, "Accessed column is empty!")
   if rewriteAsValue:
     # rewrite as an object column
@@ -410,6 +442,7 @@ template withNative2*(c1, c2: Column, idx1, idx2: int,
     let `valName1` {.inject.} =  c1[idx1, Value]
     let `valName2` {.inject.} =  c2[idx2, Value]
     body
+  of colConstant: raise newException(ValueError, "Accessed column is constant!")
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc compatibleColumns*(c1, c2: Column): bool {.inline.} =
@@ -440,6 +473,7 @@ proc toObject*(c: Column): Column {.inline.} =
   of colFloat: result = toColumn c.fCol.asValue
   of colString: result = toColumn c.sCol.asValue
   of colBool: result = toColumn c.bCol.asValue
+  of colConstant: raise newException(ValueError, "Accessed column is constant!")
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc add*(c1, c2: Column): Column =
@@ -454,6 +488,9 @@ proc add*(c1, c2: Column): Column =
     of colBool: result = toColumn concat(c1.bCol, c2.bCol, axis = 0)
     of colString: result = toColumn concat(c1.sCol, c2.sCol, axis = 0)
     of colObject: result = toColumn concat(c1.oCol, c2.oCol, axis = 0)
+    of colConstant:
+      if c1.cCol == c2.cCol: result = c1 # does not matter which to return
+      else: result = add(c1.constantToFull, c2.constantToFull)
     of colNone: doAssert false, "Both columns are empty!"
   elif compatibleColumns(c1, c2):
     # convert both to float
@@ -467,6 +504,8 @@ proc add*(c1, c2: Column): Column =
       assert c2.kind == colInt
       result = toColumn concat(c1.fCol, c2.iCol.asType(float), axis = 0)
     else: doAssert false, "cannot happen, since not compatible!"
+  elif c1.kind == colConstant or c2.kind == colConstant:
+    result = add(c1.constantToFull, c2.constantToFull)
   else:
     # convert both columns to Value
     result = toColumn concat(c1.toObject.oCol, c2.toObject.oCol, axis = 0)
