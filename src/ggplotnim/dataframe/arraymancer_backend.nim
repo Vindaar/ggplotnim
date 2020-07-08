@@ -297,7 +297,7 @@ proc pretty*(df: DataFrame, numLines = 20, precision = 4, header = true): string
   for k in keys(df):
     maxLen = max(k.len, maxLen)
   if header:
-    echo "Dataframe with ", df.getKeys.len, " columns and ", df.len, " rows:"
+    result.add "Dataframe with " & $df.getKeys.len & " columns and " & $df.len & " rows:"
   let alignBy = max(maxLen + precision, 10)
   let num = if numLines > 0: min(df.len, numLines) else: df.len
   # write header
