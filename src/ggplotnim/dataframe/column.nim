@@ -314,7 +314,7 @@ proc toTensor*[T](c: Column, slice: Slice[int], dtype: typedesc[T]): Tensor[T] =
   of colObject:
     result = c.oCol[slice.a .. slice.b].valueTo(T)
   of colConstant:
-    result = c.cCol.valueTo(T)
+    result = newTensorWith[T](slice.b - slice.a + 1, c.cCol.to(T))
   of colNone: raise newException(ValueError, "Accessed column is empty!")
 
 proc `[]`*[T](c: Column, idx: int, dtype: typedesc[T]): T =
