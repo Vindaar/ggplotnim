@@ -2,6 +2,85 @@ import ggplotnim, unittest, sequtils, math, strutils, streams, sugar
 import algorithm
 import seqmath
 
+suite "Column":
+  test "Constant columns":
+    let c = constantColumn(12, 100)
+    check c.kind == colConstant
+    check c.len == 100
+    check c.cCol == %~ 12
+
+    for i in 0 ..< c.len:
+      check c[i, int] == 12
+
+  test "Adding two equal constant columns":
+    let c1 = constantColumn(12, 40)
+    let c2 = constantColumn(12, 60)
+    check c1.len == 40
+    check c1.cCol == %~ 12
+    check c2.len == 60
+    check c2.cCol == %~ 12
+
+    let res = add(c1, c2)
+    check res.kind == colConstant
+    check res.cCol == %~ 12
+    check res.len == 100
+
+  test "Adding two unequal constant columns of same value type":
+    let c1 = constantColumn(12, 40)
+    let c2 = constantColumn(14, 60)
+    check c1.len == 40
+    check c1.cCol == %~ 12
+    check c2.len == 60
+    check c2.cCol == %~ 14
+
+    let res = add(c1, c2)
+    check res.kind == colInt
+    check res.len == 100
+    for i in 0 ..< 100:
+      if i < 40:
+        check res[i, int] == 12
+      else:
+        check res[i, int] == 14
+
+  test "Adding two unequal constant columns of int & float":
+    let c1 = constantColumn(12, 40)
+    let c2 = constantColumn(14.0, 60)
+    check c1.len == 40
+    check c1.cCol == %~ 12
+    check c2.len == 60
+    check c2.cCol == %~ 14.0
+
+    let res = add(c1, c2)
+    check res.kind == colFloat
+    check res.len == 100
+    for i in 0 ..< 100:
+      if i < 40:
+        check res[i, float] == 12.0
+      else:
+        check res[i, float] == 14.0
+
+  test "Adding two unequal constant columns of different types":
+    let c1 = constantColumn(12, 40)
+    let c2 = constantColumn("foo", 60)
+    check c1.len == 40
+    check c1.cCol == %~ 12
+    check c2.len == 60
+    check c2.cCol == %~ "foo"
+
+    let res = add(c1, c2)
+    check res.kind == colObject
+    check res.len == 100
+    for i in 0 ..< 100:
+      if i < 40:
+        check res[i, Value] == %~ 12.0
+      else:
+        check res[i, Value] == %~ "foo"
+
+  test "Conversion of constant column results to tensor":
+    let c = constantColumn(12, 40)
+    check c.toTensor(0 .. 10, int) == newTensorWith(11, 12)
+    check c.toTensor(int) == newTensorWith(40, 12)
+
 suite "Data frame tests":
   test "Creation of DFs from seqs":
     let a = [1, 2, 3]
