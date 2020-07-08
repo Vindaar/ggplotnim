@@ -173,8 +173,6 @@ suite "Data frame tests":
       let df = seqsToDf({"a" : a, "b" : b})
       let df2 = seqsToDf({"a" : c, "b" : d})
       let res = bind_rows([df, df2])
-      echo "Resulting df "
-      echo res
       when defined(defaultBackend):
         check toSeq(res["a"]) == %~ concat(@a, @c)
         check toSeq(res["b"]) == %~ concat(@b, @d)
@@ -186,16 +184,11 @@ suite "Data frame tests":
       #                                      toSeq(0..<c.len).mapIt("1"))
 
     block:
-      echo "-------"
       # bind_rows with automatic `ids`, having different columns
       let df = seqsToDf({"a" : a, "b" : b})
       let df2 = seqsToDf({"a" : c, "d" : d})
       let res = bind_rows([df, df2])
-      echo "Resulting df "
-      echo res
-      echo res["a"]
       when defined(defaultBackend):
-        echo toVector(%~ concat(@a, @c))
         check toSeq(res["a"]) == %~ concat(@a, @c)
         check toSeq(res["b"]) == %~ concat(%~ b, toSeq(0 .. 3).mapIt(Value(kind: VNull)))
         check toSeq(res["d"]) == %~ concat(toSeq(0 .. 2).mapIt(Value(kind: VNull)), %~ d)
@@ -212,13 +205,10 @@ suite "Data frame tests":
       #                                      toSeq(0..<c.len).mapIt("1"))
 
     block:
-      echo "-------"
       # bind_rows with custom `id` name, both having same columns
       let df = seqsToDf({"a" : a, "b" : b})
       let df2 = seqsToDf({"a" : c, "b" : d})
       let res = bind_rows([df, df2], id = "combine")
-      echo "Resulting df "
-      echo res
       when defined(defaultBackend):
         check toSeq(res["a"]) == %~ concat(@a, @c)
         check toSeq(res["b"]) == %~ concat(@b, @d)
@@ -233,13 +223,10 @@ suite "Data frame tests":
 
 
     block:
-      echo "-------"
       # bind_rows with custom `id` name, custom `id` values, both having same columns
       let df = seqsToDf({"a" : a, "b" : b})
       let df2 = seqsToDf({"a" : c, "b" : d})
       let res = bind_rows([("one", df), ("two", df2)], id = "combine")
-      echo "Resulting df "
-      echo res
       when defined(defaultBackend):
         check toSeq(res["a"]) == %~ concat(@a, @c)
         check toSeq(res["b"]) == %~ concat(@b, @d)
@@ -308,8 +295,6 @@ suite "Data frame tests":
                            cyls.toTensor(Value).toRawSeq])
     var subgroupCount = 0
     for (by, df) in groups(mpg2groups):
-      echo "--------------------Subgroup by ", by, "--------------------\n"
-      echo df
       # check whether current subgroup is part of our cartesian product, i.e. combinations we
       # expect. `by` contains both the field name and value, extract values
       let curSubGroup = @[by[1][1], by[0][1]]

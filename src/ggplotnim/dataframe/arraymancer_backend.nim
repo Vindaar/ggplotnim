@@ -1,5 +1,3 @@
-#import ggplotnim
-
 import macros, tables, strutils, options, fenv, sets, hashes, sugar, math
 import sequtils, stats, strformat, algorithm, parseutils
 
@@ -2257,59 +2255,3 @@ proc reduce*(node: FormulaNode, df: DataFrame): Value =
   else:
     raise newException(ValueError, "Cannot reduce a data frame using a formula " &
       "of kind " & $node.kind & "!")
-
-#proc evaluate*[T](node: FormulaNode, df: DataFrame,
-#                  idx: int,
-#                  dtype: typedesc[T]): T =
-#  case node.kind
-#  of fkVector:
-#    # filter to indices
-#    withNativeDtype(df[
-#    result = node.fnV(df)
-#  else:
-#    raise newException(ValueError, "Cannot evaluate a formula of kind " &
-#      $node.kind & " without a data frame as input!")
-
-
-#
-#proc evaluate*(node: FormulaNode, data: DataFrame): PersistentVector[Value] =
-#  ## evaluation of a data frame under a given `FormulaNode`. This is a non-reducing
-#  ## operation. It returns a `PersitentVector[Value]` from a whole data frame (by working on
-#  ## a single column) and applying `node` to each element.
-#  case node.kind
-#  of fkVariable:
-#    case node.val.kind
-#    of VString:
-#      # the given node corresponds to a key of the data frame
-#      # TODO: maybe extend this so that if `node.val` is ``not`` a key of the dataframe
-#      # we take the literal string value instead?
-#      if node.val.str in data:
-#        result = data[node.val.str]
-#      else:
-#        # if it's not a key, we use the literal
-#        result = toPersistentVector(toSeq(0 ..< data.len).mapIt(node.val))
-#    of VFloat, VInt, VBool:
-#      # take the literal value of the node
-#      result = toPersistentVector(toSeq(0 ..< data.len).mapIt(node.val))
-#    else:
-#      raise newException(Exception, "Node kind of " & $node.kind & " does not " &
-#        "make sense for evaluation!")
-#  of fkTerm:
-#    let lhs = evaluate(node.lhs, data)
-#    let rhs = evaluate(node.rhs, data)
-#    doAssert lhs.len == rhs.len
-#    var res = newSeq[Value](lhs.len)
-#    for i in 0 ..< lhs.len:
-#      res[i] = evaluate FormulaNode(kind: fkTerm, op: node.op, lhs: f{lhs[i]}, rhs: f{rhs[i]})
-#    result = toPersistentVector(res)
-#  of fkFunction:
-#    case node.fnKind
-#    of funcScalar:
-#      # just a function taking a scalar. Apply to current `idx`
-#      var res = newSeq[Value](data.len)
-#      for i in 0 ..< data.len:
-#        res[i] = node.evaluate(data, i)
-#      result = toPersistentVector(res)
-#    of funcVector:
-#      raise newException(Exception, "Reductive vector like proc cannot be evaluated to " &
-#        "return a vector!")
