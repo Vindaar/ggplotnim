@@ -2070,6 +2070,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   theme.xMarginRange = calculateMarginRange(theme, filledScales.xScale, akX)
   theme.yMarginRange = calculateMarginRange(theme, filledScales.yScale, akY)
 
+  # change scales to user defined if desired
+  # TODO: does this break facet plot with individual scales?
+  view.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
+  view.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+
   var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
   let (rows, cols) = calcRowsColumns(0, 0, numExist)
@@ -2149,7 +2154,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       plotView.name = "facetPlot"
       viewLabel.name = "facet_" & text
 
-  if not hideLabels:
+  # update data scale again
+  # TODO: does this break facet plot with individual scales?
+  view.updateDataScale()
+
+  if not hidelabels:
     # set the theme margins to defaults since `view` does not have any tick label texts
     # which can be used to determine the margin
     theme.xLabelMargin = some(1.0)
