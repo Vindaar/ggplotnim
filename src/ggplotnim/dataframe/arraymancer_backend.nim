@@ -194,6 +194,12 @@ proc asgn(df: var DataFrame, k: string, col: Column) {.inline.} =
   # Shorter columns are extended afterwards.
   df.data[k] = col
 
+proc clone(data: Table[string, Column]): Table[string, Column] =
+  ## clones the given table by making sure the columns are copied
+  result = initTable[string, Column]()
+  for key in keys(data):
+    result[key] = data[key].clone
+
 proc clone*(df: DataFrame): DataFrame =
   ## returns a cloned version of `df` so that the tensors don't share
   ## data.
@@ -201,7 +207,13 @@ proc clone*(df: DataFrame): DataFrame =
   # we do that, we get random GC segfaults later
   result = DataFrame(kind: df.kind)
   result.len = df.len
-  result.data = deepCopy(df.data)
+  result.data = df.data.deepCopy
+  # TODO: raise Nim issue about this. If the next line is in use,
+  # we get a GC related segfault when running `testDf`, which happens
+  # somewhere within `readCsv` (thus unrelated to this code here) in the
+  # test "Reduce data frame using FormulaNode":
+  # test case.
+  # result.data = df.data.clone
   case df.kind
   of dfGrouped:
     result.groupMap = df.groupMap

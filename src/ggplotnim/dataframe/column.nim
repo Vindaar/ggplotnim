@@ -562,3 +562,15 @@ proc pretty*(c: Column): string =
   withNativeTensor(c, t):
     result.add &"  contained Tensor: {t}"
 template `$`*(c: Column): string = pretty(c)
+
+proc clone*(c: Column): Column =
+  ## clones the given column by cloning the Tensor
+  result = Column(kind: c.kind, len: c.len)
+  case result.kind
+  of colInt: result.iCol = c.iCol.clone()
+  of colFloat: result.fCol = c.fCol.clone()
+  of colString: result.sCol = c.sCol.clone()
+  of colBool: result.bCol = c.bCol.clone()
+  of colObject: result.oCol = c.oCol.clone()
+  of colConstant: result.cCol = c.cCol # just a `Value`
+  of colNone: discard
