@@ -260,6 +260,18 @@ proc toStr*(v: Value): string =
     raise newException(ValueError, "Will not convert a Value of kind " &
       $v.kind & " to string! Use `$` for that!")
 
+proc to*[T: int | float | string | bool](v: Value, dtype: typedesc[T]): T =
+  when T is int:
+    result = v.toInt
+  elif T is float:
+    result = v.toFloat
+  elif T is string:
+    result = v.toStr
+  elif T is bool:
+    result = v.toBool
+  else:
+    doAssert false, "Impossible branch!"
+
 template withNative*(v: Value,
                      valName: untyped,
                      body: untyped): untyped =
