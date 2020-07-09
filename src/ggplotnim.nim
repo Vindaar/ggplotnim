@@ -2058,22 +2058,15 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
 
   let existComb = determineExistingCombinations(filledScales, facet)
   let numExist = existComb.card
+  # set margin of plot to avoid tick labels getting too close
+  # TODO: only set if user did not set xlim, ylim (theme x/yRange)?
+  p.theme.xMargin = some(0.05)
+  p.theme.yMargin = some(0.05)
   var theme = buildTheme(filledScales, p)
   # create a theme, which ignores points outside the scale (which happens
   # due to overlap!)
   theme.xTickLabelMargin = some(0.4)
   theme.yTickLabelMargin = some(-0.2)
-  # set margin of plot to avoid tick labels getting too close
-  theme.xMargin = some(0.05)
-  theme.yMargin = some(0.05)
-
-  theme.xMarginRange = calculateMarginRange(theme, filledScales.xScale, akX)
-  theme.yMarginRange = calculateMarginRange(theme, filledScales.yScale, akY)
-
-  # change scales to user defined if desired
-  # TODO: does this break facet plot with individual scales?
-  view.xScale = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
-  view.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
 
   var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
@@ -2153,10 +2146,6 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       # finally assign names
       plotView.name = "facetPlot"
       viewLabel.name = "facet_" & text
-
-  # update data scale again
-  # TODO: does this break facet plot with individual scales?
-  view.updateDataScale()
 
   if not hidelabels:
     # set the theme margins to defaults since `view` does not have any tick label texts
