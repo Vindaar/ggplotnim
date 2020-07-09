@@ -887,6 +887,68 @@ This gives us the following plot:
 Note to get rid of the spacing on the upper and right side (or get
 even spacing), use =xlim= and =ylim=.
 
+*** Large heatmaps - =geom_raster= for efficiency
+
+When dealing with the above case [[Simple tile plot]] this approach
+quickly becomes unwieldly for a large number of tiles. That is because
+using =geom_tile= each tile is drawn separately. Especially when
+storing the result as a vector graphic this can result in bad
+performance and huge file sizes. 
+=geom_raster= instead draws a single bitmap for the whole data (a
+cairo PNG surface is filled pixel wise).
+This comes at the (arbitrary, but done for simplicity's sake)
+limitation that each tile has the same size. The =width= and =height=
+fields are available, but they are redundant. 
+
+We'll modify the example from above a bit to include more elements and
+move the location to a non trivial position.
+#+BEGIN_SRC nim :tangle recipes/rSimpleRaster.nim
+import ggplotnim, random
+var
+  xs = newSeq[float]()
+  ys = newSeq[float]()
+  zs = newSeq[float]()
+for x in countup(-256, 254, 2):
+  for y in 0 ..< 256:
+    xs.add x.float
+    ys.add y.float
+    zs.add rand(1.0)
+let df = seqsToDf(xs, ys, zs)
+echo df
+ggplot(df, aes("xs", "ys", fill = "zs")) +
+  geom_raster() +
+  ggsave("media/recipes/rSimpleRaster.png")
+#+END_SRC
+
+[[./media/rSimpleRaster.png]]
+
+And for a slight modification of two facet wrapped heatmaps (mainly
+as a regession test):
+
+#+BEGIN_SRC nim :tangle recipes/rFacetRaster.nim
+import ggplotnim, random
+var
+  xs = newSeq[float]()
+  ys = newSeq[float]()
+  zs1 = newSeq[float]()
+  zs2 = newSeq[float]()
+for x in 0 ..< 256:
+  for y in 0 ..< 256:
+    xs.add x.float
+    ys.add y.float
+    zs1.add rand(1.0)
+    zs2.add rand(1.0)
+let df = seqsToDf(xs, ys, zs1, zs2)
+  .gather(["zs1", "zs2"], key = "Map", value = "vals")
+echo df
+ggplot(df, aes("xs", "ys", fill = "vals")) +
+  facet_wrap("Map") +
+  xlim(0, 256) + ylim(0, 256) +
+  geom_raster() +
+  ggsave("media/recipes/rFacetRaster.png", width = 920)
+#+END_SRC
+
+
 *** Simple =geom_text= example
 
 =geom_text= can be used to represent an additional scale on the plot
@@ -1646,7 +1708,7 @@ classification via the =InPoly= column.
 ggplot(df, aes(x, y)) +
   geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
   geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
-  ggsave("./media/recipes/rPointInPolygon.png")
+  ggsave("./media/recipes/rPointInPolygons.png")
 #+END_SRC
 
 Which gives us the following plot that shows us the algorithm works as
