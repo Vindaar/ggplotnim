@@ -10,7 +10,7 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.11"
-requires "ginger@#fixInitCoordAndRaster"
+requires "ginger#fixInitCoordAndRaster"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
 requires "arraymancer"
