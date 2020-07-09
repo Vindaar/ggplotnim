@@ -58,4 +58,4 @@ let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
 ggplot(df, aes(x, y)) +
   geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
   geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
-  ggsave("./media/recipes/rPointInPolygon.png")
+  ggsave("./media/recipes/rPointInPolygons.png")
