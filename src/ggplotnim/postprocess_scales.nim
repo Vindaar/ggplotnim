@@ -162,7 +162,12 @@ proc setXAttributes(fg: var FilledGeom,
     # and assign the label sequence
     fg.xLabelSeq = scale.labelSeq
   of dcContinuous:
-    fg.numX = max(fg.numX, df.len)
+    case fg.geom.kind:
+    of gkRaster:
+      # For raster this is already set in `fillOptFields` for performance reasons
+      discard
+    else:
+      fg.numX = max(fg.numX, df.len)
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          scales: seq[Scale], baseStyle: GgStyle,
@@ -194,7 +199,6 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
         result[1][i] = baseStyle.changeStyle(scVals[i])
   if result[1].len == 0:
     result = (baseStyle, @[baseStyle], result[2])
-
 
 when defined(defaultBackend):
   proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
@@ -230,7 +234,6 @@ else:
       sumCounts = df
     of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
 
-
 proc addBinCountsByPosition(sumHist: var seq[float], hist: seq[float],
                             pos: PositionKind) =
   ## adds the `hist` sequence elements to the `sumHist` sequence taking into
@@ -265,6 +268,46 @@ else:
     dfZero.transmuteInplace(f{int: countCol ~ 0},
                             f{xCol <- "keys"})
     df.add dfZero
+
+proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
+  template assignIfAny(fg, scale, arg: untyped): untyped =
+    if scale.isSome:
+      fg.arg = some(getColName(scale.get))
+  template elseAuto(scale, body: untyped): untyped =
+    if scale.isNone:
+      body
+  # TODO: use fg. gid?
+  case fg.geom.kind
+  of gkErrorBar:
+    fg.assignIfAny(getXMinScale(fs, fg.geom), xMin)
+    fg.assignIfAny(getXMaxScale(fs, fg.geom), xMax)
+    fg.assignIfAny(getYMinScale(fs, fg.geom), yMin)
+    fg.assignIfAny(getYMaxScale(fs, fg.geom), yMax)
+  of gkTile:
+    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
+    elseAuto(getHeightScale(fs, fg.geom)):
+      df["height"] = constantColumn(1.0, df.len)
+      fg.height = some("height")
+    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
+    elseAuto(getWidthScale(fs, fg.geom)):
+      df["width"] = constantColumn(1.0, df.len)
+      fg.width = some("width")
+  of gkRaster:
+    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
+    elseAuto(getHeightScale(fs, fg.geom)):
+      let yCol = df[getYScale(fs, fg.geom).getColName].unique
+      fg.numY = yCol.len
+      df["height"] = constantColumn(abs((yCol[1, float] - yCol[0, float])), df.len)
+      fg.height = some("height")
+    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
+    elseAuto(getWidthScale(fs, fg.geom)):
+      let xCol = df[getXScale(fs, fg.geom).getColName].unique
+      fg.numX = xCol.len
+      df["width"] = constantColumn(abs((xCol[1, float] - xCol[0, float])), df.len)
+      fg.width = some("width")
+  of gkText:
+    fg.text = $getTextScale(fs, fg.geom).col
+  else: discard
 
 func encompassingDataScale(scales: seq[Scale],
                            axKind: AxisKind,
@@ -313,6 +356,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
                       geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
   result.yScale = determineDataScale(y, cont, df)
+  result.fillOptFields(filledScales, df)
+
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
@@ -408,6 +453,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   result.xScale = encompassingDataScale(cont, akX)
   # y scale is not defined yet, only use continuous scales too
   result.yScale = encompassingDataScale(cont, akY)
+  result.fillOptFields(filledScales, df)
+
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
@@ -489,6 +536,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   result.xScale = determineDataScale(x, cont, df)
   # y scale is not yet defined, only use encompassing cont. scales
   result.yScale = encompassingDataScale(cont, akY)
+  result.fillOptFields(filledScales, df)
+
   let allClasses = df[xCol].unique
   # w/ all groupings
   var style: GgStyle
@@ -539,24 +588,6 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   result.numY = result.yScale.high.round.int
   doAssert result.numX == allClasses.len
 
-proc fillOptFields(fg: var FilledGeom, fs: FilledScales) =
-  template assignIfAny(fg, scale, arg: untyped): untyped =
-    if scale.isSome:
-      fg.arg = some(getColName(scale.get))
-  # TODO: use fg. gid?
-  case fg.geom.kind
-  of gkErrorBar:
-    fg.assignIfAny(getXMinScale(fs, fg.geom), xMin)
-    fg.assignIfAny(getXMaxScale(fs, fg.geom), xMax)
-    fg.assignIfAny(getYMinScale(fs, fg.geom), yMin)
-    fg.assignIfAny(getYMaxScale(fs, fg.geom), yMax)
-  of gkTile, gkRaster:
-    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
-    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
-  of gkText:
-    fg.text = $getTextScale(fs, fg.geom).col
-  else: discard
-
 proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
   ## walk all geoms and create the dataframes required to draw the
   ## geoms
@@ -576,7 +607,6 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         filledGeom = filledCountGeom(df, g, filledScales)
       else:
         filledGeom = filledBinGeom(df, g, filledScales)
-      filledGeom.fillOptFields(filledScales)
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:
