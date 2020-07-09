@@ -1515,6 +1515,145 @@ which gives the following amazing result (better to look at a PDF!):
 
 [[media/recipes/rPeriodicTable.png]]
 
+
+*** Check if a point is in one or more polygons
+
+This came up recently in a discussion with a colleague. The question
+was how to determine whether a point in 2D space lies within one or
+more (not necessarily disjoint) polygons.
+
+I thought it would be fun to implement this with a simple algorithm
+and use ggplotnim to show that it works.
+
+Let's start by defining a few data types to make life easier:
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+import ggplotnim, sequtils, chroma, options, sugar, random
+
+type 
+  Point = object
+    x, y: float
+  Vertex {.borrow: `.`.} = distinct Point
+  Polygon = object
+    vertices: seq[Vertex]
+#+END_SRC
+Not that it really matters for a toy example, but I actually wanted
+=Point= to be a generic, but then ={.borrow.}= is broken:
+https://github.com/nim-lang/Nim/issues/14449
+
+The =Polygon= type in this example could of course also just be an
+alias for =seq[Vertex]=. But maybe for a more complete example the
+polygon would store additional information.
+
+Given our types, we can define few helpers to access information more
+easily and create a =Polygon= from a set of points (not using =Point=
+due to the issue mentioned above...):
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+func len(p: Polygon): int = p.vertices.len
+func `[]`(p: Polygon, idx: int): Vertex = p.vertices[idx]
+    
+proc initPolygon[T](vs: varargs[tuple[x, y: T]]): Polygon =
+  result.vertices = newSeq[Vertex](vs.len)
+  for i, v in vs:
+    result.vertices[i] = Point(x: v[0].float, y: v[1].float).Vertex
+#+END_SRC
+
+On the other hand later we want to visualize the result with
+=ggplotnim=, so we also need something to convert the data back into a
+form from which we can create a data frame (obviously the code as
+written here is super inefficient since we usl =mapIt= for clarity and
+thus loop multiple times!):
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+proc flatten(p: Polygon): (seq[float], seq[float]) =
+  result = (p.vertices.mapIt(it.x), p.vertices.mapIt(it.y))
+  # add first point to get proper drawn polygon with geom line!
+  result[0].add p.vertices[0].x
+  result[1].add p.vertices[0].y
+#+END_SRC
+where we appended the first point to the result again, because we have
+to "abuse" =geom_line= to draw a polygon, which doesn't close the line
+by default.
+
+Now comes the major part of the code, namely the check whether a given
+point lies within a certain polygon. This based on the code here:
+https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+proc inPolygon(p: Point, poly: Polygon): bool = 
+  # based on: https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+  var j = poly.len - 1
+  for i in 0 ..< poly.vertices.len:
+    if ((poly[i].y <= p.y and p.y < poly[j].y) or
+        (poly[j].y <= p.y and p.y < poly[i].y)) and
+       (p.x < (poly[j].x - poly[i].x) * (p.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x):
+      result = not result
+    j = i
+#+END_SRC
+
+With this defined we can quickly define a proc that checks whether a
+point is in a sequence of polygons:
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+proc inAnyPolygon(p: Point, polys: seq[Polygon]): bool =
+  for poly in polys:
+    if p.inPolygon(poly): return true
+#+END_SRC
+
+Now we are essentially done. Let's create a couple of polygons:
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+let p1 = initPolygon((0, 1), (6, 0), (5, 2), (4, 1), (2, 4))
+let p2 = initPolygon((5, 4), (8, 10), (10, 2), (7, 4))
+#+END_SRC
+
+and create a data frame, which essentially stores the columns:
+| x | y | Num |
+where =Num= is the number of the polygon is part of. This layout
+allows us to use =ggplotnims= built-in functionality to draw them as
+separate polygons.
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+let df1 = seqsToDf({ "x" : p1.flatten[0],
+                    "y" : p1.flatten[1] })
+let df2 = seqsToDf({ "x" : p2.flatten[0],
+                    "y" : p2.flatten[1] })
+let df = bind_rows(("Polygon 1", df1), ("Polygon 2", df2), "Num")
+#+END_SRC
+
+All that is left is to draw a bunch of points and check whether they
+are in any polygon or not. This is stored as a column of bools, which
+we can then classify by in the same way as we will for the =Num=
+column of the polygons:
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+# now sample a bunch of points in (0, 10) plane and plot it
+let points = collect(newSeq):
+  for i in 0 ..< 300:
+    Point(x: rand(10.0), y: rand(10.0))
+let inPoly = points.mapIt(it.inAnyPolygon(@[p1, p2]))
+  
+let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
+                          "y" : points.mapIt(it.y),
+                          "InPoly" : inPoly })
+#+END_SRC
+
+The =ggplot= call is reasonably simple. The main =aes= only contains
+=x= and =y=, because only these two columns are shared between the two
+data frames. 
+The =fillColor= argument for the =geom_line= call is just to override
+the colorring that the additional =fill= aesthetic will otherwise
+provide (which we need to get separate polygons). The problem is that
+the colors would be the same as for the points (the outline color
+still shows that!).
+For the points we hand the additional data frame and define the
+classification via the =InPoly= column.
+#+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
+# TODO: results in vertical line at start of polygon
+ggplot(df, aes(x, y)) +
+  geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
+  geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
+  ggsave("./media/recipes/rPointInPolygon.png")
+#+END_SRC
+
+Which gives us the following plot that shows us the algorithm works as
+expected:
+
+[[./media/recipes/rPointInPolygon.png]]
+
 *** Plot a function
 
 Assuming we have some mathematical function we want to plot. While
