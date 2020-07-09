@@ -8,6 +8,14 @@
 - data frame meta information now returned by pretty instead of being
   echoed
 - data frame now uses =OrderedTable= to properly keep order of keys
+- fix setting custom limits on facet wrapped plots
+- add 3 new recipes:
+  - =rPointInPolygons.nim=: a random recipe that came up as an idea during a
+    discussion. Calculates whether points are in a polygon and draws
+    them with a color depending on that
+  - =rSimpleRaster.nim=: a simple example of a 256x256 pixel raster
+  - =rFacetRaster.nim=: an example of plotting two 256x256 pixel
+    rasters in a facet
 
 * v0.3.14
 - hotfix release to unbreak Nim CI
