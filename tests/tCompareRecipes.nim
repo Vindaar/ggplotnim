@@ -16,11 +16,13 @@ proc echoFields(j1, j2: JsonNode) =
     if kx notin j2:
       echo "^^^^^^\n"
 
-template returnOnFalse(c1, c2: untyped): untyped =
+template returnOnFalse(c1, c2: untyped, key = ""): untyped =
   result = c1 == c2
   if not result:
     echo "Didn't match ", astToStr(c1), " == ", astToStr(c2)
     echo "Was ", c1, " and ", c2
+    if key.len > 0:
+      echo "For keys: ", key
     return false
 
 proc compareJson*(j1, j2: JsonNode): bool =
@@ -30,7 +32,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
     returnOnFalse(j1.len, j2.len)
     for k, v in pairs(j1):
       returnOnFalse(k in j2, true)
-      returnOnFalse(compareJson(v, j2[k]), true)
+      returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
     returnOnFalse(almostEqual(j1.getFloat, j2.getFloat), true)
   of JArray:
@@ -110,7 +112,10 @@ suite "Compare recipe output":
       let resFile = parseFile "resources/recipes" / f & ".json"
       echo "Checking ", f & ".json"
       let expFile = parseFile(("resources/expected" / f & ".json").replace("recipes/", "expected/"))
-      check compareJson(resFile, expFile)
+      let cmpRes = compareJson(resFile, expFile)
+      check cmpRes
+      if not cmpRes:
+        break
 
     ## NOTE: this is only safe against regressions of `ggplotnim`, because the
     ## JSON we compare is ``before`` being embedded into the final root viewport
