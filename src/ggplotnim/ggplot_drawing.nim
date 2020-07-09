@@ -390,30 +390,34 @@ proc drawRaster(view: var Viewport, fg: FilledGeom,
                 styles: seq[GgStyle]) =
   doAssert styles.len == df.len, "Raster only supports continuous data!"
   let
-    xCol = df[fg.xCol].toTensor(float)
-    yCol = df[fg.yCol].toTensor(float)
-    maxXCol = max(xCol)
-    minXCol = min(xCol)
-    maxYCol = max(yCol)
-    minYCol = min(yCol)
-    numX = xCol.toHashSet.card
-    numY = yCol.toHashSet.card
-    # TODO: check that really all sizes are same / warn otherwise?
+    maxXCol = fg.xScale.high
+    minXCol = fg.xScale.low
+    maxYCol = fg.yScale.high
+    minYCol = fg.yScale.low
+    numX = fg.numX
+    numY = fg.numY
     (wv, hv) = readWidthHeight(df, 0, fg)
   let height = (maxYCol - minYCol + hv)
   let width = (maxXCol - minXCol + wv)
+
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
     doAssert linePoints.len == df.len
     for idx in 0 ..< df.len:
       let coord = linePoints[idx]
-      let (x, y) = (((coord.x.pos - minXCol) / wv).int, ((coord.y.pos - minYCol)/ hv).int)
+      let (x, y) = (((coord.x.pos - minXCol) / wv).int,
+                    ((coord.y.pos - minYCol) / hv).int)
       let c = styles[idx].fillColor.get.to(ColorRGB)
       result[((numY - y - 1) * numX) + x] = (255 shl 24 or
                                              c.r.int shl 16 or
                                              c.g.int shl 8 or
                                              c.b.int).uint32
-  view.addObj view.initRaster(c(minXCol, maxYCol + hv, ukData),
+  template dataC1(at: float, ax: AxisKind): untyped =
+    Coord1D(pos: at, kind: ukData, axis: ax,
+            scale: if ax == akX: view.xScale else: view.yScale)
+  template cData(px, py: float): untyped =
+    Coord(x: dataC1(px, akX), y: dataC1(py, akY))
+  view.addObj view.initRaster(cData(minXCol, maxYCol + hv),
                               quant(width, ukData),
                               quant(height, ukData),
                               numX = numX,

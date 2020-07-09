@@ -648,7 +648,3 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
 
   filledScales.xScale = finalXScale
   filledScales.yScale = finalYScale
-  # With the final scales in place, update all geoms to know about it
-  for g in mitems(filledScales.geoms):
-    g.xScale = finalXScale
-    g.yScale = finalyScale
