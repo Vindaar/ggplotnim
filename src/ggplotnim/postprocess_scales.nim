@@ -188,8 +188,10 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
       # for linear and transformed data we don't change the style
       discard
     else:
-      for el in c.mapData(result[2]):
-        result[1].add baseStyle.changeStyle(el)
+      let scVals = c.mapData(result[2])
+      result[1] = newSeq[GgStyle](scVals.len)
+      for i in 0 ..< scVals.len:
+        result[1][i] = baseStyle.changeStyle(scVals[i])
   if result[1].len == 0:
     result = (baseStyle, @[baseStyle], result[2])
 
