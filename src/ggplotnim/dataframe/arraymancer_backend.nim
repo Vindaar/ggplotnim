@@ -2247,7 +2247,8 @@ proc drop_null*(df: DataFrame, cols: varargs[string],
   for col in colsNeedPruning:
     ## TODO: avoid filtering several times somehow?
     ## can read all cols first and then iterate over them? Not necessarily faster
-    result = result.filter(f{Value: isNull(df[col][idx]).toBool == false})
+    let localCol = col # ref: https://github.com/nim-lang/Nim/pull/14447
+    result = result.filter(f{Value: isNull(df[localCol][idx]).toBool == false})
     if convertColumnKind:
       if failIfConversionFails: # ugly workaround
         result[col] = result[col].toNativeColumn(failIfImpossible = true)
