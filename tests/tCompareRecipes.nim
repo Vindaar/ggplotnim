@@ -64,7 +64,9 @@ suite "Compare recipe output":
                           "rAnnotateMaxValues",
                           "rPeriodicTable",
                           "rSimpleFacet",
-                          "rFacetTpa"]
+                          "rFacetTpa",
+                          "rFacetRaster"
+    ]
 
     proc convertRead(path: string): seq[seq[string]] =
       for i, f in RecipeFiles: # from `recipeFiles`

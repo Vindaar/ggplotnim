@@ -914,7 +914,6 @@ for x in countup(-256, 254, 2):
     ys.add y.float
     zs.add rand(1.0)
 let df = seqsToDf(xs, ys, zs)
-echo df
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_raster() +
   ggsave("media/recipes/rSimpleRaster.png")
@@ -940,7 +939,6 @@ for x in 0 ..< 256:
     zs2.add rand(1.0)
 let df = seqsToDf(xs, ys, zs1, zs2)
   .gather(["zs1", "zs2"], key = "Map", value = "vals")
-echo df
 ggplot(df, aes("xs", "ys", fill = "vals")) +
   facet_wrap("Map") +
   xlim(0, 256) + ylim(0, 256) +
