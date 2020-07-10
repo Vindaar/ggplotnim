@@ -1712,7 +1712,7 @@ ggplot(df, aes(x, y)) +
 Which gives us the following plot that shows us the algorithm works as
 expected:
 
-[[./media/recipes/rPointInPolygon.png]]
+[[./media/recipes/rPointInPolygons.png]]
 
 *** Plot a function
 
