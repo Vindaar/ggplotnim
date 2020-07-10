@@ -2,6 +2,9 @@ import ggplotnim, unittest, sequtils, math, strutils, streams, sugar
 import algorithm
 import seqmath
 
+when not declared(AssertionDefect):
+  type AssertionDefect = AssertionError
+
 suite "Column":
   test "Constant columns":
     let c = constantColumn(12, 100)
