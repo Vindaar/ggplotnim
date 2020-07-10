@@ -1,3 +1,8 @@
+* v0.3.16
+- add =drop_null= to drop =VNull= values from a single or multiple
+  columns in a data frame
+- add =toNativeColumn=, which attempts to convert an object column to
+  a native column
 * v0.3.15
 - add geom raster for efficient drawing of evenly spaced tile maps
   (e.g. many pixel heatmaps)
