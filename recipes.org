@@ -919,7 +919,7 @@ ggplot(df, aes("xs", "ys", fill = "zs")) +
   ggsave("media/recipes/rSimpleRaster.png")
 #+END_SRC
 
-[[./media/rSimpleRaster.png]]
+[[./media/recipes/rSimpleRaster.png]]
 
 And for a slight modification of two facet wrapped heatmaps (mainly
 as a regession test):
@@ -946,6 +946,7 @@ ggplot(df, aes("xs", "ys", fill = "vals")) +
   ggsave("media/recipes/rFacetRaster.png", width = 920)
 #+END_SRC
 
+[[./media/recipes/rFacetRaster.png]]
 
 *** Simple =geom_text= example
 
