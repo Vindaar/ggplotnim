@@ -1,3 +1,7 @@
+* v0.3.17
+- add =scale_fill/color/size_manual= to provide custom colors / sizes
+  for such mappings
+- add a recipe showing custom fillings, =rCustomFill.nim=
 * v0.3.16
 - add =drop_null= to drop =VNull= values from a single or multiple
   columns in a data frame
