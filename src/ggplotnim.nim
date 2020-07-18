@@ -809,6 +809,48 @@ proc scale_y_reverse*(name: string = "",
                  hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
+proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
+  ## allows to set custom fill colors, by handing a table mapping the
+  ## keys found in the fill column to colors.
+  result = Scale(scKind: scFillColor,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete)
+  result.labelSeq = newSeq[Value](values.len)
+  var i = 0
+  for k, v in values:
+    let kVal = %~ k
+    result.valueMap[kVal] = ScaleValue(kind: scFillColor, color: v)
+    result.labelSeq[i] = kVal
+    inc i
+
+proc scale_color_manual*[T](values: Table[T, Color]): Scale =
+  ## allows to set custom colors, by handing a table mapping the
+  ## keys found in the color column to colors.
+  result = Scale(scKind: scColor,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete)
+  result.labelSeq = newSeq[Value](values.len)
+  var i = 0
+  for k, v in values:
+    let kVal = %~ k
+    result.valueMap[kVal] = ScaleValue(kind: scColor, color: v)
+    result.labelSeq[i] = kVal
+    inc i
+
+proc scale_size_manual*[T](values: Table[T, float]): Scale =
+  ## allows to set custom sizes, by handing a table mapping the
+  ## keys found in the size column to sizes.
+  result = Scale(scKind: scSize,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete)
+  result.labelSeq = newSeq[Value](values.len)
+  var i = 0
+  for k, v in values:
+    let kVal = %~ k
+    result.valueMap[kVal] = ScaleValue(kind: scSize, size: v)
+    result.labelSeq[i] = kVal
+    inc i
+
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =
   result = Theme(title: some(title))

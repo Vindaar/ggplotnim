@@ -146,29 +146,38 @@ else:
               vKind: vKind)
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
-                            labelSeq: seq[Value]): Scale =
-  result = Scale(scKind: scColor, vKind: vKind, col: col, dcKind: dcDiscrete)
+                            labelSeq: seq[Value],
+                            valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
+  result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
-  result.valueMap = initOrderedTable[Value, ScaleValue]()
-  let colorCs = ggColorHue(labelSeq.len)
-  for i, k in result.labelSeq:
-    # NOTE: workaround, since we cannot do `kind: sckind` atm
-    result.valueMap[k] = if scKind == scColor:
-                           ScaleValue(kind: scColor, color: colorCs[i])
-                         else:
-                           ScaleValue(kind: scFillColor, color: colorCs[i])
+
+  if valueMapOpt.isSome:
+    result.valueMap = valueMapOpt.get
+  else:
+    result.valueMap = initOrderedTable[Value, ScaleValue]()
+    let colorCs = ggColorHue(labelSeq.len)
+    for i, k in result.labelSeq:
+      # NOTE: workaround, since we cannot do `kind: sckind` atm
+      result.valueMap[k] = if scKind == scColor:
+                             ScaleValue(kind: scColor, color: colorCs[i])
+                           else:
+                             ScaleValue(kind: scFillColor, color: colorCs[i])
 
 proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
-                           labelSeq: seq[Value]): Scale =
+                           labelSeq: seq[Value],
+                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
-  let numSizes = min(labelSeq.len, 5)
-  const minSize = 2.0
-  const maxSize = 7.0
-  let stepSize = (maxSize - minSize) / numSizes.float
-  for i, k in labelSeq:
-    result.valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
+  if valueMapOpt.isSome:
+    result.valueMap = valueMapOpt.get
+  else:
+    let numSizes = min(labelSeq.len, 5)
+    const minSize = 2.0
+    const maxSize = 7.0
+    let stepSize = (maxSize - minSize) / numSizes.float
+    for i, k in labelSeq:
+      result.valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
 
 proc fillDiscreteLinearTransScale(
   scKind: static ScaleKind,
@@ -287,17 +296,17 @@ proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
                                  size: size)
     )
 
-
 proc fillScaleImpl(
   vKind: ValueKind,
   isDiscrete: bool,
   col: FormulaNode,
   df: DataFrame,
   scKind: static ScaleKind,
-  labelSeqOpt: Option[seq[Value]] = none[seq[Value]](), # for discrete data
-  dataScaleOpt: Option[ginger.Scale] = none[ginger.Scale](), # for cont data
-  axKindOpt: Option[AxisKind] = none[AxisKind](),
-  trans: Option[ScaleTransform] = none[ScaleTransform]()): Scale =
+  labelSeqOpt = none[seq[Value]](), # for discrete data
+  valueMapOpt = none[OrderedTable[Value, ScaleValue]](), # for discrete data
+  dataScaleOpt = none[ginger.Scale](), # for cont data
+  axKindOpt = none[AxisKind](),
+  trans = none[ScaleTransform]()): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
   ## NOTE: The given `col` arg is not necessarily exactly a DF key anymore, since
@@ -310,11 +319,11 @@ proc fillScaleImpl(
     let labelSeq = labelSeqOpt.unwrap()
     case scKind
     of scColor:
-      result = fillDiscreteColorScale(scColor, vKind, col, labelSeq)
+      result = fillDiscreteColorScale(scColor, vKind, col, labelSeq, valueMapOpt)
     of scFillColor:
-      result = fillDiscreteColorScale(scFillColor, vKind, col, labelSeq)
+      result = fillDiscreteColorScale(scFillColor, vKind, col, labelSeq, valueMapOpt)
     of scSize:
-      result = fillDiscreteSizeScale(vKind, col, labelSeq)
+      result = fillDiscreteSizeScale(vKind, col, labelSeq, valueMapOpt)
     of scLinearData:
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
@@ -386,6 +395,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # geom.
   var dataScaleOpt: Option[ginger.Scale]
   var labelSeqOpt: Option[seq[Value]]
+  var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
   for s in scales:
     # check if scale predefined discreteness
@@ -408,15 +418,19 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
 
     if isDiscrete:
       when defined(defaultBackend):
-        labelSeqOpt = some(data.deduplicate.sorted)
+        labelSeqOpt = if s.labelSeq.len == 0: some(data.deduplicate.sorted)
+                      else: some(s.labelSeq)
       else:
-        labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
+        labelSeqOpt = if s.labelSeq.len == 0: some(data.unique.toTensor(Value).toRawSeq.sorted)
+                      else: some(s.labelSeq)
+      if s.valueMap.len > 0:
+        valueMapOpt = some(s.valueMap)
     else:
       dataScaleOpt = some(scaleFromData(data))
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
-                               labelSeqOpt, dataScaleOpt,
+                               labelSeqOpt, valueMapOpt, dataScaleOpt,
                                axKindOpt, transOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
