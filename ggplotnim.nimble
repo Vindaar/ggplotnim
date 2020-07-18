@@ -76,5 +76,8 @@ task recipes, "Generate and run all recipes":
   exec "ntangle recipes.org"
   exec "nim c -r recipes/runRecipes.nim"
 
+task generateJson, "Generate the JSON results for all recipes":
+  exec "nim c -r recipes/runRecipes.nim --json"
+
 task recipesPlots, "Generate the PNGs from all recipes":
   exec """for f in media/recipes/r*.pdf; do inkscape $f --export-png="${f/.pdf/.png}"; done"""
