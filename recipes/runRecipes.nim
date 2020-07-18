@@ -30,3 +30,8 @@ if paramCount() > 0:
     let t0 = epochTime()
     genCommands("./recipes/")
     echo "Running all recipes took ", epochTime() - t0
+  elif p0 == "--json" or p0 == "--run":
+    let t0 = epochTime()
+    for r in RecipeFiles:
+      generateJsonFile(r)
+    echo "Running all recipes took ", epochTime() - t0

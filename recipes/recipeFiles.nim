@@ -1,3 +1,6 @@
+import os, strutils
+import shell
+
 const RecipeFiles* = @["rStackedMpgHistogram",
                        "rNewtonAcceleration",
                        "rMpgStackedPointPlot",
@@ -52,3 +55,17 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rFacetRaster",
                        "rCustomFill"
                        ]
+
+proc generateJsonFile*(f: string) =
+  const tmpfile = "recipes/tmpfile.nim"
+  discard existsOrCreateDir("resources/recipes")
+  let fname = "recipes" / f
+  # read the file
+  let fcontent = readFile(fname & ".nim")
+  # replace `ggsave` by `ggjson` and write file back
+  const jsonImport = "from json import `%`\n"
+  writeFile(tmpfile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
+                                                          ("media/", "resources/")]))
+  # run the tmp file to generate json
+  shell:
+    nim c "-r" ($tmpfile)

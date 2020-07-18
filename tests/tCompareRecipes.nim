@@ -98,19 +98,8 @@ suite "Compare recipe output":
     ## first generate JSON from all recipe files by creating temporary
     ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
     ## simply dumps
-    const tmpfile = "recipes/tmpfile.nim"
-    discard existsOrCreateDir("resources/recipes")
     for f in RecipeFiles:
-      let fname = "recipes" / f
-      # read the file
-      let fcontent = readFile(fname & ".nim")
-      # replace `ggsave` by `ggjson` and write file back
-      const jsonImport = "from json import `%`\n"
-      writeFile(tmpfile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
-                                                              ("media/", "resources/")]))
-      # run the tmp file to generate json
-      shell:
-        nim c "-r" ($tmpfile)
+      generateJsonFile(f)
       # compare generated json with expected json
       let resFile = parseFile "resources/recipes" / f & ".json"
       echo "Checking ", f & ".json"
