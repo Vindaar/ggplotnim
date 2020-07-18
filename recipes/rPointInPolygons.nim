@@ -44,10 +44,11 @@ let df2 = seqsToDf({ "x" : p2.flatten[0],
                     "y" : p2.flatten[1] })
 let df = bind_rows(("Polygon 1", df1), ("Polygon 2", df2), "Num")
 
+var rnd = initRand(42)
 # now sample a bunch of points in (0, 10) plane and plot it
 let points = collect(newSeq):
   for i in 0 ..< 300:
-    Point(x: rand(10.0), y: rand(10.0))
+    Point(x: rnd.rand(10.0), y: rnd.rand(10.0))
 let inPoly = points.mapIt(it.inAnyPolygon(@[p1, p2]))
   
 let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
