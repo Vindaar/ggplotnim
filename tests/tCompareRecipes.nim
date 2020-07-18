@@ -34,7 +34,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
       returnOnFalse(k in j2, true)
       returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
-    returnOnFalse(almostEqual(j1.getFloat, j2.getFloat), true)
+    returnOnFalse(almostEqual(j1.getFloat, j2.getFloat, 1e-4), true)
   of JArray:
     returnOnFalse(j1.len, j2.len)
     for i in 0 ..< j1.len:
