@@ -3,11 +3,12 @@ var
   xs = newSeq[float]()
   ys = newSeq[float]()
   zs = newSeq[float]()
+  rnd = initRand(42)
 for x in 0 ..< 28:
   for y in 0 ..< 28:
     xs.add x.float
     ys.add y.float
-    zs.add rand(1.0)
+    zs.add rnd.rand(1.0)
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +

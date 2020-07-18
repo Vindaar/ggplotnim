@@ -1,4 +1,4 @@
-import ggplotnim, random, math
+import ggplotnim, math
 
 let df = toDf(readCsv("data/mpg.csv"))
 let dfRed = df.group_by(["class", "cyl"]).summarize(f{float: "meanHwy" << mean( c"hwy" )})
