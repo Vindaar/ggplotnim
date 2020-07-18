@@ -816,12 +816,11 @@ proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
                  hasDiscreteness: true,
                  dcKind: dcDiscrete)
   result.labelSeq = newSeq[Value](values.len)
-  var i = 0
-  for k, v in values:
+  let keys = toSeq(keys(values)).sorted
+  for i, k in keys:
     let kVal = %~ k
-    result.valueMap[kVal] = ScaleValue(kind: scFillColor, color: v)
+    result.valueMap[kVal] = ScaleValue(kind: scFillColor, color: values[k])
     result.labelSeq[i] = kVal
-    inc i
 
 proc scale_color_manual*[T](values: Table[T, Color]): Scale =
   ## allows to set custom colors, by handing a table mapping the
@@ -830,12 +829,11 @@ proc scale_color_manual*[T](values: Table[T, Color]): Scale =
                  hasDiscreteness: true,
                  dcKind: dcDiscrete)
   result.labelSeq = newSeq[Value](values.len)
-  var i = 0
-  for k, v in values:
+  let keys = toSeq(keys(values)).sorted
+  for i, k in keys:
     let kVal = %~ k
-    result.valueMap[kVal] = ScaleValue(kind: scColor, color: v)
+    result.valueMap[kVal] = ScaleValue(kind: scColor, color: values[k])
     result.labelSeq[i] = kVal
-    inc i
 
 proc scale_size_manual*[T](values: Table[T, float]): Scale =
   ## allows to set custom sizes, by handing a table mapping the
@@ -844,12 +842,11 @@ proc scale_size_manual*[T](values: Table[T, float]): Scale =
                  hasDiscreteness: true,
                  dcKind: dcDiscrete)
   result.labelSeq = newSeq[Value](values.len)
-  var i = 0
-  for k, v in values:
+  let keys = toSeq(keys(values)).sorted
+  for i, k in keys:
     let kVal = %~ k
-    result.valueMap[kVal] = ScaleValue(kind: scSize, size: v)
+    result.valueMap[kVal] = ScaleValue(kind: scSize, size: values[k])
     result.labelSeq[i] = kVal
-    inc i
 
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =

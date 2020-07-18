@@ -34,7 +34,10 @@ proc compareJson*(j1, j2: JsonNode): bool =
       returnOnFalse(k in j2, true)
       returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
-    returnOnFalse(almostEqual(j1.getFloat, j2.getFloat, 1e-4), true)
+    let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 1e-4)
+    if not cmpFloat:
+      echo "Float compare failed: ", j1.getFloat, " <-> ", j2.getFloat
+    returnOnFalse(cmpFloat, true)
   of JArray:
     returnOnFalse(j1.len, j2.len)
     for i in 0 ..< j1.len:
