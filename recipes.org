@@ -836,10 +836,12 @@ An example below in which we classify by color and size:
 #+BEGIN_SRC nim :tangle recipes/rMultipleLegends.nim
 import ggplotnim
 let df = toDf(readCsv("data/mpg.csv"))
-ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) + #, color = "cty", size = "cyl")) +
+ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) +
   geom_point() +
   ggsave("media/recipes/rMultipleLegends.png")
 #+END_SRC
+
+[[media/recipes/rMultipleLegends.png]]
 
 *** Simple tile plot
 
