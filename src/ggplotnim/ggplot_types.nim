@@ -230,32 +230,40 @@ type
 
   # what might become a theming object
   Theme* = object
+    # font
     baseFontSize*: Option[float] # base size for fonts NOT IMPL'd
     fontSizeScale*: Option[float] # scales all fonts by given value NOT IMPL'd
     labelFont*: Option[Font]
     titleFont*: Option[Font]
     subTitleFont*: Option[Font]
     tickLabelFont*: Option[Font]
+    # hide parts of plot
     hideTicks*: Option[bool]
     hideTickLabels*: Option[bool]
     hideLabels*: Option[bool]
+    # titles
     title*: Option[string]
     subTitle*: Option[string]
+    # labels
     xlabel*: Option[string]
     xlabelMargin*: Option[float]
+    xLabelSecondary*: Option[string]
+    ylabel*: Option[string]
+    ylabelMargin*: Option[float]
+    yLabelSecondary*: Option[string]
+    # ticks
     xTicksRotate*: Option[float]
     xTicksTextAlign*: Option[TextAlignKind]
     xTickLabelMargin*: Option[float] # tick label margin in cm
-    ylabel*: Option[string]
-    ylabelMargin*: Option[float]
     yTicksRotate*: Option[float]
     yTicksTextAlign*: Option[TextAlignKind]
     yTickLabelMargin*: Option[float] # tick label margin in cm
-    xLabelSecondary*: Option[string]
-    yLabelSecondary*: Option[string]
+    # legend
     legendPosition*: Option[Coord]
+    # canvas
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot
+    # data range
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
     xRange*: Option[ginger.Scale]
     yRange*: Option[ginger.Scale]
@@ -265,6 +273,18 @@ type
     yMarginRange*: ginger.Scale # final range taking into account margin
     xOutsideRange*: Option[OutsideRangeKind]
     yOutsideRange*: Option[OutsideRangeKind]
+    # plot window
+    plotMarginLeft*: Option[Quantity]
+    plotMarginRight*: Option[Quantity]
+    plotMarginTop*: Option[Quantity]
+    plotMarginBottom*: Option[Quantity]
+
+  ThemeMarginLayout* = object
+    left*: Quantity
+    right*: Quantity
+    top*: Quantity
+    bottom*: Quantity
+    requiresLegend*: bool
 
   # dummy annotation, which puts `text` at bottom left corner
   # of `(left, height)`

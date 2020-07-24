@@ -1209,6 +1209,34 @@ proc yMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   result = Theme(yMargin: some(margin.float),
                  yOutsideRange: orOpt)
 
+proc margin*[T: string | UnitKind](left, right, top, bottom = NaN,
+                                   unit: T = ukCentimeter): Theme =
+  ## Sets the margin around the actual plot. By default the given values are
+  ## interpreted as `cm`. This can be changed using the `unit` argument, either
+  ## directly as a `UnitKind` (`ukCentimeter`, `ukInch`, `ukPoint`) or as a
+  ## string. Allowed string inputs:
+  ## - cm: margin quantity in centimeter
+  ## - in, inch: margin quantity in inch
+  ## - pt, point, px, pixel: margin quantity in points
+  ## - r, rel, relative: margin quantity as relative values
+  when T is string:
+    let unitKind = case unit.normalize
+                   of "cm": ukCentimeter
+                   of "in", "inch": ukInch
+                   of "pt", "point", "px", "pixel": ukPoint
+                   of "r", "rel", "relative": ukRelative
+                   else: ukCentimeter
+  else:
+    let unitKind = unit
+  proc noneIfNan(f: float, unit: UnitKind): Option[Quantity] =
+    result = if classify(f) != fcNan: some(quant(f, unit))
+             else: none(Quantity)
+
+  result = Theme(plotMarginLeft: noneIfNan(left, unitKind),
+                 plotMarginRight: noneIfNan(right, unitKind),
+                 plotMarginTop: noneIfNan(top, unitKind),
+                 plotMarginBottom: noneIfNan(bottom, unitKind))
+
 proc annotate*(text: string,
                left = NaN,
                bottom = NaN,
@@ -1268,6 +1296,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   template ifSome(it: untyped): untyped =
     if theme.it.isSome:
       pltTheme.it = theme.it
+  # TODO: about time we make this a macro...
   ifSome(xlabelMargin)
   ifSome(ylabelMargin)
   ifSome(xLabel)
@@ -1295,6 +1324,10 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(hideTicks)
   ifSome(hideTickLabels)
   ifSome(hideLabels)
+  ifSome(plotMarginLeft)
+  ifSome(plotMarginRight)
+  ifSome(plotMarginTop)
+  ifSome(plotMarginBottom)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -1379,75 +1412,56 @@ proc requiresLegend(filledScales: FilledScales): bool =
   else:
     result = false
 
-proc plotLayoutWithLegend(view: var Viewport,
-                          tightLayout = false) =
-  ## creates a layout for a plot in the current viewport that leaves space
-  ## for a legend. Important indices of the created viewports:
+proc initThemeMarginLayout(theme: Theme,
+                           tightLayout: bool,
+                           requiresLegend: bool): ThemeMarginLayout =
+  result = ThemeMarginLayout(
+    left: if theme.plotMarginLeft.isSome: theme.plotMarginLeft.get
+          elif tightLayout: quant(0.2, ukCentimeter)
+          else: quant(2.5, ukCentimeter),
+    right: if theme.plotMarginRight.isSome: theme.plotMarginRight.get
+           elif requiresLegend: quant(5.0, ukCentimeter)
+           else: quant(1.0, ukCentimeter),
+    top: if theme.plotMarginTop.isSome: theme.plotMarginTop.get
+         else: quant(1.0, ukCentimeter),
+    bottom: if theme.plotMarginBottom.isSome: theme.plotMarginBottom.get
+            else: quant(2.0, ukCentimeter),
+    requiresLegend: requiresLegend
+  )
+
+proc plotLayout(view: var Viewport,
+                layout: ThemeMarginLayout) =
+  ## creates a layout for a plot in the current viewport that potentially
+  ## leaves space for a legend. Important indices of the created viewports:
   ## If `tightLayout` is `true`, the left hand side will only have 0.2 cm
   ## of spacing.
   ## - main plot: idx = 4
   ## - legend: idx = 5
   # TODO: Make relative to image size!
-  let leftSpace = if tightLayout: quant(0.2, ukCentimeter)
-                  else: quant(2.5, ukCentimeter)
-  view.layout(3, 3, colwidths = @[leftSpace,
+  view.layout(3, 3, colwidths = @[layout.left,
                                   quant(0.0, ukRelative),
-                                  quant(5.0, ukCentimeter)],
-              rowheights = @[quant(1.25, ukCentimeter),
+                                  layout.right],
+              rowheights = @[layout.top,
                              quant(0.0, ukRelative),
-                             quant(2.0, ukCentimeter)])
+                             layout.bottom])
   view[0].name = "topLeft"
   view[1].name = "title"
   view[2].name = "topRight"
   view[3].name = "yLabel"
   view[4].name = "plot"
-  view[5].name = "legend"
-  view[6].name = "bottomLeft"
-  view[7].name = "xLabel"
-  view[8].name = "bottomRight"
-
-proc plotLayoutWithoutLegend(view: var Viewport,
-                             tightLayout = false) =
-  ## creates a layout for a plot in the current viewport without a legend
-  ## If `tightLayout` is `true`, the left hand side will only have 0.2 cm
-  ## of spacing.
-  ## Main plot viewport will be:
-  ## idx = 4
-  let leftSpace = if tightLayout: quant(0.2, ukCentimeter)
-                  else: quant(2.5, ukCentimeter)
-  view.layout(3, 3, colwidths = @[leftSpace,
-                                  quant(0.0, ukRelative),
-                                  quant(1.0, ukCentimeter)],
-              rowheights = @[quant(1.0, ukCentimeter),
-                             quant(0.0, ukRelative),
-                             quant(2.0, ukCentimeter)])
-  view[0].name = "topLeft"
-  view[1].name = "title"
-  view[2].name = "topRight"
-  view[3].name = "yLabel"
-  view[4].name = "plot"
-  view[5].name = "noLegend"
+  view[5].name = if layout.requiresLegend: "legend" else: "noLegend"
   view[6].name = "bottomLeft"
   view[7].name = "xLabel"
   view[8].name = "bottomRight"
 
 proc createLayout(view: var Viewport,
                   filledScales: FilledScales, theme: Theme) =
-  let drawLegend = filledScales.requiresLegend
-  let hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
-                  else: false
-  let hideTickLabels = if theme.hideTickLabels.isSome: theme.hideTickLabels.unsafeGet
-                       else: false
-  let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
-                   else: false
-  if drawLegend and not hideLabels and not hideTicks:
-    view.plotLayoutWithLegend()
-  elif drawLegend and hideLabels and hideTicks:
-    view.plotLayoutWithLegend(tightLayout = true)
-  elif not drawLegend and not hideLabels and not hideTicks:
-    view.plotLayoutWithoutLegend()
-  else:
-    view.plotLayoutWithoutLegend(tightLayout = true)
+  let hideTicks = theme.hideTicks.get(false)
+  let hideTickLabels = theme.hideTickLabels.get(false)
+  let hideLabels = theme.hideLabels.get(false)
+  let tightLayout = hideLabels and hideTicks
+  let layout = initThemeMarginLayout(theme, tightLayout, filledScales.requiresLegend)
+  view.plotLayout(layout)
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
