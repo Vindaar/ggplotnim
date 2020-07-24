@@ -69,7 +69,8 @@ suite "Compare recipe output":
                           "rSimpleFacet",
                           "rFacetTpa",
                           "rFacetRaster",
-                          "rCustomFill"
+                          "rCustomFill",
+                          "rCustomMargins"
     ]
 
     proc convertRead(path: string): seq[seq[string]] =
