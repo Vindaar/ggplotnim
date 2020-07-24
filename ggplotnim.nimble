@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.3.17"
+version       = "0.3.18"
 author        = "Sebastian Schmidt"
 description   = "A port of ggplot2 for Nim"
 license       = "MIT"
