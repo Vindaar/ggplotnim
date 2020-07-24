@@ -1468,6 +1468,39 @@ Which gives us the following tiles:
 
 [[media/recipes/rCustomFill.png]]
 
+*** Customizing the margins around a plot
+
+While =ggplotnim= tries to be reasonably smart about the margins a
+plot requires, there are still many cases in which user defined
+margins are required. 
+
+An example are very long labels. An example derived from the above
+=rCustomFill= case by @hffyd (ref: issue #89). 
+
+The =margin= procedure can be used to set the correct fields of a
+=Theme= object. By default it interprets the given quantities in
+centimeter. Inch, point and even relative values are also supported
+using its =unit= argument.
+#+BEGIN_SRC nim :tangle recipes/rCustomMargins.nim
+import ggplotnim
+
+let
+  pos = [1, 2, 3, 1, 2, 3]
+  name = ["a very long long label", "a very long long label", "a very long long label", "b", "b", "b"]
+  n = [0, 1, 4, 4, 2, 3]
+  df = seqsToDf(pos, name, n)
+
+ggplot(df, aes("pos", "name")) +
+  geom_tile(aes(fill = "n")) +
+  geom_text(aes(text = "n"), size = some(25.0)) +
+  scale_x_discrete() +
+  scale_y_discrete() +
+  margin(left = 6.0) +
+  ggsave("media/recipes/rCustomMargins.png")
+#+END_SRC
+
+[[./media/recipes/rCustomMargins.png]]
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
