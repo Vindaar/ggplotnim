@@ -145,6 +145,9 @@ proc getArgValue(n: NimNode, arg: string): NimNode =
       result = nnkCall.newTree(n[0], getArgValue(n[1], arg))
     else:
       result = n
+  of nnkCommand:
+    # might be an argument like `fn {someFormula}`
+    result = n
   else:
     error("Invalid value for argument `" & $arg & "`: " & $n.repr & " of node " &
       "kind " & $n.kind)
