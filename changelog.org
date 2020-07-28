@@ -1,3 +1,8 @@
+* v0.3.19
+- allow =nnkCommand= nodes for =aes= macro
+* v0.3.18
+- allow setting custom margin of the plot using =margin=
+- add recipe for custom margins: =rCustomMargins.nim=
 * v0.3.17
 - add =scale_fill/color/size_manual= to provide custom colors / sizes
   for such mappings
