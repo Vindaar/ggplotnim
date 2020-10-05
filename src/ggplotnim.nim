@@ -2442,6 +2442,8 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   # draw legends
   # store each type of drawn legend. only one type for each kind
   var drawnLegends = initHashSet[(DiscreteKind, ScaleKind)]()
+  ## TODO: consider if this is such a stable thing to do. Useful for now.
+  var scaleNames = initHashSet[string]()
   var legends: seq[Viewport]
   for scale in enumerateScalesByIds(filledScales):
     if scale.scKind notin {scLinearData, scTransformedData} and
@@ -2453,8 +2455,12 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
       else:
         lg = deepCopy(img[5])
       lg.createLegend(scale)
-      legends.add lg
-      drawnLegends.incl (scale.dcKind, scale.scKind)
+      let scaleCol = evaluate(scale.col).toStr
+      if scaleCol notin scaleNames:
+        legends.add lg
+        drawnLegends.incl (scale.dcKind, scale.scKind)
+      scaleNames.incl scaleCol
+
   # now create final legend
   if legends.len > 0:
     img[5].finalizeLegend(legends)
