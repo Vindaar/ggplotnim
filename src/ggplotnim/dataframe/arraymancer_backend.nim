@@ -1657,24 +1657,42 @@ proc sortRecurse(df: DataFrame, by: seq[string],
     for i, val in result:
       res[i] = (val, t[val])
 
-    var mby = by
-    mby.delete(0)
-    var last = res[0][1]
-    var cur = res[1][1]
-    var i = startIdx
-    var lastSearch = 0
+    ## The logic in the following is a bit easy to misunderstand. Here we are
+    ## sorting the current key `by[0]` (its data is in `res`) by any additional
+    ## keys `by[1 .. ^1]`. It is important to keep in mind that `res` (key `by[0]`)
+    ## is already sorted in the proc calling `sortRecurse`.
+    ## Then we walk over the sorted data and any time a value of `res` changes,
+    ## we have to look at that whole slice and sort it by the second key `by[1]`.
+    ## Thus, the while loop below checks for:
+    ## - `last != cur`: val changed at index i, need to sort, iff the last search
+    ##   was ``not`` done at index `i - 1` (that happens immediately the iteration
+    ##   after sorting a slice -> `i > lastSearch + 1`.
+    ## - `i == df.high`: In the case of the last element we do ``not`` require
+    ##   the value to change, ``but`` here we have to sort not the slice until
+    ##   `i - 1` (val changed at current `i`, only want to sort same slice!),
+    ##   but until `df.high` -> let topIdx = …
+    ## Finally, if there are more keys in `by`, sort the subset itself as subsets.
+    let mby = by[1 .. ^1]
+    var
+      last = res[0][1]
+      cur = res[1][1]
+      i = startIdx
+      lastSearch = 0
     while i < res.len:
       cur = res[i][1]
       if last != cur or i == df.high:
         if i > lastSearch + 1:
           # sort between `lastSearch` and `i`.
-          var subset = sortBySubset(df, mby[0], res[lastSearch .. i].mapIt(it[0]), order = order)
+          let topIdx = if i == df.high: i else: i - 1
+          var subset = sortBySubset(df, mby[0],
+                                    res[lastSearch .. topIdx].mapIt(it[0]),
+                                    order = order)
           if mby.len > 1:
             # recurse again
             subset = sortRecurse(df, mby, lastSearch,
                                  resIdx = subset,
                                  order = order)
-          result[lastSearch .. i] = subset
+          result[lastSearch .. topIdx] = subset
         lastSearch = i
       last = res[i][1]
       inc i
