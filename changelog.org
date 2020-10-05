@@ -1,3 +1,17 @@
+* v0.3.20
+- fix a bug that causes the =arrange= proc to mess up sorting if more
+  than one key is used. The last row of the DF was not sorted before
+  and thus remained in unsorted order at the end of the sorted result.
+- =geom_errorbar= now takes an =errorBarKind= field to set the kind of
+  errorbar to draw
+  - =ebLinesT=, =ebLines= are the only two options atm
+- add =scale_fill_continuous= to force the fill scale to be
+  interpreted as continuous values
+- =ggsave= will now create the directories contained in the path given
+  to it instead of silently not creating a plot if the path to the
+  given file does not exist yet.
+- attempt to get rid of duplicate legends in case of certain ggplot calls
+
 * v0.3.19
 - allow =nnkCommand= nodes for =aes= macro
 * v0.3.18
