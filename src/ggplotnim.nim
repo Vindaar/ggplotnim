@@ -1559,6 +1559,8 @@ proc tickposlog(minv, maxv: float,
     let base = (minv * pow(10, i.float))
     if not hideTickLabels:
       labs.add format(base)
+    else:
+      labs.add ""
     let minors = linspace(base, 9 * base, 9)
     labPos.add minors.mapIt(it.log10)
     labs.add toSeq(0 ..< 8).mapIt("")
