@@ -313,6 +313,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                     color = none[Color](),
                     size = none[float](),
                     lineType = none[LineType](),
+                    errorBarKind = ebLinesT,
                     stat = "identity",
                     bins = -1,
                     binWidth = 0.0,
@@ -331,7 +332,7 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(color = color, size = size, lineType = lineType,
-                          errorBarKind = some(ebLinesT))
+                          errorBarKind = some(errorBarKind))
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
