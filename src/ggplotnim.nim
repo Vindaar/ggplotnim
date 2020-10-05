@@ -813,6 +813,12 @@ proc scale_y_reverse*(name: string = "",
                  hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
+proc scale_fill_continuous*(name: string = ""): Scale =
+  result = Scale(name: name,
+                 scKind: scFillColor,
+                 dcKind: dcContinuous,
+                 hasDiscreteness: true)
+
 proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
   ## allows to set custom fill colors, by handing a table mapping the
   ## keys found in the fill column to colors.
