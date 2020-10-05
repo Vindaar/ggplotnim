@@ -11,7 +11,8 @@
   to it instead of silently not creating a plot if the path to the
   given file does not exist yet.
 - attempt to get rid of duplicate legends in case of certain ggplot calls
-
+- fix bug causing accessing =labs= sequence for log10 tick values, in
+  case the tick labels were hidden (e.g. log10 facet_wrap).
 * v0.3.19
 - allow =nnkCommand= nodes for =aes= macro
 * v0.3.18
