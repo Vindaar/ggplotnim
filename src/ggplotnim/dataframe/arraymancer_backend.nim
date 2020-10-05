@@ -1667,15 +1667,14 @@ proc sortRecurse(df: DataFrame, by: seq[string],
       cur = res[i][1]
       if last != cur or i == df.high:
         if i > lastSearch + 1:
-          # sort between `lastSearch` and `i - 1`
-          var subset = sortBySubset(df, mby[0], res[lastSearch ..< i].mapIt(it[0]), order = order)
+          # sort between `lastSearch` and `i`.
+          var subset = sortBySubset(df, mby[0], res[lastSearch .. i].mapIt(it[0]), order = order)
           if mby.len > 1:
             # recurse again
             subset = sortRecurse(df, mby, lastSearch,
                                  resIdx = subset,
                                  order = order)
-
-          result[lastSearch ..< i] = subset
+          result[lastSearch .. i] = subset
         lastSearch = i
       last = res[i][1]
       inc i
