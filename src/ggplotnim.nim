@@ -2,6 +2,7 @@
 
 import sequtils, tables, sets, algorithm, strutils, macros
 import parsecsv, streams, hashes, sugar, math
+from os import createDir, splitFile
 
 when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
   export strutils.nimIdentNormalize # for parseEnum to work
@@ -2492,6 +2493,8 @@ proc ggdraw*(plt: PlotView, fname: string) =
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
   let plt = p.ggcreate(width = width, height = height)
+  # make sure the target directory exists, create if not
+  createDir(fname.splitFile().dir)
   plt.view.ggdraw(fname)
 
 proc ggsave*(fname: string, width = 640.0, height = 480.0): Draw =
