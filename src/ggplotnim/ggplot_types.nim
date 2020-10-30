@@ -260,6 +260,7 @@ type
     yTickLabelMargin*: Option[float] # tick label margin in cm
     # legend
     legendPosition*: Option[Coord]
+    legendOrder*: Option[seq[int]]
     # canvas
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot

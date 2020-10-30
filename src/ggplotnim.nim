@@ -869,9 +869,11 @@ proc ggtitle*(title: string, subtitle = "",
   if subTitleFont != font():
     result.subTitleFont = some(subTitleFont)
 
-proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject]
+proc generateLegendMarkers(plt: Viewport, scale: Scale,
+                           accessIdx: Option[seq[int]]): seq[GraphObject]
 proc genDiscreteLegend(view: var Viewport,
-                       cat: Scale) =
+                       cat: Scale,
+                       accessIdx: Option[seq[int]]) =
   # TODO: add support for legend font in Theme / `let label` near botton!
   # _______________________
   # |   | Headline        |
@@ -881,7 +883,7 @@ proc genDiscreteLegend(view: var Viewport,
   # |   |     |cm| leg.   |
   # |   |     |  | labels |
   # -----------------------
-  let markers = view.generateLegendMarkers(cat)
+  let markers = view.generateLegendMarkers(cat, accessIdx)
   let numElems = cat.valueMap.len
   view.layout(2, 2,
               colWidths = @[quant(0.5, ukCentimeter), # for space to plot
@@ -929,7 +931,7 @@ proc genDiscreteLegend(view: var Viewport,
     var labelText = ""
     case cat.scKind
     of scColor, scFillColor, scShape, scSize:
-      labelText = $cat.getLabelKey(j)
+      labelText = markers[j].name
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $cat.scKind)
     let label = legLabel.initText(
@@ -949,7 +951,8 @@ proc genDiscreteLegend(view: var Viewport,
   view[3] = leg
 
 proc genContinuousLegend(view: var Viewport,
-                         cat: Scale) =
+                         cat: Scale,
+                         accessIdx: Option[seq[int]]) =
   case cat.scKind
   of scSize:
     view.layout(1, rows = 5 + 1)
@@ -975,7 +978,7 @@ proc genContinuousLegend(view: var Viewport,
                                        quant(0.0, ukRelative)])
     var legGrad = legView[0]
     # add markers
-    let markers = legGrad.generateLegendMarkers(cat)
+    let markers = legGrad.generateLegendMarkers(cat, accessIdx)
     legGrad.addObj markers
     let viridis = ViridisRaw.mapIt(color(it[0], it[1], it[2]))
     let cc = some(Gradient(colors: viridis))
@@ -992,16 +995,17 @@ proc genContinuousLegend(view: var Viewport,
     discard
 
 proc createLegend(view: var Viewport,
-                  cat: Scale) =
+                  cat: Scale,
+                  accessIdx: Option[seq[int]]) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
   case cat.dcKind
   of dcDiscrete:
-    view.genDiscreteLegend(cat)
+    view.genDiscreteLegend(cat, accessIdx)
   of dcContinuous:
     # for now 5 sizes...
-    view.genContinuousLegend(cat)
+    view.genContinuousLegend(cat, accessIdx)
 
   # get the first viewport for the header
   if startIdx < view.len:
@@ -1051,6 +1055,18 @@ proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## the plot viewport in range (0.0 .. 1.0)
   result = Theme(legendPosition: some(Coord(x: c1(x),
                                             y: c1(y))))
+
+proc legendOrder*(idx: seq[int]): Theme =
+  ## uses the ordering given by the indices `idx` to arrange the order of
+  ## the label.
+  ## `idx` needs to have as many elements as there are legend entries.
+  ## The default ordering is lexical ordering. Any custom ordering is a
+  ## custom permutation of that.
+  ## TODO: instead of this the legend creation needs to be refactored!
+  ## This is an experimental, untested feature. A better solution that does
+  ## not require the user to be keenly aware of the "correct" order of the
+  ## legend is required. For the time being this is better than nothing though.
+  result = Theme(legendOrder: some(idx))
 
 proc canvasColor*(color: Color): Theme =
   ## sets the canvas color of the plot to the given color
@@ -1317,6 +1333,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(xTicksRotate)
   ifSome(yTicksRotate)
   ifSome(legendPosition)
+  ifSome(legendOrder)
   ifSome(labelFont)
   ifSome(tickLabelFont)
   ifSome(titleFont)
@@ -1477,24 +1494,49 @@ proc createLayout(view: var Viewport,
   let layout = initThemeMarginLayout(theme, tightLayout, filledScales.requiresLegend)
   view.plotLayout(layout)
 
-proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
+proc generateLegendMarkers(plt: Viewport,
+                           scale: Scale,
+                           accessIdx: Option[seq[int]]): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
   ## TODO: add different objects to be shown depending on the scale and geom.
   ## E.g. in case of `fill` fill the whole rectangle with the color. In case
   ## of geom_line only draw a line etc.
   ## Thus also put the rectangle drawing here.
-  # TODO: rewrite this either via a template, proc or macro!
-  case scale.sckind
-  of scColor, scFillColor:
-    case scale.dcKind
-    of dcDiscrete:
-      for i in 0 ..< scale.valueMap.len:
+  case scale.dcKind
+  of dcDiscrete:
+    let idx = if accessIdx.isNone: toSeq(0 ..< scale.valueMap.len) else: accessIdx.get
+    doAssert idx.len == scale.valueMap.len,
+      "Custom ordering of legend keys must assign each key only once! " &
+      "Assigned keys: " & $accessIdx & " for num keys: " & $scale.valueMap.len
+    case scale.scKind
+    of scColor, scFillColor:
+      for i in idx:
         let color = scale.getValue(scale.getLabelKey(i)).color
         result.add initPoint(plt,
                              (0.0, 0.0), # dummy coordinates
                              marker = mkCircle,
-                             color = color) # assign same marker as above
-    of dcContinuous:
+                             color = color,
+                             name = $scale.getLabelKey(i)) # assign same marker as above
+
+    of scShape:
+      for i in idx:
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = scale.getValue(scale.getLabelKey(i)).marker,
+                             name = $scale.getLabelKey(i))
+    of scSize:
+      for i in idx:
+        let size = scale.getValue(scale.getLabelKey(i)).size
+        result.add initPoint(plt,
+                             (0.0, 0.0), # dummy coordinates
+                             marker = mkCircle,
+                             size = size,
+                             name = $scale.getLabelKey(i))
+    else:
+      raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
+  of dcContinuous:
+    case scale.sckind
+    of scColor, scFillColor:
       # replace yScale by scale of `scale`
       var mplt = plt
       mplt.yScale = scale.dataScale
@@ -1503,22 +1545,12 @@ proc generateLegendMarkers(plt: Viewport, scale: Scale): seq[GraphObject] =
       let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
                                  isSecondary = true)
       let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
-                                     margin = some(plt.c1(0.3, akX, ukCentimeter)), format = scale.formatContinuousLabel)
+                                     margin = some(plt.c1(0.3, akX, ukCentimeter)),
+                                     format = scale.formatContinuousLabel)
       result = concat(tickLabs, ticks)
-  of scShape:
-    for i in 0 ..< scale.valueMap.len:
-      result.add initPoint(plt,
-                           (0.0, 0.0), # dummy coordinates
-                           marker = scale.getValue(scale.getLabelKey(i)).marker)
-  of scSize:
-   for i in 0 ..< scale.valueMap.len:
-     let size = scale.getValue(scale.getLabelKey(i)).size
-     result.add initPoint(plt,
-                          (0.0, 0.0), # dummy coordinates
-                          marker = mkCircle,
-                          size = size)
-  else:
-    raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
+    else:
+      raise newException(Exception, "Continuous legend unsupported for scale kind " &
+        $scale.scKind)
 
 # TODO: move this, remove one of the two (instead calc from the other)
 # TODO2: use almostEqual from `formula` instead of this one here!!!
@@ -2456,7 +2488,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
         lg[] = img[5][]
       else:
         lg = deepCopy(img[5])
-      lg.createLegend(scale)
+      lg.createLegend(scale, theme.legendOrder)
       let scaleCol = evaluate(scale.col).toStr
       if scaleCol notin scaleNames:
         legends.add lg
