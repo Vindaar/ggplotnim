@@ -71,3 +71,7 @@ proc generateJsonFile*(f: string) =
   # run the tmp file to generate json
   shell:
     nim c "-r" ($tmpfile)
+
+when isMainModule:
+  for f in RecipeFiles:
+    generateJsonFile(f)
