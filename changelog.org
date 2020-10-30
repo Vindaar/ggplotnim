@@ -13,6 +13,11 @@
 - attempt to get rid of duplicate legends in case of certain ggplot calls
 - fix bug causing accessing =labs= sequence for log10 tick values, in
   case the tick labels were hidden (e.g. log10 facet_wrap).
+- add *experimental* =legendOrder= proc to reorder the elements in a
+  legend by a permutation of the "correct" order. Not the most user
+  friendly and untested.
+- add automatic wrapping of long lines in the title of a plot
+- support manual wrapping in the title of a plot
 * v0.3.19
 - allow =nnkCommand= nodes for =aes= macro
 * v0.3.18
