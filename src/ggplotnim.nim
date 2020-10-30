@@ -2408,20 +2408,23 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       fontOpt = some(annot.font))
     view.addObj concat(@[annotRect], annotText)
 
-proc drawTitle(view: Viewport, p: GgPlot, theme: Theme) =
-  var title = p.title
+proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
+  ## Draws a title onto the `view` (which should be the header of the plot).
+  ## If the length of the title exceeds the `width` (should be the width of
+  ## the header viewport + right side margin), we automatically wrap the
+  ## title to multiple lines.
+  var title = title
   let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
   if "\n" notin title:
     # user does not do manual wrapping. Check if needs to be wrapped.
     let strWidth = getStrWidth(title, font)
-    let viewWidth = view.pointWidth
-    if strWidth > viewWidth:
+    if strWidth > width:
       # rebuild and wrap
       var line: string
       var mTitle: string
       for word in title.split(' '):
         let lineWidth = getStrWidth(line & word, font)
-        if lineWidth < viewWidth:
+        if lineWidth < width:
           line.add word & " " # we add a space even at the end of line...
         else:
           mTitle.add line & "\n"
@@ -2538,7 +2541,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   img[4].drawAnnotations(p)
 
   if p.title.len > 0:
-    img[1].drawTitle(p, theme)
+    img[1].drawTitle(p.title, theme, add(img[1].pointWidth, img[2].pointWidth))
 
   result.filledScales = filledScales
   result.view = img
