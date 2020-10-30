@@ -2408,6 +2408,37 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       fontOpt = some(annot.font))
     view.addObj concat(@[annotRect], annotText)
 
+proc drawTitle(view: Viewport, p: GgPlot, theme: Theme) =
+  var title = p.title
+  let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
+  if "\n" notin title:
+    # user does not do manual wrapping. Check if needs to be wrapped.
+    let strWidth = getStrWidth(title, font)
+    let viewWidth = view.pointWidth
+    if strWidth > viewWidth:
+      # rebuild and wrap
+      var line: string
+      var mTitle: string
+      for word in title.split(' '):
+        let lineWidth = getStrWidth(line & word, font)
+        if lineWidth < viewWidth:
+          line.add word & " " # we add a space even at the end of line...
+        else:
+          mTitle.add line & "\n"
+          line = word & " "
+      mTitle.add line
+      title = mTitle
+  else:
+    # user is manually wrapping and responsible
+    discard
+
+  let titleObj = view.initMultiLineText(c(0.0, 0.9),
+                                     title,
+                                     textKind = goText,
+                                     alignKind = taLeft,
+                                     fontOpt = some(font))
+  view.addObj titleObj
+
 func updateAesRidges(p: GgPlot): GgPlot =
   ## Adds the `ridges` information to the `GgPlot` object by assigning
   ## the `yRidges` aesthetic to the global aesthetic and forcing its
@@ -2507,14 +2538,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   img[4].drawAnnotations(p)
 
   if p.title.len > 0:
-    var titleView = img[1]
-    let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
-    let title = titleView.initText(c(0.0, 0.5),
-                                   p.title,
-                                   textKind = goText,
-                                   alignKind = taLeft,
-                                   font = some(font))
-    titleView.addObj title
+    img[1].drawTitle(p, theme)
 
   result.filledScales = filledScales
   result.view = img
