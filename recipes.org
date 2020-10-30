@@ -1501,6 +1501,33 @@ ggplot(df, aes("pos", "name")) +
 
 [[./media/recipes/rCustomMargins.png]]
 
+*** Plot with a title including line breaks
+
+In case of super long titles the title will automatically be wrapped. 
+
+However, by default the space in the top part of the plot will not be
+large enough to accomodate the required space for more than 1 line of
+text using the default font size. That's why we set the margin at the
+top of the plot here to 2 cm.
+
+If the user provides a manual wrapping (i.e. the title contains at
+least one =\n=) no automatic wrapping will be performed.
+#+begin_src nim :tangle recipes/rLongTitleMultiline.nim
+import ggplotnim, sequtils, seqmath
+
+let x = linspace(0.0, 30.0, 1000)
+let y = x.mapIt(pow(sin(it), 2.0))
+
+let df = seqsToDf(x, y)
+
+ggplot(df, aes("x", "y")) +
+  geom_line() +
+  margin(top = 2) +
+  ggtitle("This is a very long title which gets cropped on the right side as it's longer than the image width.") +
+  ggsave("media/recipes/rLongTitleMultiline.png")
+#+end_src
+
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
