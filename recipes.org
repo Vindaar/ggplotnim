@@ -1527,6 +1527,7 @@ ggplot(df, aes("x", "y")) +
   ggsave("media/recipes/rLongTitleMultiline.png")
 #+end_src
 
+[[./media/recipes/rLongTitleMultiline.png]]
 
 *** TODO Example of changing font size in plot
 
