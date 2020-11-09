@@ -1648,6 +1648,16 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            hideTickLabels = false,
                            margin = none[Coord1D]()): seq[GraphObject] =
   let boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
+  var rotate: Option[float]
+  var alignTo: Option[TextAlignKind]
+  case axKind
+  of akX:
+    rotate = theme.xTicksRotate
+    alignTo = theme.xTicksTextAlign
+  of akY:
+    rotate = theme.yTicksRotate
+    alignTo = theme.yTicksTextAlign
+
   case scale.scKind
   of scLinearData:
     let ticks = view.initTicks(axKind, numTicks, isSecondary = isSecondary,
@@ -1656,6 +1666,8 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     tickLabs = view.tickLabels(ticks, isSecondary = isSecondary,
                                font = theme.tickLabelFont,
                                margin = margin,
+                               rotate = rotate,
+                               alignToOverride = alignTo,
                                format = scale.formatContinuousLabel)
     if not hideTickLabels:
       view.addObj concat(ticks, tickLabs)
@@ -1685,6 +1697,8 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
       view.yScale = (low: log10(minVal), high: log10(maxVal))
 
     let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary,
+                                              rotate = rotate,
+                                              alignToOverride = alignTo,
                                               font = theme.tickLabelFont,
                                               margin = margin)
     if not hideTickLabels:
@@ -2171,6 +2185,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   # due to overlap!)
   theme.xTickLabelMargin = some(0.4)
   theme.yTickLabelMargin = some(-0.2)
+  theme.xTicksRotate = p.theme.xTicksRotate
+  theme.yTicksRotate = p.theme.yTicksRotate
+  theme.xTicksTextAlign = p.theme.xTicksTextAlign
+  theme.yTicksTextAlign = p.theme.yTicksTextAlign
+
 
   var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
