@@ -2251,7 +2251,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       let xTickNum = if theme.xMarginRange.high > 100.0 and
                       theme.xMarginRange.high < 1e5:
                      5
-                   else: 10
+                   else:
+                     p.numXTicks
 
       xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
                                     numTicksOpt = some(xTickNum),
