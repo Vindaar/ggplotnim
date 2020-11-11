@@ -231,11 +231,11 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.yRidges)
   fillIt(result.weight)
 
-proc ggplot*(data: DataFrame, aes: Aesthetics = aes()): GgPlot =
+proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
+             numXTicks = 10, numYTicks = 10): GgPlot =
   result = GgPlot(data: data,
-                  numXticks: 10,
-                  numYticks: 10)
-  #result.addAes aes
+                  numXticks: numXTicks,
+                  numYticks: numYTicks)
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
   # TODO: fill others with defaults
   # add default theme
