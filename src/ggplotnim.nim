@@ -2132,8 +2132,9 @@ proc find(fg: FilledGeom, label: Value): DataFrame =
   ## contains `label` in `yieldData`
   for key, val in fg.yieldData:
     if label in key:
-      return val[2]
-  doAssert false, "Invalid call to find, `label` not found in `yieldData`!"
+      # multiple keys may match, add DFs!
+      result.add val[2]
+  doAssert result.len > 0, "Invalid call to find, `label` not found in `yieldData`!"
 
 proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale
 proc calcScalesForLabel(theme: var Theme, facet: Facet,
