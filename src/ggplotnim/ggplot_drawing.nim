@@ -219,7 +219,6 @@ proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
 proc calcViewMap(fg: FilledGeom): Table[(Value, Value), int] =
   ## maps a given label (`Value`) of a discrete axis to an `int` index,
   ## which corresponds to the `Viewport` the label has to be drawn to
-  # TODO: extend to discrete y scales!
   result = initTable[(Value, Value), int]()
   let (cols, rows) = colsRows(fg)
   if cols == 1 and rows == 1: return # nothing discrete, empty table
