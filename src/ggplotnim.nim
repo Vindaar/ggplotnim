@@ -709,10 +709,11 @@ func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
                          name: name)
 
 proc scale_x_discrete*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis(),
-                         labels: proc(x: Value): string = nil): Scale =
+                       secAxis: SecondaryAxis = sec_axis(),
+                       labels: proc(x: Value): string = nil): Scale =
   ## creates a discrete x axis with a possible secondary axis.
-  # NOTE: See note for y axis below
+  ## `labels` allows to hand a procedure, which maps the values
+  ## found on the x axis to the tick label that should be shown for it.
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
@@ -731,7 +732,8 @@ proc scale_x_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
                          labels: proc(x: float): string = nil): Scale =
   ## creates a continuous x axis with a possible secondary axis.
-  # NOTE: See note for y continuous axis below
+  ## `labels` allows to hand a procedure, which maps the values
+  ## found on the x axis to the tick label that should be shown for it.
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
@@ -750,8 +752,8 @@ proc scale_y_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
                          labels: proc(x: float): string = nil): Scale =
   ## creates a continuous y axis with a possible secondary axis.
-  # NOTE: so far this only allows to set the name (read label) of the
-  # axis and to provide a format function for the axis labels.
+  ## `labels` allows to hand a procedure, which maps the values
+  ## found on the y axis to the tick label that should be shown for it.
   # Also the possible transformation for the secondary axis is ignored!
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
@@ -771,7 +773,8 @@ proc scale_y_discrete*(name: string = "",
                        secAxis: SecondaryAxis = sec_axis(),
                        labels: proc(x: Value): string = nil): Scale =
   ## creates a discrete y axis with a possible secondary axis.
-  # NOTE: see note for y continuous axis above
+  ## `labels` allows to hand a procedure, which maps the values
+  ## found on the x axis to the tick label that should be shown for it.
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
