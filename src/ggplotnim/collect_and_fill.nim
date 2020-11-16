@@ -187,7 +187,7 @@ proc fillDiscreteLinearTransScale(
   trans: Option[ScaleTransform] = none[ScaleTransform]()
      ): Scale =
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
-  result.labelSeq = labelSeq.sortedByIt(it)
+  result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
   result.axKind = axKind
   if scKind == scTransformedData:
@@ -418,11 +418,19 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
 
     if isDiscrete:
       when defined(defaultBackend):
-        labelSeqOpt = if s.labelSeq.len == 0: some(data.deduplicate.sorted)
-                      else: some(s.labelSeq)
+        if s.labelSeq.len == 0 and not s.reversed:
+          labelSeqOpt = some(data.deduplicated.sorted)
+        elif s.labelSeq.len == 0:
+          labelSeqOpt = some(data.deduplicated.sorted.reversed)
+        else:
+          labelSeqOpt = some(s.labelSeq)
       else:
-        labelSeqOpt = if s.labelSeq.len == 0: some(data.unique.toTensor(Value).toRawSeq.sorted)
-                      else: some(s.labelSeq)
+        if s.labelSeq.len == 0 and not s.reversed:
+          labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
+        elif s.labelSeq.len == 0:
+          labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted.reversed)
+        else:
+          labelSeqOpt = some(s.labelSeq)
       if s.valueMap.len > 0:
         valueMapOpt = some(s.valueMap)
     else:
