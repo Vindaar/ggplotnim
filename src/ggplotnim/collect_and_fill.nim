@@ -440,7 +440,11 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       if s.valueMap.len > 0:
         valueMapOpt = some(s.valueMap)
     else:
-      dataScaleOpt = some(scaleFromData(data))
+      # check if scale already set to something by user, if so use it
+      dataScaleOpt = if s.dcKind == dcContinuous and s.dataScale.low != s.dataScale.high:
+                       some(s.dataScale)
+                     else:
+                       some(scaleFromData(data))
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,

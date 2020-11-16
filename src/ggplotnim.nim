@@ -827,10 +827,12 @@ proc scale_y_reverse*(name: string = "",
                  hasDiscreteness: true,
                  secondaryAxis: secAxisOpt)
 
-proc scale_fill_continuous*(name: string = ""): Scale =
+proc scale_fill_continuous*(name: string = "",
+                            scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
   result = Scale(name: name,
                  scKind: scFillColor,
                  dcKind: dcContinuous,
+                 dataScale: scale,
                  hasDiscreteness: true)
 
 proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
