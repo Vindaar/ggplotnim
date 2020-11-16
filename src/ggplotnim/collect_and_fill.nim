@@ -237,7 +237,7 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
         for idx in 0 ..< df.len:
           var colorIdx = (255.0 * ((col.evaluate(df, idx).toFloat - dataScale.low) /
                                    (dataScale.high - dataScale.low))).round.int
-          colorIdx = min(255, colorIdx)
+          colorIdx = max(0, min(255, colorIdx))
           let cVal = ViridisRaw[colorIdx]
           var scVal = if scKind == scColor:
                         ScaleValue(kind: scColor)
@@ -255,7 +255,7 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
         for idx in 0 ..< t.size:
           var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
                                    (dataScale.high - dataScale.low))).round.int
-          colorIdx = min(255, colorIdx)
+          colorIdx = max(0, min(255, colorIdx))
           let cVal = ViridisRaw[colorIdx]
           var scVal = if scKind == scColor:
                         ScaleValue(kind: scColor)
