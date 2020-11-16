@@ -120,6 +120,7 @@ proc initField*(name: string, val: NimNode): NimNode =
 
 proc getArgValue(n: NimNode, arg: string): NimNode =
   case n.kind
+  of nnkSym: result = n
   of nnkIdent:
     let valAsStr = n.strVal
     result = quote do:
@@ -152,6 +153,14 @@ proc getArgValue(n: NimNode, arg: string): NimNode =
   else:
     error("Invalid value for argument `" & $arg & "`: " & $n.repr & " of node " &
       "kind " & $n.kind)
+
+proc getArgStr(n: NimNode): string =
+  case n.kind
+  of nnkIdent, nnkSym,
+     nnkStrLit, nnkTripleStrLit, nnkRStrLit: result = n.strVal
+  of nnkOpenSymChoice, nnkClosedSymChoice: result = n[0].strVal
+  else:
+    error("Invalid node for argument `" & $(n.repr) & " in aes macro!")
 
 macro aes*(args: varargs[untyped]): untyped =
   ## This macro parses the given arguments and returns an `Aesthetics` object
@@ -187,15 +196,16 @@ macro aes*(args: varargs[untyped]): untyped =
   for idx, arg in args:
     case arg.kind
     of nnkExprEqExpr:
-      if arg[0].strVal.normalize notin allowedArgs:
-        error("Invalid aesthetic: " & $arg[0].strVal & "!")
+      let argStr = getArgStr(arg[0])
+      if argStr.normalize notin allowedArgs:
+        error("Invalid aesthetic: " & $argStr & "!")
       else:
         aesArgs.add nnkExprColonExpr.newTree(
-          arg[0],
-          initField(arg[0].strVal,
-                    getArgvalue(arg[1], arg[0].strVal))
+          ident(argStr),
+          initField(argStr,
+                    getArgValue(arg[1], argStr))
         )
-    of nnkIdent,
+    of nnkIdent, nnkSym,
        nnkIntLit .. nnkFloat64Lit,
        nnkStrLit, nnkTripleStrLit, nnkRStrLit,
        nnkCurlyExpr:
