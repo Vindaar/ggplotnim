@@ -1576,14 +1576,14 @@ proc largestPow(x: float): float =
     while result < x and not result.almostEqual(x):
       result *= 10.0
 
-proc tickposlog(minv, maxv: float,
+proc tickposlog(numTicks: int, minv, maxv: float,
                 boundScale: ginger.Scale,
                 hideTickLabels = false,
                 format: proc(x: float): string): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
-  let numTicks = 10 * (log10(maxv) - log10(minv)).round.int
+  let numTicks = numTicks * (log10(maxv) - log10(minv)).round.int
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
@@ -1678,7 +1678,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     let maxVal = pow(10, scale.dataScale.high).largestPow
     let format = if scale.formatContinuousLabel != nil: scale.formatContinuousLabel
                  else: (proc(x: float): string = formatTickValue(x))
-    let (labs, labelpos) = tickposlog(minVal, maxVal, boundScale,
+    let (labs, labelpos) = tickposlog(numTicks, minVal, maxVal, boundScale,
                                       hideTickLabels = hideTickLabels,
                                       format = format)
     var tickLocs: seq[Coord1D]
