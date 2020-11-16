@@ -607,6 +607,7 @@ proc `$`*(s: Scale): string =
   case s.scKind
   of scLinearData, scTransformedData:
     result.add &", axKind: {s.axKind}"
+    result.add &", reversed: {s.reversed}"
     result.add &", trans.isNil?: {s.trans.isNil}"
     result.add &", secondaryAxis: {s.secondaryAxis}"
   else: discard
