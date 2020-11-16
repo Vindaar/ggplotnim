@@ -2037,9 +2037,9 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
     view.handleLabels(theme)
   view.xScale = theme.xMarginRange
 
-  if filledScales.reversedX:
+  if not filledScales.discreteX and filledScales.reversedX:
     view.xScale = (low: view.xScale.high, high: view.xScale.low)
-  if filledScales.reversedY:
+  if not filledScales.discreteY and filledScales.reversedY:
     view.yScale = (low: view.yScale.high, high: view.yScale.low)
   #view.updateDataScale()
 
@@ -2084,9 +2084,9 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     view.xScale = theme.xMarginRange
     view.yScale = theme.yMarginRange
 
-    if filledScales.reversedX:
+    if not filledScales.discreteX and filledScales.reversedX:
       view.xScale = (low: view.xScale.high, high: view.xScale.low)
-    if filledScales.reversedY:
+    if not filledScales.discreteY and filledScales.reversedY:
       view.yScale = (low: view.yScale.high, high: view.yScale.low)
 
     # TODO: Make sure we still have to do this. I think not!
@@ -2280,6 +2280,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       plotView.createGobjFromGeom(fg, theme, labelVal = some(label))
       viewLabel.xScale = plotView.xScale
       viewLabel.yScale = plotView.yScale
+
+      if not filledScales.discreteX and filledScales.reversedX:
+        viewLabel.xScale = (low: view.xScale.high, high: view.xScale.low)
+      if not filledScales.discreteY and filledScales.reversedY:
+        viewLabel.yScale = (low: view.yScale.high, high: view.yScale.low)
 
       # finally assign names
       plotView.name = "facetPlot"
