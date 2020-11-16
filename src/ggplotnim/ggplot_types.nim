@@ -370,6 +370,8 @@ type
     yScale*: ginger.Scale
     reversedX*: bool
     reversedY*: bool
+    discreteX*: bool
+    discreteY*: bool
     geoms*: seq[FilledGeom]
     x*: MainAddScales
     y*: MainAddScales
