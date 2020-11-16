@@ -418,16 +418,22 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
 
     if isDiscrete:
       when defined(defaultBackend):
-        if s.labelSeq.len == 0 and not s.reversed:
+        if s.labelSeq.len == 0 and
+          (s.scKind in {scLinearData, scTransformedData} and not s.reversed or
+           s.scKind notin {scLinearData, scTransformedData}):
           labelSeqOpt = some(data.deduplicated.sorted)
-        elif s.labelSeq.len == 0:
+        elif s.labelSeq.len == 0 and
+          (s.scKind in {scLinearData, scTransformedData} and s.reversed):
           labelSeqOpt = some(data.deduplicated.sorted.reversed)
         else:
           labelSeqOpt = some(s.labelSeq)
       else:
-        if s.labelSeq.len == 0 and not s.reversed:
+        if s.labelSeq.len == 0 and
+          (s.scKind in {scLinearData, scTransformedData} and not s.reversed or
+           s.scKind notin {scLinearData, scTransformedData}):
           labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
-        elif s.labelSeq.len == 0:
+        elif s.labelSeq.len == 0 and
+          (s.scKind in {scLinearData, scTransformedData} and s.reversed):
           labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted.reversed)
         else:
           labelSeqOpt = some(s.labelSeq)
