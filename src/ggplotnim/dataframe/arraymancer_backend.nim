@@ -146,9 +146,11 @@ proc contains*(df: DataFrame, key: string): bool =
   result = df.data.hasKey(key)
 
 proc `[]`*(df: DataFrame, k: string): var Column {.inline.} =
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k]
 
 proc `[]`*(df: DataFrame, k: Value): Column {.inline.} =
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k.toStr]
 
 func isColumn*(fn: FormulaNode, df: DataFrame): bool =
@@ -160,26 +162,32 @@ func isConstant*(fn: FormulaNode, df: DataFrame): bool =
 proc `[]`*(df: DataFrame, k: string, idx: int): Value {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
   ## returning the whole vector first
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k][idx, Value]
 
 proc `[]`*[T](df: DataFrame, k: string, idx: int, dtype: typedesc[T]): T {.inline.} =
   ## returns the element at index `idx` in column `k` directly, without
   ## returning the whole vector first
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k][idx, dtype]
 
 proc `[]`*[T](df: DataFrame, k: string, slice: Slice[int], dtype: typedesc[T]): Tensor[T] {.inline.} =
   ## returns the elements in `slice` in column `k` directly, without
   ## returning the whole vector first as a tensor of type `dtype`
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k][slice.a .. slice.b, dtype]
 
 proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): Column {.inline.} =
   ## returns the elements in `slice` in column `k` directly, without
   ## returning the whole vector first
+  assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k][slice.a .. slice.b]
 
 proc `[]=`*(df: var DataFrame, k: string, col: Column) {.inline.} =
   ## Assigns a full column to the DF. In debug mode it checks that the size of
   ## the input column matches the DF size, unless the DF is empty.
+  if df.isNil:
+    df = newDataFrame()
   df.data[k] = col
   if df.len == col.len or df.len == 0:
     df.len = col.len
@@ -249,6 +257,9 @@ proc `[]=`*[T: Tensor | seq | array](df: var DataFrame, k: string, t: T) {.inlin
 
 proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
   ## WARNING: only use this if you know that `T` is the correct data type!
+  # we depend on df.len != df.data.len in `innerJoin` among others. This is a somewhat
+  # unsafe procedure!
+  assert df.data[k].len > idx, "Invalid index " & $idx & " for DF column of length " & $df.data.len
   when T is float:
     df.data[k].fcol[idx] = val
   elif T is int:
