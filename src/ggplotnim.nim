@@ -297,7 +297,8 @@ proc geom_point*(aes: Aesthetics = aes(),
                  binPosition = "none",
                  position = "identity", # the position kind, "identity", "stack" etc.
                  binBy = "full",
-                 density = false
+                 density = false,
+                 alpha = none[float](),
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -307,7 +308,7 @@ proc geom_point*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, size = size, marker = marker)
+  let style = initGgStyle(color = color, size = size, marker = marker, alpha = alpha)
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,

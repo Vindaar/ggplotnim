@@ -78,8 +78,15 @@ func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   # now apply `alpha` to `fillColor`
   if uStyle.alpha.isSome:
     result.fillColor.a = uStyle.alpha.unsafeGet
+    ## TODO: should we apply this to other geoms as well? This would lead to also
+    ## making the outlines of fills change alpha. Might be wanted, might not be wanted.
+    ## Or add a `fillAlpha` option? How does ggplot2 handle this?
+    if geomKind in {gkPoint, gkLine, gkErrorBar, gkText}:
+      result.color.a = uStyle.alpha.unsafeGet
   elif s.alpha.isSome:
     result.fillColor.a = s.alpha.unsafeGet
+    if geomKind in {gkPoint, gkLine, gkErrorBar, gkText}:
+      result.color.a = uStyle.alpha.unsafeGet
 
   # apply `color`, `size` to font
   ## TODO: This will overwrite a user style!!
