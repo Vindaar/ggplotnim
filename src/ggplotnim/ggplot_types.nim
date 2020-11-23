@@ -261,6 +261,7 @@ type
     # legend
     legendPosition*: Option[Coord]
     legendOrder*: Option[seq[int]]
+    hideLegend*: Option[bool]
     # canvas
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot
