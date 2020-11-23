@@ -1083,6 +1083,10 @@ proc legendOrder*(idx: seq[int]): Theme =
   ## legend is required. For the time being this is better than nothing though.
   result = Theme(legendOrder: some(idx))
 
+proc hideLegend*(): Theme =
+  ## hides the legend, even if it would otherwise be required
+  result = Theme(hideLegend: some(true))
+
 proc canvasColor*(color: Color): Theme =
   ## sets the canvas color of the plot to the given color
   result = Theme(canvasColor: some(color))
@@ -1349,6 +1353,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(yTicksRotate)
   ifSome(legendPosition)
   ifSome(legendOrder)
+  ifSome(hideLegend)
   ifSome(labelFont)
   ifSome(tickLabelFont)
   ifSome(titleFont)
@@ -1445,12 +1450,14 @@ template anyScale(arg: untyped): untyped =
   else:
     false
 
-proc requiresLegend(filledScales: FilledScales): bool =
+proc requiresLegend(filledScales: FilledScales,
+                    theme: Theme): bool =
   ## returns true if the plot requires a legend to be drawn
-  if anyScale(filledScales.color) or
-     anyScale(filledScales.fill) or
-     anyScale(filledScales.size) or
-     anyScale(filledScales.shape):
+  if theme.hideLegend.isNone and
+     (anyScale(filledScales.color) or
+      anyScale(filledScales.fill) or
+      anyScale(filledScales.size) or
+      anyScale(filledScales.shape)):
     result = true
   else:
     result = false
@@ -1506,7 +1513,8 @@ proc createLayout(view: var Viewport,
   let hideTickLabels = theme.hideTickLabels.get(false)
   let hideLabels = theme.hideLabels.get(false)
   let tightLayout = hideLabels and hideTicks
-  let layout = initThemeMarginLayout(theme, tightLayout, filledScales.requiresLegend)
+  let layout = initThemeMarginLayout(theme, tightLayout,
+                                     filledScales.requiresLegend(theme))
   view.plotLayout(layout)
 
 proc generateLegendMarkers(plt: Viewport,
@@ -2558,7 +2566,8 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   var scaleNames = initHashSet[string]()
   var legends: seq[Viewport]
   for scale in enumerateScalesByIds(filledScales):
-    if scale.scKind notin {scLinearData, scTransformedData} and
+    if theme.hideLegend.isNone and
+       scale.scKind notin {scLinearData, scTransformedData} and
        (scale.dcKind, scale.scKind) notin drawnLegends:
       # create deep copy of the original legend pane
       var lg: Viewport
