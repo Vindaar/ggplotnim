@@ -1096,15 +1096,15 @@ func theme_opaque*(): Theme =
   ## canvas of the plot is white instead of transparent
   result = Theme(canvasColor: some(white))
 
-func theme_void*(): Theme =
+func theme_void*(color: Color = white): Theme =
   ## returns the "void" theme. This means:
   ## - white background
   ## - no grid lines
   ## - no ticks
   ## - no tick labels
   ## - no labels
-  result = Theme(canvasColor: some(white),
-                 plotBackgroundColor: some(white),
+  result = Theme(canvasColor: some(color),
+                 plotBackgroundColor: some(color),
                  hideTicks: some(true),
                  hideTickLabels: some(true),
                  hideLabels: some(true))
