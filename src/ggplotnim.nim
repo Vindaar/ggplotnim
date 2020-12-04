@@ -1393,7 +1393,8 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## `aes`
   template clone(newScale: untyped): untyped =
     when defined(gcDestructors):
-      `newScale`[] = scale[]
+      newScale =  new Scale
+      newScale[] = scale[]
     else:
       `newScale` = deepCopy(scale)
   template assignCopyScale(field: untyped): untyped =
