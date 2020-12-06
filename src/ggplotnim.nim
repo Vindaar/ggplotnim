@@ -2574,6 +2574,7 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
       # create deep copy of the original legend pane
       var lg: Viewport
       when defined(gcDestructors):
+        new(lg)
         lg[] = img[5][]
       else:
         lg = deepCopy(img[5])
