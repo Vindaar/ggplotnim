@@ -322,8 +322,12 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
   of pkIdentity:
     # ignore `prevVals`
     var mp = p
-    when not CoordsFlipped: mp.y = if fg.geom.kind in {gkBar, gkHistogram}: %~ 0.0 else: mp.y
-    else: mp.x = if fg.geom.kind in {gkBar, gkHistogram}: %~ 0.0 else: mp.x
+    when not CoordsFlipped:
+      if fg.geom.kind in {gkBar, gkHistogram}:
+        mp.y = %~ 0.0
+    else:
+      if fg.geom.kind in {gkBar, gkHistogram}:
+        mp.x = %~ 0.0
     result.x = view.getDrawPosImpl(fg, mp.x, binWidths.x, fg.dcKindX, akX)
     result.y = view.getDrawPosImpl(fg, mp.y, binWidths.y, fg.dcKindY, akY)
   of pkStack:
