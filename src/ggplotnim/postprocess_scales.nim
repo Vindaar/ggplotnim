@@ -171,6 +171,7 @@ proc setXAttributes(fg: var FilledGeom,
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          scales: seq[Scale], baseStyle: GgStyle,
+                         gkKind: GeomKind,
                          toClone: static bool = false):
                            (GgStyle, seq[GgStyle], DataFrame) =
   ## given continuous `scales` (if any) return the correct scales based
@@ -193,10 +194,12 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
       # for linear and transformed data we don't change the style
       discard
     else:
-      let scVals = c.mapData(result[2])
-      result[1] = newSeq[GgStyle](scVals.len)
-      for i in 0 ..< scVals.len:
-        result[1][i] = baseStyle.changeStyle(scVals[i])
+      if gkKind notin {gkRaster}:
+        # avoid expensive compution for raster
+        let scVals = c.mapData(result[2])
+        result[1] = newSeq[GgStyle](scVals.len)
+        for i in 0 ..< scVals.len:
+          result[1][i] = baseStyle.changeStyle(scVals[i])
   if result[1].len == 0:
     result = (baseStyle, @[baseStyle], result[2])
 
@@ -369,13 +372,13 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
       applyStyle(style, subDf, discretes, keys)
       let yieldDf = subDf
       result.setXAttributes(yieldDf, x)
-      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
                                                              toClone = true)
   else:
     let yieldDf = df
     result.setXAttributes(yieldDf, x)
     let key = ("", Value(kind: VNull))
-    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
 
   case y.dcKind
   of dcDiscrete: result.yLabelSeq = y.labelSeq
@@ -479,6 +482,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       let yieldDf = seqsToDf({ getColName(x) : bins,
                                countCol: hist })
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+                                                             g.kind,
                                                              toClone = true)
       result.numX = max(result.numX, yieldDf.len)
       result.xScale = mergeScales(result.xScale, (low: bins.min.float,
@@ -506,7 +510,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     # continuous styling to a single bin.
     # Chances are we end up here, because the "continuous" scale was misclassified
     doAssert cont.len == 0, "Was " & $cont.mapIt($it.col) & " supposed to be discrete?"
-    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
     result.numX = yieldDf.len
     result.xScale = mergeScales(result.xScale, (low: bins.min.float, high: bins.max.float))
     result.yScale = mergeScales(result.yScale, (low: 0.0, high: hist.max.float))
@@ -559,6 +563,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       yieldDf = yieldDf.arrange(xCol)
       sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
+                                                             g.kind,
                                                              toClone = true)
       result.setXAttributes(yieldDf, x)
       when defined(defaultBackend):
@@ -572,7 +577,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   else:
     let yieldDf = df.count(xCol, name = countCol)
     let key = ("", Value(kind: VNull))
-    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style)
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
     result.setXAttributes(yieldDf, x)
     when defined(defaultBackend):
       result.yScale = mergeScales(result.yScale,
@@ -607,6 +612,10 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         filledGeom = filledCountGeom(df, g, filledScales)
       else:
         filledGeom = filledBinGeom(df, g, filledScales)
+
+      if g.kind == gkRaster:
+        # assign the `fillCol` to have access to data for filling
+        filledGeom.fillCol = getColName(getFillScale(filledScales))
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:

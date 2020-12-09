@@ -1,5 +1,6 @@
-import sequtils, tables
-import ggplot_types, ggplot_styles, ggplot_scales, sets
+import sequtils, tables, sets
+import ggplot_types, ggplot_styles, ggplot_scales
+import colormaps / viridisRaw
 when defined(defaultBackend):
   import dataframe/fallback/formula
   import persvector
@@ -388,10 +389,7 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
                           ebKind = style.errorBarKind,
                           style = some(style))
 
-proc drawRaster(view: var Viewport, fg: FilledGeom,
-                df: DataFrame, linepoints: seq[Coord],
-                styles: seq[GgStyle]) =
-  doAssert styles.len == df.len, "Raster only supports continuous data!"
+proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
   let
     maxXCol = fg.xScale.high
     minXCol = fg.xScale.low
@@ -405,16 +403,23 @@ proc drawRaster(view: var Viewport, fg: FilledGeom,
 
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
-    doAssert linePoints.len == df.len
+    let xT = df[fg.xCol].toTensor(float)
+    let yT = df[fg.yCol].toTensor(float)
+    let zT = df[fg.fillCol].toTensor(float)
+    let zScale = (low: zT.min, high: zT.max)
     for idx in 0 ..< df.len:
-      let coord = linePoints[idx]
-      let (x, y) = (((coord.x.pos - minXCol) / wv).int,
-                    ((coord.y.pos - minYCol) / hv).int)
-      let c = styles[idx].fillColor.get.to(ColorRGB)
+      let (x, y) = (((xT[idx] - minXCol) / wv).int,
+                    ((yT[idx] - minYCol) / hv).int)
+      var colorIdx = (255.0 * ((zT[idx] - zScale.low) /
+                      (zScale.high - zScale.low))).round.int
+      colorIdx = max(0, min(255, colorIdx))
+      let cVal = ViridisRaw[colorIdx]
+      template to256(x: float): int = (x * 256.0).int
       result[((numY - y - 1) * numX) + x] = (255 shl 24 or
-                                             c.r.int shl 16 or
-                                             c.g.int shl 8 or
-                                             c.b.int).uint32
+                                             to256(cVal[0]) shl 16 or
+                                             to256(cVal[1]) shl 8 or
+                                             to256(cVal[2])).uint32
+
   template dataC1(at: float, ax: AxisKind): untyped =
     Coord1D(pos: at, kind: ukData, axis: ax,
             scale: if ax == akX: view.xScale else: view.yScale)
@@ -524,7 +529,6 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
                   styles: seq[GgStyle],
                   theme: Theme) =
   ## draws the given sub df
-  var linePoints = newSeqOfCap[Coord](df.len)
   # get behavior for elements outside the plot range
   let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
   let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
@@ -539,47 +543,50 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile, gkRaster} or
                       fg.geom.binPosition in {bpCenter, bpRight})
 
-  when defined(defaultBackend):
-    var xT = df[$fg.xcol]
-    var yT = df[$fg.ycol]
-  else:
-    var xT = df[$fg.xcol].toTensor(Value)
-    var yT = df[$fg.ycol].toTensor(Value)
-  for i in 0 ..< df.len:
-    if styles.len > 1:
-      style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
-    # get current x, y values, possibly clipping them
-    p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
-              yOutsideRange, xMaybeString = true)
-    if viewMap.len > 0:
-      # get correct viewport if any is discrete
-      viewIdx = getView(viewMap, p, fg)
-      locView = view[viewIdx]
-    if needBinWidth:
-      # potentially move the positions according to `binPosition`
-      binWidths = calcBinWidths(df, i, fg)
-      moveBinPositions(p, binWidths, fg)
-    pos = getDrawPos(locView, viewIdx,
-                     fg,
-                     p = p,
-                     binWidths = binWidths,
-                     df, i,
-                     prevVals)
-    case fg.geom.position
-    of pkIdentity:
-      case fg.geom.kind
-      of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
-      else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
-    of pkStack:
-      case fg.geom.kind
-      of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
-      else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
-    of pkDodge:
-      discard
-    of pkFill:
-      discard
-    if viewMap.len > 0:
-      view[viewIdx] = locView
+  var linePoints: seq[Coord]
+  if fg.geom.kind notin {gkRaster}:
+    linePoints = newSeqOfCap[Coord](df.len)
+    when defined(defaultBackend):
+      var xT = df[$fg.xcol]
+      var yT = df[$fg.ycol]
+    else:
+      var xT = df[$fg.xcol].toTensor(Value)
+      var yT = df[$fg.ycol].toTensor(Value)
+    for i in 0 ..< df.len:
+      if styles.len > 1:
+        style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+      # get current x, y values, possibly clipping them
+      p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
+                yOutsideRange, xMaybeString = true)
+      if viewMap.len > 0:
+        # get correct viewport if any is discrete
+        viewIdx = getView(viewMap, p, fg)
+        locView = view[viewIdx]
+      if needBinWidth:
+        # potentially move the positions according to `binPosition`
+        binWidths = calcBinWidths(df, i, fg)
+        moveBinPositions(p, binWidths, fg)
+      pos = getDrawPos(locView, viewIdx,
+                       fg,
+                       p = p,
+                       binWidths = binWidths,
+                       df, i,
+                       prevVals)
+      case fg.geom.position
+      of pkIdentity:
+        case fg.geom.kind
+        of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
+        else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
+      of pkStack:
+        case fg.geom.kind
+        of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
+        else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
+      of pkDodge:
+        discard
+      of pkFill:
+        discard
+      if viewMap.len > 0:
+        view[viewIdx] = locView
   if viewMap.len == 0:
     view = locView
   # for `gkLine`, `gkFreqPoly` now draw the lines
@@ -604,7 +611,10 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
         let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
   of gkRaster:
-    view.drawRaster(fg, df, linepoints, styles)
+    ## TODO: currently ignores the `linepoints` completely. These would include the
+    ## position of the centers of each pixel. But since it's a rectilinear grid, we can
+    ## calculate the shift once and apply it to the position of the bitmap instead!
+    view.drawRaster(fg, df)
   else: discard
 
 proc createGobjFromGeom*(view: var Viewport,
