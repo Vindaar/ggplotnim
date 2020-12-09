@@ -615,7 +615,9 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
 
       if g.kind == gkRaster:
         # assign the `fillCol` to have access to data for filling
-        filledGeom.fillCol = getColName(getFillScale(filledScales))
+        let fillScale = getFillScale(filledScales)
+        filledGeom.fillCol = getColName(fillScale)
+        filledGeom.fillDataScale = fillScale.dataScale
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:

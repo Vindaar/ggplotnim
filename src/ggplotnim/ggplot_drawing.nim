@@ -406,7 +406,7 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     let xT = df[fg.xCol].toTensor(float)
     let yT = df[fg.yCol].toTensor(float)
     let zT = df[fg.fillCol].toTensor(float)
-    let zScale = (low: zT.min, high: zT.max)
+    let zScale = fg.fillDataScale
     for idx in 0 ..< df.len:
       let (x, y) = (((xT[idx] - minXCol) / wv).int,
                     ((yT[idx] - minYCol) / hv).int)
