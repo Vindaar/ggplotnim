@@ -358,6 +358,8 @@ type
       xMax*: Option[string]
       yMax*: Option[string]
     of gkTile, gkRaster:
+      # this refers to the actual data column containing the data to use to fill!
+      fillCol*: string
       width*: Option[string]
       height*: Option[string]
     of gkText:

@@ -123,6 +123,7 @@ macro genGetOptScale(field: untyped): untyped =
 
 genGetScale(x)
 genGetScale(y)
+genGetScale(fill)
 genGetOptScale(xMin)
 genGetOptScale(yMin)
 genGetOptScale(xMax)
