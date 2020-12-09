@@ -213,10 +213,7 @@ proc clone*(df: DataFrame): DataFrame =
   # we do that, we get random GC segfaults later
   result = DataFrame(kind: df.kind)
   result.len = df.len
-  when defined(gcDestructors):
-    result.data = df.data.clone
-  else:
-    result.data = df.data.deepCopy
+  result.data = df.data.clone
   # TODO: raise Nim issue about this. If the next line is in use,
   # we get a GC related segfault when running `testDf`, which happens
   # somewhere within `readCsv` (thus unrelated to this code here) in the
