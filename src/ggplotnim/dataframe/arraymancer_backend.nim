@@ -195,7 +195,7 @@ proc `[]=`*(df: var DataFrame, k: string, col: Column) {.inline.} =
     raise newException(ValueError, "Given column length of " & $col.len &
       " does not match DF length of: " & $df.len & "!")
 
-proc asgn(df: var DataFrame, k: string, col: Column) {.inline.} =
+proc asgn*(df: var DataFrame, k: string, col: Column) {.inline.} =
   # low level assign, which does not care about sizes of column. Used in `toTab`.
   # Shorter columns are extended afterwards.
   df.data[k] = col
