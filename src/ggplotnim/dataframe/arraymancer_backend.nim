@@ -2099,6 +2099,8 @@ proc add*(df: var DataFrame, dfToAdd: DataFrame) =
   ## calls `bind_rows` for the job.
   if df.isNil or df.len == 0:
     df = dfToAdd
+  elif dfToAdd.len == 0:
+    discard
   else:
     doAssert df.getKeys.sorted == dfToAdd.getKeys.sorted, "all keys must match to add dataframe!"
     df = bind_rows([("", df), ("", dfToAdd)])
