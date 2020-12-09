@@ -360,6 +360,7 @@ type
     of gkTile, gkRaster:
       # this refers to the actual data column containing the data to use to fill!
       fillCol*: string
+      fillDataScale*: ginger.Scale
       width*: Option[string]
       height*: Option[string]
     of gkText:
