@@ -478,6 +478,7 @@ proc toObject*(c: Column): Column {.inline.} =
 
 proc add*(c1, c2: Column): Column =
   ## adds column `c2` to `c1`. Uses `concat` internally.
+  if c1.isNil: return c2 # allows to add to an uninitialized column
   if c2.len == 0: return c1
   elif c1.len == 0: return c2
   if c1.kind == c2.kind:
