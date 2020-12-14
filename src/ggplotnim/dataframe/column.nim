@@ -410,7 +410,12 @@ proc `[]=`*[T](c: var Column, idx: int, val: T) =
   of colObject:
     c.oCol[idx] = %~ val
   of colConstant:
-    c.cCol = %~ val
+    if c.cCol == %~ val: discard # do nothing
+    else:
+      # need to replace constant column by non constant with changed value at
+      # specified index
+      c = c.constantToFull()
+      c[idx] = val
   of colNone: raise newException(ValueError, "Accessed column is empty!")
   if rewriteAsValue:
     # rewrite as an object column
