@@ -271,6 +271,22 @@ proc `[]=`*[T](df: var DataFrame, k: string, idx: int, val: T) {.inline.} =
   elif T is Value:
     df.data[k].ocol[idx] = val
 
+proc `[]=`*[T](df: var Dataframe, fn: FormulaNode, key: string, val: T) =
+  ## evaluates the `fn` (which needs to be a function returning a bool, i.e. filter)
+  ## and assigns a constant value `val` to all rows of column `key` matching the condition
+  # eval boolean function on DF
+  doAssert fn.kind == fkVector, "Function must be of kind `fkVector` " &
+    "(i.e. function acting on a whole column)!"
+  let filterIdx = fn.fnV(df)
+  doAssert filterIdx.kind == colBool, "Function must return bool values! " &
+    "Returns " & $fn.resType
+  var col = df[key] # make mutable copy, reference semantics so data will be modified
+  let bTensor = filterIdx.bCol
+  for idx in 0 ..< bTensor.size:
+    if bTensor[idx]: # if condition true
+      col[idx] = val
+  df[key] = col
+
 template `^^`(df, i: untyped): untyped =
   (when i is BackwardsIndex: df.len - int(i) else: int(i))
 

@@ -1149,3 +1149,16 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 
       check dfRes3["Age"].kind == colInt
       check dfRes3["City"].kind == colString
+
+  test "Inplace filter & assign":
+    let c1 = constantColumn(10, 40)
+    let c2 = toColumn toSeq(0 ..< 40)
+    var df = seqsToDf(c1, c2)
+    df[f{`c2` > 10 and `c2` < 20}, "c2"] = 42
+    df[f{`c2` > 20 and `c2` < 30}, "c1"] = 46
+    check df.filter(f{`c2` == 42}).len == 9
+    check df.filter(f{`c1` == 46}).len == 9
+    let data1 = df["c1", int]
+    let data2 = df["c2", int]
+    check data1[21 .. 29] == toSeq(0 .. 8).mapIt(46).toTensor()
+    check data2[11 .. 19] == toSeq(0 .. 8).mapIt(42).toTensor()
