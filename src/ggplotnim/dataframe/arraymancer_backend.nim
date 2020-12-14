@@ -183,6 +183,16 @@ proc `[]`*(df: DataFrame, k: string, slice: Slice[int]): Column {.inline.} =
   assert not df.isNil, "DF is used in uninitialized context!"
   result = df.data[k][slice.a .. slice.b]
 
+proc `[]`*[T](df: DataFrame, key: string, dtype: typedesc[T]): Tensor[T] =
+  ## returns the column `key` as a Tensor of type `dtype`. This is useful to
+  ## quickly call a procedure on a column of the DF. If `dtype` matches the
+  ## actual datatype of the column, this is a no copy operation.
+  ##
+  ## .. code-block:: nim
+  ##
+  ##   df["x", int].max
+  result = df.data[key].toTensor(dtype)
+
 proc `[]=`*(df: var DataFrame, k: string, col: Column) {.inline.} =
   ## Assigns a full column to the DF. In debug mode it checks that the size of
   ## the input column matches the DF size, unless the DF is empty.
