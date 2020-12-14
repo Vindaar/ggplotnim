@@ -297,6 +297,41 @@ proc `[]=`*[T](df: var Dataframe, fn: FormulaNode, key: string, val: T) =
       col[idx] = val
   df[key] = col
 
+proc add*[T: tuple](df: var DataFrame, args: T) =
+  ## This procedure adds a given tuple as a new row to the DF. This should
+  ## almost always be avoided, because it comes at a huge performance penalty.
+  ## Every add causes a new allocation of every tensor of each column of
+  ## length (N + 1). Only use this to add ``few`` (!!) rows to a DF. Otherwise
+  ## consider storing your intermediate rows to be added in individual seqs
+  ## or Tensors (if you know the length in advance) and add the new DF to
+  ## the existing one using `bind_rows` or `add`.
+  ##
+  ## Possibly use the `add` template, which takes a `varargs[untyped]` if you
+  ## do not wish to construct a tuple manually.
+  ##
+  ## NOTE: the input is treated in the order of the columns as they are
+  ## stored in the internal `OrderedTable`! Make sure the order is as you
+  ## think it is!
+  {.warning: "Using `add` to add rows to a DF individually is very slow. Be " &
+    "sure to only add very few rows using this proc!".}
+  doAssert args.tupleLen == df.ncols
+  let keys = df.getKeys()
+  var i = 0
+  for arg in fields(args):
+    df.asgn(keys[i], df[keys[i]].add toColumn(arg))
+    inc i
+  df.len = df.len + (i div args.tupleLen)
+
+macro varargsToTuple(args: varargs[untyped]): untyped =
+  ## helper macro to convert a `varargs` to a tuple
+  result = nnkTupleConstr.newTree()
+  for arg in args:
+    result.add arg
+
+template add*(df: var DataFrame, args: varargs[untyped]): untyped =
+  let tup = varargsToTuple(args)
+  df.add(tup)
+
 template `^^`(df, i: untyped): untyped =
   (when i is BackwardsIndex: df.len - int(i) else: int(i))
 

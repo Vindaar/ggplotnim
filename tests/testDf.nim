@@ -1162,3 +1162,15 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let data2 = df["c2", int]
     check data1[21 .. 29] == toSeq(0 .. 8).mapIt(46).toTensor()
     check data2[11 .. 19] == toSeq(0 .. 8).mapIt(42).toTensor()
+
+  test "Add row to DF (WARNING: very slow!)":
+    let c1 = constantColumn(10, 10)
+    let c2 = toColumn toSeq(0 ..< 10).mapIt(it.float)
+    var df = seqsToDf(c1, c2)
+    for i in 0 ..< 10:
+      df.add(i, i.float * 2)
+    check df.len == 20
+    let t1 = df["c1", int]
+    let t2 = df["c2", float]
+    check t1 == toTensor toSeq(0 ..< 20).mapIt(if it < 10: 10 else: it - 10)
+    check t2 == toTensor toSeq(0 ..< 20).mapIt(if it < 10: it.float else: (it.float - 10.0) * 2)
