@@ -284,7 +284,7 @@ proc getDrawPosImpl(
   dcKind: DiscreteKind, axKind: AxisKind): Coord1D =
   case dcKind
   of dcDiscrete:
-    case fg.geom.kind
+    case fg.geomKind
     of gkPoint, gkErrorBar:
       result = getDiscretePoint(fg, axKind)
     of gkLine, gkFreqPoly:
@@ -298,7 +298,7 @@ proc getDrawPosImpl(
     of gkText:
       result = getDiscretePoint(fg, axKind)
   of dcContinuous:
-    case fg.geom.kind
+    case fg.geomKind
     of gkPoint, gkErrorBar:
       result = view.getContinuous(fg, val, axKind)
     of gkLine, gkFreqPoly:
@@ -438,7 +438,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
           df: DataFrame,
           idx: int,
           style: Style) =
-  case fg.geom.kind
+  case fg.geomKind
   of gkPoint: view.addObj view.initPoint(pos, style)
   of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
   of gkHistogram, gkBar:
@@ -466,7 +466,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
 
 proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] =
   const CoordFlipped = false
-  case fg.geom.kind
+  case fg.geomKind
   of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar, gkText:
     when not CoordFlipped:
       result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
@@ -479,7 +479,7 @@ func moveBinPositions(p: var tuple[x, y: Value],
                       binWidths: tuple[x, y: float],
                       fg: FilledGeom) =
   const CoordFlipped = false
-  case fg.geom.kind
+  case fg.geomKind
   of gkTile:
     p.x.moveBinPosition(fg.geom.binPosition, binWidths.x)
     p.y.moveBinPosition(fg.geom.binPosition, binWidths.y)
@@ -534,17 +534,17 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   # needed for histogram
   var
-    style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+    style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
     locView = view # current view, either child of `view` or `view` itself
     viewIdx = 0
     p: tuple[x, y: Value]
     pos: Coord
     binWidths: tuple[x, y: float]
-  let needBinWidth = (fg.geom.kind in {gkBar, gkHistogram, gkTile, gkRaster} or
+  let needBinWidth = (fg.geomKind in {gkBar, gkHistogram, gkTile, gkRaster} or
                       fg.geom.binPosition in {bpCenter, bpRight})
 
   var linePoints: seq[Coord]
-  if fg.geom.kind notin {gkRaster}:
+  if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
     when defined(defaultBackend):
       var xT = df[$fg.xcol]
@@ -554,7 +554,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
       var yT = df[$fg.ycol].toTensor(Value)
     for i in 0 ..< df.len:
       if styles.len > 1:
-        style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+        style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
       # get current x, y values, possibly clipping them
       p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
                 yOutsideRange, xMaybeString = true)
@@ -574,11 +574,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
                        prevVals)
       case fg.geom.position
       of pkIdentity:
-        case fg.geom.kind
+        case fg.geomKind
         of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
         else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
       of pkStack:
-        case fg.geom.kind
+        case fg.geomKind
         of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
         else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
       of pkDodge:
@@ -593,7 +593,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   case fg.geom.kind
   of gkLine, gkFreqPoly:
     if styles.len == 1:
-      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geom.kind)
+      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
       # connect line down to axis, if fill color is not transparent
       if style.fillColor != transparent:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
@@ -608,7 +608,7 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
         ## TODO: check `CoordFlipped` so that we know where "down" is!
         linePoints.extendLineToAxis(akX)
       for i in 0 ..< styles.high: # last element covered by i + 1
-        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geom.kind)
+        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
   of gkRaster:
     ## TODO: currently ignores the `linepoints` completely. These would include the
