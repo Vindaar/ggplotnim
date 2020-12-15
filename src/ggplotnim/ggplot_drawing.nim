@@ -636,11 +636,13 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
 
   # return ``early`` if histogram, cause bar histogram already drawn
   if fg.geomKind == gkHistogram and fg.hdKind == hdBars: return
+  elif fg.geomKind == gkHistogram:
+    linepoints = df.convertPointsToHistogram(fg, linepoints)
+
 
   # for `gkLine`, `gkFreqPoly` now draw the lines
   case fg.geomKind
   of gkLine, gkFreqPoly, gkHistogram:
-    linepoints = df.convertPointsToHistogram(fg, linepoints)
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
       # connect line down to axis, if fill color is not transparent
