@@ -632,6 +632,9 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stCount:
         raise newException(Exception, "For discrete counts of your data use " &
           "`geom_bar` instead!")
+      if g.kind == gkHistogram:
+        ## TODO: not really required as a field, since FilledGeom stores original geom
+        filledGeom.hdKind = g.hdKind
     of gkBar:
       case g.statKind
       of stIdentity:

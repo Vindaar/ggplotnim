@@ -323,11 +323,10 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
   of pkIdentity:
     # ignore `prevVals`
     var mp = p
-    when not CoordsFlipped:
-      if fg.geom.kind in {gkBar, gkHistogram}:
+    if fg.geomKind == gkBar or (fg.geomKind == gkHistogram and fg.hdKind == hdBars):
+      when not CoordsFlipped:
         mp.y = %~ 0.0
-    else:
-      if fg.geom.kind in {gkBar, gkHistogram}:
+      else:
         mp.x = %~ 0.0
     result.x = view.getDrawPosImpl(fg, mp.x, binWidths.x, fg.dcKindX, akX)
     result.y = view.getDrawPosImpl(fg, mp.y, binWidths.y, fg.dcKindY, akY)
@@ -522,6 +521,45 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind) =
       # add at the end
       linePoints.add(lEnd)
 
+proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
+                              linePoints: seq[Coord]): seq[Coord] =
+  ## converts a given set of coordinates describing a histogram to a line,
+  ## which describes the outline of a histogram. This is a useful way of
+  ## drawing histograms as an alternative to drawing individual bars, because
+  ## it does not suffer from the following issues:
+  ## - bars that touch don't "actually" touch due to aliasing in vector
+  ##   graphics rendering
+  ## - drawing outlines of histograms can now be accomplished without having
+  ##   visible bars between each bin (i.e. using alpha on histogram fills).
+  ##   Setting alpha of outline to alpha inside does not work, due to overlapping
+  ##   outlines of neighboring bars.
+
+  result = newSeq[Coord]()
+  var
+    p: Coord = linePoints[0]
+    curP: Coord
+    curX: float = p.x.pos
+    curY: float = 0.0
+  var binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+  p.x.pos = curX - binWidth / 2.0
+  p.y.pos = curY
+  result.add p
+  curY = linePoints[0].y.pos
+  p.y.pos = curY
+  result.add p
+  curX = curX + binWidth
+  p.x.pos = curX
+  result.add p
+  for idx in 1 ..< linePoints.len:
+    binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+    curP = linePoints[idx]
+    curY = curP.y.pos
+    p.y.pos = curY
+    result.add p
+    curX = curX + binWidth
+    p.x.pos = curX
+    result.add p
+
 proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
                   viewMap: Table[(Value, Value), int],
                   df: DataFrame,
@@ -576,10 +614,16 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
       of pkIdentity:
         case fg.geomKind
         of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
+        of gkHistogram:
+          if fg.hdKind == hdOutline: linePoints.add pos
+          else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
         else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
       of pkStack:
         case fg.geomKind
         of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
+        of gkHistogram:
+          if fg.hdKind == hdOutline: linePoints.add pos
+          else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
         else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
       of pkDodge:
         discard
@@ -589,9 +633,14 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
         view[viewIdx] = locView
   if viewMap.len == 0:
     view = locView
+
+  # return ``early`` if histogram, cause bar histogram already drawn
+  if fg.geomKind == gkHistogram and fg.hdKind == hdBars: return
+
   # for `gkLine`, `gkFreqPoly` now draw the lines
-  case fg.geom.kind
-  of gkLine, gkFreqPoly:
+  case fg.geomKind
+  of gkLine, gkFreqPoly, gkHistogram:
+    linepoints = df.convertPointsToHistogram(fg, linepoints)
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
       # connect line down to axis, if fill color is not transparent

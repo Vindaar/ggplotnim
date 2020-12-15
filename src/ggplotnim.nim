@@ -460,7 +460,8 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      stat = "bin",
                      binPosition = "left",
                      binBy = "full",
-                     density = false
+                     density = false,
+                     hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo
                     ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
@@ -481,7 +482,8 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                 userStyle: style,
                 position: pkKind,
                 binPosition: bpKind,
-                statKind: stKind)
+                statKind: stKind,
+                hdKind: hdKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
