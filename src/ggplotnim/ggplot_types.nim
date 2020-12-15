@@ -194,6 +194,11 @@ type
   GeomKind* = enum
     gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar, gkText,
     gkRaster
+
+  HistogramDrawingStyle* = enum
+    hdBars = "bars" ## draws historams by drawing individual bars right next to
+                    ## one another
+    hdOutline = "line" ## draws histograms by drawing the outline of all bars
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
@@ -203,7 +208,10 @@ type
                     # the `Geom`, because if we add it to `GgPlot` we lose track
                     # of which geom it corresponds to
     binPosition*: BinPositionKind
-    kind*: GeomKind
+    case kind*: GeomKind
+    of gkHistogram:
+      hdKind*: HistogramDrawingStyle
+    else: discard
     case statKind*: StatKind
     of stBin:
       numBins*: int # number of bins
@@ -215,8 +223,7 @@ type
       density*: bool ## if true will compute the density instead of counts in
                      ## each bin
 
-    else:
-      discard
+    else: discard
 
   ## `OutsideRangeKind` determines what is done to values, which lay outside of the
   ## plot's data range (its associated `ginger.Scale`).
@@ -366,6 +373,8 @@ type
     of gkText:
       # required if text is used
       text*: string
+    of gkHistogram:
+      hdKind*: HistogramDrawingStyle
     else: discard
 
   MainAddScales* = tuple[main: Option[Scale], more: seq[Scale]]
