@@ -2157,6 +2157,7 @@ proc calcFacetViewMap(combLabels: OrderedSet[Value]): Table[Value, int] =
 proc find(fg: FilledGeom, label: Value): DataFrame =
   ## returns the `DataFrame` of the given `fg` of that label, which
   ## contains `label` in `yieldData`
+  result = newDataFrame()
   for key, val in fg.yieldData:
     if label in key:
       # multiple keys may match, add DFs!
