@@ -162,7 +162,7 @@ proc setXAttributes(fg: var FilledGeom,
     # and assign the label sequence
     fg.xLabelSeq = scale.labelSeq
   of dcContinuous:
-    case fg.geom.kind:
+    case fg.geomKind:
     of gkRaster:
       # For raster this is already set in `fillOptFields` for performance reasons
       discard
@@ -280,7 +280,7 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     if scale.isNone:
       body
   # TODO: use fg. gid?
-  case fg.geom.kind
+  case fg.geomKind
   of gkErrorBar:
     fg.assignIfAny(getXMinScale(fs, fg.geom), xMin)
     fg.assignIfAny(getXMaxScale(fs, fg.geom), xMax)
