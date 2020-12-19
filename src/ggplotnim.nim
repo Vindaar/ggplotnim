@@ -461,6 +461,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      binPosition = "left",
                      binBy = "full",
                      density = false,
+                     lineWidth = some(0.2),
                      hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo
                     ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
@@ -469,7 +470,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
   let style = initGgStyle(lineType = some(ltSolid),
-                          lineWidth = some(0.2), # draw 0.2 pt wide black line to avoid white pixels
+                          lineWidth = lineWidth, # draw 0.2 pt wide black line to avoid white pixels
                                                  # between bins at size of exactly 1.0 bin width
                           color = color, # default color
                           fillColor = color,
