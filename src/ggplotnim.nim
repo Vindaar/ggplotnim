@@ -809,6 +809,7 @@ proc scale_x_continuous*(name: string = "",
   elif trans.isNil xor invTrans.isNil:
     raise newException(Exception, "If `scale_y_continuous` is used for a custom " &
       "transformed data scale both the transformation and inverse have to be defined!")
+  else:
     result = Scale(name: name,
                    scKind: scLinearData,
                    axKind: akX,
