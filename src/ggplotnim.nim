@@ -23,7 +23,7 @@ else:
   export arraymancer_backend
 
 import ggplotnim / [
-  ggplot_utils, ggplot_types,
+  ggplot_utils, ggplot_types, ggplot_theme,
   # utils dealing with scales
   ggplot_scales,
   # first stage of drawing: collect and fill `Scales`:
@@ -2045,26 +2045,6 @@ proc handleLabels(view: Viewport, theme: Theme) =
                 true)
     view.addObj @[labSec]
 
-proc getPlotBackground(theme: Theme): Style =
-  ## returns a suitable style (or applies default) for the background of
-  ## the plot area
-  result = Style(color: color(0.0, 0.0, 0.0, 0.0))
-  if theme.plotBackgroundColor.isSome:
-    result.fillColor = theme.plotBackgroundColor.unsafeGet
-  else:
-    # default color: `grey92`
-    result.fillColor = grey92
-
-proc getCanvasBackground(theme: Theme): Style =
-  ## returns a suitable style (or applies default) for the background color of
-  ## the whole plot canvas. By default it is transparent
-  result = Style(color: transparent)
-  if theme.canvasColor.isSome:
-    result.fillColor = theme.canvasColor.unsafeGet
-  else:
-    # default background: transparent
-    result.fillColor = transparent
-
 proc calcRidgeViewMap(ridge: Ridges,
                       labelSeq: var seq[Value]): Table[Value, int] =
   ## calculates the table mapping label `Values` to viewport
@@ -2742,10 +2722,21 @@ proc `+`*(p: GgPlot, d: Draw) =
   else:
     p.ggsave(d.fname)
 
-proc ggvega*(): VegaDraw = VegaDraw()
-
 from json import `%`
 from os import splitFile
+
+proc ggvega*(): VegaDraw = VegaDraw()
+#proc ggvega*(p: ): VegaDraw = VegaDraw()
+
+proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
+  var filledScales: FilledScales
+  if p.ridges.isSome:
+    # update all aesthetics to include the `yRidges` scale
+    filledScales = collectScales(updateAesRidges(p))
+  else:
+    filledScales = collectScales(p)
+  let theme = buildTheme(filledScales, p)
+  p.toVegaLite(filledScales, theme)
 
 proc `%`*(t: tuple): json.JsonNode =
   result = json.newJObject()
@@ -2769,9 +2760,6 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   let plt = p.ggcreate(width = jsDraw.width.get,
                        height = jsDraw.height.get)
   writeFile(jsDraw.fname, json.`$`(% plt.view))
-
-proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
-  p.toVegaLite()
 
 proc countLines(s: var FileStream): int =
   ## quickly counts the number of lines and then resets stream to beginning

@@ -58,7 +58,9 @@ iterator keys*(s: Scale): Value =
     yield k
 
 iterator enumerateScalesByIds*(filledScales: FilledScales): Scale =
-  ## yields all scales from the FilledScales
+  ## yields all scales from the FilledScales that are required for the
+  ## default backends, which use ginger, i.e. not vega. All missing fields
+  ## are accessed in a different manner.
   template genYield(field: untyped): untyped =
     if filledScales.field.main.isSome:
       yield filledScales.field.main.get
@@ -71,23 +73,45 @@ iterator enumerateScalesByIds*(filledScales: FilledScales): Scale =
   genYield(fill)
   genYield(size)
   genYield(shape)
-  # theses don't have to be yielded. They are only accessed
-  # for the specific geoms that use them
-  #genYield(xMin)
-  #genYield(xMax)
-  #genYield(yMin)
-  #genYield(yMax)
-  #genYield(width)
-  #genYield(height)
-  #genYield(text)
-  # weight does not exist by the time the final DF is created
-  # genYield(weight)
   genYield(yRidges)
+
+iterator enumerateScalesByIdsVega*(filledScales: FilledScales): Scale =
+  ## yields ``all`` scales from the FilledScales for Vega.
+  template genYield(field: untyped): untyped =
+    if filledScales.field.main.isSome:
+      yield filledScales.field.main.get
+    for m in filledScales.field.more:
+      yield m
+  # color Scale
+  genYield(x)
+  genYield(y)
+  genYield(color)
+  genYield(fill)
+  genYield(size)
+  genYield(shape)
+  genYield(xMin)
+  genYield(xMax)
+  genYield(yMin)
+  genYield(yMax)
+  genYield(width)
+  genYield(height)
+  genYield(text)
+  genYield(weight)
+  genYield(yRidges)
+
 
 iterator enumerateScales*(filledScales: FilledScales, geom: Geom): Scale =
   ## Yields all scales, which are allowed for the given geom
   var yieldedSet = initHashSet[Scale]()
   for s in enumerateScalesByIds(filledScales):
+    if geom.gid in s.ids and s notin yieldedSet:
+      yieldedSet.incl s
+      yield s
+
+iterator enumerateScalesVega*(filledScales: FilledScales, geom: Geom): Scale =
+  ## Yields all scales, which are allowed for the given geom
+  var yieldedSet = initHashSet[Scale]()
+  for s in enumerateScalesByIdsVega(filledScales):
     if geom.gid in s.ids and s notin yieldedSet:
       yieldedSet.incl s
       yield s
