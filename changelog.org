@@ -1,3 +1,80 @@
+* v0.3.21
+- show tick labels for log plots if no full power of 10 visible 
+- facet_wrap fixes:
+  - apply tick rotations to tick labels
+  - use =numXTicks= for x ticks of the =GgPlot= object instead of a
+    default of 10 ticks
+  - fix bug affecting range computation in facet wraps if the scales
+    are set to free and an additional global classification was
+    applied
+  - apply reversal of scales in facet wrap
+- allow changing the number of desired ticks in =ggplot= call (differs
+  from ggplot2 where this is done using =scale_*= functions)
+- apply reversal of x/y scales to discrete axes correctly
+- do not ignore number of ticks for log10 scales
+- fix issues with =aes= macro for certain ways to call it
+- add =hideLegend= proc to hide legends even if otherwise drawn
+- add =color= argument to =theme_void= to be able to set different
+  background color on empty themes (joyplots anyone?)
+- adds asserts to =DataFrame= access (not =doAssert= though, still be
+  careful in danger builds!)
+- initialize =DataFrame= if trying to assign a column to an
+  uninitialized DF
+- add missing =alpha= option for =geom_point=
+- misc. fixes for ARC support:
+- avoid =deepCopy= when cloning a =DataFrame= (leads to segfaults with
+  laser based arraymancer tensors, which are =ptr + len= pairs)
+- allow =column.add= for first argument uninitialized
+- *massively* improve raster performance by bypassing almost all slow
+  code branches for dataframes / large number of different styles
+  - currently breaks =position= argument for raster plots!
+- export =asgn= proc, which bypasses the length check of the DF one
+  assignes a column to. Can be handy to have outside of the main code
+  base for optimization purposes.
+- add ~[]=~ taking a filtering =FormulaNode= and key and assigning a constant
+  value to each matching row, e.g.
+  ~df[f{`colA` > x and `colB` < y, "colC"] = z~
+- add =add= proc taking a tuple to add a single row to a DF. Warning,
+  this reallocates every tensor in the DF with length + 1. Only use
+  this for very few adds.
+- misc style fixes
+- adds new drawing option for histogram, by drawing histograms as
+  outlines:
+  #+begin_quote
+  Adds the option to draw histograms either as individual bars, which
+  sit right next to each other (hdBars) or as a line showing the
+  outline (hdOutline).
+
+  The latter is useful if one wants to avoid aliasing / moiré like
+  effects of individual bars (some white visible between touching bars).
+
+  Also if one wishes to draw histograms using some alpha (or without any
+  fill at all) not seeing the individual bars might be desirable.
+
+  The default remains drawing individual bars for now.
+  #+end_quote
+- histogram: line width of the outline is now customizable
+- add =scale_*_log2= 
+- make transformed data more general by adding inverse transformation,
+  which allows for arbitrary user definable data transformations
+- add =scale_color_continuous= to control value range of continuous
+  color (=scColor= instead of =scFillColor=)
+- add =map=, =map_inline= for =Column= for simple
+  convenience. =map_inline= tries to "determine" the type of the
+  operation automatically, but this means we compile a runtime
+  exception for branches of =map_inline= that are not supported,
+  e.g. a =c.map_inline(a + b)= will raise if =c= is actually a string
+  column
+- add =showVega= webview viewer:
+  ggvega now works in the following way:
+  - no argument given: open the file as webview with the HTML stored in
+    the tmp directory as `vega_lite_plot.html`
+  - filename given:
+    - if filename ends with `json`: store json in given filename, do not
+    open a vega view
+    - if filename does not end with `json`: store HTML in given filename
+    and open webview
+
 * v0.3.20
 - fix a bug that causes the =arrange= proc to mess up sorting if more
   than one key is used. The last row of the DF was not sorted before
