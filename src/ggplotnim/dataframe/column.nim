@@ -611,3 +611,40 @@ proc clone*(c: Column): Column =
   of colObject: result.oCol = c.oCol.clone()
   of colConstant: result.cCol = c.cCol # just a `Value`
   of colNone: discard
+
+proc map*[T; U](c: Column, fn: (T -> U)): Column =
+  ## Maps a given column given `fn` to a new column.
+  ## Because `Column` is a variant type, an untyped mapping function
+  ## won't compile.
+  ##
+  ## See the `map_inline` template below, which attempts to work around this
+  ## limitation by compiling all map function bodies, which are valid for `c`.
+  ##
+  ## .. code-block:: nim
+  ##   c.map((x: int) => x * 5)
+  ##
+  ## Using this is not really recommended. Use `df["x", int].map(x => x * 5)` instead!
+  result = toColumn c.toTensor(T).map_inline(fn(x))
+
+template map_inline*(c: Column, body: untyped): Column =
+  ## This is a helper template, which attempts to work around this
+  ## limitation by compiling all map function bodies, which are valid for `c`.
+  ## However, be careful: by using the template you throw out possible compile
+  ## time checking and replace it by possible exceptions in your code!
+  ##
+  ## .. code-block:: nim
+  ##   c.map_inline(x * 5)
+  ##
+  ## This example will throw a runtime exception, if `* 5` is invalid for the
+  ## column type that `c` actually is at runtime!
+  ## Using this is not really recommended. Use `df["x", int].map_inline(x * 5)` instead!
+  withNativeDtype(c):
+    var res: Column
+    when compiles((map(c, (x: dtype) => body))):
+      res = toColumn map(c, (x: dtype) => body)
+    else:
+      ## Cannot raise a CT error unfortunately I think, because this branch will always be compiled
+      ## for one of the column types
+      raise newException(Exception, "Column is of invalid type for map body `" & $(astToStr(body)) &
+        "` for dtype of column: " & $(c.kind.toNimType))
+    res
