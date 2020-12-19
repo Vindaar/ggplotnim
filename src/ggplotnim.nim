@@ -2326,6 +2326,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       # This changes `x/yMarginRange` of the theme
       theme.calcScalesForLabel(facet, fg, label)
       # assign theme ranges to this views scale
+
       viewLabel.xScale = theme.xMarginRange
       viewLabel.yScale = theme.yMarginRange
       # create the layout for a facet + header
@@ -2725,10 +2726,7 @@ proc `+`*(p: GgPlot, d: Draw) =
 from json import `%`
 from os import splitFile
 
-proc ggvega*(): VegaDraw = VegaDraw()
-#proc ggvega*(p: ): VegaDraw = VegaDraw()
-
-proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
+proc ggvegaCreate*(p: GgPlot, vegaDraw: VegaDraw): json.JsonNode =
   var filledScales: FilledScales
   if p.ridges.isSome:
     # update all aesthetics to include the `yRidges` scale
@@ -2736,7 +2734,26 @@ proc `+`*(p: GgPlot, d: VegaDraw): json.JsonNode =
   else:
     filledScales = collectScales(p)
   let theme = buildTheme(filledScales, p)
-  p.toVegaLite(filledScales, theme)
+  result = p.toVegaLite(filledScales, theme, vegaDraw.width.get, vegaDraw.height.get)
+
+proc ggvega*(fname = "", width = 640.0, height = 480.0,
+             pretty = true): VegaDraw =
+  VegaDraw(fname: fname, width: some(width),
+           height: some(height), asPrettyJson: pretty)
+
+#proc ggvega*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
+#  (fname: fname, width = some(width), heigh: some(height))
+
+proc `+`*(p: GgPlot, d: VegaDraw) =
+  let plt = ggvegaCreate(p, d)
+  let (_, fname, ext) = splitFile(d.fname)
+  if ext == ".json":
+    if d.asPrettyJson:
+      writeFile(d.fname, json.pretty(plt))
+    else:
+      writeFile(d.fname, json.`$`(plt))
+  else:
+    plt.showVega(d.fname)
 
 proc `%`*(t: tuple): json.JsonNode =
   result = json.newJObject()

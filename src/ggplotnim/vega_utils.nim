@@ -170,18 +170,19 @@ proc collectScales(filledScales: FilledScales, geom: Geom): seq[Scale] =
   for s in enumerateScalesVega(filledScales, geom):
     result.add s
 
-proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme): JsonNode =
+proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
+                 width, height: float): JsonNode =
   ## converts a `GgPlot` object to a vega-lite conform JsonNode
   # start with the template
   result = parseJson(vegaLiteTmpl)
   result[toVegaField("title")] = % p.title
-  result["width"] = % 640#p.wImg
-  result["height"] = % 480#p.wHeight
+  result["width"] = % width
+  result["height"] = % height
   # iterate aes / scales here
   var layers = newJArray()
   let xScale = theme.xMarginRange
   let yScale = theme.yMarginRange
-  var dfs = newDataFrame()
+  var df = newDataFrame()
   ## `values` will store the dataframe. However, there will be duplicates in the current
   ## impl depending on multiple geoms with the same data!
   var values = newJArray()
@@ -227,3 +228,32 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme): JsonNode 
   result["data"] = %* {"values" : values}
   result["layer"] = layers
   result["config"] = applyConfig(theme)
+
+
+const indexHTML = """
+<!doctype html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+  </head>
+  <body>
+    <div id="vis"></div>
+    <script type="text/javascript">
+      vegaEmbed('#vis', $1).then(function(result) {{}}).catch(console.error);
+    </script>
+  </body>
+</html>
+"""
+import os, strformat
+proc showVega*(data: JsonNode, fname: string) =
+  let outname = if fname.len == 0: &"{getTempDir()}/vega_lite_plot.html"
+                else: getCurrentDir() / fname
+  let content = indexHtml % [$data]
+  writeFile(outname, content)
+  var w = newWebView("Vega-Lite plot created by ggplotnim", "file://" & outname)
+  w.run()
+  w.exit()
+  if fname.len == 0:
+    defer: removeFile(outname)
