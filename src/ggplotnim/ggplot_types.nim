@@ -162,7 +162,11 @@ type
   # helper object to compose `ggvega` via `+` with `ggplot`
   # Used to show a plot using the Vega-Lite backend
   VegaDraw* = object
-    discard
+    fname*: string
+    width*: Option[float]
+    height*: Option[float]
+    asPrettyJson*: bool
+
 
   # bin position kind stores the different ways bins can be represented
   # Either as left bin edges, center positions or right edges
