@@ -106,6 +106,7 @@ type
       # For scLinearData the transformation proc is just the identity (or
       # not defined) and will never be called
       trans*: ScaleTransform
+      invTrans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
     else: discard
     case dcKind*: DiscreteKind
