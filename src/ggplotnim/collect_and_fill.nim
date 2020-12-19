@@ -184,7 +184,8 @@ proc fillDiscreteLinearTransScale(
   col: FormulaNode,
   axKind: AxisKind,
   vKind: ValueKind, labelSeq: seq[Value],
-  trans: Option[ScaleTransform] = none[ScaleTransform]()
+  trans: Option[ScaleTransform] = none[ScaleTransform](),
+  invTrans: Option[ScaleTransform] = none[ScaleTransform]()
      ): Scale =
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
@@ -193,6 +194,7 @@ proc fillDiscreteLinearTransScale(
   if scKind == scTransformedData:
     ## we make  sure `trans` is some in the calling scope!
     result.trans = trans.get
+    result.invTrans = invTrans.get
 
 proc fillContinuousLinearScale(col: FormulaNode, axKind: AxisKind, vKind: ValueKind,
                                dataScale: ginger.Scale): Scale =
@@ -204,6 +206,7 @@ proc fillContinuousTransformedScale(col: FormulaNode,
                                     axKind: AxisKind,
                                     vKind: ValueKind,
                                     trans: ScaleTransform,
+                                    invTrans: ScaleTransform,
                                     dataScale: ginger.Scale): Scale =
   when defined(defaultBackend):
     result = Scale(scKind: scTransformedData, vKind: vKind, col: col,
@@ -219,6 +222,7 @@ proc fillContinuousTransformedScale(col: FormulaNode,
                                high: trans(dataScale.high)))
   result.axKind = axKind
   result.trans = trans
+  result.invTrans = invTrans
 
 proc fillContinuousColorScale(scKind: static ScaleKind,
                               col: FormulaNode,
@@ -306,7 +310,8 @@ proc fillScaleImpl(
   valueMapOpt = none[OrderedTable[Value, ScaleValue]](), # for discrete data
   dataScaleOpt = none[ginger.Scale](), # for cont data
   axKindOpt = none[AxisKind](),
-  trans = none[ScaleTransform]()): Scale =
+  trans = none[ScaleTransform](),
+  invTrans = none[ScaleTransform]()): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
   ## NOTE: The given `col` arg is not necessarily exactly a DF key anymore, since
@@ -332,11 +337,12 @@ proc fillScaleImpl(
 
     of scTransformedData:
       doAssert trans.isSome, "Transform data needs a ScaleTransform procedure!"
+      doAssert invTrans.isSome, "Transform data needs an inverse ScaleTransform procedure!"
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
       result = fillDiscreteLinearTransScale(scTransformedData, col,
                                             axKind, vKind, labelSeq,
-                                            trans)
+                                            trans, invTrans)
     of scShape:
       raise newException(ValueError, "Shape support not yet implemented for " &
         "discrete scales!")
@@ -351,9 +357,12 @@ proc fillScaleImpl(
       result = fillContinuousLinearScale(col, axKind, vKind, dataScale)
     of scTransformedData:
       doAssert trans.isSome, "Transform data needs a ScaleTransform procedure!"
+      doAssert invTrans.isSome, "Transform data needs an inverse ScaleTransform procedure!"
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
-      result = fillContinuousTransformedScale(col, axKind, vKind, trans.get, dataScale)
+      result = fillContinuousTransformedScale(col, axKind, vKind,
+                                              trans.get, invTrans.get,
+                                              dataScale)
     of scColor:
       result = fillContinuousColorScale(scColor, col, vKind, dataScale, df)
     of scFillColor:
@@ -383,6 +392,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   else:
     var data = newColumn()
   var transOpt: Option[ScaleTransform]
+  var invTransOpt: Option[ScaleTransform]
   var axKindOpt: Option[AxisKind]
   # in a first loop over the scales read the data required to make decisions about
   # the appearence of the resulting scale
@@ -408,6 +418,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       axKindOpt = some(s.axKind)
       # ## we use the last transformation we find!
       transOpt = some(s.trans)
+      invTransOpt = some(s.invTrans)
     else: discard
 
     # now determine labels, data scale from `data`
@@ -449,7 +460,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
                                labelSeqOpt, valueMapOpt, dataScaleOpt,
-                               axKindOpt, transOpt)
+                               axKindOpt, transOpt, invTransOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
       # `dcKind` is already populated and won't be deduced
@@ -613,4 +624,5 @@ proc collectScales*(p: GgPlot): FilledScales =
   # finally add all available facets if any
   if p.facet.isSome:
     result.addFacets(p)
+
   postProcessScales(result, p)

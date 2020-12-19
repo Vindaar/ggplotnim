@@ -670,35 +670,60 @@ proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
 
 proc scale_x_log10*(): Scale =
   ## sets the X scale of the plot to a log10 scale
-  when defined(defaultBackend):
-    let trans = proc(v: Value): Value =
-      result = %~ log10(v.toFloat)
-
-  else:
-    let trans = proc(v: float): float =
-      result = log10(v)
+  let trans = proc(v: float): float =
+    result = log10(v)
+  let invTrans = proc(v: float): float =
+    result = pow(10, v)
 
   result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akX,
                  dcKind: dcContinuous,
-                 trans: trans)
+                 trans: trans,
+                 invTrans: invTrans)
 
 proc scale_y_log10*(): Scale =
   ## sets the Y scale of the plot to a log10 scale
-  when defined(defaultBackend):
-    let trans = proc(v: Value): Value =
-      result = %~ log10(v.toFloat)
+  let trans = proc(v: float): float =
+    result = log10(v)
+  let invTrans = proc(v: float): float =
+    result = pow(10, v)
 
-  else:
-    let trans = proc(v: float): float =
-      result = log10(v)
 
   result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
                  axKind: akY,
                  dcKind: dcContinuous,
-                 trans: trans)
+                 trans: trans,
+                 invTrans: invTrans)
+
+proc scale_x_log2*(): Scale =
+  ## sets the X scale of the plot to a log2 scale
+  let trans = proc(v: float): float =
+    result = log2(v)
+  let invTrans = proc(v: float): float =
+    result = pow(2, v)
+
+  result = Scale(col: f{""}, # will be filled when added to GgPlot obj
+                 scKind: scTransformedData,
+                 axKind: akX,
+                 dcKind: dcContinuous,
+                 trans: trans,
+                 invTrans: invTrans)
+
+proc scale_y_log2*(): Scale =
+  ## sets the Y scale of the plot to a log2 scale
+  let trans = proc(v: float): float =
+    result = log2(v)
+  let invTrans = proc(v: float): float =
+    result = pow(2, v)
+
+  result = Scale(col: f{""}, # will be filled when added to GgPlot obj
+                 scKind: scTransformedData,
+                 axKind: akY,
+                 dcKind: dcContinuous,
+                 trans: trans,
+                 invTrans: invTrans)
 
 func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
@@ -732,12 +757,10 @@ proc scale_x_discrete*(name: string = "",
                  secondaryAxis: secAxisOpt,
                  formatDiscreteLabel: labels)
 
-proc scale_x_continuous*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis(),
-                         labels: proc(x: float): string = nil): Scale =
-  ## creates a continuous x axis with a possible secondary axis.
-  ## `labels` allows to hand a procedure, which maps the values
-  ## found on the x axis to the tick label that should be shown for it.
+proc scale_x_discrete*[T; U](name: string = "",
+                             labels: OrderedTable[T, U],
+                             secAxis: SecondaryAxis = sec_axis()): Scale =
+  ## creates a discrete x axis with a possible secondary axis.
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
@@ -747,14 +770,59 @@ proc scale_x_continuous*(name: string = "",
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
-                 dcKind: dcContinuous,
+                 dcKind: dcDiscrete,
                  hasDiscreteness: true,
                  secondaryAxis: secAxisOpt,
-                 formatContinuousLabel: labels)
+                 formatDiscreteLabel: labels)
+  result.labelSeq = newSeq[Value](labels.len)
+  let keys = toSeq(keys(labels))
+  for i, k in keys:
+    let kVal = %~ k
+    result.valueMap[kVal] = ScaleValue(kind: scLinearData, val: %~ labels[kVal])
+    result.labelSeq[i] = kVal
+
+proc scale_x_continuous*(name: string = "",
+                         secAxis: SecondaryAxis = sec_axis(),
+                         labels: proc(x: float): string = nil,
+                         trans: proc(x: float): float = nil,
+                         invTrans: proc(x: float): float = nil
+                        ): Scale =
+  ## creates a continuous x axis with a possible secondary axis.
+  ## `labels` allows to hand a procedure, which maps the values
+  ## found on the x axis to the tick label that should be shown for it.
+  var msecAxis: SecondaryAxis
+  var secAxisOpt: Option[SecondaryAxis]
+  if secAxis.name.len > 0:
+    msecAxis = secAxis
+    msecAxis.axKind = akX
+    secAxisOpt = some(msecAxis)
+  if not trans.isNil and not invTrans.isNil:
+    result = Scale(name: name,
+                   scKind: scTransformedData,
+                   axKind: akX,
+                   dcKind: dcContinuous,
+                   hasDiscreteness: true,
+                   secondaryAxis: secAxisOpt,
+                   formatContinuousLabel: labels,
+                   trans: trans,
+                   invTrans: invTrans)
+  elif trans.isNil xor invTrans.isNil:
+    raise newException(Exception, "If `scale_y_continuous` is used for a custom " &
+      "transformed data scale both the transformation and inverse have to be defined!")
+    result = Scale(name: name,
+                   scKind: scLinearData,
+                   axKind: akX,
+                   dcKind: dcContinuous,
+                   hasDiscreteness: true,
+                   secondaryAxis: secAxisOpt,
+                   formatContinuousLabel: labels)
 
 proc scale_y_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
-                         labels: proc(x: float): string = nil): Scale =
+                         labels: proc(x: float): string = nil,
+                         trans: proc(x: float): float = nil,
+                         invTrans: proc(x: float): float = nil
+                        ): Scale =
   ## creates a continuous y axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the y axis to the tick label that should be shown for it.
@@ -765,13 +833,28 @@ proc scale_y_continuous*(name: string = "",
     msecAxis = secAxis
     msecAxis.axKind = akY
     secAxisOpt = some(msecAxis)
-  result = Scale(name: name,
-                 scKind: scLinearData,
-                 axKind: akY,
-                 dcKind: dcContinuous,
-                 hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt,
-                 formatContinuousLabel: labels)
+  if not trans.isNil and not invTrans.isNil:
+    result = Scale(name: name,
+                   scKind: scTransformedData,
+                   axKind: akY,
+                   dcKind: dcContinuous,
+                   hasDiscreteness: true,
+                   secondaryAxis: secAxisOpt,
+                   formatContinuousLabel: labels,
+                   trans: trans,
+                   invTrans: invTrans)
+  elif trans.isNil xor invTrans.isNil:
+    raise newException(Exception, "If `scale_y_continuous` is used for a custom " &
+      "transformed data scale both the transformation and inverse have to be defined!")
+  else:
+    result = Scale(name: name,
+                   scKind: scLinearData,
+                   axKind: akY,
+                   dcKind: dcContinuous,
+                   hasDiscreteness: true,
+                   secondaryAxis: secAxisOpt,
+                   formatContinuousLabel: labels)
+
 
 proc scale_y_discrete*(name: string = "",
                        secAxis: SecondaryAxis = sec_axis(),
@@ -1582,54 +1665,68 @@ proc generateLegendMarkers(plt: Viewport,
 
 # TODO: move this, remove one of the two (instead calc from the other)
 # TODO2: use almostEqual from `formula` instead of this one here!!!
-proc smallestPow(x: float): float =
+proc smallestPow(s: Scale, x: float): float =
   doAssert x > 0.0
   result = 1.0
+  var exp = 0
   if x < 1.0:
     while result > x and not result.almostEqual(x):
-      result /= 10.0
+      result = s.invTrans((exp - 1).float)
+      dec exp
   else:
     while result < x and not result.almostEqual(x):
-      result *= 10.0
-    result /= 10.0
+      result = s.invTrans((exp + 1).float)
+      inc exp
+    result = s.invTrans((exp - 1).float)
 
-proc largestPow(x: float): float =
+proc largestPow(s: Scale, x: float): float =
   doAssert x > 0.0
   result = 1.0
+  var exp = 0
   if x < 1.0:
     while result > x and not result.almostEqual(x):
-      result /= 10.0
-    result *= 10.0
+      result = s.invTrans((exp - 1).float)
+      dec exp
+    result = s.invTrans((exp + 1).float)
   else:
     while result < x and not result.almostEqual(x):
-      result *= 10.0
+      result = s.invTrans((exp + 1).float)
+      inc exp
 
-proc tickposlog(numTicks: int, minv, maxv: float,
+proc tickposlog(s: Scale,
+                numTicks: int, minv, maxv: float,
                 boundScale: ginger.Scale,
                 hideTickLabels = false,
                 format: proc(x: float): string): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
-  let numTicks = numTicks * (log10(maxv) - log10(minv)).round.int
+  let numTicks = (s.trans(maxv) - s.trans(minv)).round.int + 1
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
-  for i in 0 ..< numTicks div 10:
-    let base = (minv * pow(10, i.float))
-    if not hideTickLabels:
-      labs.add format(base)
-    else:
-      labs.add ""
-    let minors = linspace(base, 9 * base, 9)
-    labPos.add minors.mapIt(it.log10)
-    if pow(10, boundScale.high) / pow(10, boundScale.low) > 10:
-      labs.add toSeq(0 ..< 8).mapIt("")
+  var exp = floor(boundScale.low).int
+  let base = s.invTrans(1.0)
+  while exp.float < boundScale.high:
+    let cur = s.invTrans(exp.float)
+    let numToAdd = s.invTrans(1.0).round.int
+    let minors = linspace(cur, s.invTrans((exp + 1).float) - 1, numToAdd - 1)
+    labPos.add minors.mapIt(s.trans(it))
+    if (boundScale.high - boundScale.low) > 1.0 or hideTickLabels:
+      if not hideTickLabels:
+        labs.add cur.format
+      else:
+        labs.add ""
+      for x in minors:
+        if x mod cur != 0.0:
+          labs.add ""
     else:
       labs.add minors.mapIt(it.format)
+    inc exp
+  labs.add(format(maxv))
+  labPos.add(s.trans(maxv))
   if not hideTickLabels: labs.add $maxv
   else: labs.add ""
-  labPos.add log10(maxv)
   # for simplicity apply removal afterwards
   let filterIdx = toSeq(0 ..< labPos.len).filterIt(
     labPos[it] >= boundScale.low and
@@ -1701,12 +1798,11 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
       view.addObj concat(ticks, tickLabs)
     result = ticks
   of scTransformedData:
-    # for now assume log10 scale
-    let minVal = pow(10, scale.dataScale.low).smallestPow
-    let maxVal = pow(10, scale.dataScale.high).largestPow
+    let minVal = scale.smallestPow(scale.invTrans(scale.dataScale.low))
+    let maxVal = scale.largestPow(scale.invTrans(scale.dataScale.high))
     let format = if scale.formatContinuousLabel != nil: scale.formatContinuousLabel
                  else: (proc(x: float): string = formatTickValue(x))
-    let (labs, labelpos) = tickposlog(numTicks, minVal, maxVal, boundScale,
+    let (labs, labelpos) = tickposlog(scale, numTicks, minVal, maxVal, boundScale,
                                       hideTickLabels = hideTickLabels,
                                       format = format)
     var tickLocs: seq[Coord1D]
@@ -1716,13 +1812,13 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                                         kind: ukData,
                                         scale: view.xScale,
                                         axis: akX))
-      view.xScale = (low: log10(minVal), high: log10(maxVal))
+      view.xScale = (low: scale.trans(minVal), high: scale.trans(maxVal))
     of akY:
       tickLocs = labelpos.mapIt(Coord1D(pos: it,
                                         kind: ukData,
                                         scale: view.yScale,
                                         axis: akY))
-      view.yScale = (low: log10(minVal), high: log10(maxVal))
+      view.yScale = (low: scale.trans(minVal), high: scale.trans(maxVal))
 
     let (tickObjs, labObjs) = view.tickLabels(tickLocs, labs, axKind, isSecondary = isSecondary,
                                               rotate = rotate,
