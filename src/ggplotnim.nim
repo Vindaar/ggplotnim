@@ -936,6 +936,14 @@ proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
     result.valueMap[kVal] = ScaleValue(kind: scFillColor, color: values[k])
     result.labelSeq[i] = kVal
 
+proc scale_color_continuous*(name: string = "",
+                             scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
+  result = Scale(name: name,
+                 scKind: scColor,
+                 dcKind: dcContinuous,
+                 dataScale: scale,
+                 hasDiscreteness: true)
+
 proc scale_color_manual*[T](values: Table[T, Color]): Scale =
   ## allows to set custom colors, by handing a table mapping the
   ## keys found in the color column to colors.
