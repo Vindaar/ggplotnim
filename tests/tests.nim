@@ -487,7 +487,7 @@ suite "GgPlot":
     let gplt = ggplot(df, aes("x", "cos")) + #aes(x ~ cos)) +
       geom_line() + # line for cos
       geom_line(aes("x", "sin"), #x ~ sin), # line for sin
-                color = some(color(0.0, 0.0)),
+                color = some(color(0.0, 0.0, 0.0)),
                 size = some(1.0))
     # geoms[0].x and y won't be set, since the aes from ggplot is used
     check (not gplt.geoms[0].aes.x.isSome)
@@ -506,7 +506,7 @@ suite "GgPlot":
     # bonus check
     let style = gplt.geoms[1].userStyle
     check style.color.isSome
-    check style.color.get == color(0.0, 0.0)
+    check style.color.get == color(0.0, 0.0, 0.0)
     check style.fillColor.isNone
     check style.lineWidth.isSome
     check style.lineWidth.get == 1.0
