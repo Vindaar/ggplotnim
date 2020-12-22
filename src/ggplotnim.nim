@@ -1379,6 +1379,18 @@ proc margin*[T: string | UnitKind](left, right, top, bottom = NaN,
                  plotMarginTop: noneIfNan(top, unitKind),
                  plotMarginBottom: noneIfNan(bottom, unitKind))
 
+proc facetMargin*[T: Quantity | SomeNumber](margin: T): Theme =
+  ## Sets the margin around each subplot when using faceting. The value
+  ## can either be given directly as a `Quantity`, in which case the user
+  ## has control over absolute / relative quantities or as a number. In the
+  ## latter case the number is interpreted in centimeter!
+  var m: Quantity
+  when T is SomeNumber:
+    m = quant(margin, ukCentimeter)
+  else:
+    m = margin
+  result = Theme(facetMargin: some(m))
+
 proc annotate*(text: string,
                left = NaN,
                bottom = NaN,
@@ -1472,6 +1484,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(plotMarginRight)
   ifSome(plotMarginTop)
   ifSome(plotMarginBottom)
+  ifSome(facetMargin)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -2310,10 +2323,15 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   # calculate number of rows and columns based on numGroups
   let (rows, cols) = calcRowsColumns(0, 0, numExist)
   let viewMap = calcFacetViewMap(existComb)
+  # TODO: by default make spacing dependent on total number of facets!
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
-    view.layout(cols, rows, margin = quant(0.025, ukRelative))
+    let margin = if theme.facetMargin.isSome: theme.facetMargin.get
+                 else: quant(0.025, ukRelative)
+    view.layout(cols, rows, margin = margin)
   else:
-    view.layout(cols, rows, margin = quant(0.005, ukRelative))
+    let margin = if theme.facetMargin.isSome: theme.facetMargin.get
+                 else: quant(0.005, ukRelative)
+    view.layout(cols, rows, margin = margin)
 
   var
     xticks: seq[GraphObject]

@@ -292,6 +292,8 @@ type
     plotMarginRight*: Option[Quantity]
     plotMarginTop*: Option[Quantity]
     plotMarginBottom*: Option[Quantity]
+    # Facet related options
+    facetMargin*: Option[Quantity]
 
   ThemeMarginLayout* = object
     left*: Quantity
