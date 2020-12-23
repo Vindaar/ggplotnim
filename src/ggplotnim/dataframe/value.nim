@@ -213,6 +213,9 @@ func isInt*(s: string): bool =
   ## `_` we consider it an Int
   s.allCharsInSet({'0' .. '9', '_'})
 
+func isBool*(s: string): bool =
+  s == "true" or s == "false"
+
 func isInt*(v: Value): bool =
   ## checks whether the string contained in `Value` is likely an integer
   ## For an `isFloat` equivalent see `isNumber`.
