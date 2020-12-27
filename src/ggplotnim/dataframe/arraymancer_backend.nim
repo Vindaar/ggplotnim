@@ -1400,17 +1400,21 @@ macro `fn`*(x: untyped): untyped =
   result = compileFormula(arg[0], isRaw = false)
 
 
+
+proc filterImpl[T](resCol: var Column, col: Column, filterIdx: Tensor[int]) =
+  let t = toTensor(col, T)
+  var res = newTensorUninit[T](filterIdx.size)
+  if filterIdx.size > 0:
+    var i = 0
+    for idx in 0 ..< filterIdx.size:
+      res[i] = t[filterIdx[idx]]
+      inc i
+  resCol = res.toColumn
+
 proc filter(col: Column, filterIdx: Tensor[int]): Column =
   ## perform filterting of the given column `key`
   withNativeDtype(col):
-    let t = toTensor(col, dtype)
-    var res = newTensorUninit[dtype](filterIdx.size)
-    if filterIdx.size > 0:
-      var i = 0
-      for idx in filterIdx:
-        res[i] = t[idx]
-        inc i
-    result = res.toColumn
+    filterImpl[dtype](result, col, filterIdx)
 
 proc countTrue(t: Tensor[bool]): int {.inline.} =
   for el in t:
