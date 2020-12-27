@@ -74,7 +74,15 @@
     open a vega view
     - if filename does not end with `json`: store HTML in given filename
     and open webview
-
+- add =facetMargin= proc to control the used margin in a facet plot
+- make =mutate/transmute= work on grouped dataframes by acting on each
+  group with each formula instead of the whole DF
+- miscellaneous code reorderings and refactoring
+- =runRecipes.nim= is partially deprecated. Instead of compiling and
+  running each recipe individually, we now have =allRecipes.nim=,
+  which simply imports all recipe files and thus replaces N
+  compilations by 1.
+- 
 * v0.3.20
 - fix a bug that causes the =arrange= proc to mess up sorting if more
   than one key is used. The last row of the DF was not sorted before
