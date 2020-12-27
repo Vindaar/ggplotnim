@@ -203,34 +203,40 @@ proc parseNumber(data: ptr UncheckedArray[char],
   #  #copyBuf(data, strVal, idx, idxIn)
   result = rtFloat                                # mark as float
 
-template parseCol(data: ptr UncheckedArray[char], buf: var string, col: var Column,
+template parseCol(data: ptr UncheckedArray[char], buf: var string,
+                  col: var Column,
+                  sep: char,
                   colTypes: seq[ColKind], colIdx, idx, colStart, row: int,
                   intVal: var int, floatVal: var float, rtType: var RetType): untyped =
   case colTypes[colIdx]
   of colInt:
-    retType = parseNumber(data, colStart, intVal, floatVal, buf)
-    idx = colStart
+    retType = parseNumber(data, sep, colStart, intVal, floatVal)
     case retType
     of rtInt: col.iCol[row] = intVal
-    of rtFloat:
+    of rtFloat, rtNaN:
       # before we copy everything check if can be parsed to float, this branch will only
       # be called a single time
       col = toColumn col.iCol.asType(float)
-      col.fCol[row] = floatVal
+      if retType != rtNaN:
+        col.fCol[row] = floatVal
+      else:
+        col.fCol[row] = NaN
       colTypes[colIdx] = colFloat
     of rtError:
       # object column
+      copyBuf(data, buf, idx, colStart)
       col = toObjectColumn col
       colTypes[colIdx] = colObject
       col.oCol[row] = %~ buf
   of colFloat:
-    retType = parseNumber(data, colStart, intVal, floatVal, buf)
-    idx = colStart
+    retType = parseNumber(data, sep, colStart, intVal, floatVal)
     case retType
     of rtInt: col.fCol[row] = intVal.float
     of rtFloat: col.fCol[row] = floatVal
+    of rtNaN: col.fCol[row] = NaN
     of rtError:
       # object column
+      copyBuf(data, buf, idx, colStart)
       col = toObjectColumn col
       colTypes[colIdx] = colObject
       col.oCol[row] = %~ buf
@@ -247,12 +253,22 @@ template parseCol(data: ptr UncheckedArray[char], buf: var string, col: var Colu
     copyBuf(data, buf, idx, colStart)
     col.sCol[row] = buf
   of colObject:
-    copyBuf(data, buf, idx, colStart)
-    col.oCol[row] = %~ buf
+    # try to parse as number
+    retType = parseNumber(data, sep, colStart, intVal, floatVal)
+    case retType
+    of rtInt: col.oCol[row] = %~ intVal
+    of rtFloat: col.oCol[row] = %~ floatVal
+    of rtNaN: col.oCol[row] = Value(kind: VNull)
+    of rtError:
+      copyBuf(data, buf, idx, colStart)
+      col.oCol[row] = %~ buf
   of colConstant: discard # already set
-  of colNone: doAssert false, "Invalid column to parse into: `colNone`"
+  of colNone:
+    echo "colNone encountered in row ", row, " at ", colIdx, " for ", colTypes.len, " cols at idx ", idx
+    doAssert false, "Invalid column to parse into: `colNone`"
 
 template parseLine(data: ptr UncheckedArray[char], buf: var string,
+                   sep: char,
                    col, idx, colStart, row: var int,
                    toBreak: static bool,
                    fnToCall: untyped): untyped =
@@ -297,14 +313,14 @@ proc readCsvTyped*(fname: string): DataFrame =
   # 1. first parse the header
   var colNames: seq[string]
   while idx < ff.size:
-    parseLine(data, buf, col, idx, colStart, row, toBreak = true):
+    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
       parseHeaderCol(data, buf, colNames, idx, colStart)
   # 2. peek the first line to determine the data types
   var colTypes = newSeq[ColKind](colNames.len)
   var lastIdx = idx
   var lastColStart = colStart
   while idx < ff.size:
-    parseLine(data, buf, col, idx, colStart, row, toBreak = true):
+    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
       guessType(data, buf, colTypes, col, idx, colStart)
   # 2a. revert the indices (make it a peek)
   idx = lastIdx
@@ -321,8 +337,8 @@ proc readCsvTyped*(fname: string): DataFrame =
     intVal: int
     floatVal: float
   while idx < ff.size:
-    parseLine(data, buf, col, idx, colStart, row, toBreak = false):
-      parseCol(data, buf, cols[col], colTypes, col, idx, colStart, row,
+    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
+      parseCol(data, buf, cols[col], sep, colTypes, col, idx, colStart, row,
                intVal, floatVal, retType)
   for i, col in colNames:
     result[col] = cols[i]
