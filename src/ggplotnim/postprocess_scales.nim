@@ -118,14 +118,20 @@ proc separateScalesApplyTrafos(
   # NOTE: if `yIsNone = true` the `y` in the next line will be an empty scale,
   # caller has to be aware of that!
   let (x, y, scales) = getScales(gid, filledScales, yIsNone = yIsNone)
+  # split by discrete and continuous
+  let discretes = scales.filterIt(it.dcKind == dcDiscrete)
+  let cont = scales.filterIt(it.dcKind == dcContinuous)
+  # extract all scales that refer to existing columns in the DF. This is to
+  let discrCols = discretes.mapIt(getColName(it)).filterIt(it in df).deduplicate
+  # group DF by these discrete columns. This allows to apply transformations
+  # based on formulas to individual subgroups of the DF
+  if discrCols.len > 0:
+    df = df.group_by(discrCols, add = true)
   # apply scale transformations
   if not yIsNone:
     df.applyTransformations(concat(@[x, y], scales))
   else:
     df.applyTransformations(concat(@[x], scales))
-  # split by discrete and continuous
-  let discretes = scales.filterIt(it.dcKind == dcDiscrete)
-  let cont = scales.filterIt(it.dcKind == dcContinuous)
   result = (x: x, y: y, discretes: discretes, cont: cont)
 
 proc splitDiscreteSetMap(df: DataFrame,
