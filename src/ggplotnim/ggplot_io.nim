@@ -276,6 +276,8 @@ template parseLine(data: ptr UncheckedArray[char], buf: var string,
     fnToCall
     inc row
     col = 0
+    if data[idx] == '\r' and data[idx + 1] == '\l':
+      inc idx
     colStart = idx + 1
     inc idx
     when toBreak:
