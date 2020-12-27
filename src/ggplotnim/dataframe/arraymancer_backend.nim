@@ -362,14 +362,12 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
             for i, x in v:
               try:
                 data[i] = %~ x.parseInt
-                col = data.toColumn
               except ValueError:
                 try:
                   data[i] = %~ x.parseFloat
-                  col = data.toColumn
                 except ValueError:
                   data[i] = %~ x
-                  col = data.toColumn
+            col = toColumn data
       elif maybeNumber:
         try:
           let data = v.mapIt(it.parseFloat)
@@ -380,10 +378,9 @@ proc toDf*(t: OrderedTable[string, seq[string]]): DataFrame =
           for i, x in v:
             try:
               data[i] = %~ x.parseFloat
-              col = data.toColumn
             except ValueError:
               data[i] = %~ x
-              col = data.toColumn
+          col = data.toColumn
       else:
         # try bool?
         try:
