@@ -133,19 +133,15 @@ proc pow10(e: int): float {.inline.} =
 
 type
   RetType = enum
-    rtInt, rtFloat, rtError
+    rtInt, rtFloat, rtNaN, rtError
 
 proc parseNumber(data: ptr UncheckedArray[char],
-                 idxIn: var int,
-                 intVal: var int, floatVal: var float, strVal: var string): RetType {.inline, noInit.} =
+                 sep: char, # if this sep is found parsing ends
+                 idxIn: int,
+                 intVal: var int, floatVal: var float): RetType {.inline, noInit.} =
   ## this code is taken and adapted from @c-blake's code in Nim PR #16055.
   # Parse/validate/classify all at once, returning the type we parsed into
   # and if not `rtError` the `intVal/floatVal` will store the parsed number
-  ## TODO:
-  ## This code has not been fully adapted yet. Instead of returning `rtError` under
-  ## some circumstance, we have to copyMem into `buf`.
-  ## We also need more error conditions. While this is only called if we *think*
-  ## the data is a number, what happens to `1.23eOhNoNaN`?
   const Sign = {'+', '-'} # NOTE: `parseFloat` can generalize this to INF/NAN.
   var idx = idxIn
   var noDot = false
@@ -172,10 +168,17 @@ proc parseNumber(data: ptr UncheckedArray[char],
     nD.inc
   if data[idxIn] == '-':
     intVal = -intVal                            # adjust sign
+
   if pnt < 0:                                   # never saw '.'
+    if nD == 0 and data[idx] == sep:            # empty field in CSV
+      return rtNaN
     pnt = nD; noDot = true                      # so set to number of digits
   elif nD == 1:
     return rtError                              # ONLY "[+-]*\.*"
+
+  if data[idx] notin {sep, '\n', '\r', '\l', 'e', 'E'}: ## TODO: generalize this?
+    return rtError
+
   if data[idx] in {'E', 'e'}:                   # optional exponent
     idx.inc
     let i0 = idx
@@ -187,15 +190,17 @@ proc parseNumber(data: ptr UncheckedArray[char],
     if data[i0] == '-':
       exp = -exp                                # adjust sign
   elif noDot: # and intVal < (1'i64 shl 53'i64) ? # No '.' & No [Ee]xponent
-    idxIn = idx
-    if giant:
-      copyBuf(data, strVal, idx, idxIn)
+    ## TODO: handle giant?
+    #if giant:
+    #  return rtError
+    #  #copyBuf(data, strVal, idx, idxIn)
     return rtInt                                # mark as integer
   exp += pnt - nD + p10                         # combine explicit&implicit exp
   floatVal = intVal.float * pow10(exp)          # has round-off vs. 80-bit
-  if giant:
-    copyBuf(data, strVal, idx, idxIn)
-  idxIn = idx
+  ## TODO: handle giant?
+  #if giant:
+  #  return rtError
+  #  #copyBuf(data, strVal, idx, idxIn)
   result = rtFloat                                # mark as float
 
 template parseCol(data: ptr UncheckedArray[char], buf: var string, col: var Column,
