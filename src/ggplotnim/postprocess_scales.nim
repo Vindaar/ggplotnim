@@ -308,8 +308,13 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       fg.numX = xCol.len
       df["width"] = constantColumn(abs((xCol[1, float] - xCol[0, float])), df.len)
       fg.width = some("width")
+    let fillScale = getFillScale(fs)
+    fg.fillCol = getColName(fillScale)
+    fg.fillDataScale = fillScale.dataScale
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
+  of gkHistogram:
+    fg.hdKind = fg.geom.hdKind
   else: discard
 
 func encompassingDataScale(scales: seq[Scale],
@@ -612,12 +617,6 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         filledGeom = filledCountGeom(df, g, filledScales)
       else:
         filledGeom = filledBinGeom(df, g, filledScales)
-
-      if g.kind == gkRaster:
-        # assign the `fillCol` to have access to data for filling
-        let fillScale = getFillScale(filledScales)
-        filledGeom.fillCol = getColName(fillScale)
-        filledGeom.fillDataScale = fillScale.dataScale
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:
@@ -632,9 +631,6 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stCount:
         raise newException(Exception, "For discrete counts of your data use " &
           "`geom_bar` instead!")
-      if g.kind == gkHistogram:
-        ## TODO: not really required as a field, since FilledGeom stores original geom
-        filledGeom.hdKind = g.hdKind
     of gkBar:
       case g.statKind
       of stIdentity:
