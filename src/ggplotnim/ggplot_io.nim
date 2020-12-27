@@ -107,35 +107,127 @@ template guessType(data: ptr UncheckedArray[char], buf: var string,
   else:
     colTypes[col] = colString
 
+proc i64(c: char): int {.inline.} = int(ord(c) - ord('0'))
+
+proc pow10(e: int): float {.inline.} =
+  const p10 = [1e-22, 1e-21, 1e-20, 1e-19, 1e-18, 1e-17, 1e-16, 1e-15, 1e-14,
+               1e-13, 1e-12, 1e-11, 1e-10, 1e-09, 1e-08, 1e-07, 1e-06, 1e-05,
+               1e-4, 1e-3, 1e-2, 1e-1, 1.0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7,
+               1e8, 1e9]                        # 4*64B cache lines = 32 slots
+  if -22 <= e and e <= 9:
+    return p10[e + 22]                          # common case=small table lookup
+  result = 1.0
+  var base = 10.0
+  var e = e
+  if e < 0:
+    e = -e
+    base = 0.1
+  while e != 0:
+    if (e and 1) != 0:
+      result *= base
+    e = e shr 1
+    base *= base
+
+type
+  RetType = enum
+    rtInt, rtFloat, rtError
+
+proc parseNumber(data: ptr UncheckedArray[char],
+                 idxIn: var int,
+                 intVal: var int, floatVal: var float, strVal: var string): RetType {.inline, noInit.} =
+  ## this code is taken and adapted from @c-blake's code in Nim PR #16055.
+  # Parse/validate/classify all at once, returning the type we parsed into
+  # and if not `rtError` the `intVal/floatVal` will store the parsed number
+  ## TODO:
+  ## This code has not been fully adapted yet. Instead of returning `rtError` under
+  ## some circumstance, we have to copyMem into `buf`.
+  ## We also need more error conditions. While this is only called if we *think*
+  ## the data is a number, what happens to `1.23eOhNoNaN`?
+  const Sign = {'+', '-'} # NOTE: `parseFloat` can generalize this to INF/NAN.
+  var idx = idxIn
+  var noDot = false
+  var exp = 0
+  var p10 = 0
+  var pnt = -1                                  # find '.' (point); do digits
+  var nD = 0
+  var giant = false
+  intVal = 0                                    # build intVal up from zero..
+  if data[idx] in Sign:
+    idx.inc                                     # skip optional sign
+  while data[idx] != '\0':                      # ..and track scale/pow10.
+    if data[idx] notin Digits:
+      if data[idx] != '.' or pnt >= 0:
+        break                                   # a second '.' is forbidden
+      pnt = nD                                  # save location of '.' (point)
+      nD.dec                                    # undo loop's nD.inc
+    elif nD < 18:                               # 2**63==9.2e18 => 18 digits ok
+      intVal = 10 * intVal + data[idx].i64      # core ASCII->binary transform
+    else:                                       # 20+ digits before decimal
+      giant = true #XXX condition should be more precise than "18 digits"
+      p10.inc                                   # any digit moves implicit '.'
+    idx.inc
+    nD.inc
+  if data[idxIn] == '-':
+    intVal = -intVal                            # adjust sign
+  if pnt < 0:                                   # never saw '.'
+    pnt = nD; noDot = true                      # so set to number of digits
+  elif nD == 1:
+    return rtError                              # ONLY "[+-]*\.*"
+  if data[idx] in {'E', 'e'}:                   # optional exponent
+    idx.inc
+    let i0 = idx
+    if data[idx] in Sign:
+      idx.inc                                   # skip optional sign
+    while data[idx] in Digits:                  # build exponent
+      exp = 10 * exp + data[idx].i64
+      idx.inc
+    if data[i0] == '-':
+      exp = -exp                                # adjust sign
+  elif noDot: # and intVal < (1'i64 shl 53'i64) ? # No '.' & No [Ee]xponent
+    idxIn = idx
+    if giant:
+      copyBuf(data, strVal, idx, idxIn)
+    return rtInt                                # mark as integer
+  exp += pnt - nD + p10                         # combine explicit&implicit exp
+  floatVal = intVal.float * pow10(exp)          # has round-off vs. 80-bit
+  if giant:
+    copyBuf(data, strVal, idx, idxIn)
+  idxIn = idx
+  result = rtFloat                                # mark as float
+
 template parseCol(data: ptr UncheckedArray[char], buf: var string, col: var Column,
-                  colTypes: seq[ColKind], colIdx, idx, colStart, row: int): untyped =
-  copyBuf(data, buf, idx, colStart)
+                  colTypes: seq[ColKind], colIdx, idx, colStart, row: int,
+                  intVal: var int, floatVal: var float, rtType: var RetType): untyped =
   case colTypes[colIdx]
   of colInt:
-    try:
-      col.iCol[row] = parseInt buf
-    except ValueError:
-      try:
-        # before we copy everything check if can be parsed to float, this branch will only
-        # be called a single time
-        let fVal = parseFloat buf
-        col = toColumn col.iCol.asType(float)
-        col.fCol[row] = fVal
-        colTypes[colIdx] = colFloat
-      except ValueError:
-        # object column
-        col = toObjectColumn col
-        colTypes[colIdx] = colObject
-        col.oCol[row] = %~ buf
+    retType = parseNumber(data, colStart, intVal, floatVal, buf)
+    idx = colStart
+    case retType
+    of rtInt: col.iCol[row] = intVal
+    of rtFloat:
+      # before we copy everything check if can be parsed to float, this branch will only
+      # be called a single time
+      col = toColumn col.iCol.asType(float)
+      col.fCol[row] = floatVal
+      colTypes[colIdx] = colFloat
+    of rtError:
+      # object column
+      col = toObjectColumn col
+      colTypes[colIdx] = colObject
+      col.oCol[row] = %~ buf
   of colFloat:
-    try:
-      col.fCol[row] = parseFloat buf
-    except ValueError:
+    retType = parseNumber(data, colStart, intVal, floatVal, buf)
+    idx = colStart
+    case retType
+    of rtInt: col.fCol[row] = intVal.float
+    of rtFloat: col.fCol[row] = floatVal
+    of rtError:
       # object column
       col = toObjectColumn col
       colTypes[colIdx] = colObject
       col.oCol[row] = %~ buf
   of colBool:
+    copyBuf(data, buf, idx, colStart)
     try:
       col.bCol[row] = parseBool buf
     except ValueError:
@@ -143,8 +235,12 @@ template parseCol(data: ptr UncheckedArray[char], buf: var string, col: var Colu
       col = toObjectColumn col
       colTypes[colIdx] = colObject
       col.oCol[row] = %~ buf
-  of colString: col.sCol[row] = buf
-  of colObject: col.oCol[row] = %~ buf
+  of colString:
+    copyBuf(data, buf, idx, colStart)
+    col.sCol[row] = buf
+  of colObject:
+    copyBuf(data, buf, idx, colStart)
+    col.oCol[row] = %~ buf
   of colConstant: discard # already set
   of colNone: doAssert false, "Invalid column to parse into: `colNone`"
 
@@ -212,9 +308,14 @@ proc readCsvTyped*(fname: string): DataFrame =
     cols[i] = newColumn(colTypes[i], lineCnt - 1) # -1 because of header
   # 4. parse the actual data
   doAssert row >= 0, "Parsing the header failed"
+  var
+    retType: RetType
+    intVal: int
+    floatVal: float
   while idx < ff.size:
     parseLine(data, buf, col, idx, colStart, row, toBreak = false):
-      parseCol(data, buf, cols[col], colTypes, col, idx, colStart, row)
+      parseCol(data, buf, cols[col], colTypes, col, idx, colStart, row,
+               intVal, floatVal, retType)
   for i, col in colNames:
     result[col] = cols[i]
   result.len = row
