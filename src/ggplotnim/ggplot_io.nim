@@ -93,8 +93,17 @@ template copyBuf(data: ptr UncheckedArray[char], buf: var string,
 
 template parseHeaderCol(data: ptr UncheckedArray[char], buf: var string,
                         colNames: var seq[string],
+                        header: string,
                         idx, colStart): untyped =
   copyBuf(data, buf, idx, colStart)
+  if col == 0:
+    if not buf.startsWith(header):
+      raise newException(IOError, "Unexpected column name at column 0, missing " &
+        "expected header `" & header & "`. Found " & buf)
+    else:
+      buf.removePrefix(header)
+      # and remove possible whitespace
+      buf = buf.strip
   colNames.add buf
 
 template guessType(data: ptr UncheckedArray[char], buf: var string,
@@ -332,7 +341,8 @@ proc readCsvTyped*(fname: string,
   var colNames: seq[string]
   while idx < ff.size:
     parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
-      parseHeaderCol(data, buf, colNames, idx, colStart)
+      parseHeaderCol(data, buf, colNames, header, idx, colStart)
+
   # 2. peek the first line to determine the data types
   var colTypes = newSeq[ColKind](colNames.len)
   var lastIdx = idx
