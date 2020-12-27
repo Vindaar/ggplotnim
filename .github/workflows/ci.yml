@@ -1,0 +1,100 @@
+name: ggplotnim CI
+on:
+  push:
+    paths:
+      - 'tests/**'
+      - 'src/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'tests/**'
+      - 'src/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [version-1-2, version-1-4, devel]
+        target: [linux, macos, windows]
+        include:
+          - target: linux
+            builder: ubuntu-18.04
+          - target: macos
+            builder: macos-10.15
+          - target: windows
+            builder: windows-2019
+    name: '${{ matrix.target }} (${{ matrix.branch }})'
+    runs-on: ${{ matrix.builder }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: ggplotnim
+
+      - name: Setup Nim
+        uses: alaviss/setup-nim@0.1.0
+        with:
+          path: nim
+          version: ${{ matrix.branch }}
+
+      - name: Install dependencies (Ubuntu)
+        if: ${{matrix.target == 'linux'}}
+        run: |
+          sudo apt-get install libcairo2 libcairo2-dev imagemagick \
+          libgtk-3-dev webkit2gtk-driver libwebkitgtk-dev \
+          libwebkit2gtk-4.0 libwebkit2gtk-4.0-dev
+
+      - name: Install dependencies (OSX)
+        if: ${{matrix.target == 'macos'}}
+        run: |
+          brew install cairo
+
+      #- name: Install dependencies (Windows)
+      #  if: ${{matrix.target == 'windows'}}
+      #  run: |
+      #    choco install cairo # seems like cairo does not exist
+
+      - name: Setup nimble & deps
+        shell: bash
+        run: |
+          # limit our stack size to avoid regressing after PR #36 w/o noticing
+          ulimit -s 1024
+          cd ggplotnim
+          nimble refresh -y
+          nimble install ntangle -y
+          nimble install -y
+
+      - name: Run tests
+        shell: bash
+        run: |
+          cd ggplotnim
+          nimble -y fullTest
+          nimble -y testCI
+
+      - name: Build docs
+        if: ${{ matrix.docs == 'true' && matrix.target == 'linux' }}
+        shell: bash
+        run: |
+          cd ggplotnim
+          branch=${{ github.ref }}
+          branch=${branch##*/}
+          nimble doc --project --outdir:docs \
+            '--git.url:https://github.com/${{ github.repository }}' \
+            '--git.commit:${{ github.sha }}' \
+            "--git.devel:$branch" \
+            src/ggplotnim.nim
+          # TODO: fix this, need to iterate over all files, do similar to arraymancer docs
+          # Ignore failures for older Nim
+          cp docs/{the,}index.html || true
+
+      - name: Publish docs
+        if: >
+          github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+          matrix.target == 'linux' && matrix.branch == 'devel'
+        uses: crazy-max/ghaction-github-pages@v1
+        with:
+          build_dir: ggplotnim/docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

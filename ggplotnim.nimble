@@ -14,6 +14,7 @@ requires "ginger >= 0.2.7"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.2.2" # to run tCompareRecipes test
 requires "arraymancer"
+requires "webview"
 
 task testCI, "Run standard tests w/o cairo dependency":
   # This runs all tests suitable for a CI environment, which does not provide
