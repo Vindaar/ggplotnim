@@ -1400,6 +1400,146 @@ macro `fn`*(x: untyped): untyped =
   result = compileFormula(arg[0], isRaw = false)
 
 
+proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
+  ## `bind_rows` combines several data frames row wise (i.e. data frames are
+  ## stacked on top of one another).
+  ## If a given column does not exist in one of the data frames, the corresponding
+  ## rows of the data frame missing it, will be filled with `VNull`.
+  result = DataFrame(len: 0)
+  var totLen = 0
+  for (idVal, df) in dfs:
+    totLen += df.len
+    # first add `id` column
+    if id.len > 0 and id notin result:
+      result.asgn(id, toColumn( newTensorWith(df.len, idVal) ))
+    elif id.len > 0:
+      result.asgn(id, result[id].add toColumn( newTensorWith(df.len, idVal) ))
+    var lastSize = 0
+    for k in keys(df):
+      if k notin result:
+        # create this new column consisting of `VNull` up to current size
+        if result.len > 0:
+          result.asgn(k, nullColumn(result.len))
+        else:
+          result.asgn(k, newColumn(df[k].kind))
+      # now add the current vector
+      if k != id:
+        # TODO: write a test for multiple bind_rows calls in a row!
+        result.asgn(k, result[k].add df[k])
+      lastSize = max(result[k].len, lastSize)
+    result.len = lastSize
+  # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
+  # the first `df` has a column `k` with `N` entries, but another `M` entries are added to
+  # the `df`. Since `k` is not found in another `df`, it won't be extend in the loop above
+  for k in keys(result):
+    if result[k].len < result.len:
+      # extend this by `VNull`
+      result.asgn(k, result[k].add nullColumn(result.len - result[k].len))
+  doAssert totLen == result.len, " totLen was: " & $totLen & " and result.len " & $result.len
+
+template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
+  ## Overload of `bind_rows` above, for automatic creation of the `id` values.
+  ## Using this proc, the different data frames will just be numbered by their
+  ## order in the `dfs` argument and the `id` column is filled with those values.
+  ## The values will always appear as strings, even though we use integer
+  ## numbering.
+  ## `bind_rows` combines several data frames row wise (i.e. data frames are
+  ## stacked on top of one another).
+  ## If a given column does not exist in one of the data frames, the corresponding
+  ## rows of the data frame missing it, will be filled with `VNull`.
+  var ids = newSeq[string]()
+  for i, df in dfs:
+    ids.add $i
+  let args = zip(ids, dfs)
+  bind_rows(args, id)
+
+proc add*(df: var DataFrame, dfToAdd: DataFrame) =
+  ## The simplest form of "adding" a data frame. If the keys match exactly or
+  ## `df` is empty `dfToAdd` will be stacked below. This makes a key check and then
+  ## calls `bind_rows` for the job.
+  if df.isNil or df.len == 0:
+    df = dfToAdd
+  elif dfToAdd.len == 0:
+    discard
+  else:
+    doAssert df.getKeys.sorted == dfToAdd.getKeys.sorted, "all keys must match to add dataframe!"
+    df = bind_rows([("", df), ("", dfToAdd)])
+
+proc hashColumn(s: var seq[Hash], c: Column, finish: static bool = false) =
+  ## performs a partial hash of a DF. I.e. a single column, where
+  ## the hash is added to each index in `s`. The hash is not finalized,
+  ## rather the idea is to use this to hash all columns on `s` first.
+  withNativeTensor(c, t):
+    assert s.len == t.size
+    for idx in 0 ..< t.size:
+      when not finish:
+        s[idx] = s[idx] !& hash(t[idx])
+      else:
+        s[idx] = !$(s[idx] !& hash(t[idx]))
+
+proc buildColHashes(df: DataFrame, keys: seq[string]): seq[Hash] =
+  for i, k in keys:
+    if i == 0:
+      result = newSeq[Hash](df.len)
+    result.hashColumn(df[k])
+  # finalize the hashes
+  result.applyIt(!$it)
+
+proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): DataFrame
+iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Value)], DataFrame) =
+  ## yields the subgroups of a grouped DataFrame `df` and the `(key, Value)`
+  ## pairs that were used to create the subgroup. If `df` has more than
+  ## one grouping, a subgroup is defined by the pair of the groupings!
+  ## E.g. mpg.group_by("class", "cyl")
+  ## will yield all pairs of car ("class", "cyl")!
+  ## Note: only non empty data frames will be yielded!
+  doAssert df.kind == dfGrouped
+  # sort by keys
+  let keys = getKeys(df.groupMap)
+  # arrange by all keys in ascending order
+  let dfArranged = df.arrange(keys, order = order)
+  # having the data frame in a sorted order, walk it and return each combination
+  let hashes = buildColHashes(dfArranged, keys)
+  #[
+  Need new approach.
+  Again calculate hashes of `keys` columns.
+  Walk through DF.
+  If hash == lastHash:
+    accumulatte
+  else:
+    yield (seq(key, df[k][idx, Value]), slice of df)
+  ]#
+  proc buildClassLabel(df: DataFrame, keys: seq[string],
+                       idx: int): seq[(string, Value)] =
+    result = newSeq[(string, Value)](keys.len)
+    for j, key in keys:
+      result[j] = (key, df[key][idx, Value])
+
+  var
+    currentHash = hashes[0]
+    lastHash = hashes[0]
+    startIdx, stopIdx: int # indices which indicate from where to where a subgroup is located
+  for i in 0 ..< dfArranged.len:
+    currentHash = hashes[i]
+    if currentHash == lastHash:
+      # continue accumulating
+      discard
+    elif i > 0:
+      # found the end of a subgroup or we're at the end of the DataFrame
+      stopIdx = i - 1
+      # return subgroup of startIdx .. stopIdx
+      # build class label seq
+      yield (buildClassLabel(dfArranged, keys, stopIdx), dfArranged[startIdx .. stopIdx])
+      # set new start and stop idx
+      startIdx = i
+      lastHash = currentHash
+    else:
+      # should only happen for i == 0
+      doAssert i == 0
+      lastHash = currentHash
+  # finally yield the last subgroup or the whole group, in case we only
+  # have a single key
+  yield (buildClassLabel(dfArranged, keys, dfArranged.high), dfArranged[startIdx .. dfArranged.high])
 
 proc filterImpl[T](resCol: var Column, col: Column, filterIdx: Tensor[int]) =
   let t = toTensor(col, T)
@@ -1854,81 +1994,6 @@ proc group_by*(df: DataFrame, by: varargs[string], add = false): DataFrame =
   for key in by:
     result.groupMap[key] = toHashSet(result[key].toTensor(Value))
 
-proc hashColumn(s: var seq[Hash], c: Column, finish: static bool = false) =
-  ## performs a partial hash of a DF. I.e. a single column, where
-  ## the hash is added to each index in `s`. The hash is not finalized,
-  ## rather the idea is to use this to hash all columns on `s` first.
-  withNativeTensor(c, t):
-    assert s.len == t.size
-    for idx in 0 ..< t.size:
-      when not finish:
-        s[idx] = s[idx] !& hash(t[idx])
-      else:
-        s[idx] = !$(s[idx] !& hash(t[idx]))
-
-proc buildColHashes(df: DataFrame, keys: seq[string]): seq[Hash] =
-  for i, k in keys:
-    if i == 0:
-      result = newSeq[Hash](df.len)
-    result.hashColumn(df[k])
-  # finalize the hashes
-  result.applyIt(!$it)
-
-iterator groups*(df: DataFrame, order = SortOrder.Ascending): (seq[(string, Value)], DataFrame) =
-  ## yields the subgroups of a grouped DataFrame `df` and the `(key, Value)`
-  ## pairs that were used to create the subgroup. If `df` has more than
-  ## one grouping, a subgroup is defined by the pair of the groupings!
-  ## E.g. mpg.group_by("class", "cyl")
-  ## will yield all pairs of car ("class", "cyl")!
-  ## Note: only non empty data frames will be yielded!
-  doAssert df.kind == dfGrouped
-  # sort by keys
-  let keys = getKeys(df.groupMap)
-  # arrange by all keys in ascending order
-  let dfArranged = df.arrange(keys, order = order)
-  # having the data frame in a sorted order, walk it and return each combination
-  let hashes = buildColHashes(dfArranged, keys)
-  #[
-  Need new approach.
-  Again calculate hashes of `keys` columns.
-  Walk through DF.
-  If hash == lastHash:
-    accumulatte
-  else:
-    yield (seq(key, df[k][idx, Value]), slice of df)
-  ]#
-  proc buildClassLabel(df: DataFrame, keys: seq[string],
-                       idx: int): seq[(string, Value)] =
-    result = newSeq[(string, Value)](keys.len)
-    for j, key in keys:
-      result[j] = (key, df[key][idx, Value])
-
-  var
-    currentHash = hashes[0]
-    lastHash = hashes[0]
-    startIdx, stopIdx: int # indices which indicate from where to where a subgroup is located
-  for i in 0 ..< dfArranged.len:
-    currentHash = hashes[i]
-    if currentHash == lastHash:
-      # continue accumulating
-      discard
-    elif i > 0:
-      # found the end of a subgroup or we're at the end of the DataFrame
-      stopIdx = i - 1
-      # return subgroup of startIdx .. stopIdx
-      # build class label seq
-      yield (buildClassLabel(dfArranged, keys, stopIdx), dfArranged[startIdx .. stopIdx])
-      # set new start and stop idx
-      startIdx = i
-      lastHash = currentHash
-    else:
-      # should only happen for i == 0
-      doAssert i == 0
-      lastHash = currentHash
-  # finally yield the last subgroup or the whole group, in case we only
-  # have a single key
-  yield (buildClassLabel(dfArranged, keys, dfArranged.high), dfArranged[startIdx .. dfArranged.high])
-
 proc summarize*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## returns a data frame with the summaries applied given by `fn`. They
   ## are applied in the order in which they are given
@@ -1992,71 +2057,6 @@ proc count*(df: DataFrame, col: string, name = "n"): DataFrame =
     result.asgn(k, toNativeColumn vals)
   result.asgn(name, toColumn counts)
   result.len = idx
-
-proc bind_rows*(dfs: varargs[(string, DataFrame)], id: string = ""): DataFrame =
-  ## `bind_rows` combines several data frames row wise (i.e. data frames are
-  ## stacked on top of one another).
-  ## If a given column does not exist in one of the data frames, the corresponding
-  ## rows of the data frame missing it, will be filled with `VNull`.
-  result = DataFrame(len: 0)
-  var totLen = 0
-  for (idVal, df) in dfs:
-    totLen += df.len
-    # first add `id` column
-    if id.len > 0 and id notin result:
-      result.asgn(id, toColumn( newTensorWith(df.len, idVal) ))
-    elif id.len > 0:
-      result.asgn(id, result[id].add toColumn( newTensorWith(df.len, idVal) ))
-    var lastSize = 0
-    for k in keys(df):
-      if k notin result:
-        # create this new column consisting of `VNull` up to current size
-        if result.len > 0:
-          result.asgn(k, nullColumn(result.len))
-        else:
-          result.asgn(k, newColumn(df[k].kind))
-      # now add the current vector
-      if k != id:
-        # TODO: write a test for multiple bind_rows calls in a row!
-        result.asgn(k, result[k].add df[k])
-      lastSize = max(result[k].len, lastSize)
-    result.len = lastSize
-  # possibly extend vectors, which have not been filled with `VNull` (e.g. in case
-  # the first `df` has a column `k` with `N` entries, but another `M` entries are added to
-  # the `df`. Since `k` is not found in another `df`, it won't be extend in the loop above
-  for k in keys(result):
-    if result[k].len < result.len:
-      # extend this by `VNull`
-      result.asgn(k, result[k].add nullColumn(result.len - result[k].len))
-  doAssert totLen == result.len, " totLen was: " & $totLen & " and result.len " & $result.len
-
-template bind_rows*(dfs: varargs[DataFrame], id: string = ""): DataFrame =
-  ## Overload of `bind_rows` above, for automatic creation of the `id` values.
-  ## Using this proc, the different data frames will just be numbered by their
-  ## order in the `dfs` argument and the `id` column is filled with those values.
-  ## The values will always appear as strings, even though we use integer
-  ## numbering.
-  ## `bind_rows` combines several data frames row wise (i.e. data frames are
-  ## stacked on top of one another).
-  ## If a given column does not exist in one of the data frames, the corresponding
-  ## rows of the data frame missing it, will be filled with `VNull`.
-  var ids = newSeq[string]()
-  for i, df in dfs:
-    ids.add $i
-  let args = zip(ids, dfs)
-  bind_rows(args, id)
-
-proc add*(df: var DataFrame, dfToAdd: DataFrame) =
-  ## The simplest form of "adding" a data frame. If the keys match exactly or
-  ## `df` is empty `dfToAdd` will be stacked below. This makes a key check and then
-  ## calls `bind_rows` for the job.
-  if df.isNil or df.len == 0:
-    df = dfToAdd
-  elif dfToAdd.len == 0:
-    discard
-  else:
-    doAssert df.getKeys.sorted == dfToAdd.getKeys.sorted, "all keys must match to add dataframe!"
-    df = bind_rows([("", df), ("", dfToAdd)])
 
 proc setDiff*(df1, df2: DataFrame, symmetric = false): DataFrame =
   ## returns a `DataFrame` with all elements in `df1` that are not found in
