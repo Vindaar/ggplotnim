@@ -1174,3 +1174,29 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let t2 = df["c2", float]
     check t1 == toTensor toSeq(0 ..< 20).mapIt(if it < 10: 10 else: it - 10)
     check t2 == toTensor toSeq(0 ..< 20).mapIt(if it < 10: it.float else: (it.float - 10.0) * 2)
+
+  test "Mutate/Transmute works on grouped dataframes":
+
+    block Mutate:
+      let df = toDf(readCsv("data/mpg.csv"))
+        .group_by("class")
+        # for simplicity, we're gonna add the mean of each group to
+        .mutate(f{float -> float: "subMeanHwy" ~ 0.0 + mean(df["hwy"])})
+        .arrange("class")
+      let expDf = df.group_by("class").summarize(f{float -> float: "subMeanHwy" << mean(`hwy`)})
+        .arrange("class")
+
+      check df.select("subMeanHwy").unique()["subMeanHwy", float] == expDf.select("subMeanHwy")["subMeanHwy", float]
+
+    block Transmute:
+      let df = toDf(readCsv("data/mpg.csv"))
+      var dfTr = df
+        .group_by("class")
+        # for simplicity, we're gonna add the mean of each group to
+        .transmute(f{float -> float: "subMeanHwy" ~ 0.0 + mean(df["hwy"])},
+                   f{"class"})
+        .arrange("class")
+      let expDf = df.group_by("class").summarize(f{float -> float: "subMeanHwy" << mean(`hwy`)})
+        .arrange("class")
+
+      check dfTr.select("subMeanHwy").unique()["subMeanHwy", float] == expDf.select("subMeanHwy")["subMeanHwy", float]

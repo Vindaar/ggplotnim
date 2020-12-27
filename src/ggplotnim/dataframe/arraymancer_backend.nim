@@ -1522,14 +1522,21 @@ proc mutate*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## dataframe.
   ## We assume that the LHS of the formula corresponds to a fkVariable
   ## that's used to designate the new name.
-  ## TODO: UPDATE!!!
   ## NOTE: If a given `fn` is a term (`fk`) without an assignment
   ## (using `~`, kind `amDep`) or a function (`fk`), the resulting
   ## column will be named after the stringification of the formula.
   ##
   ## E.g.: `df.mutate(f{"x" * 2})` will add the column `(* x 2)`.
-  result = df
-  result.mutateInplace(fns)
+  case df.kind
+  of dfGrouped:
+    result = newDataFrame()
+    for (tup, subDf) in groups(df):
+      var mdf = subDf
+      mdf.mutateInplace(fns)
+      result.add mdf
+  else:
+    result = df
+    result.mutateInplace(fns)
 
 proc transmuteInplace*(df: var DataFrame, fns: varargs[FormulaNode]) =
   ## Inplace variant of `transmute` below.
@@ -1548,9 +1555,16 @@ proc transmute*(df: DataFrame, fns: varargs[FormulaNode]): DataFrame =
   ## column will be named after the stringification of the formula.
   ##
   ## E.g.: `df.transmute(f{"x" * 2})` will create the column `(* x 2)`.
-  # since result dataframe is empty, copy len of input
-  result = df
-  result.transmuteInplace(fns)
+  case df.kind
+  of dfGrouped:
+    result = newDataFrame()
+    for (tup, subDf) in groups(df):
+      var mdf = subDf
+      mdf.transmuteInplace(fns)
+      result.add mdf
+  else:
+    result = df
+    result.transmuteInplace(fns)
 
 proc rename*(df: DataFrame, cols: varargs[FormulaNode]): DataFrame =
   ## Returns the data frame with the columns described by `cols` renamed to
