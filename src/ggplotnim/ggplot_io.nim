@@ -273,8 +273,8 @@ template parseCol(data: ptr UncheckedArray[char], buf: var string,
       col.oCol[row] = %~ buf
   of colConstant: discard # already set
   of colNone:
-    echo "colNone encountered in row ", row, " at ", colIdx, " for ", colTypes.len, " cols at idx ", idx
-    doAssert false, "Invalid column to parse into: `colNone`"
+    raise newException(IOError, "Invalid column type to parse into: `colNone`. " &
+      "This shouldn't have happened! row = " & $row & ", col = " & $col)
 
 template parseLine(data: ptr UncheckedArray[char], buf: var string,
                    sep: char,
