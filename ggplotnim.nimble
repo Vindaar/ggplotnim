@@ -74,7 +74,7 @@ task docs, "Generate HTML docs using the Org file":
 
 task recipes, "Generate and run all recipes":
   exec "ntangle recipes.org"
-  exec "nim c -r recipes/runRecipes.nim"
+  exec "nim c -r recipes/allRecipes.nim"
 
 task generateJson, "Generate the JSON results for all recipes":
   exec "nim c -r recipes/runRecipes.nim --json"
