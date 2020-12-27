@@ -305,6 +305,7 @@ template parseLine(data: ptr UncheckedArray[char], buf: var string,
 proc readCsvTyped*(fname: string,
                    sep: char = ',',
                    header: string = "",
+                   skipLines = 0,
                    toSkip: set[char] = {}): DataFrame =
   ## Reads a DF from a CSV file using the separator character `sep`.
   ##
@@ -343,6 +344,25 @@ proc readCsvTyped*(fname: string,
     parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
       parseHeaderCol(data, buf, colNames, header, idx, colStart)
 
+  # 1a. if `header` is set, skip all additional lines starting with header
+  var cnt = 0 # column counter, used to determine skipped lines
+  if header.len > 0:
+    while idx < ff.size:
+      parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
+        if col == 0 and data[colStart] != header[0]:
+          break
+        inc cnt
+  # 1b. skip `skipLines`
+  while idx < ff.size:
+    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
+      if cnt div colNames.len == skipLines:
+        break
+      inc cnt
+  # reset row to 0
+  row = 0
+  # compute the number of skipped lines in total
+  let skippedLines = cnt div colNames.len + 1 # + 1 for header
+
   # 2. peek the first line to determine the data types
   var colTypes = newSeq[ColKind](colNames.len)
   var lastIdx = idx
@@ -357,7 +377,9 @@ proc readCsvTyped*(fname: string,
   # 3. create the starting columns
   var cols = newSeq[Column](colNames.len)
   for i in 0 ..< colTypes.len:
-    cols[i] = newColumn(colTypes[i], lineCnt - 1) # -1 because of header
+    # create column of length:
+    # lines in file - header - skipLines
+    cols[i] = newColumn(colTypes[i], lineCnt - skippedLines)
   # 4. parse the actual data
   doAssert row >= 0, "Parsing the header failed"
   var
