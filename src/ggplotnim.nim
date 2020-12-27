@@ -1733,23 +1733,26 @@ proc tickposlog(s: Scale,
   while exp.float < boundScale.high:
     let cur = s.invTrans(exp.float)
     let numToAdd = s.invTrans(1.0).round.int
-    let minors = linspace(cur, s.invTrans((exp + 1).float) - 1, numToAdd - 1)
+    let minors = linspace(cur, s.invTrans((exp + 1).float) - cur, numToAdd - 1)
     labPos.add minors.mapIt(s.trans(it))
     if (boundScale.high - boundScale.low) > 1.0 or hideTickLabels:
       if not hideTickLabels:
         labs.add cur.format
       else:
         labs.add ""
-      for x in minors:
-        if x mod cur != 0.0:
-          labs.add ""
+      # add one less than minors.len of `""`
+      labs.add(toSeq(0 ..< minors.high).mapIt(""))
     else:
+      # use all minors as labelledn
       labs.add minors.mapIt(it.format)
     inc exp
-  labs.add(format(maxv))
-  labPos.add(s.trans(maxv))
-  if not hideTickLabels: labs.add $maxv
-  else: labs.add ""
+  # add the current exp to the labels (not in loop anymore). In log2 `maxv` is
+  # contained in loop, but real range is larger. In log10, maxv is not contained.
+  if not hideTickLabels:
+    labs.add(format(s.invTrans(exp.float)))
+  else:
+    labs.add ""
+  labPos.add(exp.float)
   # for simplicity apply removal afterwards
   let filterIdx = toSeq(0 ..< labPos.len).filterIt(
     labPos[it] >= boundScale.low and
