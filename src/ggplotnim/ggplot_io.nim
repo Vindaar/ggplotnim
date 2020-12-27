@@ -293,9 +293,25 @@ template parseLine(data: ptr UncheckedArray[char], buf: var string,
     discard
   inc idx
 
-proc readCsvTyped*(fname: string): DataFrame =
-  let toSkip = {' '}
-  const sep = ','
+proc readCsvTyped*(fname: string,
+                   sep: char = ',',
+                   header: string = "",
+                   toSkip: set[char] = {}): DataFrame =
+  ## Reads a DF from a CSV file using the separator character `sep`.
+  ##
+  ## `toSkip` can be used to skip optional characters that may be present
+  ## in the data. For instance if a CSV file is separated by `,`, but contains
+  ## additional whitespace (`5, 10, 8` instead of `5,10,8`) this can be
+  ## parsed correctly by setting `toSkip = {' '}`.
+  ##
+  ## `header` designates the symbol that defines the header of the CSV file.
+  ## By default it's empty meaning that the first line will be treated as
+  ## the header. If a header is given, e.g. `"#"`, this means we will determine
+  ## the column names from the first line (which has to start with `#`) and
+  ## skip every line until the first line starting without `#`.
+  ##
+  ## `skipLines` is used to skip `N` number of lines at the beginning of the
+  ## file.
   result = newDataFrame()
   var ff = memfiles.open(fname)
   var lineCnt = 0
