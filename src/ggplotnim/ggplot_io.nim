@@ -85,8 +85,11 @@ proc readCsv*(s: Stream,
 
 template copyBuf(data: ptr UncheckedArray[char], buf: var string,
                  idx, colStart: int): untyped =
-  copyMem(buf[0].addr, data[colStart].addr, idx - colStart)
-  buf.setLen(idx - colStart)
+  let nIdx = idx - colStart
+  if nIdx > 0:
+    buf = newString(nIdx)
+    copyMem(buf[0].addr, data[colStart].addr, nIdx)
+    buf.setLen(nIdx)
 
 template parseHeaderCol(data: ptr UncheckedArray[char], buf: var string,
                         colNames: var seq[string],
