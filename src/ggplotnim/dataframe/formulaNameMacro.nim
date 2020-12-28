@@ -155,7 +155,7 @@ proc handleInfix(n: NimNode): NimNode =
   let tilde = recurseFind(n,
                           cond = ident"~")
   var node = n
-  if tilde.kind != nnkNilLit and n[0].ident != toNimIdent"~":
+  if tilde.kind != nnkNilLit and n[0] != ident"~":
     # only reorder the tree, if it does contain a tilde and the
     # tree is not already ordered (i.e. nnkInfix at top with tilde as
     # LHS)
