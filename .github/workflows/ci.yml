@@ -49,12 +49,27 @@ jobs:
       - name: Install dependencies (OSX)
         if: ${{matrix.target == 'macos'}}
         run: |
-          brew install cairo
+          brew install cairo webkitgtk
 
-      #- name: Install dependencies (Windows)
-      #  if: ${{matrix.target == 'windows'}}
-      #  run: |
-      #    choco install cairo # seems like cairo does not exist
+      - name: Install wget (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: powershell
+        run: |
+          #choco install cairo # seems like cairo does not exist
+          choco install wget
+
+      - name: Install cairo using wget (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: powershell
+        run: |
+          #choco install cairo # seems like cairo does not exist
+          $ErrorView = "NormalView"
+          wget -O cairo-windows.zip https://github.com/preshing/cairo-windows/releases/download/1.17.2/cairo-windows-1.17.2.zip
+          Get-Location
+          tar -xf cairo-windows.zip
+          ls
+          cp cairo-windows-1.17.2/lib/x64/cairo.dll ggplotnim/tests/libcairo-2.dll
+          cp cairo-windows-1.17.2/lib/x64/cairo.dll ggplotnim/recipes/libcairo-2.dll
 
       - name: Setup nimble & deps
         shell: bash
