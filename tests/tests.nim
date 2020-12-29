@@ -690,7 +690,7 @@ suite "Annotations":
     var count = 0
     for gobj in actPlot.objects:
       if "multiLineText" in gobj.name:
-        when not defined(noCairo):
+        when not defined(noCairo) and defined(linux):
           ## text extent based calcs are not supported without cairo!
           check almostEq(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
         # we don't check y because it depends on the line
@@ -699,7 +699,7 @@ suite "Annotations":
         # rough position check. Values should align with bottom left of
         # the rectangle, placed in the plot viewport. Takes into
         # account the margin we use:
-        when not defined(noCairo):
+        when not defined(noCairo) and defined(linux):
           check almostEq(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
           check almostEq(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
         else:
@@ -724,7 +724,7 @@ suite "Annotations":
     var count = 0
     for gobj in actPlot.objects:
       if "multiLineText" in gobj.name:
-        when not defined(noCairo):
+        when not defined(noCairo) and defined(linux):
           ## text extent based calcs are not supported without cairo!
           check almostEq(gobj.txtPos.x.pos, 0.0, epsilon = 1e-6)
         # we don't check y because it depends on the line
@@ -733,7 +733,7 @@ suite "Annotations":
         inc count
       elif "annotationBackground" in gobj.name:
         # rough position check
-        when not defined(noCairo):
+        when not defined(noCairo) and defined(linux):
           check almostEq(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
           check almostEq(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
         check gobj.style.isSome
