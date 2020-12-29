@@ -1,4 +1,4 @@
-import ggplotnim, unittest, strutils, os, sequtils, osproc, shell, json
+import ggplotnim, unittest, strutils, os, sequtils, osproc, shell, json, macros
 
 #[
 This test simply builds all recipes, runs them and compares the final image of
@@ -54,6 +54,7 @@ suite "Compare recipe output":
   test "Compare recipe generated plots":
     # first run recipes to make sure we have current recipe plots in
     # media/recipes which we can compare with media/expected
+    const path = getProjectPath().parentDir
     let runRecipes = shellVerbose:
       nimble recipes
     let toContinue = runRecipes[1] == 0
@@ -107,6 +108,7 @@ suite "Compare recipe output":
     ## first generate JSON from all recipe files by creating temporary
     ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
     ## simply dumps
+    const path = getProjectPath().parentDir
     let runRecipesJson = shellVerbose:
       nimble recipesJson
     let toContinue = runRecipesJson[1] == 0
