@@ -49,7 +49,7 @@ jobs:
       - name: Install dependencies (OSX)
         if: ${{matrix.target == 'macos'}}
         run: |
-          brew install cairo webkitgtk
+          brew install cairo
 
       - name: Install dependencies (Windows)
         if: ${{matrix.target == 'windows'}}
