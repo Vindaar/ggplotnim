@@ -31,6 +31,11 @@ proc compareJson*(j1, j2: JsonNode): bool =
   of JObject:
     returnOnFalse(j1.len, j2.len)
     for k, v in pairs(j1):
+      when not defined(linux):
+        if k == "txtPos":
+          echo "INFO: Skipping key ", k, " due to cairo differences in text " &
+            "printing on different platforms"
+          continue
       returnOnFalse(k in j2, true)
       returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
