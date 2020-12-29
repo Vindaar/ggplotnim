@@ -45,7 +45,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
       ## TODO: due to some cairo issue related to different platforms we get different
       ## positions on mac/windows. For now we just use a much larger epsilon. Need to
       ## investigate this difference once I have access to a machine running windows again.
-      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 0.05)
+      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 0.15) # ~15% seems largest deviation
     if not cmpFloat:
       echo "Float compare failed: ", j1.getFloat, " <-> ", j2.getFloat
     returnOnFalse(cmpFloat, true)
