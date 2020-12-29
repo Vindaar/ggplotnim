@@ -1,4 +1,4 @@
-## .. include:: ./docs/ggplotnim.rst
+## .. include:: ./docs/ggplotnim_autogen.rst
 
 import sequtils, tables, sets, algorithm, strutils, macros
 import parsecsv, streams, hashes, sugar, math
