@@ -585,7 +585,7 @@ suite "GgPlot":
       check lab.txtText == text
       check lab.txtAlign == taCenter
       check lab.txtPos.y.toRelative.pos.almostEq(posTup.y.toRelative.pos)
-      when not defined(noCairo):
+      when not defined(noCairo) and defined(linux):
         ## This check only works if we compile with the cairo backend. That is because the
         ## placement of the text in y position depends explicitly on the extent of the
         ## text, which is determined using cairo's TTextExtents object. The dummy backend
