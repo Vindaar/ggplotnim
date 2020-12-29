@@ -77,6 +77,11 @@ task recipes, "Generate and run all recipes":
   exec "ntangle recipes.org"
   exec "nim c -r recipes/allRecipes.nim"
 
+task recipesJson, "Generate and run all recipes with JSON output":
+  exec "ntangle recipes.org"
+  exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
+  exec "nim c -r recipes/allRecipesJson.nim"
+
 task generateJson, "Generate the JSON results for all recipes":
   exec "nim c -r recipes/runRecipes.nim --json"
 

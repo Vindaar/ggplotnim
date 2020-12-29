@@ -107,8 +107,13 @@ suite "Compare recipe output":
     ## first generate JSON from all recipe files by creating temporary
     ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
     ## simply dumps
+    let runRecipesJson = shellVerbose:
+      nimble recipesJson
+    let toContinue = runRecipesJson[1] == 0
+    check toContinue
+    if not toContinue:
+      quit("Could not run recipes for JSON successfully, quitting recipe comparison")
     for f in RecipeFiles:
-      generateJsonFile(f)
       # compare generated json with expected json
       let resFile = parseFile "resources/recipes" / f & ".json"
       echo "Checking ", f & ".json"

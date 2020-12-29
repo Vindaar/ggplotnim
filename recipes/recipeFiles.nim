@@ -58,19 +58,21 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rLongTitleMultiline"
                        ]
 
-proc generateJsonFile*(f: string) =
-  const tmpfile = "recipes/tmpfile.nim"
+proc generateJsonFile*(f: string, toRun = false) =
   discard existsOrCreateDir("resources/recipes")
   let fname = "recipes" / f
+  let jsonFile = fname & "_json.nim"
+
   # read the file
   let fcontent = readFile(fname & ".nim")
   # replace `ggsave` by `ggjson` and write file back
   const jsonImport = "from json import `%`\n"
-  writeFile(tmpfile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
+  writeFile(jsonFile, jsonImport & fcontent.multiReplace(@[("ggsave(", "ggjson("),
                                                           ("media/", "resources/")]))
   # run the tmp file to generate json
-  shell:
-    nim c "-r" ($tmpfile)
+  if toRun:
+    shell:
+      nim c "-r" ($jsonFile)
 
 when isMainModule:
   for f in RecipeFiles:
