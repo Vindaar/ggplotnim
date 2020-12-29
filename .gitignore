@@ -1,0 +1,10 @@
+# Ignore all in recipes
+/recipes/*
+# Unignore all with extensions in recipes
+!/recipes/*.*
+*~
+# ignore all PDF in media/recipes
+media/recipes/*.pdf
+media/recipes/*.ppm
+media/expected/*.ppm
+/recipes/*_json.nim
