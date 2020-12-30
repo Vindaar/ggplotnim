@@ -24,8 +24,8 @@ ggplot(df, aes("bins", "counts", fill = "Run")) +
                  color = some(black)) +
   geom_linerange(aes = aes(
     fill = "Run", yMin = 0, yMax = ymax, # draw red line for each mean 
-    x = f{float -> float: getMean(`bins`, `counts`)}),
-    color = some(parseHex("FF0000"))) +
+    x = f{float -> float: getMean(`bins`, `counts`)}), # compute the mean of the current Run
+    color = some(parseHex("FF0000"))) + # color the line red
   margin(top = 2) + # increase top margin due to large overlap
   xlab("gaussSigma") + ylab("Counts") +
   theme_opaque() +
