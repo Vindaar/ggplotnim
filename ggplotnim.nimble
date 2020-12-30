@@ -75,11 +75,14 @@ task docs, "Generate HTML docs using the Org file":
     mvFile fname, "docs/" & $fname
 
 task recipes, "Generate and run all recipes":
-  exec "ntangle recipes.org"
+  when not defined(windows):
+    # depend on existing `.nim` files in repo on windows then..
+    exec "ntangle recipes.org"
   exec "nim c -r recipes/allRecipes.nim"
 
 task recipesJson, "Generate and run all recipes with JSON output":
-  exec "ntangle recipes.org"
+  when not defined(windows):
+    exec "ntangle recipes.org"
   exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
   exec "nim c -r recipes/allRecipesJson.nim"
 

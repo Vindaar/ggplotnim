@@ -32,7 +32,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
     returnOnFalse(j1.len, j2.len)
     for k, v in pairs(j1):
       when not defined(linux):
-        if k == "txtPos":
+        if k == "txtPos" or k == "txtText": # txtText broken for multiline
           echo "INFO: Skipping key ", k, " due to cairo differences in text " &
             "printing on different platforms"
           continue
