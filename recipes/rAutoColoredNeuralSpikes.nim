@@ -22,4 +22,5 @@ ggplot(df, aes("neurons", "spikes", color = "lineSize")) +
   scale_y_continuous() + # make sure y is considered cont.
   ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
   ggtitle("Spike raster plot") +
+  theme_opaque() +
   ggsave("media/recipes/rAutoColoredNeuralSpikes.png")

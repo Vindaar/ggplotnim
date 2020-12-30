@@ -14,4 +14,5 @@ ggplot(dfMean, aes("Channel", "Mean counts / min")) +
   geom_bar(stat = "identity", position = "identity") +
   scale_x_discrete(name = "Channel number") +
   ggtitle("Mean counts per channel") +
+  theme_opaque() +
   ggsave("media/recipes/rBarPlotCompStats.png")

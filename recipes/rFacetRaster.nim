@@ -17,4 +17,5 @@ ggplot(df, aes("xs", "ys", fill = "vals")) +
   facet_wrap("Map") +
   xlim(0, 256) + ylim(0, 256) +
   geom_raster() +
+  theme_opaque() +
   ggsave("media/recipes/rFacetRaster.png", width = 920)

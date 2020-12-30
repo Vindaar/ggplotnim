@@ -7,4 +7,5 @@ ggplot(df, aes("hwy", "displ")) +
             alignKind = taLeft, 
             # font = some(font(10.0, ...)) <- you can also change the font
             ) + 
+  theme_opaque() +
   ggsave("media/recipes/rAnnotateUsingGeomText.png")

@@ -49,6 +49,7 @@ proc makePlot(pstart, pstop: float, fname: string) =
     scale_x_log10() +
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium pressure in mbar") +
+    theme_opaque() +
     ggsave(fname)
 
 makePlot(-6.0, 2.0, "media/recipes/rAxionMassesLogLog.png")

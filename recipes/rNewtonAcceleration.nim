@@ -26,6 +26,7 @@ df = df.transmute(f{"r / km" ~ c"r / m" / 1000.0}, f{"g(r) / m s¯²"})
 ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   geom_line() +
   ggtitle("Gravitational acceleration of Earth depending on radial distance") +
+  theme_opaque() +
   ggsave("media/recipes/rNewtonAcceleration.png")
 
 let maxG = df.summarize(f{float: "g_max" << max(c"g(r) / m s¯²")})

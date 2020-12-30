@@ -14,4 +14,5 @@ ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
   #scale_x_discrete() +
   #scale_y_discrete() +
+  theme_opaque() +
   ggsave("media/recipes/rSimpleTile.png")
