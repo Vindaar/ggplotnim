@@ -102,9 +102,12 @@ suite "Compare recipe output":
     template checkFiles(f1, f2, fname: untyped): untyped =
       # store in `comp` to avoid check obliterating our terminal with the diff
       let diff = (f1 -. f2).abs.sum
-      let comp = diff.float / 256.0 < (f1.size.float * 0.001) # less than 1/1000 pixels different
+      when defined(linux):
+        let comp = diff == 0
+      else:
+        let comp = diff.float / 256.0 < (f1.size.float * 0.01) # less than 1% pixels different
       echo "Tensor is long: ", expected.len, " and diff ", diff
-      echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * 0.001
+      echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * 0.0025
       check comp
       if not comp:
         echo "Comparison failed for file: ", fname, " difference is: ", diff
