@@ -91,8 +91,13 @@ suite "Compare recipe output":
         let pathF = path / $f & ".png"
         check fileExists(pathF)
         let (_, _, fext) = pathF.splitFile
-        let res = shellVerbose:
-          convert ($pathF) ($pathF.replace(fext, ".ppm"))
+        when not defined(windows):
+          let res = shellVerbose:
+            convert ($pathF) ($pathF.replace(fext, ".ppm"))
+        else:
+          # there's some windows tool called convert, need to prepend `magick`
+          let res = shellVerbose:
+            magick ($pathF) ($pathF.replace(fext, ".ppm"))
         let data = readFile(pathF.replace(fext, ".ppm")).splitLines
         result.add data
     let expected = convertRead("media/expected")
