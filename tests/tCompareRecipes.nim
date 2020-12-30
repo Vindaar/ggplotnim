@@ -98,7 +98,7 @@ suite "Compare recipe output":
         # store in `comp` to avoid check obliterating our terminal with the diff
         let diff = (f1 -. f2).abs.sum
         when defined(linux):
-          let comp = diff == 0
+          let comp = diff.float / 256.0 < (f1.size.float * 0.0001)
         else:
           let comp = diff.float / 256.0 < (f1.size.float * 0.01) # less than 1% pixels different
         echo "Tensor is long: ", expected.len, " and diff ", diff
