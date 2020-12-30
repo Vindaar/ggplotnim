@@ -89,14 +89,17 @@ suite "Compare recipe output":
       let pathF = path / $f & ".png"
       check fileExists(pathF)
       let (_, _, fext) = pathF.splitFile
-      let args = "-set coflorspace Gray -separate -average -compress none -resize 40%"
+      let args = "-set colorspace Gray -separate -average -compress none -resize 40%"
       when not defined(windows):
         let res = shellVerbose:
           convert ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
       else:
         # there's some windows tool called convert, need to prepend `magick`
+        let infile = &"\"{pathF}\""
+        let outf = $pathF.replace(fext, ".ppm")
+        let outfile = &"\"{outf}\""
         let res = shellVerbose:
-          magick ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
+          magick ($infile) ($args) ($outfile)
       result = readFile(pathF.replace(fext, ".ppm")).splitLines()[3 .. ^1].foldl(a & b, "")
         .strip.split.mapIt(it.parseInt).toTensor()
     template checkFiles(f1, f2, fname: untyped): untyped =
