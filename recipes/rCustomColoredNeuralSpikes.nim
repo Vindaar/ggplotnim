@@ -28,4 +28,5 @@ plt + scale_y_continuous() + # make sure y is considered cont.
   xlab("Neurons") +
   ylab("Spikes") +
   ggtitle("Spike raster plot, manual colors") +
+  theme_opaque() +
   ggsave("media/recipes/rCustomColoredNeuralSpikes.png")

@@ -9,4 +9,5 @@ ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
   scale_y_discrete() +
+  theme_opaque() +
   ggsave("media/recipes/rAnnotatedHeatmap.png")

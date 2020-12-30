@@ -19,4 +19,5 @@ ggplot(df, aes("in_s", "V", color = "Channel")) +
   geom_point(data = dfMin,
              color = some(parseHex("0000FF")),
              size = some(5.0)) +
+  theme_opaque() +
   ggsave("media/recipes/rHighlightMinMax.png")

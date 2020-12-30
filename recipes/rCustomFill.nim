@@ -16,4 +16,5 @@ ggplot(df, aes("pos", "name")) +
                       2 : color(0.0, 0.0, 1.0),
                       3 : color(1.0, 1.0, 0.0),
                       4 : color(1.0, 0.0, 1.0) }.toTable) +
+  theme_opaque() +
   ggsave("media/recipes/rCustomFill.png")
