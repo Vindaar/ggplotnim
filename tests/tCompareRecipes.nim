@@ -110,28 +110,29 @@ suite "Compare recipe output":
       checkFiles(expected[idx], isnow[idx], f)
       inc idx
 
-  test "Compare recipe plots via JSON":
-    ## first generate JSON from all recipe files by creating temporary
-    ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
-    ## simply dumps
-    const path = getProjectPath().parentDir
-    let runRecipesJson = shellVerbose:
-      nimble recipesJson
-    let toContinue = runRecipesJson[1] == 0
-    check toContinue
-    if not toContinue:
-      quit("Could not run recipes for JSON successfully, quitting recipe comparison")
-    for f in RecipeFiles:
-      # compare generated json with expected json
-      let resFile = parseFile "resources/recipes" / f & ".json"
-      echo "Checking ", f & ".json"
-      let expFile = parseFile(("resources/expected" / f & ".json").replace("recipes/", "expected/"))
-      let cmpRes = compareJson(resFile, expFile)
-      check cmpRes
-      if not cmpRes:
-        break
+  when defined(linux):
+    test "Compare recipe plots via JSON":
+      ## first generate JSON from all recipe files by creating temporary
+      ## recipe files, in which the `ggsave` call is replaced by `ggjson`, which
+      ## simply dumps
+      const path = getProjectPath().parentDir
+      let runRecipesJson = shellVerbose:
+        nimble recipesJson
+      let toContinue = runRecipesJson[1] == 0
+      check toContinue
+      if not toContinue:
+        quit("Could not run recipes for JSON successfully, quitting recipe comparison")
+      for f in RecipeFiles:
+        # compare generated json with expected json
+        let resFile = parseFile "resources/recipes" / f & ".json"
+        echo "Checking ", f & ".json"
+        let expFile = parseFile(("resources/expected" / f & ".json").replace("recipes/", "expected/"))
+        let cmpRes = compareJson(resFile, expFile)
+        check cmpRes
+        if not cmpRes:
+          break
 
-    ## NOTE: this is only safe against regressions of `ggplotnim`, because the
-    ## JSON we compare is ``before`` being embedded into the final root viewport
-    ## in ginger! It is simply the `Viewport` and all objects + children, as they
-    ## are handed to ginger to be drawn.
+      ## NOTE: this is only safe against regressions of `ggplotnim`, because the
+      ## JSON we compare is ``before`` being embedded into the final root viewport
+      ## in ginger! It is simply the `Viewport` and all objects + children, as they
+      ## are handed to ginger to be drawn.
