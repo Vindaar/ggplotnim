@@ -112,8 +112,10 @@ suite "Compare recipe output":
     var idx = 0
     for f in RecipeFiles:
       if f in FilesToSkip: continue
-      checkFiles(expected[idx], isnow[idx], f)
-      inc idx
+      let expected = convertRead(path / "media/expected", f)
+      let isnow = convertRead(path / "media/recipes", f)
+      check isnow.len == expected.len
+      checkFiles(expected, isnow, f)
 
   when defined(linux):
     test "Compare recipe plots via JSON":
