@@ -1587,6 +1587,150 @@ ggplot(df, aes("x", "y")) +
 
 [[./media/recipes/rLongTitleMultiline.png]]
 
+*** Histograms drawn as an outline
+
+=v0.3.21= adds an additional drawing option for histograms. Before
+histograms were always drawn by drawing individual bars. 
+This can lead to problems:
+1. we can have aliasing effects where depending on the size the
+   resulting plot is viewed at, the background may be visible in small
+   lines between the bars, even though the bars should be touching
+   perfectly (or even overlap slightly), see [[Simple histogram with N
+   bins]] for an example where this effect is visible.
+2. when plotting multiple histograms using ~position="identity"~
+   (i.e. on top / behind one another) the edges of each bar can be
+   very distracting visually, because even if one sets an alpha for
+   the histograms the alphas of the bin edges might overlap making
+   them stand out again.
+
+By drawing histograms as outlines both of these problems are solved.
+
+Let's look at how to plot such a histogram and see what it looks
+like. We will plot a histogram of purely the outline (so no fill) to
+better visualize the idea, but be assured that issue 1 is remedied in
+case of filled histograms.
+
+We will draw the example from [[Change alpha of the fill color]] as
+outlined histograms.
+#+begin_src nim :tangle recipes/rHistogramOutline.nim
+import ggplotnim
+let df = toDf(readCsv("data/mpg.csv"))
+ggplot(df, aes("cty", color = "class")) + 
+  geom_histogram(lineWidth = some(2.0), 
+                 alpha = some(0.0), # make transparent (only fill)
+                 hdKind = hdOutline) + # draw as outline
+  theme_opaque() +
+  ggsave("media/recipes/rHistogramOutline.png")
+#+end_src
+
+[[media/recipes/rHistogramOutline.png]]
+
+*** Ridgeline plots
+
+Ridgeline plots (sometimes also called [[https://clauswilke.com/blog/2017/09/15/goodbye-joyplots/][joyplots]], referencing the album
+cover of "Unknown Pleasures" by Joy Division, which shows a time
+series plot of the first discovered radio pulsar [[https://en.wikipedia.org/wiki/PSR_B1919%2B21][CP 1919]]) can
+sometimes be useful to see the trends visible in multiple histograms /
+density estimations of different times / classes etc. 
+For few histograms it's fine to plot them in one window, but for more
+than 4 or 5 histograms it can quickly become too visually busy
+([[Histograms drawn as an outline][drawing a histogram as an outline]] can help to an extent).
+
+Ridgeline plots solve this by stacking the individual plots in
+multiple "ridges", sometimes done including an overlap of the
+different panes.
+
+We're going to look at an example here, showing the distribution of
+the "gaussianity" of a point-cloud over different runs of a detector.
+
+We will start with a regular plot, where we will highlight both the
+mean value of each distribution in red and the mean of all datasets in
+black.
+
+The input file =gaussSigma_runs.csv= contains 3 columns, =bins=,
+=counts= and =Run=. The first two are simply the binned data of the
+distribution and =Run= designates which run the data corresponds to.
+#+begin_src nim :tangle recipes/rRidgeLineGauss.nim
+import ggplotnim
+
+proc getMean(bins, counts: Tensor[float]): float =
+  ## we define a helper proc to compute each mean of each ridge
+  ## individually for each `Run`
+  for i in 0 ..< counts.size:
+    result += bins[i] * counts[i]
+  result /= counts.sum
+
+let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+echo df
+let mean = getMean(df["bins", float], df["counts", float])
+let ymax = df["counts", float].max
+let white = color(1.0, 1.0, 1.0)
+let black = color(0.0, 0.0, 0.0)
+ggplot(df, aes("bins", "counts", fill = "Run")) +
+  ggridges("Run", overlap = 3.0) + # use a large overlap
+  geom_freqpoly(stat = "identity", # do not perform binning
+                color = some(white), # white outline
+                size = some(1.5)) + # make the lines a bit thicker
+  geom_linerange(aes = aes(yMin = 0, # draw black line of common mean
+                           yMax = ymax, 
+                           x = mean), 
+                 color = some(black)) +
+  geom_linerange(aes = aes(
+    fill = "Run", yMin = 0, yMax = ymax, # draw red line for each mean 
+    x = f{float -> float: getMean(`bins`, `counts`)}), # compute the mean of the current Run
+    color = some(parseHex("FF0000"))) + # color the line red
+  margin(top = 2) + # increase top margin due to large overlap
+  xlab("gaussSigma") + ylab("Counts") +
+  theme_opaque() +
+  ggsave("media/recipes/rRidgeLineGauss.png", width = 1200, height = 1200)
+#+end_src
+
+This is a nice plot:
+
+[[media/recipes/rRidgeLineGauss.png]]
+
+But of course it begs the question, can we make it pretty? ;)
+
+Let's remove those distracting lines for the mean, turn off the legend
+and paint it black!
+#+begin_src nim :tangle recipes/rRidgeLineGaussBlack.nim
+import ggplotnim
+let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+ggplot(df, aes("bins", "counts", fill = "Run")) +
+  ggridges("Run", overlap = 3.0) +
+  geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
+                size = some(3.0)) +
+  xlab("gaussSigma") + ylab("Counts") +
+  margin(top = 3, right = 2.5) +
+  theme_void(parseHex("000000")) + hideLegend() +
+  ggsave("media/recipes/rRidgeLineGaussBlack.png", width = 1200, height = 1200)
+#+end_src
+
+[[media/recipes/rRidgeLineGaussBlack.png]]
+
+That's what I call pretty!
+
+But well, some people might prefer to go full Joy Division (just
+remove the classification by "Run"):
+#+begin_src nim :tangle recipes/rJoyplot.nim
+import ggplotnim
+let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+ggplot(df, aes("bins", "counts")) +
+  ggridges("Run", overlap = 3.0) +
+  geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
+                size = some(2.0)) +
+  margin(top = 3, right = 2.5) +
+  theme_void(parseHex("000000")) + hideLegend() +
+  ggsave("media/recipes/rJoyplot.png", width = 1200, height = 1200)
+#+end_src
+
+[[media/recipes/rJoyplot.png]]
+
+We joyplots yet? Well, this may not be the prettiest joyplot ever, but
+given more classifying fields and a larger overlap, this would look
+like the original. ;)
+
+
 *** TODO Example of changing font size in plot
 
 *** TODO Log(-log) plot
