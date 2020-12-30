@@ -95,7 +95,10 @@
     classified geom
   - =rRidgeLineGaussBlack=: the same plot in "prettier"
   - =rJoyplot=: the same plot again, this time as a full "Joyplot"
- 
+- =evaluate= can now evaluate a formula of kind =fkScalar=. This is
+  useful to get a Column with a single element from a reduce operation
+  and comes into play when using a reduce operation for an aesthetic,
+  e.g. ~x = f{mean(`someCol`)}~
     
 * v0.3.20
 - fix a bug that causes the =arrange= proc to mess up sorting if more
