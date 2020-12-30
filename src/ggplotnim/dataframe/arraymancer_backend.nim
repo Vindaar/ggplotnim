@@ -1599,6 +1599,11 @@ proc calcNewColumn*(df: DataFrame, fn: FormulaNode): (string, Column) =
   ## calculates a new column based on the `fn` given
   result = (fn.colName, fn.fnV(df))
 
+proc calcNewConstColumnFromScalar*(df: DataFrame, fn: FormulaNode): (string, Column) =
+  ## calculates a new column based on the `fn` given
+  assert fn.kind == fkScalar
+  result = (fn.valName, constantColumn(fn.fnS(df), df.len))
+
 proc selectInplace*[T: string | FormulaNode](df: var DataFrame, cols: varargs[T]) =
   ## Inplace variant of `select` below.
   var toDrop = toHashSet(df.getKeys)
@@ -1651,7 +1656,10 @@ proc mutateImpl(df: var DataFrame, fns: varargs[FormulaNode],
       let (colName, newCol) = df.calcNewColumn(fn)
       df.asgn(colName, newCol)
       colsToKeep.add colName
-    of fkScalar: discard
+    of fkScalar:
+      let (colName, newCol) = df.calcNewConstColumnFromScalar(fn)
+      df.asgn(colName, newCol)
+      colsToKeep.add colName
   when dropCols:
     df.selectInplace(colsToKeep)
 
@@ -2275,9 +2283,7 @@ proc evaluate*(node: FormulaNode, df: DataFrame): Column =
       result = constantColumn(node.val, df.len)
   of fkAssign: result = df[node.rhs.toStr]
   of fkVector: result = node.fnV(df)
-  of fkScalar:
-    raise newException(ValueError, "Cannot evaluate a formula of kind " &
-      $node.kind & " without a data frame as input!")
+  of fkScalar: result = constantColumn(node.fnS(df), df.len)
 
 proc reduce*(node: FormulaNode, df: DataFrame): Value =
   ## tries to return a Column from a FormulaNode with an input

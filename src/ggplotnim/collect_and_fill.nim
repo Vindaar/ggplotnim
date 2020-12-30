@@ -20,7 +20,13 @@ when defined(defaultBackend):
       data[startIdx + i] = val
 else:
   proc addIdentityData(data: var Column, df: DataFrame, s: Scale) =
-    data = data.add s.col.evaluate(df)
+    case s.col.kind
+    of fkScalar:
+      # a scalar may happen if the user uses a reducing operation as a formula
+      # for an aes, e.g. ``x = f{float -> float: getMean(`bins`, `counts`)``
+      data = data.add constantColumn(s.col.reduce(df), 1)
+    else:
+      data = data.add s.col.evaluate(df)
 
 proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
