@@ -85,30 +85,29 @@ suite "Compare recipe output":
                           "rCustomMargins"
     ]
 
-    proc convertRead(path: string): seq[seq[string]] =
-      for i, f in RecipeFiles: # from `recipeFiles`
-        if f in FilesToSkip: continue
-        let pathF = path / $f & ".png"
-        check fileExists(pathF)
-        let (_, _, fext) = pathF.splitFile
-        when not defined(windows):
-          let res = shellVerbose:
-            convert ($pathF) ($pathF.replace(fext, ".ppm"))
-        else:
-          # there's some windows tool called convert, need to prepend `magick`
-          let res = shellVerbose:
-            magick ($pathF) ($pathF.replace(fext, ".ppm"))
-        let data = readFile(pathF.replace(fext, ".ppm")).splitLines
-        result.add data
-    let expected = convertRead("media/expected")
-    let isnow = convertRead("media/recipes")
-    check isnow.len == expected.len
+    proc convertRead(path, f: string): Tensor[int] =
+      let pathF = path / $f & ".png"
+      check fileExists(pathF)
+      let (_, _, fext) = pathF.splitFile
+      let args = "-set coflorspace Gray -separate -average -compress none -resize 40%"
+      when not defined(windows):
+        let res = shellVerbose:
+          convert ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
+      else:
+        # there's some windows tool called convert, need to prepend `magick`
+        let res = shellVerbose:
+          magick ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
+      result = readFile(pathF.replace(fext, ".ppm")).splitLines()[3 .. ^1].foldl(a & b, "")
+        .strip.split.mapIt(it.parseInt).toTensor()
     template checkFiles(f1, f2, fname: untyped): untyped =
       # store in `comp` to avoid check obliterating our terminal with the diff
-      let comp = f1 == f2
+      let diff = (f1 -. f2).sum
+      let comp = diff < 100
+      echo "Tensor is long: ", expected.len, " and diff ", diff
       check comp
       if not comp:
-        echo "Comparison failed for file: ", fname
+        echo "Comparison failed for file: ", fname, " difference is: ", diff
+
     var idx = 0
     for f in RecipeFiles:
       if f in FilesToSkip: continue
