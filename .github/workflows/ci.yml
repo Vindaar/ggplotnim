@@ -49,13 +49,13 @@ jobs:
       - name: Install dependencies (OSX)
         if: ${{matrix.target == 'macos'}}
         run: |
-          brew install cairo
+          brew install imagemagick cairo
 
       - name: Install dependencies (Windows)
         if: ${{matrix.target == 'windows'}}
         shell: powershell
         run: |
-          choco install wget
+          choco install imagemagick wget
           wget -O cairo-windows.zip https://github.com/preshing/cairo-windows/releases/download/1.17.2/cairo-windows-1.17.2.zip
           tar -xf cairo-windows.zip
           cp cairo-windows-1.17.2/lib/x64/cairo.dll ggplotnim/tests/libcairo-2.dll
