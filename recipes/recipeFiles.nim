@@ -55,7 +55,9 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rFacetRaster",
                        "rCustomFill",
                        "rCustomMargins",
-                       "rLongTitleMultiline"
+                       "rLongTitleMultiline",
+                       "rAnnotatedHeatmap",
+                       "rMultiSubplots"
                        ]
 
 proc generateJsonFile*(f: string, toRun = false) =
