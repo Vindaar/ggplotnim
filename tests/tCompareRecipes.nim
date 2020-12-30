@@ -57,71 +57,63 @@ proc compareJson*(j1, j2: JsonNode): bool =
     returnOnFalse(j1, j2)
 
 suite "Compare recipe output":
-  test "Compare recipe generated plots":
-    # first run recipes to make sure we have current recipe plots in
-    # media/recipes which we can compare with media/expected
-    const path = getProjectPath().parentDir
-    let runRecipes = shellVerbose:
-      nimble recipes
-    let toContinue = runRecipes[1] == 0
-    check toContinue
-    if not toContinue:
-      quit("Could not run recipes successfully, quitting recipe comparison")
+  when not defined(windows):
+    ## TODO: disable windows testing for the time being. Check the tests manually on
+    ## a windows machine and then reactivate once fixed
+    test "Compare recipe generated plots":
+      # first run recipes to make sure we have current recipe plots in
+      # media/recipes which we can compare with media/expected
+      const path = getProjectPath().parentDir
+      let runRecipes = shellVerbose:
+        nimble recipes
+      let toContinue = runRecipes[1] == 0
+      check toContinue
+      if not toContinue:
+        quit("Could not run recipes successfully, quitting recipe comparison")
 
-    ## NOTE: these files cannot be compared as image files, because they contain
-    ## text on non white (transparent) background, which is turned black after conversion
-    ## to `ppm`. The text rendering on the cairo library on travis is different than
-    ## locally, so it fails. These files are only tested using JSON below.
-    const FilesToSkip = @["rCustomAnnotations",
-                          "rSimpleGeomText",
-                          "rClassifiedGeomText",
-                          "rAnnotateUsingGeomText",
-                          "rAnnotateMaxValues",
-                          "rPeriodicTable",
-                          "rSimpleFacet",
-                          "rFacetTpa",
-                          "rFacetRaster",
-                          "rCustomFill",
-                          "rCustomMargins"
-    ]
+      ## NOTE: these files cannot be compared as image files, because they contain
+      ## text on non white (transparent) background, which is turned black after conversion
+      ## to `ppm`. The text rendering on the cairo library on travis is different than
+      ## locally, so it fails. These files are only tested using JSON below.
+      const FilesToSkip = @[""]
 
-    proc convertRead(path, f: string): Tensor[int] =
-      let pathF = path / $f & ".png"
-      check fileExists(pathF)
-      let (_, _, fext) = pathF.splitFile
-      let args = "-set colorspace Gray -separate -average -compress none -resize 40%"
-      when not defined(windows):
-        let res = shellVerbose:
-          convert ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
-      else:
-        # there's some windows tool called convert, need to prepend `magick`
-        let infile = &"\"{pathF}\""
-        let outf = $pathF.replace(fext, ".ppm")
-        let outfile = &"\"{outf}\""
-        let res = shellVerbose:
-          magick ($infile) ($args) ($outfile)
-      result = readFile(pathF.replace(fext, ".ppm")).splitLines()[3 .. ^1].foldl(a & b, "")
-        .strip.split.mapIt(it.parseInt).toTensor()
-    template checkFiles(f1, f2, fname: untyped): untyped =
-      # store in `comp` to avoid check obliterating our terminal with the diff
-      let diff = (f1 -. f2).abs.sum
-      when defined(linux):
-        let comp = diff == 0
-      else:
-        let comp = diff.float / 256.0 < (f1.size.float * 0.01) # less than 1% pixels different
-      echo "Tensor is long: ", expected.len, " and diff ", diff
-      echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * 0.0025
-      check comp
-      if not comp:
-        echo "Comparison failed for file: ", fname, " difference is: ", diff
+      proc convertRead(path, f: string): Tensor[int] =
+        let pathF = path / $f & ".png"
+        check fileExists(pathF)
+        let (_, _, fext) = pathF.splitFile
+        let args = "-set colorspace Gray -separate -average -compress none -resize 40%"
+        when not defined(windows):
+          let res = shellVerbose:
+            convert ($pathF) ($args) ($pathF.replace(fext, ".ppm"))
+        else:
+          # there's some windows tool called convert, need to prepend `magick`
+          let infile = &"\"{pathF}\""
+          let outf = $pathF.replace(fext, ".ppm")
+          let outfile = &"\"{outf}\""
+          let res = shellVerbose:
+            magick ($infile) ($args) ($outfile)
+        result = readFile(pathF.replace(fext, ".ppm")).splitLines()[3 .. ^1].foldl(a & b, "")
+          .strip.split.mapIt(it.parseInt).toTensor()
+      template checkFiles(f1, f2, fname: untyped): untyped =
+        # store in `comp` to avoid check obliterating our terminal with the diff
+        let diff = (f1 -. f2).abs.sum
+        when defined(linux):
+          let comp = diff == 0
+        else:
+          let comp = diff.float / 256.0 < (f1.size.float * 0.01) # less than 1% pixels different
+        echo "Tensor is long: ", expected.len, " and diff ", diff
+        echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * 0.0025
+        check comp
+        if not comp:
+          echo "Comparison failed for file: ", fname, " difference is: ", diff
 
-    var idx = 0
-    for f in RecipeFiles:
-      if f in FilesToSkip: continue
-      let expected = convertRead(path / "media/expected", f)
-      let isnow = convertRead(path / "media/recipes", f)
-      check isnow.len == expected.len
-      checkFiles(expected, isnow, f)
+      var idx = 0
+      for f in RecipeFiles:
+        if f in FilesToSkip: continue
+        let expected = convertRead(path / "media/expected", f)
+        let isnow = convertRead(path / "media/recipes", f)
+        check isnow.len == expected.len
+        checkFiles(expected, isnow, f)
 
   when defined(linux):
     test "Compare recipe plots via JSON":
