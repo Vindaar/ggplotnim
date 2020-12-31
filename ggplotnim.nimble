@@ -72,11 +72,6 @@ when canImport(docs / docs):
       "src/", "docs/",
       defaultFlags = "--hints:off --warnings:off"
     )
-    # Process the rst
-    for filePath in listFiles("docs/"):
-      if filePath[^4..^1] == ".rst":
-        let modName = filePath[5..^5]
-        exec r"nim rst2html -o:docs/" & modName & ".html " & filePath
 
 task recipes, "Generate and run all recipes":
   when not defined(windows):
