@@ -1,5 +1,5 @@
 import json, tables, options, strutils, chroma, webview, sequtils
-import ggplot_types, ggplot_styles, ggplot_theme, ggplot_scales
+import ggplot_types, ggplot_styles, ggplot_theme, ggplot_scales, collect_and_fill
 when defined(defaultBackend):
   import dataframe/fallback/formula
   import persvector
@@ -257,3 +257,25 @@ proc showVega*(data: JsonNode, fname: string) =
   w.exit()
   if fname.len == 0:
     defer: removeFile(outname)
+
+from os import splitFile
+proc ggvegaCreate*(p: GgPlot, vegaDraw: VegaDraw): JsonNode =
+  var filledScales: FilledScales
+  if p.ridges.isSome:
+    # update all aesthetics to include the `yRidges` scale
+    filledScales = collectScales(updateAesRidges(p))
+  else:
+    filledScales = collectScales(p)
+  let theme = buildTheme(filledScales, p)
+  result = p.toVegaLite(filledScales, theme, vegaDraw.width.get, vegaDraw.height.get)
+
+proc `+`*(p: GgPlot, d: VegaDraw) =
+  let plt = ggvegaCreate(p, d)
+  let (_, fname, ext) = splitFile(d.fname)
+  if ext == ".json":
+    if d.asPrettyJson:
+      writeFile(d.fname, pretty(plt))
+    else:
+      writeFile(d.fname, $plt)
+  else:
+    plt.showVega(d.fname)

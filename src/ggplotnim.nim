@@ -32,8 +32,9 @@ import ggplotnim / [
   # in this module)
   # postprocess_scales,
   ggplot_drawing, # third stage: the actual drawing
-  # vega backend
-  vega_utils
+  # vega backend, not imported by default, because webview adds compilation
+  # flags even if we do not use vega, thus we depend on webkit for no reason
+  # ggplot_vega
 ]
 export ggplot_types
 export ggplot_utils
@@ -1763,36 +1764,6 @@ proc tickposlog(s: Scale,
   labPos = filterIdx.mapIt(labPos[it])
   result = (labs, labPos)
 
-func getSecondaryAxis(filledScales: FilledScales, axKind: AxisKind): SecondaryAxis =
-  ## Assumes a secondary axis must exist!
-  case axKind
-  of akX:
-    let xScale = filledScales.getXScale()
-    result = xScale.secondaryAxis.unwrap()
-  of akY:
-    let yScale = filledScales.getYScale()
-    result = yScale.secondaryAxis.unwrap()
-
-func hasSecondary(filledScales: FilledScales, axKind: AxisKind): bool =
-  case axKind
-  of akX:
-    let xScale = filledScales.getXScale()
-    if xScale.secondaryAxis.isSome:
-      result = true
-  of akY:
-    let yScale = filledScales.getYScale()
-    if yScale.secondaryAxis.isSome:
-      result = true
-
-func hasSecondary(theme: Theme, axKind: AxisKind): bool =
-  case axKind
-  of akX:
-    if theme.xLabelSecondary.isSome:
-      result = true
-  of akY:
-    if theme.yLabelSecondary.isSome:
-      result = true
-
 proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            scale: Scale, numTicks: int, theme: Theme,
                            isSecondary = false,
@@ -2267,7 +2238,6 @@ proc find(fg: FilledGeom, label: Value): DataFrame =
       result.add val[2]
   doAssert result.len > 0, "Invalid call to find, `label` not found in `yieldData`!"
 
-proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale
 proc calcScalesForLabel(theme: var Theme, facet: Facet,
                         fg: FilledGeom, label: Value) =
   ## Given the `ScaleFreeKind` of the `facet` possibly calculate the
@@ -2296,7 +2266,6 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
         # base on filled geom's scale instead
         theme.yMarginRange = calculateMarginRange(theme, fg.yScale, akY)
 
-proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme
 proc generateFacetPlots(view: Viewport, p: GgPlot,
                         filledScales: FilledScales,
                         hideLabels = false,
@@ -2425,74 +2394,6 @@ proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
   result = t.legendPosition.isSome
 
-func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string =
-  ## extracts the correct label for the given axis.
-  ## First checks whether the theme sets a name, then checks the name of the
-  ## x / y `Scale` and finally defaults to the column name.
-  # doAssert p.aes.x.isSome, "x scale should exist?"
-  case axKind
-  of akX:
-    let xScale = getXScale(filledScales)
-    if xScale.name.len > 0:
-      result = xScale.name
-    else:
-      result = $xScale.col
-  of akY:
-    let yScale = getYScale(filledScales)
-    when defined(defaultBackend):
-      if yScale.name.len > 0:
-        result = yScale.name
-      elif not yScale.col.isNil:
-        result = $yScale.col
-      else:
-        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
-                                             it.geom.density):
-                   "density"
-                 else:
-                   "count"
-    else:
-      if yScale.name.len > 0:
-        result = yScale.name
-      elif yScale.col.name.len > 0:
-        result = $yScale.col
-      else:
-        ## TODO: make this nicer by having a better approach to propagate
-        ## the density information from geoms to here!
-        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
-                                             it.geom.density):
-                   "density"
-                 else:
-                   "count"
-
-proc calculateMarginRange(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale =
-  var margin: float
-  case axKind
-  of akX: margin = if theme.xMargin.isSome: theme.xMargin.unsafeGet else: 0.0
-  of akY: margin = if theme.yMargin.isSome: theme.yMargin.unsafeGet else: 0.0
-  let diff = scale.high - scale.low
-  result = (low: scale.low - diff * margin,
-            high: scale.high + diff * margin)
-
-proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
-  ## builds the final theme used for the plot. It takes the theme of the
-  ## `GgPlot` object and fills in all missing fields as required from
-  ## `filledScales` and `p`.
-  result = p.theme
-  if result.xLabel.isNone:
-    result.xLabel = some(labelName(filledScales, p, akX))
-  if result.yLabel.isNone:
-    result.yLabel = some(labelName(filledScales, p, akY))
-  if result.xLabelSecondary.isNone and filledScales.hasSecondary(akX):
-    result.xLabelSecondary = some(filledScales.getSecondaryAxis(akX).name)
-  if result.yLabelSecondary.isNone and filledScales.hasSecondary(akY):
-    result.yLabelSecondary = some(filledScales.getSecondaryAxis(akY).name)
-
-  # calculate `xMarginRange`, `yMarginRange` if any
-  let xScale = if result.xRange.isSome: result.xRange.unsafeGet else: filledScales.xScale
-  result.xMarginRange = result.calculateMarginRange(xScale, akX)
-  let yScale = if result.yRange.isSome: result.yRange.unsafeGet else: filledScales.yScale
-  result.yMarginRange = result.calculateMarginRange(yScale, akY)
-
 proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom: float] =
   ## Given an annotation this proc returns the relative `(left, bottom)`
   ## coordinates of either the `(x, y)` values in data space converted
@@ -2607,19 +2508,6 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
                                      alignKind = taLeft,
                                      fontOpt = some(font))
   view.addObj titleObj
-
-func updateAesRidges(p: GgPlot): GgPlot =
-  ## Adds the `ridges` information to the `GgPlot` object by assigning
-  ## the `yRidges` aesthetic to the global aesthetic and forcing its
-  ## scale to be discrete.
-  doAssert p.ridges.isSome
-  let ridge = p.ridges.unsafeGet
-  let scale = some(Scale(scKind: scLinearData, col: ridge.col, axKind: akY,
-                         hasDiscreteness: true, # force scale to be discrete!
-                         dcKind: dcDiscrete,
-                         ids: {0'u16 .. high(uint16)}))
-  result = p
-  result.aes.yRidges = scale
 
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## applies all calculations to the `GgPlot` object required to draw
@@ -2746,36 +2634,10 @@ proc `+`*(p: GgPlot, d: Draw) =
     p.ggsave(d.fname)
 
 from json import `%`
-from os import splitFile
-
-proc ggvegaCreate*(p: GgPlot, vegaDraw: VegaDraw): json.JsonNode =
-  var filledScales: FilledScales
-  if p.ridges.isSome:
-    # update all aesthetics to include the `yRidges` scale
-    filledScales = collectScales(updateAesRidges(p))
-  else:
-    filledScales = collectScales(p)
-  let theme = buildTheme(filledScales, p)
-  result = p.toVegaLite(filledScales, theme, vegaDraw.width.get, vegaDraw.height.get)
-
 proc ggvega*(fname = "", width = 640.0, height = 480.0,
              pretty = true): VegaDraw =
   VegaDraw(fname: fname, width: some(width),
            height: some(height), asPrettyJson: pretty)
-
-#proc ggvega*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
-#  (fname: fname, width = some(width), heigh: some(height))
-
-proc `+`*(p: GgPlot, d: VegaDraw) =
-  let plt = ggvegaCreate(p, d)
-  let (_, fname, ext) = splitFile(d.fname)
-  if ext == ".json":
-    if d.asPrettyJson:
-      writeFile(d.fname, json.pretty(plt))
-    else:
-      writeFile(d.fname, json.`$`(plt))
-  else:
-    plt.showVega(d.fname)
 
 proc `%`*(t: tuple): json.JsonNode =
   result = json.newJObject()

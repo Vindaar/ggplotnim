@@ -1,6 +1,6 @@
 import tables, sets, algorithm, macros, strutils
 
-import ggplot_types
+import ggplot_types, ggplot_utils
 when defined(defaultBackend):
   import dataframe/fallback/formula
 else:
@@ -161,3 +161,37 @@ genGetOptScale(weight)
 #genGetScale(color)
 #genGetScale(size)
 #genGetScale(shape)
+
+func updateAesRidges*(p: GgPlot): GgPlot =
+  ## Adds the `ridges` information to the `GgPlot` object by assigning
+  ## the `yRidges` aesthetic to the global aesthetic and forcing its
+  ## scale to be discrete.
+  doAssert p.ridges.isSome
+  let ridge = p.ridges.unsafeGet
+  let scale = some(Scale(scKind: scLinearData, col: ridge.col, axKind: akY,
+                         hasDiscreteness: true, # force scale to be discrete!
+                         dcKind: dcDiscrete,
+                         ids: {0'u16 .. high(uint16)}))
+  result = p
+  result.aes.yRidges = scale
+
+func getSecondaryAxis*(filledScales: FilledScales, axKind: AxisKind): SecondaryAxis =
+  ## Assumes a secondary axis must exist!
+  case axKind
+  of akX:
+    let xScale = filledScales.getXScale()
+    result = xScale.secondaryAxis.unwrap()
+  of akY:
+    let yScale = filledScales.getYScale()
+    result = yScale.secondaryAxis.unwrap()
+
+func hasSecondary*(filledScales: FilledScales, axKind: AxisKind): bool =
+  case axKind
+  of akX:
+    let xScale = filledScales.getXScale()
+    if xScale.secondaryAxis.isSome:
+      result = true
+  of akY:
+    let yScale = filledScales.getYScale()
+    if yScale.secondaryAxis.isSome:
+      result = true
