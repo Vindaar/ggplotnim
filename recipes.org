@@ -1730,6 +1730,39 @@ We joyplots yet? Well, this may not be the prettiest joyplot ever, but
 given more classifying fields and a larger overlap, this would look
 like the original. ;)
 
+*** Simple Vega-Lite example
+
+From version =v0.3.21= on most plots also work using Vega-Lite (with
+some quirks). This excludes plots, which use facetting or subplots of
+any kind (including =ggridges=).
+
+Usage is very simple and just requires two things: import
+=ggplotnim/ggplot_vega= and replace the =ggsave= call by =ggvega=. A
+simple example:
+#+begin_src nim :tangle recipes/rSimpleVegaLite.nim
+import ggplotnim
+import ggplotnim/ggplot_vega
+let mpg = toDf(readCsv("data/mpg.csv"))
+ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+  geom_point() +
+  ggtitle("ggplotnim in Vega-Lite!") +
+  ggvega("media/recipes/rSimpleVegaLite.html") # w/o arg creates a `/tmp/vega_lite_plot.html`
+#+end_src
+
+Note that if you give a filename to =ggvega= we will store the HTML
+file including the JSON data in that file. The filename extension
+does not matter, but should be =.html=.
+If the filename ends on =.json= however, we *only* store the JSON
+description of the Vega-Lite plot in that =.json= file. This is useful
+to simply generate a bunch of Vega-Lite plots without opening a
+webview window.
+
+This recipe gives us the following plot:
+
+[[media/recipes/rSimpleVegaLite.png]]
+
+and [[https://vega.github.io/editor/?#/gist/0bef3ed0cf7c6d26da927732f1c81582/rSimpleVegaLite.json][here as an interactive chart in the vega browser]].
+
 
 *** TODO Example of changing font size in plot
 

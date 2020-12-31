@@ -1,3 +1,8 @@
+* v0.3.22
+- to use =ggvega= import =gglotnim/ggplot_vega= (not imported by
+  default anymore)
+- add a simple Vega-Lite recipe: =rSimpleVegaLite.nim= (this recipe is
+  *not* part of the CI yet)
 * v0.3.21
 - show tick labels for log plots if no full power of 10 visible 
 - facet_wrap fixes:
