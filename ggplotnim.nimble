@@ -55,23 +55,28 @@ proc removePrefix(f, prefix: string): string =
   result = f
   result.removePrefix(prefix)
 
-# doc generation inspired by `strfmt`
-task docs, "Generate HTML docs using the Org file":
-  # https://github.com/jgm/pandoc/issues/4749
-  exec "pandoc " & orgFile & " -o " & rstFile
-  var files: seq[string]
-  template walk(path: string, outf: untyped): untyped {.dirty.} =
-    for filePath in listFiles(path):
-      if filePath.endsWith(".nim"):
-        let outfile = outf
-        exec &"nim doc {outfile} {filePath}"
-        files.add outfile.removePrefix("-o:")
-  walk("src", "-o:index.html")
-  walk("src" / pkgName, &"-o:{filePath.basename}.html")
-  mvFile rstFile, rstFileAuto
-  for f in files:
-    let fname = f.basename & ".html"
-    mvFile fname, "docs/" & $fname
+template canImport(x: untyped): untyped =
+  compiles:
+    import x
+
+when canImport(docs / docs):
+  # can define the `gen_docs` task (docs already imported now)
+  # this is to hack around weird nimble + nimscript behavior.
+  # when overwriting an install nimble will try to parse the generated
+  # nimscript file and for some reason then it won't be able to import
+  # the module (even if it's put into `src/`).
+  task gen_docs, "Generate ggplotnim documentation":
+    # build the actual docs and the index
+    exec "pandoc " & orgFile & " -o " & rstFile
+    buildDocs(
+      "src/", "docs/",
+      defaultFlags = "--hints:off --warnings:off"
+    )
+    # Process the rst
+    for filePath in listFiles("docs/"):
+      if filePath[^4..^1] == ".rst":
+        let modName = filePath[5..^5]
+        exec r"nim rst2html -o:docs/" & modName & ".html " & filePath
 
 task recipes, "Generate and run all recipes":
   when not defined(windows):
