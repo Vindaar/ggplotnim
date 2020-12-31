@@ -4,11 +4,13 @@ on:
     paths:
       - 'tests/**'
       - 'src/**'
+      - 'ggplotnim.nimble'
       - '.github/workflows/ci.yml'
   pull_request:
     paths:
       - 'tests/**'
       - 'src/**'
+      - 'ggplotnim.nimble'
       - '.github/workflows/ci.yml'
 
 jobs:
