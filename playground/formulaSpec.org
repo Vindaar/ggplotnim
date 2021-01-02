@@ -1,0 +1,626 @@
+* Spec for DF formulas
+
+Formulas serve as a convenience syntax to describe computations that
+are supposed to be done on a =DataFrame=. These come in three forms:
+1. formulas that compute a new =Column= (map operations)
+2. formulas that reduce one or more columns to a single value (reduce
+   operations)
+3. simple constants or pure (arithmetic) operations, i.e. things that
+   can be evaluated without the context of a =DataFrame=
+
+This means we can write prototypes for these three operations as:
+
+1. map operations require both a datatype to *read* and one *result*
+   data type. In theory there may be multiple *read* data types with
+   the caveat that all "read" datatypes must be convertible to the
+   "result" datatype. 
+   In addition they of course require some operationn *op* to be done
+   using all "read" tensors t_i. 
+   Finally, a name for the new (or overwritten) column in the
+   dataframe is needed *outname*.
+#+begin_src nim
+proc(df: DataFrame): Column = 
+  let
+    t1 = df["col1", readType1]
+    ...
+    tn = df["colN", readTypeN] 
+  var res = newTensor[resultType](df.len)
+  for idx in 0 ..< df.len:
+    res[idx] = op(t1, ..., tN)
+  result = toColumn res
+#+end_src
+2. reduce operations are a bit simpler. The type that will be returned
+   is always going to be a =Value= .
+   The "read" datatypes are required same as for map operations for
+   all tensors t_i. An operation has to be supplied to perform an
+   action on all tensors that reduces to a single scalar value.
+   (NOTE: we could extend it to make it return a specific type, same
+   as we deduce the return type of =res= in the above case. But in
+   that case the signature of the proc changes, which means we'd need
+   to allow generic =FormulaNodes=. That brings the problem of taking
+   =varargs[FormulaNode]=, because that cannot work anymore. So it's a
+   bit messy and the overhead of storing a number in a value should be
+   negligible).
+#+begin_src nim
+proc(df: DataFrame): Value = 
+  let
+    t1 = df["col1", readType1]
+    ...
+    tn = df["colN", readTypeN] 
+  res[idx] = op(t1, ..., tN)
+  result = %~ res
+#+end_src
+
+3. are self explanatory, it's just Nim code that can be evaluated w/o
+   additional input. The complication about this is how to detect it is
+   just that. 
+
+In the current implementation of the formula macro the types of all
+input tensors =t_i= has to be the same. As mentioned above this is an
+artificial requirement in principle as long as the type can be
+converted to the output type (or in case of boolean return types to
+the comparison type).
+
+Before jumping into the macro craze again to make changes to the
+macro, we will now:
+- design all types of operations that are expected to work given our
+  DSL
+- write helper procedures to allow constructing formulas manually
+  without the use of the DSL (which is not really supported right now,
+  for no good reason)
+- extend the spec to allow multiline arguments and possibly a smarter
+  looping using loop fusion (forEach if no string / Value types used,
+  else regular for)
+
+The actual =FormulaNode= type needs to store some additional
+information about the kind of formula, its name and value / closure.
+
+** The =FormulaNode= type
+
+#+begin_src nim
+type
+  FormulaKind* = enum
+    fkVariable, fkAssign, fkVector, fkScalar
+
+  FormulaNode* = object
+    name*: string # stringification of whole formula. Only for printing and
+                  # debugging
+    case kind*: FormulaKind
+    of fkVariable:
+      # just some constant value. Result of a simple computation as a `Value`
+      # This is mainly used to rename columns / provide a constant value
+      val*: Value
+    of fkAssign:
+      lhs*: string # can this be something else?
+      rhs*: Value
+    of fkVector:
+      colName*: string
+      resType*: ColKind
+      fnV*: proc(df: DataFrame): Column
+    of fkScalar:
+      valName*: string
+      valKind*: ValueKind
+      fnS*: proc(c: DataFrame): Value
+#+end_src
+
+** Expressions to be supported
+
+Differentiating between "pure" and "impure" formulas:
+
+By having a test on "pureness" of the formula (that means checking for
+references to columns of a =DataFrame= or usage of any of the
+following symbols / expressions:
+#+begin_src 
+~
+<<
+<-
+<dtype> -> <dtype2>:
+`someCol`
+c"someCol"
+df["foo"]
+df["foo"][idx]
+idx
+#+end_src
+
+If none of the above is present, we can dispatch to the =formula=
+template above and assign create a =FormulaNode= of type =fkVariable=
+with the value being the result of the expression as a =Value=.
+
+*** Pure Nim expressions
+
+Essentially pure formulas are nothing but a template.
+#+begin_src nim
+f{1}
+f{1.0}
+f{"hello"}
+f{1 + 2}
+block:
+  let x = 2
+  f{1 + x}
+block:
+  proc foo(): int = 2
+  f{foo()}
+  f{1 + foo()}
+  proc bar(x: int): int = 1 + x
+  f{bar(2)}
+  f{3 + bar(3)}
+block:
+  # control flow
+  let x = 2
+  f{if x > 1: 
+      5
+    else:
+      10}
+#+end_src
+
+Possible implementation:
+#+begin_src nim
+import macros
+
+template formula(body: untyped): untyped =
+  body
+
+macro `{}`(arg, stmts: untyped): untyped = 
+  if arg.kind == nnkIdent and arg.strVal == "f":
+    result = formula(stmts)
+  else:
+    error("Invalid formula!")
+
+echo f{1 + 2}
+let x = 2
+echo f{if x > 1: 
+         5
+       else:
+         10}
+#+end_src
+
+#+RESULTS:
+| 3 |
+| 5 |
+
+This works fine. Invalid code will just generate a regular Nim
+compilation error.
+
+This means something like the following:
+#+begin_src nim
+import macros, ggplotnim
+
+proc initVariable[T](x: T): FormulaNode =
+  result = FormulaNode(name: "foo", kind: fkVariable, 
+                       val: %~ x)
+
+proc arePureFormula(n: NimNode): bool = true # a stub
+
+macro foo(arg, stmts: untyped): untyped = 
+  if arg.kind == nnkIdent and arg.strVal == "f":
+    if stmts.arePureFormula():
+      result = quote do:
+        initVariable(`stmts`)
+  else:
+    error("Invalid formula!")
+
+let x = foo(f, 1 + 2)
+echo x.repr
+let a = 2
+let y = foo(f):
+  if a > 1:
+    5
+  else:
+    10
+echo y.repr
+
+#+end_src
+
+#+RESULTS:
+| [name         | = | foo      |   |     |
+| fkVariableval | = | [VIntnum | = | 3]] |
+| [name         | = | foo      |   |     |
+| fkVariableval | = | [VIntnum | = | 5]] |
+
+where we have replaced the =f{}= syntax by a =foo()= call so that we
+can actually import =ggplotnim= and access the actual =FormulaNode=
+type. In this version the =formula= template is not even needed,
+because we can just insert the pure (implementation pending) formulas
+to the new generic =initVariable=.
+
+*** Impure formulas (formulas accessing DF)
+
+If a formula is detected as being impure, we first have to determine
+the actual formula kind. This can be done in the same manner as
+currently done in =compileFormula=.
+
+Before we get into any of this, let's try to write some helpers that
+allow us to construct formulas manually of specific types.
+
+#+begin_src nim :results value drawer
+import ggplotnim, sequtils
+import arraymancer / laser / strided_iteration / foreach
+proc initVectorFormula[T](fnV: proc(df: DataFrame): Column): FormulaNode =
+  result = FormulaNode(name: "foo", kind: fkVector, resType: toColKind(T), fnV: fnV)
+
+proc initScalarFormula[T](fnS: proc(df: DataFrame): Value): FormulaNode =
+  result = FormulaNode(name: "foo", kind: fkScalar, valKind: toValKind(T), fnS: fnS)
+
+template vecFn(dtype, body: untyped): untyped =
+  let cl = proc(df: DataFrame): Column = 
+    let df {.inject.} = df
+    body
+  initVectorFormula[dtype](cl)
+
+template scalarFn(dtype, body: untyped): untyped =
+  let cl = proc(df: DataFrame): Value =
+    let df {.inject.} = df
+    body
+  initScalarFormula[dtype](cl)
+
+let f = vecFn(int):
+  let t = df["x", int]
+  result = toColumn t.map_inline(x * 2)
+
+let f2 = vecFn(int):
+  let t = df["x", int]
+  var res = newTensor[int](df.len)
+  for idx in 0 ..< df.len:
+    res[idx] = t[idx] * 2
+  result = toColumn res
+
+let f3 = vecFn(int):
+  let t = df["x", int]
+  var res = newTensor[int](df.len)
+  forEach x in res, y in t:
+    x = y * 2
+  result = toColumn res
+
+let fs = scalarFn(int):
+  let t = df["x", int]
+  var res: int
+  forEach x in t:
+    res += x
+  result = %~ res
+
+echo f.repr
+
+let df = seqsToDf({"x" : toSeq(0 .. 10)})
+echo f.evaluate(df)
+echo f2.evaluate(df)
+echo f3.evaluate(df)
+echo fs.reduce(df)
+#+end_src
+
+#+RESULTS:
+:results:
+[name = 0x7f520ac27060"foo",
+fkVectorcolName = "",
+resType = colInt,
+fnV = [Field0 = 0x5604099338bb,
+Field1 = nil]]
+Column of type: int with length: 11
+  contained Tensor: Tensor[system.int] of shape [11]" on backend "Cpu"
+	0	2	4	6	8	10	12	14	16	18	20
+Column of type: int with length: 11
+  contained Tensor: Tensor[system.int] of shape [11]" on backend "Cpu"
+	0	2	4	6	8	10	12	14	16	18	20
+Column of type: int with length: 11
+  contained Tensor: Tensor[system.int] of shape [11]" on backend "Cpu"
+	0	2	4	6	8	10	12	14	16	18	20
+55
+:end:
+
+
+In summary the closure implementation of a vector formula consits of 3
+parts:
+- the preface:
+  #+begin_src nim
+  let
+    t1 = df["t1", dtype1]
+    ...
+    tn = df["tn", dtypen]
+  var res = newTensor[resType](df.len
+  #+end_src
+- the loop:
+  #+begin_src nim
+  for / forEach / map_inline / ...:
+    # some code using `res`
+  #+end_src
+- the result:
+  #+begin_src nim
+  result = toColumn res
+  #+end_src
+
+Complications are thus:
+- how do we determine the datatypes of the input tensors?
+- how do we determine the datatype of the result?
+and for the =vecFn= template:
+- how do we determine the column type so that =vecFn= could be
+  independent to create a =FormulaNode=?
+
+
+The implementation of reducing formulas is essentially the same,
+with the following changes to each of the 3 stages:
+- preface:
+  #+begin_src nim
+  var res: resType
+  #+end_src
+- the loop:
+  #+begin_src nim
+  # some code modifying `res`
+  #+end_src
+- the result:
+  #+begin_src nim
+  result = %~ res
+  #+end_src
+and in many cases the whole body can be reduced to a single line, if
+the reducing operation simply calls a procedure (e.g. =mean=).
+
+#+begin_src nim
+import macros
+
+f{
+  preface:
+    t in df["foo", int] # t refers to each element of `foo` in the loop
+    u in df["bar", float]
+    v = df["baz", int] # v refers to the ``Tensor`` `baz`
+  dtype: float
+  name: "fooBar"
+  loop:
+    t.float * u + v[idx].float
+}
+
+f{
+  preface:
+    t in df["foo", int] # t refers to each element of `foo` in the loop
+    u in df["bar", float]
+    v = df["baz", int] # v refers to the ``Tensor`` `baz`
+    r in result
+  dtype: bool
+  name: "filterme"
+  loop:
+    r = t.float > u and v[idx] < 2.2
+}
+
+f{
+  preface:
+    t in df["foo", float] # t refers to each element of `foo` in the loop
+  dtype: bool
+  name: "noNan"
+  loop:
+    not classify(t) == fcNan
+}
+# then
+"noNan" ~ not classify(t) == fcNan
+# is just a short form of 
+name: "noNan"
+loop:
+  not classify(t) == fcNan
+#+end_src
+
+Have a data type to store this information at CT:
+#+begin_src nim
+type
+  ## either: `t in df["foo", int]`
+  ## or: `t = df["foo", int]`
+  Assign = object
+    element: NimNode # e.g. `t`
+    tensor: NimNode # either `t` or `t_T` if `elmenent` used
+    col: NimNode # name of the column
+    colType: NimNode # e.g. `float`
+  Preface = object
+    args: seq[Assign]
+  FormulaCT = object
+    preface: Preface
+    resType: NimNode # e.g. `ident"float"`
+    name: string # name of the formula body as lisp
+    loop: NimNode # loop needs to be patched to remove accented quotes etc
+#+end_src
+And a function to convert =FormulaCT= into a vector / scalar closure procedure.
+
+Accented quotes / call string literals are converted into =Assign=:
+#+begin_src nim
+`foo` -> Assign(
+  element: fooEl, # gensym
+  tensor: fooT, # gensym
+  col: foo,
+  colType, # heuristics or type hint
+)
+# same with `c"foo"`
+#+end_src
+
+*** Operations to be supported
+
+#+begin_src nim
+f{`x`}
+f{`x` + `y`}
+f{"foo" ~ `x` + `y`}
+f{"foo" << `x` + `y`}
+f{"foo" ~ `x` + fn(`y`)}
+f{"foo" ~ fn(`x`)}
+let bar = "hello"
+f{"foo" ~ fn(`x`, bar)}
+# for filtering
+f{not classify(`x`) == fcNaN}
+f{not isNull(`x`)}
+f{isBool(`x`)}
+f{`x` > 5}
+f{df["x"][idx] > 5 and `y` < 4}
+f{"newCol" ~ if `x` < 3:
+               foo(`x`)
+             else:
+               bar(`x)}
+#+end_src
+and many more...
+
+*** Automatic type determination
+
+One of the major issues in the current implementation is our hacky
+pass from untyped to typed macros. In principle this is not an issue,
+but the problem is that we cannot pass multiple procedures to a typed
+macro, due to the following Nim issue:
+https://github.com/nim-lang/Nim/issues/13913
+
+However, we can work around it using an approach such as:
+#+begin_src nim
+import macros, math, tables
+
+proc fn(x: int, s: string): string = $x & s
+var EncounteredSymbols {.compileTime.}: Table[string, seq[NimNode]]
+
+macro doTyped(name: static string, arg: typed): untyped =
+  if name notin EncounteredSymbols:
+    EncounteredSymbols[name] = newSeq[NimNode]()
+  case arg.kind
+  of nnkClosedSymChoice, nnkOpenSymChoice:
+    for ch in arg:
+      EncounteredSymbols[name].add ch
+  else:
+    EncounteredSymbols[name].add arg
+
+macro foo(n: static string, fns: varargs[untyped]): untyped =
+  result = newStmtList()
+  for t in fns:
+    result.add quote do:
+      doTyped(`n`, `t`)
+
+foo("bar", sqrt, pow, ln, fn)
+static:
+  for k, val in EncounteredSymbols:
+    for s in val:
+      echo s.getImpl.treeRepr
+#+end_src
+
+It requires neither ={.experimental: "dynamicBindSym".}= nor a macro
+taking multiple typed parameters. Instead we have a compilation as
+follows:
+- an untyped macro, which extracts all symbols (nnkCall, nnkCommand?)
+  used in the body, it outputs calls as:
+  1. add each symbol using a =doTyped= equivalent to some global
+     =Table= where the key is the name of the formula
+  2. gen code to call another macro with the same arguments and the
+     name of the just inserted key
+  3. said macro can now read all typed symbols from the =Table= 
+
+The final implementation is a bit more complicated in some sense,
+because it requires us to skip identifiers =df=, =idx= as well as
+=nnkBracketExpr= of =df[<someCol>]([idx])=, but in the latter case
+take all identifiers found in a chain of =nnkDotExpr=.
+
+=nnkDotExpr= however has to be kept as is (as a chain of calls) iff it
+only contains identifiers.
+
+#+begin_src nim
+var TypedSymbols {.compileTime.}: Table[string, seq[NimNode]]
+
+macro addSymbols(name: string, n: typed): untyped =
+  if name.repr notin TypedSymbols:
+    TypedSymbols[name.repr] = newSeq[NimNode]()
+  TypedSymbols[name.repr].add n
+
+proc extractSymbols(n: NimNode): seq[NimNode] =
+  case n.kind
+  of nnkIdent, nnkSym:
+    # take any identifier or symbol
+    if n.strVal notin ["df", "idx"]: # these are reserved identifiers
+      result.add n
+  of nnkBracketExpr:
+    # check if contains df[<something>], df[<something>][idx]
+    if not ((n[0].kind == nnkIdent and n[0].strVal == "df") or
+            (n[0].kind == nnkBracketExpr and
+             n[0][0].kind == nnkIdent and n[0][0].strVal == "df" and
+             n[1].kind == nnkIdent and n[1].strVal == "idx")):
+      result.add n
+  of nnkDotExpr:
+    ## If `DotExpr` consists only of Idents during the untyped pass,
+    ## it's either field access or multiple calls taking no arguments.
+    ## In that case we can just keep the chain and pass it to the typed
+    ## macro. In case other things are contained (possibly `df[<...>]` or
+    ## a regular call) take the individual fields.
+    ## For something like `ms.trans` in ggplotnim (`trans` field of a scale)
+    ## we need to pass `ms.trans` to typed macro!
+    proc isAllIdent(n: NimNode): bool =
+      result = true
+      case n.kind
+      of nnkIdent: discard
+      of nnkDotExpr:
+        if n[1].kind != nnkIdent: return false
+        result = isAllIdent(n[0])
+      else: return false
+    let allIdent = isAllIdent(n)
+    if allIdent:
+      result.add n
+    else:
+      # add all identifiers found
+      for ch in n:
+        result.add extractSymbols(ch)
+  of nnkAccQuoted, nnkCallStrLit:
+    # do not look at these, since they are untyped identifiers referring to
+    # DF columns
+    return
+  else:
+    for i in 0 ..< n.len:
+      result.add extractSymbols(n[i])
+#+end_src
+
+With this information in place, we can determine more type information
+than before. There are still 4 different ways for us to determine
+types:
+1. if explicit usage of =<<=, =~=, =<-=: gives us information about
+   whether the total computation is a tensor or a scalar
+2. heuristics based on boolean / numerical operators, which we can use
+   to deduce the result of operations (but in case of boolean
+   operations not of the input!)
+3. the newly gained type information from typed symbols: we can walk
+   over the found symbols and check all open sym choices for things
+   that:
+   - take either scalars or tensors as input
+   - from these look at the output
+   to determine the required inputs for DF columns
+4. type hints of =float -> int= kind
+
+The latter should be extended in a way similar to what's explained in
+[[Impure formulas (formulas accessing DF)]]. 
+
+
+** Replacing for by forEach 
+
+To generate a =forEach= statement from the formula macro instead of a
+normal for loop, we need to understand what code we have to
+generate. Let's look at the AST of a =forEach= call:
+#+begin_src nim :results value code
+import macros
+
+macro dumpAtRT(body: untyped): untyped =
+  let s = body.treeRepr
+  result = quote do:
+    echo `s`
+
+dumpAtRT:
+  forEach a in x, b in y, c in z:
+    echo a, b, c
+#+end_src
+
+#+RESULTS:
+#+begin_src nim
+StmtList
+  Command
+    Ident "forEach"
+    Infix
+      Ident "in"
+      Ident "a"
+      Ident "x"
+    Infix
+      Ident "in"
+      Ident "b"
+      Ident "y"
+    Infix
+      Ident "in"
+      Ident "c"
+      Ident "z"
+    StmtList
+      Command
+        Ident "echo"
+        Ident "a"
+        Ident "b"
+        Ident "c"
+#+end_src
+
+So it's simply a =nnkCommand= with a bunch of =nnkInfix=
+arguments. Easy enough to generate.
