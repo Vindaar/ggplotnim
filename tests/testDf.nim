@@ -1200,3 +1200,11 @@ t_in_s,  C1_in_V,  C2_in_V,  type
         .arrange("class")
 
       check dfTr.select("subMeanHwy").unique()["subMeanHwy", float] == expDf.select("subMeanHwy")["subMeanHwy", float]
+
+suite "Formulas":
+  test "Formula containing `if`":
+    let fn = f{int -> int: if `poopoo` > 5:
+                 `pewpew`
+               else:
+                 `y`}
+    echo fn
