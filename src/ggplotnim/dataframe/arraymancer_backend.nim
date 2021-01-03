@@ -1030,41 +1030,6 @@ proc arrange*(df: DataFrame, by: seq[string], order = SortOrder.Ascending): Data
 proc arrange*(df: DataFrame, by: string, order = SortOrder.Ascending): DataFrame =
   result = df.arrange(@[by], order)
 
-#proc `[]=`*[T](df: var DataFrame, key: string, idx: int, val: T) =
-#  ## assign `val` to column `c` at index `idx`
-#  ## If the types match, it just calls `[]=` on the tensor.
-#  ## If they are compatible, `val` is converted to c's type.
-#  ## If they are incompatible, `c` will be rewritten to an object
-#  ## column.
-#  var rewriteAsValue = false
-#  case df[key].kind
-#  of colFloat:
-#    when T is float:
-#      df[key].fCol[idx] = val
-#    elif T is SomeNumber:
-#      df[key].fCol[idx] = val.float
-#  of colInt:
-#    when T is int:
-#      df[key].iCol[idx] = val
-#    else:
-#      rewriteAsValue = true
-#  of colString:
-#    when T is string:
-#      df[key].sCol[idx] = val
-#    else:
-#      rewriteAsValue = true
-#  of colBool:
-#    when T is bool:
-#      df[key].bCol[idx] = val
-#    else:
-#      rewriteAsValue = true
-#  of colObject:
-#    df[key].oCol[idx] = %~ val
-#  if rewriteAsValue:
-#    # rewrite as an object column
-#    df = df[key].toObjectColumn()
-#    df[key].oCol[idx] = %~ val
-
 proc assign*(df: var DataFrame, key: string, idx1: int, c2: Column, idx2: int) =
   ## checks if the value in `c1` at `idx1` is equal to the
   ## value in `c2` at `idx2`
