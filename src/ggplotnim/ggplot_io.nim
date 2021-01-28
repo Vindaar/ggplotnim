@@ -376,10 +376,11 @@ proc readCsvTyped*(fname: string,
   colStart = lastColStart
   # 3. create the starting columns
   var cols = newSeq[Column](colNames.len)
+  let dataLines = lineCnt - skippedLines
   for i in 0 ..< colTypes.len:
     # create column of length:
     # lines in file - header - skipLines
-    cols[i] = newColumn(colTypes[i], lineCnt - skippedLines)
+    cols[i] = newColumn(colTypes[i], dataLines)
   # 4. parse the actual data
   doAssert row >= 0, "Parsing the header failed"
   var
@@ -392,7 +393,7 @@ proc readCsvTyped*(fname: string,
                intVal, floatVal, retType)
   for i, col in colNames:
     result[col] = cols[i]
-  result.len = row
+  result.len = dataLines
 
   ff.close()
 
