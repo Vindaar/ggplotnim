@@ -866,7 +866,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let dfUniqueAll = df.unique
     check dfUniqueAll.len == 5
     # now only use columns start and stop
-    let dfUnique = df.unique("Start", "Stop")
+    let dfUnique = df.unique(["Start", "Stop"])
     check dfUnique.len == 4
 
   test "setDiff":
