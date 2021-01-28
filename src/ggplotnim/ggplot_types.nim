@@ -87,6 +87,9 @@ type
     name*: string
     axKind*: AxisKind
 
+  DiscreteFormat* = proc(x: Value): string
+  ContinuousFormat* = proc(x: float): string
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -118,7 +121,7 @@ type
       valueMap*: OrderedTable[Value, ScaleValue]
       # seq of labels to access via index
       labelSeq*: seq[Value]
-      formatDiscreteLabel*: proc(x: Value): string
+      formatDiscreteLabel*: DiscreteFormat
     of dcContinuous:
       # For continuous we might want to add a `Scale` in the ginger sense
       dataScale*: ginger.Scale
@@ -127,7 +130,7 @@ type
       # `scTransformedData`, but contains the correct style calculations for the
       # other `ScaleKinds`
       mapData*: proc(df: DataFrame): seq[ScaleValue]
-      formatContinuousLabel*: proc(x: float): string
+      formatContinuousLabel*: ContinuousFormat
 
   ## enum to determine which scales in a facet plot are free
   ScaleFreeKind* = enum
