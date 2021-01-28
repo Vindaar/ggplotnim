@@ -285,19 +285,26 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
   if hasScale:
     case scale.dcKind
     of dcDiscrete:
+      let format =
+        if scale.formatDiscreteLabel != nil: scale.formatDiscreteLabel
+        else: (proc(x: Value): string = $x)
       result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                         hideTickLabels = hideTickLabels,
                                         margin = marginOpt,
-                                        format = scale.formatDiscreteLabel)
+                                        format = format)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
                                             hideTickLabels = hideTickLabels,
                                             margin = marginOpt,
-                                            format = scale.formatDiscreteLabel)
+                                            format = format)
     of dcContinuous:
-      result = view.handleContinuousTicks(p, axKind, scale.dataScale,
+      let dataScale = if scale.dataScale.low == scale.dataScale.high:
+                        view.getCorrectDataScale(axKind)
+                      else:
+                        scale.dataScale
+      result = view.handleContinuousTicks(p, axKind, dataScale,
                                           scale.scKind,
                                           numTicks,
                                           trans = scale.trans,
