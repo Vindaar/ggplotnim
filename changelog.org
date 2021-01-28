@@ -1,4 +1,18 @@
+* v0.3.23
+- better handling of ticks
+- secondary axes can now be a transformed version of the primary axes
+- =unique= has a =keepAll= option, which keeps all column in the
+  resulting DF and not only those for which the unique check is
+  performed
+- fix bug in =readCsvTyped= for CSV files without an empty line at the
+  end
+- allow =nnkBracketExpr=, =nnkCurly= in formulas
+- fix issue in =gather= when gathering a DF with multiple column
+  types. Type of the gathered columns took all DF columns into
+  account, even those not gathered.
+  
 * v0.3.22
+
 - to use =ggvega= import =gglotnim/ggplot_vega= (not imported by
   default anymore)
 - add a simple Vega-Lite recipe: =rSimpleVegaLite.nim= (this recipe is
