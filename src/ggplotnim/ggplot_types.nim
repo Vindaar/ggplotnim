@@ -16,6 +16,9 @@ else:
 # something like
 # aes: array[AesKind, Option[Scale]]
 type
+  # raised if a mix of aesthetics is invalid (typically some information missing)
+  AestheticError* = object of CatchableError
+
   Aesthetics* = object
     # In principle `x`, `y` are `Scale(scKind: scLinearData)`!
     # possibly `scTranformedData`.

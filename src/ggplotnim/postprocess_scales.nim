@@ -282,7 +282,7 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
   template assignIfAny(fg, scale, arg: untyped): untyped =
     if scale.isSome:
       fg.arg = some(getColName(scale.get))
-  template elseAuto(scale, body: untyped): untyped =
+  template assignTileRaster(scale, body: untyped): untyped =
     if scale.isNone:
       body
   # TODO: use fg. gid?
@@ -293,23 +293,96 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     fg.assignIfAny(getYMinScale(fs, fg.geom), yMin)
     fg.assignIfAny(getYMaxScale(fs, fg.geom), yMax)
   of gkTile:
-    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
-    elseAuto(getHeightScale(fs, fg.geom)):
+    let
+      hS = getHeightScale(fs, fg.geom)
+      wS = getWidthScale(fs, fg.geom)
+      xMinS = getXMinScale(fs, fg.geom)
+      xMaxS = getXMaxScale(fs, fg.geom)
+      yMinS = getYMinScale(fs, fg.geom)
+      yMaxS = getYMaxScale(fs, fg.geom)
+    if hS.isSome:
+      # use height if available
+      fg.height = some(getColName(hS.get))
+    elif yMinS.isSome and yMaxS.isSome:
+      let minName = getColName(yMinS.get)
+      let maxName = getColName(yMaxS.get)
+      let yColName = getColName(getYScale(fs, fg.geom))
+      df = df.mutate(f{float -> float: "height" ~ df[maxName][idx] - df[minName][idx]},
+                     f{float -> float: yColName ~ df[minName][idx]})
+      fg.height = some("height")
+    elif yMinS.isSome or yMaxS.isSome:
+      raise newException(AestheticError, "Invalid combination of aesthetics! If no height " &
+        "given both an `yMin` and `yMax` has to be supplied for geom_tile!")
+    else:
+      echo "INFO: using default height of 1 since no tiling height information supplied. " &
+        "Add `height` or (`yMin`, `yMax`) as aesthetics for a different values."
       df["height"] = constantColumn(1.0, df.len)
       fg.height = some("height")
-    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
-    elseAuto(getWidthScale(fs, fg.geom)):
+    if wS.isSome:
+      # use width if available
+      fg.width = some(getColName(wS.get))
+    elif xMinS.isSome and xMaxS.isSome:
+      let minName = getColName(xMinS.get)
+      let maxName = getColName(xMaxS.get)
+      let xColName = getColName(getXScale(fs, fg.geom))
+      df = df.mutate(f{float -> float: "width" ~ df[maxName][idx] - df[minName][idx]},
+                     f{float -> float: xColName ~ df[minName][idx]})
+      fg.width = some("width")
+    elif xMinS.isSome or xMaxS.isSome:
+      raise newException(AestheticError, "Invalid combination of aesthetics! If no width " &
+        "given both an `xMin` and `xMax` has to be supplied for geom_tile!")
+    else:
+      echo "INFO: using default width of 1 since no tiling width information supplied. " &
+        "Add `width` or (`xMin`, `xMax`) as aesthetics for a different values."
       df["width"] = constantColumn(1.0, df.len)
       fg.width = some("width")
+    let fillScale = getFillScale(fs)
+    fg.fillCol = getColName(fillScale)
+    fg.fillDataScale = fillScale.dataScale
   of gkRaster:
-    fg.assignIfAny(getHeightScale(fs, fg.geom), height)
-    elseAuto(getHeightScale(fs, fg.geom)):
+    let
+      hS = getHeightScale(fs, fg.geom)
+      wS = getWidthScale(fs, fg.geom)
+      xMinS = getXMinScale(fs, fg.geom)
+      xMaxS = getXMaxScale(fs, fg.geom)
+      yMinS = getYMinScale(fs, fg.geom)
+      yMaxS = getYMaxScale(fs, fg.geom)
+    if hS.isSome:
+      # use height if available
+      fg.height = some(getColName(hS.get))
+    elif yMinS.isSome and yMaxS.isSome:
+      let minName = getColName(yMinS.get)
+      let maxName = getColName(yMaxS.get)
+      let yColName = getColName(getYScale(fs, fg.geom))
+      df = df.mutate(f{float -> float: "height" ~ df[maxName][idx] - df[minName][idx]},
+                     f{float -> float: yColName ~ df[minName][idx]})
+      fg.height = some("height")
+    elif yMinS.isSome or yMaxS.isSome:
+      raise newException(AestheticError, "Invalid combination of aesthetics! If no height " &
+        "given both an `yMin` and `yMax` has to be supplied for geom_raster!")
+    else:
+      echo "INFO: using default height of 1 since no raster height information supplied. " &
+        "Add `height` or (`yMin`, `yMax`) as aesthetics for a different values."
       let yCol = df[getYScale(fs, fg.geom).getColName].unique
       fg.numY = yCol.len
       df["height"] = constantColumn(abs((yCol[1, float] - yCol[0, float])), df.len)
       fg.height = some("height")
-    fg.assignIfAny(getWidthScale(fs, fg.geom), width)
-    elseAuto(getWidthScale(fs, fg.geom)):
+    if wS.isSome:
+      # use width if available
+      fg.width = some(getColName(wS.get))
+    elif xMinS.isSome and xMaxS.isSome:
+      let minName = getColName(xMinS.get)
+      let maxName = getColName(xMaxS.get)
+      let xColName = getColName(getXScale(fs, fg.geom))
+      df = df.mutate(f{float -> float: "width" ~ df[maxName][idx] - df[minName][idx]},
+                     f{float -> float: xColName ~ df[minName][idx]})
+      fg.width = some("width")
+    elif xMinS.isSome or xMaxS.isSome:
+      raise newException(AestheticError, "Invalid combination of aesthetics! If no width " &
+        "given both an `xMin` and `xMax` has to be supplied for geom_raster!")
+    else:
+      echo "INFO: using default width of 1 since no raster width information supplied. " &
+        "Add `width` or (`xMin`, `xMax`) as aesthetics for a different values."
       let xCol = df[getXScale(fs, fg.geom).getColName].unique
       fg.numX = xCol.len
       df["width"] = constantColumn(abs((xCol[1, float] - xCol[0, float])), df.len)
