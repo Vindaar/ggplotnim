@@ -236,12 +236,12 @@ proc clone*(df: DataFrame): DataFrame =
   else: discard
 
 template withCombinedType*(df: DataFrame,
+                           cols: seq[string],
                            body: untyped): untyped =
   ## A helper template to work with a `dtype` of that encompasses all
-  ## data types found in the `df`.
-  let keys = getKeys(df)
+  ## data types found in the `cols` of the DataFrame.
   var colKinds = newSeq[ColKind]()
-  for k in keys:
+  for k in cols:
     colKinds.add df[k].kind
   let combKind = combinedColKind(colKinds)
   case combKind
@@ -2149,7 +2149,7 @@ proc gather*(df: DataFrame, cols: varargs[string],
   # assert all columns same type
   # TODO: relax this restriction, auto convert to `colObject` if non matching
   var keyTensor = newTensorUninit[string](newLen)
-  withCombinedType(df):
+  withCombinedType(df, @cols):
     var valTensor = newTensorUninit[dtype](newLen)
     for i in 0 ..< cols.len:
       # for each column, clone the `col` tensor once to the correct position
