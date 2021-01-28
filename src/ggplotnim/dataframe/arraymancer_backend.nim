@@ -2190,10 +2190,15 @@ proc unique*(c: Column): Column =
   result = c.filter(idxToKeep)
   result.len = idxToKeep.size
 
-proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
+proc unique*(df: DataFrame, cols: varargs[string],
+             keepAll = true): DataFrame =
   ## returns a DF with only distinct rows. If one or more `cols` are given
   ## the uniqueness of a row is only determined based on those columns. By
   ## default all columns are considered.
+  ##
+  ## If not all columns are considered and `keepAll` is true the resulting
+  ## DF contains all other columns. Of those the first duplicated row
+  ## is kept!
   ## NOTE: The corresponding `dplyr` function is `distinct`. The choice for
   ## `unique` was made, since `distinct` is a keyword in Nim!
   result = newDataFrame(df.ncols)
@@ -2212,7 +2217,8 @@ proc unique*(df: DataFrame, cols: varargs[string]): DataFrame =
       hSet.excl hashes[i]
       inc idx
   # apply idxToKeep as filter
-  for k in mcols:
+  let resCols = if keepAll: getKeys(df) else: mcols
+  for k in resCols:
     result.asgn(k, df[k].filter(idxToKeep))
     # fill each key with the non zero elements
   result.len = idxToKeep.size
