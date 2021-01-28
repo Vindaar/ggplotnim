@@ -102,6 +102,8 @@ proc constructVariable*(n: NimNode, identIsVar: static bool = true): NimNode =
     val = n
   of nnkPrefix:
     val = n
+  of nnkCurly:
+    val = n
   else:
     error("Unsupported kind to construct variable " & $n.kind)
   let name = val.toStrLit
@@ -217,6 +219,8 @@ proc buildFormula*(n: NimNode): NimNode =
     # do some hacky things
     let node = n[1].toStrLit.repr.unescape[2 .. ^2]
     result = constructVariable(ident(node))
+  of nnkCurly:
+    result = constructVariable(n)
   else:
     raise newException(Exception, "Not implemented! " & $n.kind)
   # echo "Result is ", result.repr, " for kind ", n.kind

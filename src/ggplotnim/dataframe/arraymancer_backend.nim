@@ -619,7 +619,7 @@ proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   for i, ch in n:
     case ch.kind
     of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar, nnkCall,
-       nnkAccQuoted, nnkCallStrLit:
+       nnkAccQuoted, nnkCallStrLit, nnkBracketExpr, nnkCurly:
       discard
     of nnkInfix:
       if ch == tilde:
