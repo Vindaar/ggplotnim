@@ -1760,7 +1760,7 @@ proc handleLabels(view: Viewport, theme: Theme) =
   if theme.hasSecondary(akY):#p, akY):
     let secAxisLabel = theme.yLabelSecondary.unwrap()
     var labSec: GraphObject
-    createLabel(labSec, ylabel, secAxisLabel, theme.yLabelMargin, 0.0,
+    createLabel(labSec, ylabel, secAxisLabel, theme.yLabelMargin, 1.0,
                 true)
     view.addObj @[labSec]
 
