@@ -34,6 +34,18 @@ proc largestPow(invTrans: ScaleTransform, x: float): float =
       result = invTrans((exp + 1).float)
       inc exp
 
+proc computeLabel(tick: float, tickScale = 0.0,
+                  fmt: ContinuousFormat = nil): string =
+  if fmt != nil:
+    result = fmt tick
+  else:
+    result = formatTickValue(tick, tickScale)
+
+proc computeLabels(ticks: seq[float], tickScale = 0.0, fmt: ContinuousFormat = nil): seq[string] =
+  ## computes the labels for the given ticks. Simply a string representation
+  ## of the labels
+  result = ticks.mapIt(it.computeLabel(tickScale, fmt))
+
 proc tickPosTransformed(s: ginger.Scale,
                         trans, invTrans: ScaleTransform,
                         numTicks: int, minv, maxv: float,
@@ -56,19 +68,19 @@ proc tickPosTransformed(s: ginger.Scale,
     labPos.add minors.mapIt(trans(it))
     if (boundScale.high - boundScale.low) > 1.0 or hideTickLabels:
       if not hideTickLabels:
-        labs.add cur.format
+        labs.add cur.computeLabel(fmt = format)
       else:
         labs.add ""
       # add one less than minors.len of `""`
       labs.add(toSeq(0 ..< minors.high).mapIt(""))
     else:
       # use all minors as labelledn
-      labs.add minors.mapIt(it.format)
+      labs.add minors.mapIt(it.computeLabel(fmt = format))
     inc exp
   # add the current exp to the labels (not in loop anymore). In log2 `maxv` is
   # contained in loop, but real range is larger. In log10, maxv is not contained.
   if not hideTickLabels:
-    labs.add(format(invTrans(exp.float)))
+    labs.add(computeLabel(invTrans(exp.float), fmt = format))
   else:
     labs.add ""
   labPos.add(exp.float)
@@ -92,17 +104,6 @@ proc applyBoundScale(ticks: seq[float], boundScale: ginger.Scale): seq[float] =
   ## tick position remains outside that range
   result = ticks.filterIt(it >= boundScale.low and it <= boundScale.high)
 
-proc computeLabel(tick: float, tickScale = 0.0,
-                  fmt: ContinuousFormat = nil): string =
-  if fmt != nil:
-    result = fmt tick
-  else:
-    result = formatTickValue(tick, tickScale)
-
-proc computeLabels(ticks: seq[float], tickScale = 0.0, fmt: ContinuousFormat = nil): seq[string] =
-  ## computes the labels for the given ticks. Simply a string representation
-  ## of the labels
-  result = ticks.mapIt(it.computeLabel(tickScale, fmt))
 
 proc getCorrectDataScale(scale: Viewport, axKind: AxisKind): ginger.Scale =
   # first get base scale from `Scale`
