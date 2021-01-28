@@ -104,12 +104,11 @@ proc applyBoundScale(ticks: seq[float], boundScale: ginger.Scale): seq[float] =
   ## tick position remains outside that range
   result = ticks.filterIt(it >= boundScale.low and it <= boundScale.high)
 
-
-proc getCorrectDataScale(scale: Viewport, axKind: AxisKind): ginger.Scale =
-  # first get base scale from `Scale`
+proc getCorrectDataScale(view: Viewport, axKind: AxisKind): ginger.Scale =
+  # first get base scale from `view`
   case axKind
-  of akX: result = scale.xScale
-  of akY: result = scale.yScale
+  of akX: result = view.xScale
+  of akY: result = view.yScale
 
 proc applyScaleTrans(scale: ginger.Scale, trans: Option[FormulaNode]): ginger.Scale =
   # possibly modify using secondary transformation
@@ -317,7 +316,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         let secAxis = filledScales.getSecondaryAxis(axKind)
         # we discard the result, because we only use it to generate the grid lines. Those
         # are focused based on the primary axis of course
-        discard view.handleContinuousTicks(p, axKind, scale.dataScale,
+        discard view.handleContinuousTicks(p, axKind, dataScale,
                                            scale.scKind,
                                            numTicks,
                                            trans = scale.trans,
