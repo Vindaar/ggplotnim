@@ -10,6 +10,9 @@
 - fix issue in =gather= when gathering a DF with multiple column
   types. Type of the gathered columns took all DF columns into
   account, even those not gathered.
+- =readCsvTyped= now handles rows with more =,= than in the header. In
+  that case all columns after the number of columns from the header
+  have been parsed are simply skipped.
   
 * v0.3.22
 
