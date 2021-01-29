@@ -338,7 +338,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       fg.width = some("width")
     let fillScale = getFillScale(fs)
     fg.fillCol = getColName(fillScale)
-    fg.fillDataScale = fillScale.dataScale
+    if fillScale.dcKind == dcContinuous:
+      fg.fillDataScale = fillScale.dataScale
   of gkRaster:
     let
       hS = getHeightScale(fs, fg.geom)
