@@ -106,6 +106,7 @@ proc applyBoundScale(ticks: seq[float], boundScale: ginger.Scale): seq[float] =
 
 proc getCorrectDataScale(view: Viewport, axKind: AxisKind): ginger.Scale =
   # first get base scale from `view`
+  ## TODO: do we sometimes want the `dataScale` from `scale`?
   case axKind
   of akX: result = view.xScale
   of akY: result = view.yScale
@@ -173,7 +174,6 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
       view.addObj concat(tickObjs, labObjs)
     result = tickObjs
   of scTransformedData:
-    #let scale = getCorrectScale(dataScale, axKind, secAxisTrans)
     let scale = dataScale.applyScaleTrans(secAxisTrans)
     let minVal = invTrans.smallestPow(invTrans(dataScale.low))
     let maxVal = invTrans.largestPow(invTrans(dataScale.high))
@@ -181,8 +181,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                                               numTicks, minVal, maxVal, boundScale,
                                               hideTickLabels = hideTickLabels,
                                               format = format)
-    let vScale = getCorrectDataScale(view, axKind)
-    let tickLocs = labelPos.toCoord1D(axKind, vScale)
+    let tickLocs = labelPos.toCoord1D(axKind, dataScale)
     case axKind
     of akX: view.xScale = (low: trans(minVal), high: trans(maxVal))
     of akY: view.yScale = (low: trans(minVal), high: trans(maxVal))
@@ -299,10 +298,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             margin = marginOpt,
                                             format = format)
     of dcContinuous:
-      let dataScale = if scale.dataScale.low == scale.dataScale.high:
-                        view.getCorrectDataScale(axKind)
-                      else:
-                        scale.dataScale
+      let dataScale = view.getCorrectDataScale(axKind)
       result = view.handleContinuousTicks(p, axKind, dataScale,
                                           scale.scKind,
                                           numTicks,
