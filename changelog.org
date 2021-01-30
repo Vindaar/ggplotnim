@@ -13,6 +13,13 @@
 - =readCsvTyped= now handles rows with more =,= than in the header. In
   that case all columns after the number of columns from the header
   have been parsed are simply skipped.
+- add =fillColor= to =geom_histogram=. Previously the =color= argument
+  was used to set both the color (outline) as well as fill color of
+  the drawn histogram. Now those are separate. This is a *breaking*
+  change though! Makes it easy to set e.g. the outline to transparent
+  by assigning a transparent color to =color=, but still have a filled
+  body.
+-
   
 * v0.3.22
 
