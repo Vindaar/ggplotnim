@@ -541,7 +541,7 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
     curX: float = p.x.pos
     curY: float = 0.0
   var binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
-  p.x.pos = curX - binWidth / 2.0
+  p.x.pos = curX
   p.y.pos = curY
   result.add p
   curY = linePoints[0].y.pos
