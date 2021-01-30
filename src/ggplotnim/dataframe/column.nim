@@ -270,6 +270,10 @@ proc toTensor*[T](c: Column, dtype: typedesc[T],
       result = c.iCol.asType(T)
     elif T is Value:
       result = c.iCol.asValue
+    elif T is string:
+      result = c.iCol.map_inline($x)
+    else:
+      raise newException(ValueError, "Invalid conversion of int column to " & $T & "!")
   of colFloat:
     when T is float:
       result = c.fCol
@@ -277,16 +281,24 @@ proc toTensor*[T](c: Column, dtype: typedesc[T],
       result = c.fCol.asType(T)
     elif T is Value:
       result = c.fCol.asValue
+    elif T is string:
+      result = c.fCol.map_inline($x)
+    else:
+      raise newException(ValueError, "Invalid conversion of float column to " & $T & "!")
   of colString:
     when T is string:
       result = c.sCol
     elif T is Value:
       result = c.sCol.asValue
+    else:
+      raise newException(ValueError, "Invalid conversion of string column to " & $T & "!")
   of colBool:
     when T is bool:
       result = c.bCol
     elif T is Value:
       result = c.bCol.asValue
+    else:
+      raise newException(ValueError, "Invalid conversion of bool column to " & $T & "!")
   of colObject:
     result = c.oCol.valueTo(T, dropNulls = dropNulls)
   of colConstant:
