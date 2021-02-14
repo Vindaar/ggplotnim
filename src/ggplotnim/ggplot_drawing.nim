@@ -394,12 +394,13 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     minXCol = fg.xScale.low
     maxYCol = fg.yScale.high
     minYCol = fg.yScale.low
-    numX = fg.numX
-    numY = fg.numY
     (wv, hv) = readWidthHeight(df, 0, fg)
   let height = (maxYCol - minYCol + hv)
   let width = (maxXCol - minXCol + wv)
-
+  # compute number of elements in each dimension
+  let
+    numX = (width / wv).round.int
+    numY = (height / hv).round.int
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
     let xT = df[fg.xCol].toTensor(float)

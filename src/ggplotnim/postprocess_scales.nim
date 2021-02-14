@@ -279,6 +279,12 @@ else:
     df.add dfZero
 
 proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
+  ## TODO: currently we compute the `numX` and `numY` here. But that is not really required
+  ## *for raster!*. For tile it is, because we cannot know the number of tiles (different
+  ## widths e.g.)
+  ## In theory we could have different widths for raster as well, but we don't support that
+  ## yet. So improve computation of numX or leave out for raster?
+
   template assignIfAny(fg, scale, arg: untyped): untyped =
     if scale.isSome:
       fg.arg = some(getColName(scale.get))
