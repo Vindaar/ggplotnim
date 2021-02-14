@@ -424,7 +424,7 @@ ggplot(df, aes("hwy", "displ")) +
 #+END_SRC
 
 
-[[./media/recipes/rAnnotateMaxValue.png]]
+[[./media/recipes/rAnnotateMaxValues.png]]
 
 ** *Experimental* Vega-Lite backend
 
