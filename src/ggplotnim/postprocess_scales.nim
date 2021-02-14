@@ -337,9 +337,11 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       df["width"] = constantColumn(1.0, df.len)
       fg.width = some("width")
     let fillScale = getFillScale(fs)
-    fg.fillCol = getColName(fillScale)
-    if fillScale.dcKind == dcContinuous:
-      fg.fillDataScale = fillScale.dataScale
+    if fillScale.isNone:
+      raise newException(AestheticError, "`geom_raster` requires a `fill` aesthetic scale!")
+    fg.fillCol = getColName(fillScale.get)
+    if fillScale.get.dcKind == dcContinuous:
+      fg.fillDataScale = fillScale.get.dataScale
   of gkRaster:
     let
       hS = getHeightScale(fs, fg.geom)
@@ -389,8 +391,10 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       df["width"] = constantColumn(abs((xCol[1, float] - xCol[0, float])), df.len)
       fg.width = some("width")
     let fillScale = getFillScale(fs)
-    fg.fillCol = getColName(fillScale)
-    fg.fillDataScale = fillScale.dataScale
+    if fillScale.isNone:
+      raise newException(AestheticError, "`geom_raster` requires a `fill` aesthetic scale!")
+    fg.fillCol = getColName(fillScale.get)
+    fg.fillDataScale = fillScale.get.dataScale
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
   of gkHistogram:
