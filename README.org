@@ -353,148 +353,38 @@ let g = f{"cty_by_2ln_hwy" ~ "cty" / (ln("hwy") * 2)}
 
 ** Examples
 
-The following are just the first plots I reproduced. The =mpg= dataset
-being used has to be read via the =readCsv= proc and be converted to a
-dataframe via =toDf=. The file is located in [[file:data/mpg.csv]] part of
-the repository. So the header of all examples below is simply:
-#+BEGIN_SRC nim
-import ggplotnim
-
-let mpg = toDf(readCsv("data/mpg.csv"))
-#+END_SRC
-where it is assumed the current working directory is the =ggplotnim=
-dir.
-
 *Consider looking at the [[file:recipes.org][recipes]] in addition to the below to get a
 fuller picture!*
 
-*** Scatter of displ ~ hwy
+The following is a short example from the recipe section that shows
+multiple features:
+- parsing CSV files to a DF
+- performing DF operations using formulas (=f{}= syntax)
+- general =ggplot= functionality
+- composing multiple geoms to annotate specific datapoints
 
-Simple scatter plot of two quantities ="displ"= vs. ="hwy"= of a
-dataframe. 
 #+BEGIN_SRC nim
-ggplot(mpg, aes(x = "displ", y = "hwy")) +
-  geom_point() + 
-  ggsave("scatter.pdf")
-#+END_SRC
-Note: if the =ggsave= call is omitted, the return value will be a
-=GgPlot= object, which can either be inspected or modified or called
-upon with =ggsave= at a later time.
-
-[[file:media/scatter.png]]
-
-*** Scatter of displ ~ hwy, class as color scale
-
-Same scatter plot as above, but with a grouping by a third quantity
-="class"= encoded in the dot color. Also adds a title to the plot.
-#+BEGIN_SRC nim
-ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
-  geom_point() +
-  ggtitle("ggplotnim - or I Suck At Naming Things™") +
-  ggsave("scatterColor.pdf")
-#+END_SRC
-
-[[file:media/scatterColor.png]]
-
-
-*** Filtering data frame before plotting
-
-We may now also perform some operations on the data frame, before we
-plot it. For instance we can filter on a string (or a number) and
-perform calculations on columns:
-#+BEGIN_SRC nim
-df.filter(f{"class" == "suv"}) # comparison via `f{}` macro
-  .mutate(ratioHwyToCity ~ hwy / cty # raw untyped template function definition
-  ) # <- note that we have to use normal UFCS to hand to `ggplot`!
-  .ggplot(aes(x = "ratioHwyToCity", y = "displ", color = "class")) + 
-  geom_point() +
-  ggsave("scatterFromDf.pdf")
+import ggplotnim 
+let df = toDf(readCsv("data/mpg.csv"))
+let dfMax = df.mutate(f{"mpgMean" ~ (`cty` + `hwy`) / 2.0})
+  .arrange("mpgMean")
+  .tail(1)
+ggplot(df, aes("hwy", "displ")) + 
+  geom_point(aes(color = "cty")) + # set point specific color mapping
+  # Add the annotation for the car model below the point
+  geom_text(data = dfMax,
+            aes = aes(y = f{c"displ" - 0.2}, 
+                      text = "model")) +
+  # and add another annotation of the mean mpg above the point
+  geom_text(data = dfMax,
+            aes = aes(y = f{c"displ" + 0.2}, 
+                      text = "mpgMean")) +
+  theme_opaque() +
+  ggsave("media/recipes/rAnnotateMaxValues.png")
 #+END_SRC
 
-/And eeehm, I guess the legend is broken if we only have a single entry.../
 
-[[file:media/scatterFromDF.png]]
-
-*** Mutating via local procedure
-
-In addition we can use locally defined procedures in the =f{}= macro
-as well (see above for caveats). For instance we can normalize a
-column by dividing by the mean:
-#+BEGIN_SRC nim
-df.mutate(f{"cty_norm" ~ "cty" / mean("cty")}) # divide cty by mean
-  .ggplot(aes(x = "displ", y = "cty_norm", color = "class")) +
-  geom_point() +
-  ggsave("classVsNormCty.pdf")
-#+END_SRC
-Note that calculations involving explicit numbers or constants is not
-supported yet. For that the implementation of =FormulaNode= must be
-changed to use =Value= as well.
-
-[[file:media/classVsNormCty.png]]
-
-*** Histogram of hwy
-
-A simple histogram of one quantity ="hwy"= of a dataframe.
-#+BEGIN_SRC nim
-ggplot(mpg, aes("hwy")) +
-  geom_histogram() +
-  ggsave("simpleHisto.pdf")
-#+END_SRC
-
-[[file:media/simpleHisto.png]]
-
-*** Frequency line plot
-Same as the histogram above, but as a frequence line.
-#+BEGIN_SRC nim
-ggplot(mpg, aes("hwy")) +
-  geom_freqpoly() +
-  ggsave("freqpoly.pdf")
-#+END_SRC
-
-[[file:media/freqpoly.png]]
-
-*** Combining several geoms, setting aesthetics of specific geoms
-
-A combination of a histogram and a frequency line plot. Also showcases
-the ability to set aesthetics of specific geoms to a constant value
-(in this case change line width and color of the =freqpoly=
-line). Note that the arguments for style settings take =Option[T]=!
-Note that the order in which the =geom_*= functions are called is also
-the order in which they are drawn.
-#+BEGIN_SRC nim
-ggplot(mpg, aes("hwy")) +
-  geom_histogram() +
-  geom_freqpoly(color = some(parseHex("FD971F")),
-                size = some(3.0)) +
-  ggsave("histoPlusFreqpoly.pdf")
-#+END_SRC
-
-[[file:media/histoPlusFreqpoly.png]]
-
-*** Facet wrap of manufacturer
-
-Although still somewhat ugly, because the scaling is off, facet
-wrapping is working in principle:
-#+BEGIN_SRC nim
-ggplot(mpg, aes("displ", "hwy")) +
-  geom_point(aes(color = "manufacturer")) +
-  facet_wrap(~ class) +
-  ggsave("facet_wrap_manufacturer.pdf")
-#+END_SRC
-
-[[file:media/facet_wrap_manufacturer.png]]
-
-*** Simple bar plot
-
-A simple bar plot of a variable with discrete data (typically a column
-of strings, bools or a small subset of ints).
-#+BEGIN_SRC nim
-ggplot(mpg, aes(x = "class")) +
-  geom_bar() +
-  ggsave("bar_example.pdf")
-#+END_SRC
-
-[[file:media/bar_example.png]]
+[[./media/recipes/rAnnotateMaxValue.png]]
 
 ** *Experimental* Vega-Lite backend
 
@@ -504,57 +394,27 @@ as a backend.
 To share plots and data online (and possibly add support for
 interactive features) is much easier in such a way.
 
-For now only a proof of concept is implemented in
-=vega_utils.nim=. That is only =geom_point= with the ="x"=, ="y"=,
-="color"= scale set on the main aesthetic are supported. Generalizing
-this is mostly a tediuos process, since the =GgPlot= object fields
-etc. have to be mapped to the appropriate Vega-Lite JSON nodes.
+An experimental version is implemented in [[https://github.com/Vindaar/ggplotnim/blob/master/src/ggplotnim/ggplot_vega.nim][ggplot_vega.nim]], which
+provides most functionality of the native backend, with the exception
+of support for facetted plots.
 
-A simple example:
-#+BEGIN_SRC nim
-let vegaJson = ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
+See the [[https://github.com/Vindaar/ggplotnim/blob/master/recipes.org#simple-vega-lite-example][full example in the recipe here]].
+
+Creating a vega plot is done by also importing the =ggplot_vega=
+submodule and then just replacing a =ggsave= call by a =ggvega= call:
+#+begin_src nim
+import ggplotnim
+import ggplotnim/ggplot_vega
+let mpg = toDf(readCsv("data/mpg.csv"))
+ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
-  ggtitle("ggplotnim - or I Suck At Naming Things") +
-  ggvega()
-show(vegaJson)
-#+END_SRC
-creates the equivalent plot from above using Vega-Lite. Note that it
-still uses the Vega-Lite default theming.
+  ggtitle("ggplotnim in Vega-Lite!") +
+  ggvega("media/recipes/rSimpleVegaLite.html") # w/o arg creates a `/tmp/vega_lite_plot.html`
+#+end_src
 
-It generates the following Vega-Lite JSON:
-#+BEGIN_SRC 
-{
-  "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
-  "description" : "Vega-lite plot created by ggplotnim",
-  "width" : 640,
-  "height" : 480,
-  "title": "ggplotnim - or I Suck At Naming Things",
-  "data": {"values" : [{"displ": 1.8, "cty": 18.0, "class": "compact"},
-                       {"displ": 1.8, "cty": 21.0, "class": "compact"},
-                       {"displ": 2.0, "cty": 20.0, "class": "compact"},
-                       ... ]
-]},
-  "mark": "point",
-  "encoding": {
-    "x": {"field": "displ", "type": "quantitative"},
-    "y": {"field": "cty", "type": "quantitative"},
-    "color": {"field": "class", "type": "nominal"}
-   }
-}
-#+END_SRC
+This recipe gives us the following plot:
 
-And results in the following Vega-Lite plot:
+[[media/recipes/rSimpleVegaLite.png]]
 
-[[file:media/vega_backend_example.png]]
-
-Or if you want to look at the interactive version in your browser, see
-here:
-
-[[https://vega.github.io/editor/#/url/vega-lite/N4KABGBEAkDODGALApgWwIaQFxUQFzwAdYsB6UgN2QHN0A6agSz0QFcAjOxge1IRQyUa6ALQAbZskoAWOgCtY3AHaQANOCgATZAgBOjQnh4qckAGrDxksITHc8YeLuTo8yTWHYBPMNWq37JUZUNQ1IIzwxZGwoPwC8INQwETBuXTAASTAAZVZ4AGswAEEHADl0VEYlajAAFUQq6lhQiEgMXXyYyEJuKrwWqAB3Rk0WGIA2aQAGdVaURmp8GOkADhmw5CV4bk1GmNAIVoAPfcgAM0ZkMU0u3dhbNSg8L0Jo0wBHVnQlCNdGKkgAF9ZodIF5ThcrjdTPBno9wi83lBPt9fkYAcCNK1tnZdBDLtcuvAxOhYM1VE9EV0lNxKkp0GIgRpMa1NK5MDgDqCKAzWDoYgBtLGHYCQO4PHAARjoKwpkFh4KlsqgxNJzRhtMI6FhQJBhzAovFjKlMrlCpiACZJWaSWSiZrtf0WfqDWLGPdjWALWa4TgLTMVbb1SqHTrnfrDe6JV6fYqvdbA2r7agtWG9SK3R7LaaVb6wJLxjakxqU47dcKIJGs36c-K85LlfKg8nU0705XM9GAMx0BN1uMNot2kut8su11GmLSxvmpVD4Py0NtisTqOe6exqeFxPDkOltMrqvR725uP++ctsvhjOTv2bqUATgvI6v7dX1a9tdn+YArM+96O14dren4zvWADs-6Lvuy7jkeno9n236SpBO4LtsMFji68ExIh96-lBGGAW+OE1mBA5-mhXSVJosCMAAXtEQHvt2vb4ShUE0XRjFYRGnaerIJ79lunEjNxTEkfxMQ-nQXbsdIUGwKwFC8Tea7SbJ7FIc2phKSpzGkWAMlyaeU4KVRunKapwHqTgMmocJUomU2xZQHp1ksZ626OfmQmqrukDuQZUl2XQDnId5-kLhasAuG4eLBSB9nsZRLkBTFcXIAlkkgeMdB+fWkU6VAGWuFlHmGXlBUUVBpXxRVIVgOF9apVFXR1eViW2UZmmmVK5lpQuQU5d1xlaYpVldR+yV9fm2muYFk0jR+eWtfWA1tZZ+nLcedAbfWT4WVAXEMRJh6NRae34RafnFW0YmnQ1IF4bNg5HfdtGPVNrFrQOM53SdPHfQhdCRRBomfUDO2epd+1-aJQQ8iowO4ex4UA1U-zfE93U9s5EUI1jyPQ7hvU+QWhNIzjH542jlPYyjOC0696MLXSRPU6x+P1vNAXs1TjNgD25FTq1GOIwzJNM1+LX08T53PTLA5FWzmMC1LYBwyJ7385LCu42FKVQYQjAFKwhCcyDzUDhtd0m2bFuCz2h3k-jdum-k5uW6TLvIbbC3257jsa7I1tmcbHte4LofyRHDvezgMezb77vx4LMnVVOvMLoHUcaxn43vbnwf6zTdC+-WbsLcNpfRknrsTdttcCYbyeNwnmutw37013BjUF692ddL32H913yFVwFI98Ul5eF4Nw9Lc3yzj-Wt0B5HJd9yB9ffinG9pyHq8DpPOebx3u+V3HQcX8fU7rwFxe32HOD74-5-p-l8+bVAT+f5nUoh6mD-vnO+Tlr552XqFCuA4gG-w-kfMGsD26fy1oAlBoC0G+QwVAzWsce5L23t1LBkoxbV0IaPHe+CF5bQvuxU+i8m5EI-LIJBU4GG0PTvQnBzC65f1ev7d+h9cGCWoT-boCCRGg24UXSRvCW5sPAbI4R8iV6KPzBw+BKjKGjSuoPCBW8dHTT0d3GhWib5OyVlOf65D2BEVfLg4W7EbFTw4PYg8qjE50wIXYpcdDXoq1cb4zC0dpGvTIUE9xsEjF8PUaQiawTiJSLiREoabi-GhJSQkqJHcZIkMEWkxJDjPH5jCT5C0LjCk5MFtKdRFoCmLyKR4mJ64ynfgtKkxp1SNa1OupoxaTTokz26r02a9TskZJ6VYv0gSqmTNwRuMZnTLKDI7os8pDSVndNwQA+MEyQka1hs4iG4kO5HNepU6iD0oY7JMe0uBH1TmC3OeUh5gMzolMur9axJyvqHLoN8ucOtrkfJaaTbmA434LneWc9iUKunzM+XC-ZSSkVjIDGYgZ2y0XlIxeIpSqznlgPzKzSJiKwU1hfvmWZCKDm3KpRxHx2KKVC28Zi6eaky4MuWW5ChwyWFGwIUwlll8bY8JFcS+FnCj4Ms2by4V-LowzVMfivlnLox5SQjzcViqBLfzuhymyLD+HkwfmkhV6qW4kLNYw2+cSHmGs8hpEhDq1VGqVXc7VQrcmeoHDa6VIixEGrdU6rxr1+mOsMqwmR7KQ2GUBRonVlrsxYKtIRcluqU3IvesyzNNYE0Wn6TColBai0go7j2BNkopXHXLZYqtNbHl-Mccc4FkNQV5tZa9RtxaNaVuzZi3tjiyZ+yTe6kGELRZjtDXggR0741tLXvOxqL1yaXNMEOkpTiAm-JuVu6ZJLd0duTdLEWQLB11tAZOqUNKN2XtuVW9d8qzkAtbbGi147swFrxcGj9M6vkDtVX+wyAH0XLpAqBtd4HuqXV2WmplGaT2fl2dWlFxSWWQeQo2gluakOYYOmh5pnb8Nnh-QtXDn783XTIwFCj-7X3dvTXSz5DHcVMdRRh4l8TvVEoZbe59liSE8sWsBldvqp08ZDuxfjInn5BvIaJiDJr7lHpfXBt596WOpo0+2l92nVNOzfeIzdLLr35ifU2vdpnWNYYM-89T7H0PEeU3meDmK6MgfE36B5HmLpea9P6gCTmkNmbeu5xDlGu1QZzRFmdzNovheYyy9Z7S5XQQ452lLrm0u+ZAlls8MncsjIPRUxzRGkP5ctIV2LUauOusU7ohlEa41+e5QYl9fH2u8bZeIkBw6hNdb7f57jmK+slIG8oixUmd2TcgTilTMWkvEcA3dIrH4HOLYy3h66gX0vBci5dM9h7Nv7ZndKGBuF+lrePNdHzNWLorfI-diDO2ytDO22Mu7S28M2dc19rbB3ftnn+6dzzR2KYnfK4D8HpL0LPeKxdpmwmcPw4-Od662H0nfYO7dwj72ceMYQ9j+j368cvtJ0TgHZ2Ss6aeVM8HFmTPLcJxe3Tzzcdtrp7c8HMmmc-YZ3Z4dcTYdXLZ8KAAusyEEi4lAXGoPsQEIBARAA][Open in vega browser]]
-
-** Known issues / limitations
-
-- facet wrap layout is quite ugly still
-- ...
-
+To view it as an interactive plot in the Vega viewer, [[https://vega.github.io/editor/?#/gist/0bef3ed0cf7c6d26da927732f1c81582/rSimpleVegaLite.json][click here]].
 
