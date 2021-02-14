@@ -39,7 +39,10 @@ proc computeLabel(tick: float, tickScale = 0.0,
   if fmt != nil:
     result = fmt tick
   else:
-    result = formatTickValue(tick, tickScale)
+    ## Hack: decrease tickScale by /5, cause hard coded in `ginger.nim` atm and
+    ## too large (1/10). Value that is too small does not matter for the purpose,
+    ## which is to aviod tiny O(1e-17) numbers to be counted as 0.
+    result = formatTickValue(tick, tickScale / 5.0)
 
 proc computeLabels(ticks: seq[float], tickScale = 0.0, fmt: ContinuousFormat = nil): seq[string] =
   ## computes the labels for the given ticks. Simply a string representation
