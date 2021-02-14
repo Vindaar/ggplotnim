@@ -191,7 +191,46 @@ probably won't be released after every change, due to rapid
 development still ongoing.
 
 Since this library is written from scratch there is only a single
-external dependency, which is =cairo=. 
+external dependency, which is =cairo=.
+
+*** Windows
+
+Using =ggplotnim= on Windows is made slightly more problematic,
+because of the default =cairo= backend. Installing =cairo= on Windows
+is not as straightforward as on Linux or OSX.
+
+There are multiple options, from most complicated to easiest:
+- installing a program, which also uses =cairo= on Windows, for
+  example =emacs= and adding said program to Windows' PATH. Some
+  instructions here:
+  https://gist.github.com/Vindaar/6cb4e93baff3e1ab88a7ab7ed1ae5686
+- using @pietroppeter's approach to only install the shared libraries
+  that are actually required, see here:
+  https://gist.github.com/pietroppeter/80266c634b22b3861273089dab3e1af2
+- or to thank @preshing's work and use his standalone single DLL for
+  =cairo= on windows:
+  https://github.com/preshing/cairo-windows/
+  See how it's used in the Github Actions workflow for Windows here:
+  https://github.com/Vindaar/ggplotnim/blob/master/.github/workflows/ci.yml#L61-L64
+
+Personally I would recommend the last option. Note however that the
+standalone DLL is called =cairo.dll=, but =ggplotnim= expects the name
+=libcairo.dll=. I would recommend to put the DLL in some sane place
+and adding that location to your Windows PATH variable:
+
+Simple text only instructions on how to do that:
+#+begin_quote
+- =Win= key
+- search for "path"
+- click on “edit system environment variables”
+- click on “Environment Variables” in the bottom right corner
+- under “System variables” select “PATH” and click edit
+- click “New” and add the full path to your installation location of
+  choice that contains the now called =libcairo.dll=
+#+end_quote
+
+After saving those changes and restarting PowerShell / the command
+prompt everything should work.
 
 ** Currently working features
 
