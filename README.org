@@ -243,10 +243,11 @@ Geoms:
 - =geom_errorbar=
 - =geom_linerange=
 - =geom_tile=
+- =geom_raster=  
 - =geom_text=
+- =geom_ridgeline= 
 - *soon:*
   - =geom_density=
-  - and possibly =geom_ridgeline=
 
 Facets:
 - =facet_wrap=
