@@ -215,7 +215,7 @@ There are multiple options, from most complicated to easiest:
 
 Personally I would recommend the last option. Note however that the
 standalone DLL is called =cairo.dll=, but =ggplotnim= expects the name
-=libcairo.dll=. I would recommend to put the DLL in some sane place
+=libcairo-2.dll=. I would recommend to put the DLL in some sane place
 and adding that location to your Windows PATH variable:
 
 Simple text only instructions on how to do that:
@@ -226,7 +226,7 @@ Simple text only instructions on how to do that:
 - click on “Environment Variables” in the bottom right corner
 - under “System variables” select “PATH” and click edit
 - click “New” and add the full path to your installation location of
-  choice that contains the now called =libcairo.dll=
+  choice that contains the now called =libcairo-2.dll=
 #+end_quote
 
 After saving those changes and restarting PowerShell / the command
