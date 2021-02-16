@@ -58,7 +58,7 @@ jobs:
         if: ${{matrix.target == 'windows'}}
         shell: powershell
         run: |
-          bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem $pwd\nim\nim-$(branch)\bin\cacert.pem
+          bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem $pwd\nim\nim-${{ matrix.branch }}\bin\cacert.pem
           choco install imagemagick wget
           wget -O cairo-windows.zip https://github.com/preshing/cairo-windows/releases/download/1.17.2/cairo-windows-1.17.2.zip
           tar -xf cairo-windows.zip
