@@ -44,6 +44,7 @@ jobs:
       - name: Install dependencies (Ubuntu)
         if: ${{matrix.target == 'linux'}}
         run: |
+          sudo apt-get update
           sudo apt-get install libcairo2 libcairo2-dev imagemagick \
           libgtk-3-dev webkit2gtk-driver libwebkitgtk-dev \
           libwebkit2gtk-4.0 libwebkit2gtk-4.0-dev pandoc
