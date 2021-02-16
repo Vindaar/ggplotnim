@@ -2019,8 +2019,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   var theme = buildTheme(filledScales, p)
   # create a theme, which ignores points outside the scale (which happens
   # due to overlap!)
-  theme.xTickLabelMargin = some(0.4)
-  theme.yTickLabelMargin = some(-0.2)
+  theme.xTickLabelMargin = some(0.4 * (view.hImg.val / 480.0)) # scale margin with image height
+  theme.yTickLabelMargin = some(-0.2) ## TODO: why is scaling for `y` not required? Investigate!
   theme.xTicksRotate = p.theme.xTicksRotate
   theme.yTicksRotate = p.theme.yTicksRotate
   theme.xTicksTextAlign = p.theme.xTicksTextAlign
