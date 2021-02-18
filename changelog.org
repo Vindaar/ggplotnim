@@ -19,7 +19,13 @@
   change though! Makes it easy to set e.g. the outline to transparent
   by assigning a transparent color to =color=, but still have a filled
   body.
--
+- change default tick label margin to be based on font height (by
+  default 1.25 / 1.75 for y / x labels)
+- fix drawing first bin when histogram using outlines
+- =numX/Y= are now ignored for =geom_raster= and are computed
+  internally
+- raise an exception if no fill scale present for =geom_raster=
+- support column to string tensor conversion
   
 * v0.3.22
 
