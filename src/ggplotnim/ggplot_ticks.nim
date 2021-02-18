@@ -1,4 +1,4 @@
-import ggplot_types, ggplot_scales
+import ggplot_types, ggplot_scales, ggplot_utils
 import dataframe / arraymancer_backend
 
 import ginger except Scale
@@ -257,6 +257,24 @@ proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
     view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
+proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D =
+  ## takes the given tick label margin if user defined or else defines a suitable
+  ## margin based on the font.
+  var margin = 0.0
+  case axKind
+  of akX: margin = if theme.xTickLabelMargin.isSome: theme.xTickLabelMargin.get else: 1.75
+  of akY: margin = if theme.yTickLabelMargin.isSome: theme.yTickLabelMargin.get else: -1.25
+  # if no default font, use 8pt
+  let font = if theme.tickLabelFont.isSome: theme.tickLabelFont.get else: font(8.0)
+  ## 2.0 times the given string height. Making it string height dependent guarantees it's
+  ## going to `appear` to be at the same distant no matter the facetting or size of the
+  ## resulting plot
+  ## Using `M` for a default height
+  result = Coord1D(pos: margin, kind: ukStrHeight, text: "M", font: font)
+  case axKind
+  of akX: result = result.toRelative(length = some(pointHeight(view)))
+  of akY: result = result.toRelative(length = some(pointWidth(view)))
+
 proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                   axKind: AxisKind, theme: Theme,
                   hideTickLabels = false,
@@ -273,12 +291,12 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
     scale = filledScales.getXScale()
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numXTicks
     if theme.xTickLabelMargin.isSome:
-      marginOpt = some(view.c1(theme.xTickLabelMargin.unsafeGet, axKind, ukCentimeter))
+      marginOpt = some(view.getTickLabelMargin(theme, axKind))
   of akY:
     scale = filledScales.getYScale()
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
     if theme.yTickLabelMargin.isSome:
-      marginOpt = some(view.c1(theme.yTickLabelMargin.unsafeGet, axKind, ukCentimeter))
+      marginOpt = some(view.getTickLabelMargin(theme, axKind))
   when defined(defaultBackend):
     let hasScale = not scale.col.isNil
   else:

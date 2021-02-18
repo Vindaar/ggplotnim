@@ -272,10 +272,10 @@ type
     # ticks
     xTicksRotate*: Option[float]
     xTicksTextAlign*: Option[TextAlignKind]
-    xTickLabelMargin*: Option[float] # tick label margin in cm
+    xTickLabelMargin*: Option[float] # tick label margin in multiples of font height
     yTicksRotate*: Option[float]
     yTicksTextAlign*: Option[TextAlignKind]
-    yTickLabelMargin*: Option[float] # tick label margin in cm
+    yTickLabelMargin*: Option[float] # tick label margin in multiples of font height
     # legend
     legendPosition*: Option[Coord]
     legendOrder*: Option[seq[int]]
