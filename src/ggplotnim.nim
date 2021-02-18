@@ -2038,7 +2038,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     view.layout(cols, rows, margin = margin)
   else:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
-                 else: quant(0.005, ukRelative)
+                 else: quant(0.001, ukRelative)
     view.layout(cols, rows, margin = margin)
 
   var
