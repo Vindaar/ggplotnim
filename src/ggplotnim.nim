@@ -1821,6 +1821,7 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
   let numLabels = yLabelSeq.len
   var yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
   # set `yScale` to overlap
+
   yScale = (low: yScale.low, high: yScale.high / ridge.overlap)
   view.yScale = yScale
   let viewMap = calcRidgeViewMap(ridge, yLabelSeq)
@@ -2019,13 +2020,12 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   var theme = buildTheme(filledScales, p)
   # create a theme, which ignores points outside the scale (which happens
   # due to overlap!)
-  theme.xTickLabelMargin = some(0.4 * (view.hImg.val / 480.0)) # scale margin with image height
-  theme.yTickLabelMargin = some(-0.2) ## TODO: why is scaling for `y` not required? Investigate!
+  theme.xTickLabelMargin = some(1.75)
+  theme.yTickLabelMargin = some(-1.25)
   theme.xTicksRotate = p.theme.xTicksRotate
   theme.yTicksRotate = p.theme.yTicksRotate
   theme.xTicksTextAlign = p.theme.xTicksTextAlign
   theme.yTicksTextAlign = p.theme.yTicksTextAlign
-
 
   var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
