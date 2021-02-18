@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.3.23"
+version       = "0.3.24"
 author        = "Sebastian Schmidt"
 description   = "A port of ggplot2 for Nim"
 license       = "MIT"
@@ -10,7 +10,7 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.11"
-requires "ginger#fixMarginInLayout"
+requires "ginger >= 0.2.10"
 requires "persvector >= 1.0.0"
 requires "shell >= 0.4.3"
 requires "arraymancer >= 0.6.2"
