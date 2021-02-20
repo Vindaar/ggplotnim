@@ -1,3 +1,11 @@
+* v0.3.24
+- fix issue #110; facets now support multiple geoms in one facet plot
+- add classifying using shapes (marker kind & line shape). However,
+  only 2 marker kinds are implemented at this point. Multiple line
+  shapes exist at least.
+- build foundation to support arbitrarily scaled secondary axes. This
+  feature is not working for most transformations yet, due to the
+  implementation of how transformed ticks are computed.    
 * v0.3.23
 - better handling of ticks
 - secondary axes can now be a transformed version of the primary axes
