@@ -2031,10 +2031,9 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   # calculate number of rows and columns based on numGroups
   let (rows, cols) = calcRowsColumns(0, 0, numExist)
   let viewMap = calcFacetViewMap(existComb)
-  # TODO: by default make spacing dependent on total number of facets!
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
-                 else: quant(0.025, ukRelative)
+                 else: quant(0.015, ukRelative)
     view.layout(cols, rows, margin = margin)
   else:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
