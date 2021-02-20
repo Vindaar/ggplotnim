@@ -185,6 +185,20 @@ proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
     for i, k in labelSeq:
       result.valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
 
+proc fillDiscreteShapeScale(vKind: ValueKind, col: FormulaNode,
+                           labelSeq: seq[Value],
+                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
+  result = Scale(scKind: scShape, vKind: vKind, col: col, dcKind: dcDiscrete)
+  result.labelSeq = labelSeq
+  result.valueMap = initOrderedTable[Value, ScaleValue]()
+  if valueMapOpt.isSome:
+    result.valueMap = valueMapOpt.get
+  else:
+    for i, k in labelSeq:
+      result.valueMap[k] = ScaleValue(kind: scShape,
+                                      marker: MarkerKind(i mod 2),
+                                      lineType: LineType(i mod (ord(LineType.high) - 1) + 1))
+
 proc fillDiscreteLinearTransScale(
   scKind: static ScaleKind,
   col: FormulaNode,
@@ -350,8 +364,7 @@ proc fillScaleImpl(
                                             axKind, vKind, labelSeq,
                                             trans, invTrans)
     of scShape:
-      raise newException(ValueError, "Shape support not yet implemented for " &
-        "discrete scales!")
+      result = fillDiscreteShapeScale(vKind, col, labelSeq, valueMapOpt)
     of scText: result = Scale(scKind: scText,
                               col: col) # nothing required but the column
   else:

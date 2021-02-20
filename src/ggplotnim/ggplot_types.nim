@@ -73,6 +73,7 @@ type
     of scShape:
       # a marker kind
       marker*: MarkerKind
+      lineType*: LineType
     of scSize:
       # a size of something, e.g. a marker
       size*: float

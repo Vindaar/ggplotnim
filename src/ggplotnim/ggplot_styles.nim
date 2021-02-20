@@ -111,6 +111,7 @@ proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
     result.size = some(scVal.size)
   of scShape:
     result.marker = some(scVal.marker)
+    result.lineType = some(scVal.lineType)
   else:
     raise newException(Exception, "Setting style of " & $scVal.kind & " not " &
       "supported at the moment!")
