@@ -2046,76 +2046,88 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   let lastCol = numExist mod cols
   for label, idx in pairs(viewMap):
     var viewLabel = view[idx]
+    ## perform steps only required `once` for each label
+    # create the layout for a facet + header
+    viewLabel.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
+                     margin = quant(0.01, ukRelative))
+    var headerView = viewLabel[0]
+    # set the background of the header
+    headerView.background()
+    # put in the text
+    let text = $label #pair.mapIt($it[0] & ": " & $it[1]).join(", ")
+    let headerText = headerView.initText(c(0.5, 0.5),
+                                         text,
+                                         textKind = goText,
+                                         alignKind = taCenter,
+                                         font = some(font(8.0)),
+                                         name = "facetHeaderText")
+    headerView.addObj headerText
+    headerView.name = "facetHeader"
+    # fill the plot
+    var plotView = viewLabel[1]
+    plotView.background(style = some(getPlotBackground(theme)))
+
+    let curRow = idx div cols
+    let curCol = idx mod cols
+    # hide the labels if scales not free and plot not in bottom row or
+    # left most column
+    let hideXLabels = if facet.sfKind in {sfFreeX, sfFree} or
+                         curRow == rows - 1 or
+                         (curRow == rows - 2 and
+                          curCol >= lastCol and
+                          lastCol > 0):
+                        false
+                      else: true
+    let hideYLabels = if facet.sfKind in {sfFreeX, sfFree} or
+                         curCol == 0: false
+                      else: true
+    # assign names
+    plotView.name = "facetPlot"
+    viewLabel.name = "facet_" & text
+
+    var setGridAndTicks = false
     for fg in filledScales.geoms:
-      # determine data scale of the current labels data if a scale is free.
-      # This changes `x/yMarginRange` of the theme
-      theme.calcScalesForLabel(facet, fg, label)
-      # assign theme ranges to this views scale
+      if not setGridAndTicks:
+        ## TODO: this means we currently use the margin range of the ``first``
+        ## geom in a single facet. They should all agree I guess?
+        # determine data scale of the current labels data if a scale is free.
+        # This changes `x/yMarginRange` of the theme
+        theme.calcScalesForLabel(facet, fg, label)
+        # assign theme ranges to this views scale
+        plotView.xScale = theme.xMarginRange
+        plotView.yScale = theme.yMarginRange
 
-      viewLabel.xScale = theme.xMarginRange
-      viewLabel.yScale = theme.yMarginRange
-      # create the layout for a facet + header
-      viewLabel.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
-                       margin = quant(0.01, ukRelative))
-      var headerView = viewLabel[0]
-      # set the background of the header
-      headerView.background()
-      # put in the text
-      let text = $label #pair.mapIt($it[0] & ": " & $it[1]).join(", ")
-      let headerText = headerView.initText(c(0.5, 0.5),
-                                           text,
-                                           textKind = goText,
-                                           alignKind = taCenter,
-                                           font = some(font(8.0)),
-                                           name = "facetHeaderText")
-      headerView.addObj headerText
-      headerView.name = "facetHeader"
-      # fill the plot
-      var plotView = viewLabel[1]
-      plotView.background(style = some(getPlotBackground(theme)))
-      let curRow = idx div cols
-      let curCol = idx mod cols
-      # hide the labels if scales not free and plot not in bottom row or
-      # left most column
-      let hideXLabels = if facet.sfKind in {sfFreeX, sfFree} or
-                           curRow == rows - 1 or
-                           (curRow == rows - 2 and
-                            curCol >= lastCol and
-                            lastCol > 0):
-                          false
-                        else: true
-      let hideYLabels = if facet.sfKind in {sfFreeX, sfFree} or
-                           curCol == 0: false
-                        else: true
-      # change number of ticks from default 10 if numbers too large (i.e. we
-      # print between 100 and 9000); get's too crowded along x axis
-      let xTickNum = if theme.xMarginRange.high > 100.0 and
-                      theme.xMarginRange.high < 1e5:
-                     5
-                   else:
-                     p.numXTicks
+        # change number of ticks from default 10 if numbers too large (i.e. we
+        # print between 100 and 9000); get's too crowded along x axis
+        let xTickNum = if theme.xMarginRange.high > 100.0 and
+                        theme.xMarginRange.high < 1e5:
+                       5
+                     else:
+                       p.numXTicks
+        xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
+                                      numTicksOpt = some(xTickNum),
+                                      hideTickLabels = hideXLabels)
+        yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
+                                      hideTickLabels = hideYLabels)
 
-      xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
-                                    numTicksOpt = some(xTickNum),
-                                    hideTickLabels = hideXLabels)
-      yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
-                                    hideTickLabels = hideYLabels)
+        let grdLines = plotView.initGridLines(some(xticks), some(yticks))
+        plotView.addObj grdLines
+        setGridAndTicks = true
 
-      let grdLines = plotView.initGridLines(some(xticks), some(yticks))
-      plotView.addObj grdLines
+      # create a child viewport to which we add the data to be able to stack multiple geom layers
+      var pChild = plotView.addViewport(name = "data")
+      pChild.createGobjFromGeom(fg, theme, labelVal = some(label))
+      # add the data viewport to the view
+      plotView.children.add pChild
 
-      plotView.createGobjFromGeom(fg, theme, labelVal = some(label))
-      viewLabel.xScale = plotView.xScale
-      viewLabel.yScale = plotView.yScale
+    # possibly update x/y scale of parent
+    viewLabel.xScale = plotView.xScale
+    viewLabel.yScale = plotView.yScale
 
-      if not filledScales.discreteX and filledScales.reversedX:
-        viewLabel.xScale = (low: view.xScale.high, high: view.xScale.low)
-      if not filledScales.discreteY and filledScales.reversedY:
-        viewLabel.yScale = (low: view.yScale.high, high: view.yScale.low)
-
-      # finally assign names
-      plotView.name = "facetPlot"
-      viewLabel.name = "facet_" & text
+    if not filledScales.discreteX and filledScales.reversedX:
+      viewLabel.xScale = (low: view.xScale.high, high: view.xScale.low)
+    if not filledScales.discreteY and filledScales.reversedY:
+      viewLabel.yScale = (low: view.yScale.high, high: view.yScale.low)
 
   if not hidelabels:
     # set the theme margins to defaults since `view` does not have any tick label texts
