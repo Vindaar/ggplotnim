@@ -83,9 +83,15 @@ type
   #  btFalse # for Scales that do not directly belong to an axis, e.g. color Scale
 
   SecondaryAxis* = object
-    trans*: Option[FormulaNode] # possible transformation of the first axis to arrive at second
     name*: string
     axKind*: AxisKind
+    case scKind*: ScaleKind
+    of scLinearData:
+      trans*: Option[FormulaNode] # possible transformation of the first axis to arrive at second
+    of scTransformedData:
+      transFn*: ScaleTransform
+      invTransFn*: ScaleTransform
+    else: discard
 
   DiscreteFormat* = proc(x: Value): string
   ContinuousFormat* = proc(x: float): string
