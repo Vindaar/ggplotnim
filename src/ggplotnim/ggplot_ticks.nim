@@ -333,12 +333,18 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         let secAxis = filledScales.getSecondaryAxis(axKind)
         # we discard the result, because we only use it to generate the grid lines. Those
         # are focused based on the primary axis of course
+        let trans = if secAxis.scKind == scLinearData: secAxis.trans
+                    else: none(FormulaNode)
+        let transFn = if secAxis.scKind == scTransformedData: secAxis.transFn
+                      else: nil
+        let invTransFn = if secAxis.scKind == scTransformedData: secAxis.invTransFn
+                      else: nil
         discard view.handleContinuousTicks(p, axKind, dataScale,
-                                           scale.scKind,
+                                           secAxis.scKind,
                                            numTicks,
-                                           trans = scale.trans,
-                                           invTrans = scale.invTrans,
-                                           secAxisTrans = secAxis.trans,
+                                           trans = transFn,
+                                           invTrans = invTransFn,
+                                           secAxisTrans = trans,
                                            theme = theme,
                                            hideTickLabels = hideTickLabels,
                                            isSecondary = true,

@@ -729,7 +729,10 @@ proc scale_y_log2*(): Scale =
                  trans: trans,
                  invTrans: invTrans)
 
-func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
+func sec_axis*(trans: FormulaNode = f{""},
+               transFn: ScaleTransform = nil,
+               invTransFn: ScaleTransForm = nil,
+               name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
   var fn: Option[FormulaNode]
   when defined(defaultBackend):
@@ -738,8 +741,17 @@ func sec_axis*(trans: FormulaNode = f{""}, name: string = ""): SecondaryAxis =
   else:
     if trans.name.len > 0:
       fn = some(trans)
-  result = SecondaryAxis(trans: fn,
-                         name: name)
+  if not transFn.isNil and not invTransFn.isNil:
+    result = SecondaryAxis(scKind: scTransformedData,
+                           transFn: transFn, invTransFn: invTransFn,
+                           name: name)
+  elif not transFn.isNil or not invTransFn.isNil:
+    raise newException(Exception, "In case of using a transformed secondary scale, both the " &
+      "forward and reverse transformations have to be provided!")
+  else:
+    result = SecondaryAxis(scKind: scLinearData,
+                           trans: fn,
+                           name: name)
 
 proc scale_x_discrete*(name: string = "",
                        secAxis: SecondaryAxis = sec_axis(),
