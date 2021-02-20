@@ -1383,14 +1383,14 @@ proc margin*[T: string | UnitKind](left, right, top, bottom = NaN,
                  plotMarginTop: noneIfNan(top, unitKind),
                  plotMarginBottom: noneIfNan(bottom, unitKind))
 
-proc facetMargin*[T: Quantity | SomeNumber](margin: T): Theme =
+proc facetMargin*[T: Quantity | SomeNumber](margin: T, quantityKind = ukCentimeter): Theme =
   ## Sets the margin around each subplot when using faceting. The value
   ## can either be given directly as a `Quantity`, in which case the user
   ## has control over absolute / relative quantities or as a number. In the
   ## latter case the number is interpreted in centimeter!
   var m: Quantity
   when T is SomeNumber:
-    m = quant(margin, ukCentimeter)
+    m = quant(margin, quantityKind)
   else:
     m = margin
   result = Theme(facetMargin: some(m))
