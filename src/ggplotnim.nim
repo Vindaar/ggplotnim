@@ -459,17 +459,20 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      color = none[Color](), # color of the bar outlines
                      fillColor = none[Color](), # color of the bars inners
                      alpha = none[float](),
-                     position = "stack",
+                     position = "", # default is `stack` see below unless `hdOutline` is used.
+                                    # `stack` doesn't work together with outline.
                      stat = "bin",
                      binPosition = "left",
                      binBy = "full",
                      density = false,
                      lineWidth = some(0.2),
                      lineType = some(ltSolid),
-                     hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo
+                     hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo. Outline
+                                                             # does not allow `position = "stack"`.
                     ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
-  let pkKind = parseEnum[PositionKind](position)
+  let pkKind = if position.len == 0: pkStack
+               else: parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
@@ -480,6 +483,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                           fillColor = fillColor,
                           alpha = alpha)
   let gid = incId()
+
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkHistogram,
@@ -489,6 +493,14 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                 binPosition: bpKind,
                 statKind: stKind,
                 hdKind: hdKind)
+  if hdKind == hdOutline and position.len == 0:
+    result.position = pkIdentity
+  elif hdKind == hdOutline and position == "stack":
+    echo "WARNING: `position = \"stack\"` unsupported for histograms. Will draw " &
+      "using `hdKind = hdBars` instead! Use `position = \"identity\" if `hdOutline`" &
+      "is to be used."
+    result.hdKind = hdBars
+
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 proc geom_freqpoly*(aes: Aesthetics = aes(),
