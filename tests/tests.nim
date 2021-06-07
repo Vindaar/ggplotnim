@@ -1012,3 +1012,35 @@ suite "Annotations":
       # NOTE: `hasDiscreteness` is ``not`` copied over during `collect_and_fill.fillScale`!
       # check cScale.hasDiscreteness
       check cScale.dcKind == dcDiscrete
+
+  test "`geom_histogram` stacks by default, unless `hdOutline` used":
+    let a = @[1,2,3,4,5,6]
+    let df = seqsToDf(a)
+    block:
+      let plt = ggplot(df, aes("a")) + geom_histogram()
+      check plt.geoms.len == 1
+      let g = plt.geoms[0]
+      check g.kind == gkHistogram
+      check g.hdKind == hdBars
+      check g.position == pkStack
+    block:
+      let plt = ggplot(df, aes("a")) + geom_histogram(position = "identity")
+      check plt.geoms.len == 1
+      let g = plt.geoms[0]
+      check g.kind == gkHistogram
+      check g.hdKind == hdBars
+      check g.position == pkIdentity
+    block:
+      let plt = ggplot(df, aes("a")) + geom_histogram(hdKind = hdOutline)
+      check plt.geoms.len == 1
+      let g = plt.geoms[0]
+      check g.kind == gkHistogram
+      check g.hdKind == hdOutline
+      check g.position == pkIdentity
+    block:
+      let plt = ggplot(df, aes("a")) + geom_histogram(hdKind = hdOutline, position = "stack")
+      check plt.geoms.len == 1
+      let g = plt.geoms[0]
+      check g.kind == gkHistogram
+      check g.hdKind == hdBars
+      check g.position == pkStack
