@@ -1,3 +1,9 @@
+* v0.3.26
+- change =geom_histogram= behavior regarding =hdKind=
+  vs. =position=. If =hdOutline= is used, the default position is
+  =identity=. For normal =hdBars= it is stacking. If both =hdOutline=
+  and =stack= are used, we fall back to =hdBars= with a warning message.
+  
 * v0.3.25
 - fix issue #110; facets now support multiple geoms in one facet plot
 - add classifying using shapes (marker kind & line shape). However,
