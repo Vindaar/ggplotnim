@@ -805,7 +805,7 @@ This is for *single* symbols though.
 
 *** TODO modify =findTypes= to return types expected in above code
 
-*** Lifting reducing calls from loop
+*** TODO Lifting reducing calls from loop
 
 One of the most important "optimizations" (if one should even call it
 as such) is lifting operations, which perform reducing operations on a
@@ -875,6 +875,30 @@ is just the name of the temporary result variable. It's name is
 derived from the name of the symbol to be lifted (usually
 =toLift[0]=).
 
+In addition to the above example of performing an action on a full
+column, another case should be lifted. Namely access of a local
+sequence / tensor that is being reduced. An example from the
+=axionMass.nim= file:
+#+begin_src nim
+  .filter(f{float: `Energy` >= energies.min and `Energy` <= energies.max})
+#+end_src
+where this code will recalculate =energies.min/max= for every single
+element it tests!
+
+Fortunately, the lifting of these can work essentially in the same
+way. As long as we can deduce types of the symbols involved, we should
+be able to deduce that =energies.min= has type signature
+=seq/Tensor[T] -> T=. With that knowledge we can lift out the full
+=nnkDotExpr= node.
+
+Maybe we could have an additional pass over the tree like
+=extractNodesToLift= or something like this. 
+
+Subnodes that do not reference a column can always be lifted out of a
+loop, because they reduce to a constant value.
+
+For the time being this will be left out of the current implementation.
+
 *** TODO Have to change =replaceByElement= and friends
 
 Main issue that's left:
@@ -883,7 +907,6 @@ cases that might be =byIndex= and in others =byTensor=.
 1. =get(preface)= only returns the *first* assignment
 2. we also generate multiple symbols and statements to get tensors
    from the preface
-
 
 
 *** Different call string literals
