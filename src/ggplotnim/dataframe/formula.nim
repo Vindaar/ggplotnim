@@ -433,6 +433,10 @@ proc findType(n: NimNode, arg, numArgs: int): PossibleType =
   ## It must be a symbol (or contain one) of some kind. It should not be used for
   ## literals, as they have fixed type information.
   ## NOTE: this may be changed in the future! Currently this is used to
+
+  ## TODO: this should be capable of determining something like
+  ## `energies.min` to be `seq/Tensor[T] ⇒ T`!
+
   echo "NNN ", n.treerepr
   doAssert not n.isLiteral
   var possibleTypes = newSeq[PossibleType]()
