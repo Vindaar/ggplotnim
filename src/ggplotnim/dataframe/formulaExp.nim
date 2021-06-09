@@ -1,28 +1,91 @@
-import macros, sequtils, strformat
+import macros, sequtils, strformat, options, sets
 import formulaNameMacro
 
-import arraymancer_backend, column, value, df_types
+import column, value, df_types
 
 type
-  AssignKind = enum
+  AssignKind* = enum
     byIndex, byTensor
+  ## replace occurence of nnkAccQuote, nnkCallStrLit, nnkBracketExpr(df) by:
+  ReplaceByKind = enum
+    rbIndex ## by call to tensor index, `tT[idx]`, in a `for` loop
+    rbElement ## by single element, `tIdx` in a `forEach` call
+    rbColumn ## by full tensor (df column), `colT` in `<<` formula
+  ## `impure` in the context of `FormulaNode` refers to evaluation requiring
+  ## a data frame. Pure formulas represent raw expressions that evaluate to
+  ## a simple `Value`
+  FormulaKind* = enum
+    fkVariable = "" ## Nim variable as `Value`, pure
+    fkAssign = "<-" ## assignment op, pure
+    fkVector = "~" ## map operation, impure
+    fkScalar = "<<" ## reduce operation, impure
   ## either: `t in df["foo", int]`
   ## or: `t = df["foo", int]`
-  Assign = object
-    asgnKind: AssignKind
-    element: NimNode # e.g. `t`
-    tensor: NimNode # either `t` or `t_T` if `elmenent` used
-    col: NimNode # name of the column
-    colType: NimNode # e.g. `float`
-  Preface = object
-    args: seq[Assign]
-  FormulaCT = object
-    preface: Preface
-    resType: NimNode # e.g. `ident"float"`
-    name: string # name of the formula body as lisp
-    loop: NimNode # loop needs to be patched to remove accented quotes etc
+  Assign* = object
+    asgnKind*: AssignKind
+    ## TODO: rename / change `ReplaceByKind` as it's currently a bit unclear, in particular after
+    ## `get` and `delete` was added!
+    rbKind*: ReplaceByKind ## stores how this should be inserted
+    element*: NimNode # e.g. `t`
+    tensor*: NimNode # either `t` or `t_T` if `elmenent` used
+    col*: NimNode # name of the column
+    colType*: NimNode # e.g. `float`
+    resType*: NimNode # the resulting type of the computation `Assign` is ``involved`` in!
+  Preface* = object
+    args*: seq[Assign]
+  FormulaCT* = object
+    funcKind*: FormulaKind
+    preface*: Preface
+    typeHint*: TypeHint # the actual type hint given in the formula
+    resType*: NimNode # e.g. `ident"float"`
+    name*: NimNode # name of the formula -> refers to new column / assignment name
+    rawName*: string # name of the formula body as lisp
+    loop*: NimNode # loop needs to be patched to remove accented quotes etc
+  ## `Lift` stores a node which needs to be lifted out of a for loop, because it performs a
+  ## reducing operation on a full DF column. It will be replaced by `liftedNode` in the loop
+  ## body.
+  Lift* = object
+    toLift*: NimNode
+    liftedNode*: NimNode
 
-const dtypes = ["float", "int", "string", "bool", "Value"]
+  ## The `TypeHint` and `HeuristicType` are only used for the shortform of the
+  ## `Formula` syntax using `f{}`.
+  ##
+  ## In the general shortform `Formula` syntax `f{}` a `TypeHint` is of the form
+  ## `f{float -> int: <operation>}`, where the first value is the type we use to read the
+  ## DF tensors and the second the output datatype of the operation.
+  ##
+  ## If a `TypeHint` is found in a formula, we do attempt to heuristically determine
+  ## sensible data types.
+  TypeHint* = object
+    inputType*: Option[NimNode]
+    resType*: Option[NimNode]
+
+  ## `HeuristicType` stores the input and output types of a formula constructed using the
+  ## `f{}` syntax based on simple heuristic rules about the presence of certain operators
+  ## and typed symbols (e.g. proc calls, literals). They are only used if no `TypeHint`
+  ## is supplied.
+  HeuristicType* = TypeHint
+
+  ## `FormulaTypes` finally is the type used for input and output of the formula
+  ## construction. Here the types *must* be set, otherwise it's a CT error (which happens
+  ## if we cannot deduce a type and no hints are given)
+  FormulaTypes* = object
+    inputType*: NimNode
+    resType*: NimNode
+
+## Idents used for the generated code
+const
+  InIdent = "in"
+  ResIdent = "res"
+  ResultIdent = "result"
+  RIdent = "r"
+  DFIdent = "df"
+  IdxIdent = "idx"
+  ColIdent = "Column"
+  ValueIdent = "Value"
+
+const Dtypes* = ["float", "int", "string", "bool", "Value"]
 
 proc checkIdent(n: NimNode, s: string): bool =
   result = n.len > 0 and n[0].kind == nnkIdent and n[0].strVal == s
@@ -44,7 +107,7 @@ proc parsePreface(n: NimNode): Preface =
     doAssert ch[2][0].strVal == "df", "`in` must refer to a `df[<col>, <type>]`!"
     let elId = ch[1].strVal
     let dtype = ch[2][2].strVal
-    doAssert dtype in dtypes, "Column dtype " & $dtype & " not in " & $dtypes & "!"
+    doAssert dtype in Dtypes, "Column dtype " & $dtype & " not in " & $Dtypes & "!"
     result = Assign(asgnKind: byIndex,
                     element: ident(elId),
                     tensor: ident(elId & "T"),
@@ -56,7 +119,7 @@ proc parsePreface(n: NimNode): Preface =
     doAssert ch[1][0].strVal == "df", "`=` must assign from a `df[<col>, <type>]`!"
     let tId = ch[0].strVal
     let dtype = ch[1][2].strVal
-    doAssert dtype in dtypes, "Column dtype " & $dtype & " not in " & $dtypes & "!"
+    doAssert dtype in Dtypes, "Column dtype " & $dtype & " not in " & $Dtypes & "!"
     result = Assign(asgnKind: byTensor,
                     element: ident(tId & "Idx"),
                     tensor: ident(tId),
@@ -79,38 +142,60 @@ proc parseLoop(n: NimNode): NimNode =
   expectKind(n[1], nnkStmtList)
   result = n[1]
 
+func removeCallAcc(n: NimNode): NimNode =
+  result = if n.kind == nnkAccQuoted: newLit(n[0].strVal)
+           elif n.kind == nnkCallStrLit: n[1]
+           else: n
+
 proc convertPreface(p: Preface): NimNode =
+  ## TODO:
+  ## anything that contains a type of `Tensor[T]` needs to be handled differently.
+  ## Instead of generating a `let colT = df["col", dType]` we need to just call
+  ## the function that
   proc toLet(a: Assign): NimNode =
     result = nnkIdentDefs.newTree(
       a.tensor,
       newEmptyNode(),
-      nnkBracketExpr.newTree(ident"df", a.col, a.colType)
+      nnkBracketExpr.newTree(ident(DfIdent), a.col.removeCallAcc(),
+                             ident(a.colType.strVal)) #convert nnkSym to nnkIdent
     )
   result = nnkLetSection.newTree()
+  var seenTensors = initHashSet[string]()
   for arg in p.args:
-    result.add toLet(arg)
+    if arg.tensor.strVal notin seenTensors:
+      result.add toLet(arg)
+    seenTensors.incl arg.tensor.strVal
 
 proc convertDtype(d: NimNode): NimNode =
   result = nnkVarSection.newTree(
     nnkIdentDefs.newTree(
-      ident"res",
+      ident(ResIdent),
       newEmptyNode(),
       nnkCall.newTree(
         nnkBracketExpr.newTree(ident"newTensor",
                                d),
-        nnkDotExpr.newTree(ident"df",
+        nnkDotExpr.newTree(ident(DfIdent),
                            ident"len"))
     )
   )
 
-proc `$`(p: Preface): string =
-  $p.args.mapIt(&"Assign(element: {it.element.strVal}, tensor: {it.tensor.strVal}))")
+proc `$`*(p: Preface): string =
+  for ch in p.args:
+    echo ch.repr
+  $p.args.mapIt(&"Assign(element: {it.element.strVal}, tensor: {it.tensor.strVal}, col: {buildFormula(it.col)}))")
 
 proc contains(p: Preface, s: string): bool =
   for arg in p.args:
     if arg.element.strVal == s:
       return true
     if arg.tensor.strVal == s:
+      return true
+    if buildFormula(arg.col) == s:
+      return true
+
+proc contains(p: Preface, n: NimNode): bool =
+  for arg in p.args:
+    if arg.col == n:
       return true
 
 proc `[]`(p: Preface, s: string): Assign =
@@ -119,37 +204,155 @@ proc `[]`(p: Preface, s: string): Assign =
       return arg
     if arg.tensor.strVal == s:
       return arg
+    if buildFormula(arg.col) == s:
+      return arg
   error("Could not find " & s & " in preface containing " & $p)
 
-proc fixupTensorIndices(loopStmts: NimNode, preface: Preface, toElements: bool): NimNode =
+proc delete(p: var Preface, s: string) =
+  var idx = 0
+  while idx < p.args.len:
+    let arg = p.args[idx]
+    if arg.element.strVal == s:
+      p.args.delete(idx)
+      return
+    if arg.tensor.strVal == s:
+      p.args.delete(idx)
+      return
+    if buildFormula(arg.col) == s:
+      p.args.delete(idx)
+      return
+    inc idx
+
+proc nodeIsDf*(n: NimNode): bool =
+  if n.kind == nnkBracketExpr:
+    result = n[0].kind == nnkIdent and n[0].strVal == "df"
+  elif n.kind == nnkCall:
+    result = n[0].kind == nnkIdent and n[0].strVal == "col"
+
+proc nodeIsDfIdx*(n: NimNode): bool =
+  if n.kind == nnkBracketExpr:
+    result = n[0].kind == nnkBracketExpr and n[0][0].kind == nnkIdent and
+    n[0][0].strVal == "df" and n[1].kind == nnkIdent and n[1].strVal == "idx"
+  elif n.kind == nnkCall:
+    result = n[0].kind == nnkIdent and n[0].strVal == "idx"
+
+proc get(p: var Preface, name: string, useIdx: bool): NimNode =
+  let n = p[name]
+  p.delete(name)
+  echo "Getting n ", name, " is ", n.asgnKind
+  result = if n.asgnKind == byIndex:
+             if useIdx:
+               nnkBracketExpr.newTree(
+                 n.tensor,
+                 ident(IdxIdent)
+               )
+             else:
+               n.element
+           else:
+             n.tensor
+
+proc replaceByIdx(n: NimNode, preface: var Preface): NimNode =
+  ## recurses the node `n` and replaces all occurences by `t[idx]` for each
+  ## tensor in the loop
+  # first check if an ident that is in preface we have to replace or if
+  # an `nnkBracketExpr` which contains an ident from `preface`. In those cases
+  # return early
+  case n.kind
+  of nnkIdent, nnkSym:
+    if n.strVal in preface: return preface.get(n.strVal, useIdx = true)
+    else: return n
+  of nnkAccQuoted:
+    return preface.get(n[0].strVal, useIdx = true)
+  of nnkCallStrLit:
+    return preface.get(buildFormula(n), useIdx = true)
+  of nnkBracketExpr:
+    if n[0].kind == nnkIdent and n[0].strVal in preface:
+      return n
+    # if `df["someCol"]` replace by full tensor (e.g. in a call taking tensor)
+    ## TODO: analyze for these, put into preface!
+    if nodeIsDf(n) and n[1].strVal in preface:
+      return preface.get(buildFormula(n[1]), useIdx = true)
+    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
+      ## TODO: fix me for the case of `col(someCol)` the buildFormula call does not make sense!
+      return preface.get(buildFormula(n[0][1]), useIdx = true)
+  of nnkCall:
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
+      return preface.get(buildFormula(n[1]), useIdx = true)
+  else: result = n
+  if n.len > 0:
+    result = newTree(n.kind)
+    for ch in n:
+      result.add replaceByIdx(ch, preface)
+
+proc replaceByElement(n: NimNode, preface: var Preface): NimNode =
+  ## recurses the node `n` and replaces all occurences by `t` for each
+  ## tensor in the loop
+  # first check if an ident that is in preface we have to replace or if
+  # an `nnkBracketExpr` which contains an ident from `preface`. In those cases
+  # return early
+  case n.kind
+  of nnkIdent, nnkSym:
+    if n.strVal in preface: return preface.get(n.strVal, useIdx = false)
+    else: return n
+  of nnkAccQuoted:
+    return preface.get(n[0].strVal, useIdx = false)
+  of nnkCallStrLit:
+    return preface.get(buildFormula(n), useIdx = false)
+  of nnkBracketExpr:
+    if n[0].kind == nnkIdent and n[0].strVal in preface:
+      return preface.get(n[0].strVal, useIdx = false)
+    # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
+    ## TODO: analyze for these and put into preface!
+    if nodeIsDf(n) and n[1].strVal in preface:
+      return preface.get(buildFormula(n[1]), useIdx = false)
+    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
+      return preface.get(buildFormula(n[0][1]), useIdx = false)
+  of nnkCall:
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
+      return preface.get(buildFormula(n[1]), useIdx = false)
+  else: result = n
+  if n.len > 0:
+    result = newTree(n.kind)
+    for ch in n:
+      result.add replaceByElement(ch, preface)
+
+proc replaceByColumn(n: NimNode, preface: var Preface): NimNode =
+  ## recurses the node `n` and replaces all occurences by full `col` (i.e. field `tensor`) for each
+  ## tensor in the loop
+  case n.kind
+  of nnkIdent, nnkSym:
+    if n.strVal in preface: return preface[n.strVal].tensor
+    else: return n
+  of nnkAccQuoted:
+    return preface[n[0].strVal].tensor
+  of nnkCallStrLit:
+    return preface[buildFormula(n)].tensor
+  of nnkBracketExpr:
+    if n[0].kind == nnkIdent and n[0].strVal in preface:
+      return preface[(n[0].strVal)].tensor
+    # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
+    ## TODO: analyze for these and put into preface!
+    if nodeIsDf(n) and n[1].strVal in preface:
+      return preface[(buildFormula(n[1]))].tensor
+    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
+      error("Invalid usage of `idx` in a reducing formula! Access: " & $(n.repr))
+  of nnkCall:
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
+      return preface[buildFormula(n[1])].tensor
+  else: result = n
+  if n.len > 0:
+    result = newTree(n.kind)
+    for ch in n:
+      result.add replaceByColumn(ch, preface)
+
+proc fixupTensorIndices(loopStmts: NimNode, preface: var Preface,
+                        rbKind: ReplaceByKind): NimNode =
   ## If `toElements` is true, we rewrite everything by `t` (where `t` is an
   ## element of `tT` (Tensor). This includes
+  echo loopStmts.treerepr
   expectKind(loopStmts, nnkStmtList)
-  if toElements:
-    proc replaceByIdx(n: NimNode, preface: Preface): NimNode =
-      ## recurses the node `n` and replaces all occurences by `t[idx]` for each
-      ## tensor in the loop
-
-      # first check if an ident that is in preface we have to replace or if
-      # an `nnkBracketExpr` which contains an ident from `preface`. In those cases
-      # return early
-      case n.kind
-      of nnkIdent, nnkSym:
-        if n.strVal in preface:
-          return nnkBracketExpr.newTree(
-            preface[n.strVal].tensor,
-            ident"idx"
-          )
-        else: return n
-      of nnkBracketExpr:
-        if n[0].kind == nnkIdent and n[0].strVal in preface:
-          return n
-      else: result = n
-      if n.len > 0:
-        result = newTree(n.kind)
-        for ch in n:
-          result.add replaceByIdx(ch, preface)
-
+  case rbKind
+  of rbIndex:
     let loop = loopStmts[0].replaceByIdx(preface)
     echo loop.treeRepr, " is this::: ", loop.repr
     case loop.kind
@@ -161,86 +364,123 @@ proc fixupTensorIndices(loopStmts: NimNode, preface: Preface, toElements: bool):
     else:
       # turn this into an nnkAsgn node with `res` as LHS and `nnkAsgn` on RHS
       result = nnkAsgn.newTree(
-        nnkBracketExpr.newTree(ident"res", ident"idx"),
+        nnkBracketExpr.newTree(ident(ResIdent), ident(IdxIdent)),
         loop)
-  else:
-    proc replaceByElement(n: NimNode, preface: Preface): NimNode =
-      ## recurses the node `n` and replaces all occurences by `t` for each
-      ## tensor in the loop
-      # first check if an ident that is in preface we have to replace or if
-      # an `nnkBracketExpr` which contains an ident from `preface`. In those cases
-      # return early
-      case n.kind
-      of nnkIdent, nnkSym:
-        if n.strVal in preface: return preface[n.strVal].element
-        else: return n
-      of nnkBracketExpr:
-        if n[0].kind == nnkIdent and n[0].strVal in preface:
-          return preface[n[0].strVal].element
-      else: result = n
-      if n.len > 0:
-        result = newTree(n.kind)
-        for ch in n:
-          result.add replaceByElement(ch, preface)
-
+  of rbElement:
     let loop = loopStmts[0].replaceByElement(preface)
     echo loop.treeRepr
     case loop.kind
-    of nnkAsgn: doAssert loop[0].kind == nnkIdent and loop[0].strVal == "r"
+    of nnkAsgn: doAssert loop[0].kind == nnkIdent and loop[0].strVal == RIdent
     else:
       # turn this into an nnkAsgn node with `res` as LHS and `nnkAsgn` on RHS
-      result = nnkAsgn.newTree(ident"r", loop)
+      result = nnkAsgn.newTree(ident(RIdent), loop)
+  of rbColumn:
+    let loop = loopStmts[0].replaceByColumn(preface)
+    case loop.kind
+    of nnkAsgn: doAssert loop[0].kind == nnkIdent and loop[0].strVal == ResIdent
+    else:
+      # turn this into an `nnkVarSection` node with `res` as LHS and `loop` as RHS
+      result = nnkVarSection.newTree(
+        nnkIdentDefs.newTree(
+          ident(ResIdent),
+          newEmptyNode(),
+          loop)
+      )
 
-proc convertLoop(p: Preface, dtype, loop: NimNode): NimNode =
-  let idx = ident"idx"
-  let df = ident"df"
+proc convertLoop(p: Preface, dtype, loop: NimNode,
+                 fnKind: FormulaKind): NimNode =
   let memCopyable = ["float", "int", "bool"]
   let isMemCopyable = dtype.strVal in memCopyable and
     p.args.allIt(it.colType.strVal in memCopyable)
-  if not isMemCopyable:
-    let loopIndexed = fixupTensorIndices(loop, p, toElements = true)
-    echo "1 ", loopIndexed.repr
-    result = quote do:
+  proc genForLoop(p: Preface, loop: NimNode): NimNode =
+    var mpreface = p
+    let loopIndexed = fixupTensorIndices(loop, mpreface, rbKind = rbIndex)
+    let idx = ident(IdxIdent)
+    let df = ident(DfIdent)
+    var loop = quote do:
       for `idx` in 0 ..< `df`.len:
         `loopIndexed`
-  else:
-    let loopElements = fixupTensorIndices(loop, p, toElements = false)
-    result = nnkCommand.newTree(ident"forEach")
-    let resId = ident"res"
-    let rId = ident"r"
-    result.add nnkInfix.newTree(ident"in", rId, resId)
-    for arg in p.args:
-      result.add nnkInfix.newTree(ident"in", arg.element, arg.tensor)
-    result.add nnkStmtList.newTree(loopElements)
+    result = newStmtList(loop)
 
-proc compileFormula(stmts: NimNode): NimNode =
+  proc genForEach(p: Preface, loop: NimNode): NimNode =
+    var mpreface = p
+    let loopElements = fixupTensorIndices(loop, mpreface, rbKind = rbElement)
+    var forEach = nnkCommand.newTree(ident"forEach")
+    forEach.add nnkInfix.newTree(ident(InIdent), ident(RIdent), ident(ResIdent))
+    for arg in p.args:
+      forEach.add nnkInfix.newTree(ident(InIdent), arg.element, arg.tensor)
+    forEach.add nnkStmtList.newTree(loopElements)
+    result = newStmtList(forEach)
+
+  proc addResultVector(): NimNode =
+    let resId = ident(ResIdent)
+    let resultId = ident(ResultIdent)
+    result = quote do:
+      `resultId` = toColumn `resId`
+
+  case fnKind
+  of fkVector:
+    if not isMemCopyable:
+      result = genForLoop(p, loop)
+      result.add addResultVector()
+    else:
+      result = genForEach(p, loop)
+      result.add addResultVector()
+  of fkScalar:
+    let resultId = ident(ResultIdent)
+    var mpreface = p
+    let loopElements = fixupTensorIndices(loop, mpreface, rbKind = rbColumn)
+    let resId = ident(ResIdent)
+    result = quote do:
+      `loopElements`
+      `resultId` = %~ `resId`
+  else:
+    error("Invalid FormulaKind `" & $(fnKind.repr) & "` in `convertLoop`. Already handled " &
+      "in `compileFormula`!")
+
+proc parseFormulaCT(stmts: NimNode): FormulaCT =
   let preface = parsePreface(extractCall(stmts, "preface"))
   ## TODO: if `dtype` not given: auto determine
   let dtype = parseSingle(extractCall(stmts, "dtype"))
-  ## TODO: if `name` not given, use formulaNameMacro
   let name = parseSingle(extractCall(stmts, "name"))
   let loop = parseLoop(extractCall(stmts, "loop"))
+  result = FormulaCT(preface: preface,
+                     resType: dtype,
+                     name: name,
+                     loop: loop)
 
+proc generateClosure*(fct: FormulaCT): NimNode =
   var procBody = newStmtList()
-  procBody.add convertPreface(preface)
-  procBody.add convertDtype(dtype)
-  procBody.add convertLoop(preface, dtype, loop)
-  let resultId = ident"result"
-  let resId = ident"res"
-  procBody.add quote do:
-    `resultId` = toColumn `resId`
+  procBody.add convertPreface(fct.preface)
+  if fct.funcKind == fkVector:
+    procBody.add convertDtype(fct.resType)
+  echo "FIN NNN ", fct.funcKind.repr
+  procBody.add convertLoop(fct.preface, fct.resType, fct.loop, fct.funcKind)
   result = procBody
-  let params = [ident"Column",
-                nnkIdentDefs.newTree(ident"df",
-                                     ident"DataFrame",
-                                     newEmptyNode())]
+  var params: array[2, NimNode]
+  case fct.funcKind
+  of fkVector:
+    params = [ident(ColIdent),
+              nnkIdentDefs.newTree(ident(DfIdent),
+                                   ident"DataFrame",
+                                   newEmptyNode())]
+  of fkScalar:
+    params = [ident(ValueIdent),
+              nnkIdentDefs.newTree(ident(DfIdent),
+                                   ident"DataFrame",
+                                   newEmptyNode())]
+  else:
+    error("Invalid FormulaKind `" & $(fct.funcKind.repr) & "` in `convertLoop`. Already handled " &
+      "in `compileFormula`!")
   result = newProc(newEmptyNode(),
                    params = params,
                    body = procBody,
                    procType = nnkLambda)
 
+proc compileFormula(stmts: NimNode): NimNode =
+  let fct = parseFormulaCT(stmts)
+  result = generateClosure(fct)
   echo result.repr
-
 
 macro fn*(y: untyped): untyped =
   ## TODO: add some ability to explicitly create formulas of
@@ -261,33 +501,37 @@ macro fn*(y: untyped): untyped =
   ## - `idx`: can be used to access the loop iteration index
   result = compileFormula(y)
 
-import math
-import arraymancer / laser / strided_iteration / foreach
-let f1 = fn:
-  preface:
-    t in df["foo", int] # t refers to each element of `foo` in the loop
-    u in df["bar", float]
-    v = df["baz", int] # v refers to the ``Tensor`` `baz`
-  dtype: float
-  name: "fooBar"
-  loop:
-    t.float * u + v[idx].float
+when isMainModule:
+  import math
+  import arraymancer / laser / strided_iteration / foreach
+  let f1 = fn:
+    preface:
+      t in df["foo", int] # t refers to each element of `foo` in the loop
+      u in df["bar", float]
+      v = df["baz", int] # v refers to the ``Tensor`` `baz`
+    dtype: float
+    name: "fooBar"
+    loop:
+      t.float * u + v[idx].float
 
-let f2 = fn:
-  preface:
-    t in df["foo", int] # t refers to each element of `foo` in the loop
-    u in df["bar", float]
-    v = df["baz", int] # v refers to the ``Tensor`` `baz`
-    #r in result
-  dtype: bool
-  name: "filterme"
-  loop:
-    t.float > u and v[idx].float < 2.2
+  let f2 = f{ parseInt(`t`) > 5 }
 
-let f3 = fn:
-  preface:
-    t in df["foo", float] # t refers to each element of `foo` in the loop
-  dtype: bool
-  name: "noNan"
-  loop:
-    not (classify(t) == fcNan)
+
+#let f2 = fn:
+#  preface:
+#    t in df["foo", int] # t refers to each element of `foo` in the loop
+#    u in df["bar", float]
+#    v = df["baz", int] # v refers to the ``Tensor`` `baz`
+#    #r in result
+#  dtype: bool
+#  name: "filterme"
+#  loop:
+#    t.float > u and v[idx].float < 2.2
+#
+#let f3 = fn:
+#  preface:
+#    t in df["foo", float] # t refers to each element of `foo` in the loop
+#  dtype: bool
+#  name: "noNan"
+#  loop:
+#    not (classify(t) == fcNan)
