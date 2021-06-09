@@ -34,7 +34,7 @@ proc build(n: NimNode): string =
   of nnkCallStrLit:
     result = n[1].strVal
   of nnkCurly:
-    result = node
+    result = "({} " & build(n[0]) & ")"
   of nnkIfExpr:
     result = "(if"
     for arg in n:
