@@ -579,6 +579,428 @@ The latter should be extended in a way similar to what's explained in
 [[Impure formulas (formulas accessing DF)]]. 
 
 
+Type lookup has to work in the following way. Once we have filled the
+=TypedSymbols= table, we walk over it in combination with the loop
+body.
+Using the loop body we find all symbols that are in =TypedSymbols= and
+check what their arguments are. Using the arguments:
+- number of arguments
+- types (reference to column, index or general symbol)
+can find the correct overloads.
+The overload is important in combination with the body, because it
+allows us to find the correct way to replace each column reference by.
+
+For explicit index references, via =df["someCol"][idx]= we have won,
+because we only have to consider overloads which take scalars and the
+access will just be replaced either by index or by value (depending on
+type).
+
+For explicit column refernce, via =df["someCol"]= we also have won,
+except we now look for something taking =Tensor[T]=.
+
+For the general column reference using =nnkAccQuoted= or
+=nnkCallStrLit= we have to check what kind of overloads exist. Scalar
+vs. tensor. In case of multiple overloads that match (which seems very
+unusual), we throw a CT error that we cannot determine the overload
+unambiguously and ask the user to use either =df["foo"]= or
+=df["foo"][idx]=.
+
+The result for the input types will be stored in each =Assign=.
+The final output type will be the "union" of all encountered types
+that were chosen.
+
+What if we have:
+#+begin_src nim
+f{"col" ~ foo($`x`.toBool)}
+#+end_src
+#+begin_src 
+StmtList
+  CurlyExpr
+    Ident "f"
+    Infix
+      Ident "~"
+      StrLit "col"
+      Call
+        Ident "foo"
+        Prefix
+          Ident "$"
+          DotExpr
+            AccQuoted
+              Ident "x"
+            Ident "toBool"
+#+end_src
+
+So we walk over the loop body and keep the information about the last
+encountered ident that is one of:
+- =nnkCall=: index 0
+- =nnkCommand=: index 0
+- =nnkPrefix=: index 0
+Name as string is enough, from it we can ask =TypedSymbol= table to
+extract symbol.
+
+For =nnkInfix= and =nnkDotExpr= this is a bit different. In those
+cases we have to use information from the *later* nodes.
+
+In case of =nnkInfix= the type information is special. We can assume
+that both sides of an =nnkInfix= will be of the same type *as long as
+the infix is a boolean or mathematical operation*. We can use this
+information to fill in holes of type information. Assume the
+following:
+#+begin_src nim
+f{`x` < 5}
+#+end_src
+Assuming the user writes correct code (it's not our fault if they
+don't :) ), we can deduce from this that `x` should be read as an
+integer (or arguably as a float and the user was just lazy / this
+needs to be considered).
+The AST of this expression looks something like the following in
+slightly simplified form:
+#+begin_src nim
+Infix
+  Ident "<"
+  AccQuoted
+    Ident "x"
+  IntLit 5
+#+end_src
+Thus, after extracting the typed symbols (=<= and =5=) we can study
+the types of the full tree: 
+1. call:
+#+begin_src nim
+Infix # ? infix so look at children
+  Ident "<" # boolean operator, look for valid types: Tensor, Tensor and Number, Number
+  AccQuoted # ?
+    Ident "x"
+  IntLit 5 
+#+end_src
+2. call for =nnkAccQuote=:
+#+begin_src nim
+Infix 
+  Ident "<" 
+  AccQuoted # just a column reference, type unknown, bubble up
+    Ident "x"
+  IntLit 5 
+#+end_src
+3. call for =nnkIntLit=:
+#+begin_src nim
+Infix 
+  Ident "<" 
+  AccQuoted 
+    Ident "x"
+  IntLit 5 # type is clearly int
+#+end_src
+Which leaves us with the following final tree:
+#+begin_src nim
+Infix 
+  Ident "<"  # bool: Number, Number
+  AccQuoted # unknown
+    Ident "x" 
+  IntLit 5 # int
+#+end_src
+With simple constraint solving (why not use Prolog huh?), we can
+uniquely determine that "unknown" has to be =int= too. 
+How do we easily do that?
+
+We look at the type signature of the =<= symbol, find type A == B, 
+From node 2 we know B == int. Thus it follows A == int from
+transitivity.
+
+The problem with this is that *probably* solving thes transitive
+problems might get hard for complex trees? For =nnkInfix= it's pretty
+easy, because there will always only be 2 child nodes of interest and
+they will usually have the same type.
+
+For (possibly nested) =nnkDotExpr= we need to consider the last 
+
+
+We define a helper type to store type information about all symbols we study:
+#+begin_src nim
+type
+  TypedNode = ref object
+    node: NimNode # the node that has these types
+    input: seq[NimNode] # types of input 
+    output: NimNode # output type
+    children: seq[ProcType]
+#+end_src
+
+which we use to extract information:
+#+begin_src nim
+proc isColumn(n: TypedNode): bool = n.node.kind in {nnkAccQuoted, nnkCallStrLit, nnkBracketExpr}
+
+proc foo(n: NimNode, tab: Table[string, NimNode]): TypedNode =
+  case n.kind
+  of nnkIdent, nnkSym, nnkIntLit .. nnkFloat64Lit, nnkStrLit:
+    # determine type of this field 
+    let nSym = tab[buildFormula(n)
+    let typ = findType(nSym)
+    new(result)
+    result.node = n
+    result.input = typ.inputTypes
+    result.output = typ.resType
+  of nnkAccQuoted, nnkCallStrLit, nnkBracketExpr:
+    new(result)
+    result.node = n
+    result.input = newEmptyNode()
+    result.output = newEmptyNode()
+  else:
+    new(result)
+    result.node = newTree(n.kind)
+    result
+    for ch in n:
+      result.children.add foo(ch, tab)
+#+end_src
+
+This should produce a tree something like the following (if there was
+a way to pretty print). 
+
+#+begin_src nim
+Infix
+  Ident "==" SomeNumber, SomeNumber -> bool
+  DotExpr
+    Call
+      Ident "isNull" Value -> Value
+      BracketExpr T (due to `idx` present)
+        BracketExpr
+          Ident "df"
+          Ident "localCol"
+        Ident "idx" 
+    Ident "toBool" Value -> bool
+  Ident "false" bool
+#+end_src
+
+From this typed tree we can do 2 things in one pass over the typed
+tree:
+1. extract all reducing symbols from the for loop (=Lift= discussed
+   below)
+2. extract all =Assign= by deducing the likely types from "the
+   environment". 
+For the latter "the environment" depends on the nim node
+kind. E.g. for =nnkInfix= we look at the other typed node. For calls
+we look at the type of the arguments. If they are generic we go "one
+level up" and use the information from there if possible. 
+
+Additional heuristics:
+- if =SomeNumber=: choose =float=
+- if =float= and =int=: choose =float=
+
+So for =nnkCall, nnkCommand, nnkPrefix= the type is directly
+determined from the type of the proc *iff* it is not a generic
+procedure. 2
+
+A last resort resolution could be heuristics *for individual
+nodes*. For instance a symbol is being investigated that can both take
+and return either =T= or =Tensor[T]=. In that case we can use
+heuristics: 
+- is numeric: =float= (=Tensor= product does not really make too much
+  sense in the context of a DF formula), should be infix
+- is boolean: =bool= return type, should be infix
+
+For an arbitrary proc with overload like:
+#+begin_src nim
+proc foo[T: SomeNumber](x: T): T 
+proc foo[T](x: Tensor[T]): Tensor[T]
+#+end_src
+we would give up and throw an ambiguous identifier error.
+
+This is for *single* symbols though.
+
+*** TODO modify =findTypes= to return types expected in above code
+
+*** Lifting reducing calls from loop
+
+One of the most important "optimizations" (if one should even call it
+as such) is lifting operations, which perform reducing operations on a
+column within a for loop, such that the reduced value acts as a scalar
+to be used within the loop.
+
+Consider the following example formula:
+#+begin_src nim
+f{"xNoMean" ~ `x` - mean(`x`)}
+#+end_src
+which will certainly come up in practice to remove the mean from all
+values in column "x". It is implicitly implied that =mean= must of
+course take the whole tensor contained in "x" instead of a single
+value, i.e. a form of broadcasting is performed.
+
+Now the naive transformation into a closure yields the following code:
+#+begin_src nim
+proc (df: DataFrame): Column = 
+  let
+    colT = df["x", float]
+  var res = newTensor[float](df.len)
+  forEach r in res, x in colT:
+    r = x - mean(colT)
+  result = toColumn res
+#+end_src
+which is of course extremely wasteful! We recompute the mean =df.len=
+times! That's that many iterations over a tensor.
+
+Thus, our macro code needs to analyze the symbols found in the formula
+and automatically lift such symbols to temporary variables computed
+once out of the for loop. Instead of the above we need to generate:
+#+begin_src nim
+proc (df: DataFrame): Column = 
+  let
+    colT = df["x", float]
+    meanX = mean(colT)
+  var res = newTensor[float](df.len)
+  forEach r in res, x in colT:
+    r = x - meanX
+  result = toColumn res
+#+end_src
+
+*How can this be done?*
+
+In our current implementation we keep track of all symbols in the
+body. The solution is relatively simple. We analyze the body of the
+formula for symbols, which have reducing characteristics,
+i.e. signatures like: 
+#+begin_src nim
+Tensor[T] -> T
+#+end_src
+For any such symbol we find, we store *the whole =NimNode=* in a
+=Lift= object:
+#+begin_src nim
+type
+  Lift = object
+    toLift: NimNode # the whole nim node to be lifted out
+    liftedNode: NimNode # the name of the symbol the lifted node is assigned to
+#+end_src
+The =toLift= body then simply needs to be replaced in the same fashion
+as the rest of the loop body for column references. In this case the
+column reference to be inserted in the =toLift= node will always be
+the =Assign.tensor= field.
+
+The lifted =toLift= node will then be replaced by =liftedNode=, which
+is just the name of the temporary result variable. It's name is
+derived from the name of the symbol to be lifted (usually
+=toLift[0]=).
+
+*** TODO Have to change =replaceByElement= and friends
+
+Main issue that's left:
+We can have multiple =Assign= for a single column refence. In some
+cases that might be =byIndex= and in others =byTensor=.
+1. =get(preface)= only returns the *first* assignment
+2. we also generate multiple symbols and statements to get tensors
+   from the preface
+
+
+
+*** Different call string literals
+
+We could imagine to introduce different =nnkCallStrLit= like the
+following:
+#+begin_src nim
+c"foo" <- refers to a column access
+t"foo" <- refers to the full column (t = tensor)
+#+end_src
+Maybe a breaking change for =c"foo"= to =e"foo"= might be thinkable,
+where =e= would stand for element and then we could use =c= for full column?
+
+*** Thoughts on type determination
+
+In implementing the above functionality I stumbled over many
+problems. While we are able to determine types for symbols, these
+are as isolated symbols not particularly useful.
+
+There are firstly two cases:
+- the symbol is unique and thus we can determine the required type of
+  the DF access argument from it. 
+- the symbol is an unresolved overload. In this case we may be unable
+  to resolve the ambiguity in case there is are symbols taking either
+  tensors or scalars. For such cases we *need* a syntax to
+  differentiate between column / index access regardless!
+
+While dealing with these two is possible, if complex (throw CT error
+in latter case), there is an additional factor making things much
+worse: *generics*.
+For generic procedures we lack (possibly) every kind of information
+about the types. We may not even know if =T= may refer only to scalars
+or either tensors and scalars. While we can make restrictions such as
+=T= referring to scalars and requiring =Tensor[T]= for tensor procs,
+this becomes extremely complicated as we delegate way too much to the
+signature of procedures.
+
+In the end all this results in something that is akin to writing our
+own "compiler". Just worse, because doing all this using macros only
+is problematic to say the least. In practice we have to deal with all
+sorts of procedures that are perfectly valid as if written in a manual
+loop, but simply have weird signatures.
+
+Thus, the solution will be more explicit. There's no point in trying
+to make everything as succinct as possible. Often explicit is
+better than implicit as we know as users of a language with a very
+strong type system!
+
+We will delegate type checking to the Nim compiler, with the following
+implicit / explicit rules:
+- any reference to a DF column using the existing syntax of:
+  #+begin_src nim
+  `someCol`
+  c"someCol"
+  # and to an extent the explicit variants:
+  df["someCol"][idx]
+  df[stringVar][idx]
+  #+end_src
+  will keep referring to *indices* of the referred columns. This is
+  because the majority of use cases acts on indices, due to the fact
+  that our DF is column based after all
+- an additional syntax is added to avoid the explicit =df= access,
+  while staying reasonably succinct:
+  #+begin_src nim
+  # replace by `df["SomeCol"][idx]`
+  f{"test" ~ idx("SomeCol")}
+  f{"test" ~ idx(SomeDeclaredVariable)}
+  f{"test" ~ idx(`SomeCol`)}
+  f{"test" ~ idx("SomeCol", float)}
+  f{"test" ~ idx(SomeDeclaredVariable, float)}
+  f{"test" ~ idx(`SomeCol`, float)}
+  # replace by `df["SomeCol"]`, lift these out of the loop body
+  f{"test" ~ col("SomeCol")}
+  f{"test" ~ col(SomeDeclaredVariable)}
+  f{"test" ~ col(`SomeCol`)}
+  f{"test" ~ col("SomeCol", float)}
+  f{"test" ~ col(SomeDeclaredVariable, float)}
+  f{"test" ~ col(`SomeCol`, float)}
+  ## allows for
+  f{"test" ~ `Energy` * 10.0 * idx(MyColRef, float) > mean(col(`SomeCol`, float))}   
+  #+end_src
+  i.e. =col= refers to a column with the given argument (supporting
+  variables, strings and accented quotes) while =idx= refers to
+  indices (which means the implicit default is equivalent to
+  =idx(`someCol`)=. 
+  Both of these in addition allow a second argument referring to a
+  type, in which case this is the type with which to read the tensor
+  from the DF, useful to combine multiple columns with different
+  types.
+
+In particular the =col= syntax allows for something else as
+well. Lifting computations out of the loop.
+
+** Lifting column based computations out of the loop
+
+Given the =col= syntax introduced in [[Thoughts on type
+determination]], we can more easily perform lifting.
+
+Essentially the logic for lifting works as follows:
+- recurse on tree and check if =col= access is used
+- if so, lift out parent tree containing =col= access until.
+  - determine parent tree by: go up until the first infix tree is
+    found and take infix 
+
+  Take the following contrived example:
+  #+begin_src nim
+  f{$(`numbers`) & " m/s" != mean(col(`someCol`, float)).formatFloat(precision = 2) & " m/s"
+  #+end_src
+  Here we know we need to:
+  - LHS: use indices for "numbers" column, convert each value to
+    string and append =" m/s"=
+  - RHS: the =mean= computation should not happen in the loop. We can
+    lift out the whole part up to the next infix node, which is =&= on
+    the RHS in this case. Any operation that acts on the reduced value
+    can, and should, be lifted.
+
+
 ** Replacing for by forEach 
 
 To generate a =forEach= statement from the formula macro instead of a
