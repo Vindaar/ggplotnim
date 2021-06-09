@@ -16,8 +16,10 @@ proc build(n: NimNode): string =
   case n.kind
   of nnkInfix:
     result = &"({n[0].strVal} {build(n[1])} {build(n[2])})"
-  of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
+  of nnkIntLit .. nnkFloat64Lit:
     result = n.repr
+  of nnkStrLit, nnkRStrLit:
+    result = n.strVal
   of nnkIdent, nnkSym:
     # should correspond to a known identifier in the calling scope
     result = n.strVal
@@ -52,9 +54,15 @@ proc build(n: NimNode): string =
         result.add &" {buildArgs(ch)}"
     if n.len > 1:
       result.add ")"
+  of nnkOpenSymChoice, nnkClosedSymChoice:
+    result = n[0].strVal # take first symbol name
+  of nnkCheckedFieldExpr:
+    ## TODO: check if this is reasonable. It seems that this node contains
+    ## the original node as [0] and then the "environment" as [1]??
+    result = build(n[0])
   else:
     error("Node kind " & $n.kind & " not implemented " &
-      "for FormulaNode string representation")
+      "for FormulaNode string representation. Node is:\n" & $(n.treeRepr))
 
-proc buildFormula*(n: NimNode): NimNode =
-  result = newLit(build(n))
+proc buildFormula*(n: NimNode): string =
+  result = build(n)
