@@ -1204,7 +1204,26 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 suite "Formulas":
   test "Formula containing `if`":
     let fn = f{int -> int: if `poopoo` > 5:
-                 `pewpew`
-               else:
-                 `y`}
-    echo fn
+                             `pewpew`
+                           else:
+                             `y`}
+    check $fn == "(if (elif (> poopoo 5) (pewpew)) (else (y)))"
+
+    let df = seqsToDf({ "poopoo" : @[1,2,7,8], "pewpew" : @[10, 11, 12, 13],
+                        "y" : @[100, 101, 102, 103]})
+    check fn.evaluate(df).toTensor(int) == [100, 101, 12, 13].toTensor()
+
+  test "Access using idx()":
+    let a = [1, 2, 3]
+    let b = [3, 4, 5]
+    let c = [4, 5, 6]
+    let d = [8, 9, 10]
+    let e = [11, 12, 13]
+    let df = seqsToDf(a, b, c, d)
+    let dStr = "d"
+    proc someCall(): string = "e"
+    let fn1 = f{int -> int: "newCol1" ~ idx("a") + idx(`b`) + idx(c"c") + idx(dStr) + idx(someCall())}
+    let fn2 = f{int -> int: "newCol2" << max(col("a")) + max(col(`b`)) + max(col(c"c"))}
+    #let fn3 = f{"newCol3" ~ max(col("a")) + max(col(`b`)) + max(col(c"c"))}
+    echo fn1
+    echo fn2
