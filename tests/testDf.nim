@@ -1176,7 +1176,6 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     check t2 == toTensor toSeq(0 ..< 20).mapIt(if it < 10: it.float else: (it.float - 10.0) * 2)
 
   test "Mutate/Transmute works on grouped dataframes":
-
     block Mutate:
       let df = toDf(readCsv("data/mpg.csv"))
         .group_by("class")
@@ -1219,11 +1218,21 @@ suite "Formulas":
     let c = [4, 5, 6]
     let d = [8, 9, 10]
     let e = [11, 12, 13]
-    let df = seqsToDf(a, b, c, d)
-    let dStr = "d"
-    proc someCall(): string = "e"
-    let fn1 = f{int -> int: "newCol1" ~ idx("a") + idx(`b`) + idx(c"c") + idx(dStr) + idx(someCall())}
-    let fn2 = f{int -> int: "newCol2" << max(col("a")) + max(col(`b`)) + max(col(c"c"))}
-    #let fn3 = f{"newCol3" ~ max(col("a")) + max(col(`b`)) + max(col(c"c"))}
-    echo fn1
-    echo fn2
+    let df = seqsToDf(a, b, c, d, e)
+    block:
+      let dStr = "d"
+      proc someCall(): string = "e"
+      let fn1 = f{int -> int: "newCol1" ~ idx("a") + idx(`b`) + idx(c"c") + idx(dStr) + idx(someCall())}
+      let fn2 = f{int -> int: "newCol2" << max(col("a")) + max(col(`b`)) + max(col(c"c")) + max(col(dStr)) + max(col(someCall()))}
+      check $fn1 == "newCol1"
+      check $fn2 == "newCol2"
+      check fn1.evaluate(df).toTensor(int) == [27, 32, 37].toTensor()
+      let dfShort = df.summarize(fn2)
+      check dfShort.len == 1
+      check dfShort[$fn2, int][0] == 3 + 5 + 6 + 10 + 13
+    block:
+      proc complProcedure(x: int, s: string, b: seq[int]): int =
+        result = x + b[0] + ord(s[0])
+
+      let fn = f{int: complProcedure(idx("a"), "hello", @[1, 2, 3])}
+      echo fn.evaluate(df)
