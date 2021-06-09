@@ -21,6 +21,11 @@ export df_types
 import formula
 export formula
 
+# formulaNameMacro contains a macro and type based on the fallback `FormulaNode`,
+# which is used to generate the names of each `FormulaNode` in lisp representation
+import formulaNameMacro
+export formulaNameMacro
+
 const ValueNull* = Value(kind: VNull)
 
 proc newDataFrame*(size = 8,
