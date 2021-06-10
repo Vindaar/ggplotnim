@@ -940,8 +940,8 @@ t_in_s,  C1_in_V,  C2_in_V,  type
 
     # applying negative column results in expected
     # stringifaction of the formula
-    let dfNeg = mpg.clone.transmute(f{-1 * c"hwy"})
-    check "(* -1 hwy)" == getKeys(dfNeg)[0]
+    let dfNeg = mpg.clone.transmute(f{-1.0 * c"hwy"})
+    check "(* -1.0 hwy)" == getKeys(dfNeg)[0]
 
     # negative prefix of existing column results in what we expect
     when defined(defaultBackend):
@@ -951,7 +951,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
       # evaluate formula without column on DF
       check evaluate(f{1 + 2}, mpg).vToSeq == toSeq(0 ..< mpg.len).mapIt(%~ 3)
     else:
-      check evaluate(f{-1 * c"hwy"}, mpg).toTensor(float) == mpg["hwy"].toTensor(float).map(x => -x)
+      check evaluate(f{-1.0 * c"hwy"}, mpg).toTensor(float) == mpg["hwy"].toTensor(float).map(x => -x)
       # evaluate non existant key to vector of constant
       check evaluate(f{"nonExistant"}, mpg).toTensor(string) == toTensor toSeq(0 ..< mpg.len).mapIt("nonExistant")
       # evaluate formula without column on DF
