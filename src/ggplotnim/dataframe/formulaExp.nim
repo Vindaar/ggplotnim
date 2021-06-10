@@ -221,6 +221,8 @@ proc nodeIsDf*(n: NimNode): bool =
     result = n[0].kind == nnkIdent and n[0].strVal == "df"
   elif n.kind == nnkCall:
     result = n[0].kind == nnkIdent and n[0].strVal == "col"
+  elif n.kind in {nnkCallStrLit, nnkAccQuoted}:
+    result = true
 
 proc nodeIsDfIdx*(n: NimNode): bool =
   if n.kind == nnkBracketExpr:
@@ -228,6 +230,8 @@ proc nodeIsDfIdx*(n: NimNode): bool =
     n[0][0].strVal == "df" and n[1].kind == nnkIdent and n[1].strVal == "idx"
   elif n.kind == nnkCall:
     result = n[0].kind == nnkIdent and n[0].strVal == "idx"
+  elif n.kind in {nnkCallStrLit, nnkAccQuoted}:
+    result = true
 
 proc get(p: var Preface, node: NimNode, useIdx: bool): NimNode =
   let n = p[node]
