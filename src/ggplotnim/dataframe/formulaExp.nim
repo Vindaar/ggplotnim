@@ -1,4 +1,4 @@
-import macros, sequtils, strformat, options, sets
+import macros, sequtils, strformat, options, sets, tables, algorithm, strutils
 import formulaNameMacro
 
 import column, value, df_types
@@ -88,6 +88,47 @@ const
 
 const Dtypes* = ["float", "int", "string", "bool", "Value"]
 const DtypesAll* = ["float", "float64", "int", "int64", "string", "bool", "Value"]
+
+const DtypeOrderMap* = {
+  "Value" : 1,
+  "Tensor[Value]" : 2,
+  "Tensor[T]" : 3,
+  "T" : 4,
+  "Tensor[string]" : 5,
+  "string" : 6,
+  "Tensor[int]" : 7,
+  "int" : 8,
+  "Tensor[int64]" : 9,
+  "int64" : 10,
+  "Tensor[float]" : 11,
+  "float" : 12,
+  "Tensor[float64]" : 13,
+  "float64" : 14,
+  "Tensor[bool]" : 15,
+  "bool" : 16 # if something  can be done with `bool`, take that
+}.toTable()
+
+proc sortTypes*(s: seq[string]): seq[string] =
+  ## sorts the types according to our own "priority list"
+  var ids = newSeq[int](s.len)
+  for i, el in s:
+    if el in DtypeOrderMap:
+      ids[i] = DtypeOrderMap[el]
+  result = zip(s, ids).sortedByIt(it[1]).mapIt(it[0])
+  echo result
+
+proc sortTypes*(s: seq[NimNode]): seq[string] =
+  result = s.mapIt(it.repr).sortTypes()
+
+proc isColumnType*(n: NimNode): bool =
+  case n.kind
+  of nnkBracketExpr:
+    if n[0].kind in {nnkSym, nnkIdent} and n[0].strVal == "Tensor":
+      result = true
+  of nnkSym, nnkIdent:
+    if n.strVal.startsWith("Tensor"):
+      result = true
+  else: discard
 
 proc checkIdent(n: NimNode, s: string): bool =
   result = n.len > 0 and n[0].kind == nnkIdent and n[0].strVal == s
@@ -214,6 +255,9 @@ proc delete(p: var Preface, n: NimNode) =
   while idx < p.args.len:
     if p.args[idx].node == n:
       p.args.delete(idx)
+      # deleted so return
+      ## TODO: we don't depend on removing all "duplicates" (same column ref), right?
+      return
     inc idx
 
 proc nodeIsDf*(n: NimNode): bool =
