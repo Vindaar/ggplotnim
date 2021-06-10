@@ -23,7 +23,7 @@ proc build(n: NimNode): string =
   of nnkIdent, nnkSym:
     # should correspond to a known identifier in the calling scope
     result = n.strVal
-  of nnkPar, nnkCall:
+  of nnkPar, nnkCall, nnkCommand:
     result = buildArgs(n)
   of nnkDotExpr, nnkBracketExpr:
     result = n.repr
@@ -34,7 +34,15 @@ proc build(n: NimNode): string =
   of nnkCallStrLit:
     result = n[1].strVal
   of nnkCurly:
-    result = "({} " & build(n[0]) & ")"
+    result = "({}"
+    for ch in n:
+      result.add &" {build(ch)}"
+    result.add ")"
+  of nnkBracket:
+    result = "([]"
+    for ch in n:
+      result.add &" {build(ch)}"
+    result.add ")"
   of nnkIfExpr:
     result = "(if"
     for arg in n:
@@ -61,7 +69,8 @@ proc build(n: NimNode): string =
     ## the original node as [0] and then the "environment" as [1]??
     result = build(n[0])
   else:
-    error("Node kind " & $n.kind & " not implemented " &
+    result = n.repr
+    warning("Node kind " & $n.kind & " not implemented " &
       "for FormulaNode string representation. Node is:\n" & $(n.treeRepr))
 
 proc buildFormula*(n: NimNode): string =
