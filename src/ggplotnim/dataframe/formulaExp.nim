@@ -23,6 +23,7 @@ type
   ## or: `t = df["foo", int]`
   Assign* = object
     asgnKind*: AssignKind
+    node*: NimNode ## the exact node that will be replaced by this `Assign` instance
     ## TODO: rename / change `ReplaceByKind` as it's currently a bit unclear, in particular after
     ## `get` and `delete` was added!
     rbKind*: ReplaceByKind ## stores how this should be inserted
@@ -86,6 +87,7 @@ const
   ValueIdent = "Value"
 
 const Dtypes* = ["float", "int", "string", "bool", "Value"]
+const DtypesAll* = ["float", "float64", "int", "int64", "string", "bool", "Value"]
 
 proc checkIdent(n: NimNode, s: string): bool =
   result = n.len > 0 and n[0].kind == nnkIdent and n[0].strVal == s
@@ -109,6 +111,7 @@ proc parsePreface(n: NimNode): Preface =
     let dtype = ch[2][2].strVal
     doAssert dtype in Dtypes, "Column dtype " & $dtype & " not in " & $Dtypes & "!"
     result = Assign(asgnKind: byIndex,
+                    node: ch,
                     element: ident(elId),
                     tensor: ident(elId & "T"),
                     col: ch[2][1],
@@ -121,6 +124,7 @@ proc parsePreface(n: NimNode): Preface =
     let dtype = ch[1][2].strVal
     doAssert dtype in Dtypes, "Column dtype " & $dtype & " not in " & $Dtypes & "!"
     result = Assign(asgnKind: byTensor,
+                    node: ch,
                     element: ident(tId & "Idx"),
                     tensor: ident(tId),
                     col: ch[1][1],
@@ -180,47 +184,36 @@ proc convertDtype(d: NimNode): NimNode =
   )
 
 proc `$`*(p: Preface): string =
-  for ch in p.args:
-    echo ch.repr
-  $p.args.mapIt(&"Assign(element: {it.element.strVal}, tensor: {it.tensor.strVal}, col: {buildFormula(it.col)}))")
-
-proc contains(p: Preface, s: string): bool =
-  for arg in p.args:
-    if arg.element.strVal == s:
-      return true
-    if arg.tensor.strVal == s:
-      return true
-    if buildFormula(arg.col) == s:
-      return true
+  result = "Preface("
+  for i, ch in p.args:
+    result.add &"Assign(element: {ch.element.strVal}, "
+    result.add &"asgnKind: {ch.asgnKind}, "
+    result.add &"node: {ch.node.repr}, "
+    result.add &"tensor: {ch.tensor.strVal}, "
+    result.add &"col: {buildFormula(ch.col)}, "
+    result.add &"rbKind: {ch.rbKind}, "
+    result.add &"colType: {buildFormula(ch.colType)}, "
+    result.add &"resType: {buildFormula(ch.resType)})"
+    if i < p.args.high:
+      result.add ", "
+  result.add ")"
 
 proc contains(p: Preface, n: NimNode): bool =
   for arg in p.args:
-    if arg.col == n:
+    if arg.node == n:
       return true
 
-proc `[]`(p: Preface, s: string): Assign =
+proc `[]`(p: Preface, n: NimNode): Assign =
   for arg in p.args:
-    if arg.element.strVal == s:
+    if arg.node == n:
       return arg
-    if arg.tensor.strVal == s:
-      return arg
-    if buildFormula(arg.col) == s:
-      return arg
-  error("Could not find " & s & " in preface containing " & $p)
+  error("Could not find " & n.repr & " in preface containing " & $p)
 
-proc delete(p: var Preface, s: string) =
+proc delete(p: var Preface, n: NimNode) =
   var idx = 0
   while idx < p.args.len:
-    let arg = p.args[idx]
-    if arg.element.strVal == s:
+    if p.args[idx].node == n:
       p.args.delete(idx)
-      return
-    if arg.tensor.strVal == s:
-      p.args.delete(idx)
-      return
-    if buildFormula(arg.col) == s:
-      p.args.delete(idx)
-      return
     inc idx
 
 proc nodeIsDf*(n: NimNode): bool =
@@ -236,10 +229,9 @@ proc nodeIsDfIdx*(n: NimNode): bool =
   elif n.kind == nnkCall:
     result = n[0].kind == nnkIdent and n[0].strVal == "idx"
 
-proc get(p: var Preface, name: string, useIdx: bool): NimNode =
-  let n = p[name]
-  p.delete(name)
-  echo "Getting n ", name, " is ", n.asgnKind
+proc get(p: var Preface, node: NimNode, useIdx: bool): NimNode =
+  let n = p[node]
+  p.delete(node)
   result = if n.asgnKind == byIndex:
              if useIdx:
                nnkBracketExpr.newTree(
@@ -259,25 +251,25 @@ proc replaceByIdx(n: NimNode, preface: var Preface): NimNode =
   # return early
   case n.kind
   of nnkIdent, nnkSym:
-    if n.strVal in preface: return preface.get(n.strVal, useIdx = true)
+    if n in preface: return preface.get(n, useIdx = true)
     else: return n
   of nnkAccQuoted:
-    return preface.get(n[0].strVal, useIdx = true)
+    return preface.get(n, useIdx = true)
   of nnkCallStrLit:
-    return preface.get(buildFormula(n), useIdx = true)
+    return preface.get(n, useIdx = true)
   of nnkBracketExpr:
-    if n[0].kind == nnkIdent and n[0].strVal in preface:
+    if n[0].kind == nnkIdent and n in preface:
       return n
     # if `df["someCol"]` replace by full tensor (e.g. in a call taking tensor)
     ## TODO: analyze for these, put into preface!
-    if nodeIsDf(n) and n[1].strVal in preface:
-      return preface.get(buildFormula(n[1]), useIdx = true)
-    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
+    if nodeIsDf(n) and n in preface:
+      return preface.get(n, useIdx = true)
+    if nodeIsDfIdx(n) and n in preface:
       ## TODO: fix me for the case of `col(someCol)` the buildFormula call does not make sense!
-      return preface.get(buildFormula(n[0][1]), useIdx = true)
+      return preface.get(n, useIdx = true)
   of nnkCall:
-    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
-      return preface.get(buildFormula(n[1]), useIdx = true)
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n in preface:
+      return preface.get(n, useIdx = true)
   else: result = n
   if n.len > 0:
     result = newTree(n.kind)
@@ -292,24 +284,24 @@ proc replaceByElement(n: NimNode, preface: var Preface): NimNode =
   # return early
   case n.kind
   of nnkIdent, nnkSym:
-    if n.strVal in preface: return preface.get(n.strVal, useIdx = false)
+    if n in preface: return preface.get(n, useIdx = false)
     else: return n
   of nnkAccQuoted:
-    return preface.get(n[0].strVal, useIdx = false)
+    return preface.get(n, useIdx = false)
   of nnkCallStrLit:
-    return preface.get(buildFormula(n), useIdx = false)
+    return preface.get(n, useIdx = false)
   of nnkBracketExpr:
-    if n[0].kind == nnkIdent and n[0].strVal in preface:
-      return preface.get(n[0].strVal, useIdx = false)
+    if n[0].kind == nnkIdent and n in preface:
+      return preface.get(n, useIdx = false)
     # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
     ## TODO: analyze for these and put into preface!
-    if nodeIsDf(n) and n[1].strVal in preface:
-      return preface.get(buildFormula(n[1]), useIdx = false)
-    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
-      return preface.get(buildFormula(n[0][1]), useIdx = false)
+    if nodeIsDf(n) and n in preface:
+      return preface.get(n, useIdx = false)
+    if nodeIsDfIdx(n) and n in preface:
+      return preface.get(n, useIdx = false)
   of nnkCall:
-    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
-      return preface.get(buildFormula(n[1]), useIdx = false)
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n in preface:
+      return preface.get(n, useIdx = false)
   else: result = n
   if n.len > 0:
     result = newTree(n.kind)
@@ -321,24 +313,24 @@ proc replaceByColumn(n: NimNode, preface: var Preface): NimNode =
   ## tensor in the loop
   case n.kind
   of nnkIdent, nnkSym:
-    if n.strVal in preface: return preface[n.strVal].tensor
+    if n in preface: return preface[n].tensor
     else: return n
   of nnkAccQuoted:
-    return preface[n[0].strVal].tensor
+    return preface[n].tensor
   of nnkCallStrLit:
-    return preface[buildFormula(n)].tensor
+    return preface[n].tensor
   of nnkBracketExpr:
-    if n[0].kind == nnkIdent and n[0].strVal in preface:
-      return preface[(n[0].strVal)].tensor
+    if n[0].kind == nnkIdent and n in preface:
+      return preface[n].tensor
     # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
     ## TODO: analyze for these and put into preface!
-    if nodeIsDf(n) and n[1].strVal in preface:
-      return preface[(buildFormula(n[1]))].tensor
-    if nodeIsDfIdx(n) and buildFormula(n[0][1]) in preface:
+    if nodeIsDf(n) and n in preface:
+      return preface[n].tensor
+    if nodeIsDfIdx(n) and n in preface:
       error("Invalid usage of `idx` in a reducing formula! Access: " & $(n.repr))
   of nnkCall:
-    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n[1] in preface:
-      return preface[buildFormula(n[1])].tensor
+    if (nodeIsDf(n) or nodeIsDfIdx(n)) and n in preface:
+      return preface[n].tensor
   else: result = n
   if n.len > 0:
     result = newTree(n.kind)
