@@ -341,12 +341,10 @@ proc fixupTensorIndices(loopStmts: NimNode, preface: var Preface,
                         rbKind: ReplaceByKind): NimNode =
   ## If `toElements` is true, we rewrite everything by `t` (where `t` is an
   ## element of `tT` (Tensor). This includes
-  echo loopStmts.treerepr
   expectKind(loopStmts, nnkStmtList)
   case rbKind
   of rbIndex:
     let loop = loopStmts[0].replaceByIdx(preface)
-    echo loop.treeRepr, " is this::: ", loop.repr
     case loop.kind
     of nnkAsgn:
       doAssert loop[0].kind == nnkBracketExpr and
@@ -360,7 +358,6 @@ proc fixupTensorIndices(loopStmts: NimNode, preface: var Preface,
         loop)
   of rbElement:
     let loop = loopStmts[0].replaceByElement(preface)
-    echo loop.treeRepr
     case loop.kind
     of nnkAsgn: doAssert loop[0].kind == nnkIdent and loop[0].strVal == RIdent
     else:
@@ -446,7 +443,6 @@ proc generateClosure*(fct: FormulaCT): NimNode =
   procBody.add convertPreface(fct.preface)
   if fct.funcKind == fkVector:
     procBody.add convertDtype(fct.resType)
-  echo "FIN NNN ", fct.funcKind.repr
   procBody.add convertLoop(fct.preface, fct.resType, fct.loop, fct.funcKind)
   result = procBody
   var params: array[2, NimNode]
