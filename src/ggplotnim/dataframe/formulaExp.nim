@@ -115,7 +115,6 @@ proc sortTypes*(s: seq[string]): seq[string] =
     if el in DtypeOrderMap:
       ids[i] = DtypeOrderMap[el]
   result = zip(s, ids).sortedByIt(it[1]).mapIt(it[0])
-  echo result
 
 proc sortTypes*(s: seq[NimNode]): seq[string] =
   result = s.mapIt(it.repr).sortTypes()
@@ -516,7 +515,6 @@ proc generateClosure*(fct: FormulaCT): NimNode =
 proc compileFormula(stmts: NimNode): NimNode =
   let fct = parseFormulaCT(stmts)
   result = generateClosure(fct)
-  echo result.repr
 
 macro fn*(y: untyped): untyped =
   ## TODO: add some ability to explicitly create formulas of

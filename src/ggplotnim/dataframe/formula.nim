@@ -33,6 +33,41 @@ type
       fnS*: proc(c: DataFrame): Value
 
 
+type
+  ## These are internal types used in the macro
+  TypeKind = enum
+    tkNone, tkExpression, tkProcedure
+
+  PossibleTypes = object
+    isGeneric: bool
+    asgnKind: Option[AssignKind]
+    case kind: TypeKind
+    of tkExpression:
+      types: seq[NimNode]
+    of tkProcedure:
+      ## procedure types encountered are separate
+      procTypes: seq[ProcType]
+    else: discard
+
+  ProcType = object
+    argId: int # argument number of the "input" type
+    isGeneric: bool
+    inputTypes: seq[NimNode] # types of all arguments
+    resType: Option[NimNode]
+
+proc add(p: var PossibleTypes, pt: ProcType) =
+  doAssert p.kind in {tkProcedure, tkNone}
+  if p.kind == tkNone:
+    p = PossibleTypes(kind: tkProcedure)
+  p.procTypes.add pt
+
+proc add(p: var PossibleTypes, p2: PossibleTypes) =
+  doAssert p.kind == p2.kind
+  case p.kind
+  of tkExpression: p.types.add p2.types
+  of tkProcedure: p.procTypes.add p2.procTypes
+  else: discard
+
 func isColIdxCall(n: NimNode): bool =
   (n.kind == nnkCall and n[0].kind == nnkIdent and n[0].strVal in ["idx", "col"])
 func isColCall(n: NimNode): bool =
@@ -44,25 +79,45 @@ proc isGeneric(n: NimNode): bool =
   ## given a node that represents a type, check if it's generic by checking
   ## if the symbol or bracket[symbol] is notin `Dtypes`
   case n.kind
-  of nnkSym, nnkIdent: result = n.strVal notin Dtypes
-  of nnkBracketExpr: result = n[1].strVal notin Dtypes
+  of nnkSym, nnkIdent: result = n.strVal notin DtypesAll
+  of nnkBracketExpr: result = n[1].strVal notin DtypesAll
+  of nnkEmpty: result = true # sort of generic...
   else: error("Invalid call to `isGeneric` for non-type like node " &
     $(n.treeRepr) & "!")
 
 func isLiteral(n: NimNode): bool = n.kind in {nnkIntLit .. nnkFloat64Lit, nnkStrLit}
 
-func isScalar(n: NimNode): bool = n.strVal in Dtypes
+func isScalar(n: NimNode): bool = n.strVal in DtypesAll
 
 proc reorderRawTilde(n: NimNode, tilde: NimNode): NimNode =
   ## a helper proc to reorder an nnkInfix tree according to the
   ## `~` contained in it, so that `~` is at the top tree.
   ## (the actual result is simply the tree reordered, but without
   ## the tilde. Reassembly must happen outside this proc)
+  ##
+  ## TODO: For a formula like:
+  ##       let fn = fn2 { "Test" ~ max idx("a"), "hello", 5.5, someInt() }
+  ## we reconstruct:
+  ## Curly
+  ##   Infix
+  ##     Ident "~"
+  ##     StrLit "Test"
+  ##     Command
+  ##       Ident "max"
+  ##       Call
+  ##         Ident "idx"
+  ##         StrLit "a"
+  ##   StrLit "hello"
+  ##   FloatLit 5.5
+  ##   Call
+  ##     Ident "someInt"
+  ## so the tilde is still nested one level too deep.
+  ## However it seems to be rather an issue of `recurseFind`?
   result = copyNimTree(n)
   for i, ch in n:
     case ch.kind
-    of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar, nnkCall,
-       nnkAccQuoted, nnkCallStrLit:
+    of nnkIdent, nnkStrLit, nnkIntLit .. nnkFloat64Lit, nnkPar, nnkCall, nnkCommand,
+       nnkAccQuoted, nnkCallStrLit, nnkBracketExpr:
       discard
     of nnkInfix:
       if ch == tilde:
@@ -121,8 +176,8 @@ proc checkDtype(body: NimNode,
       result = (isFloat: body[i].strVal in floatSet or result.isFloat,
                 isString: body[i].strVal in stringSet or result.isString,
                 isBool: body[i].strVal in boolSet or result.isBool)
-    of nnkCallStrLit:
-      # skip this node completely, don't traverse further, since it represents
+    of nnkCallStrLit, nnkAccQuoted, nnkCall:
+      # skip this node completely, don't traverse further, since it (might) represent
       # a column!
       continue
     of nnkStrLit, nnkTripleStrLit, nnkRStrLit:
@@ -145,7 +200,10 @@ macro addSymbols(tabName, nodeName: string, n: typed): untyped =
     TypedSymbols[nStr] = initTable[string, NimNode]()
   TypedSymbols[nStr][nodeStr] = n
 
+proc isPureTree(n: NimNode): bool
 proc extractSymbols(n: NimNode): seq[NimNode] =
+  if n.isPureTree:
+    return @[n]
   case n.kind
   of nnkIdent, nnkSym:
     # take any identifier or symbol
@@ -197,9 +255,18 @@ proc extractSymbols(n: NimNode): seq[NimNode] =
     for i in 0 ..< n.len:
       result.add extractSymbols(n[i])
 
+const FloatSet = toHashSet(@["+", "-", "*", "/", "mod"])
+const StringSet = toHashSet(@["&", "$"])
+const BoolSet = toHashSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
+                            "true", "false", "in", "notin", "not"])
+
+func inFloatSet(n: string): bool = n in FloatSet
+func inStringSet(n: string): bool = n in StringSet
+func inBoolSet(n: string): bool = n in BoolSet
+
 proc determineHeuristicTypes(body: NimNode,
                              typeHint: TypeHint,
-                             name: string): FormulaTypes =
+                             name: string): TypeHint =
   ## checks for certain ... to  determine both the probable
   ## data type for a computation and the `FormulaKind`
   doAssert body.len > 0, "Empty body unexpected in `determineFuncKind`!"
@@ -217,11 +284,7 @@ proc determineHeuristicTypes(body: NimNode,
   # which allows for something like
   # `"10." & "5" == $(val + 0.5)` as a valid bool expression
   # walk tree and check for symbols
-  const floatSet = toHashSet(@["+", "-", "*", "/", "mod"])
-  const stringSet = toHashSet(@["&", "$"])
-  const boolSet = toHashSet(@["and", "or", "xor", ">", "<", ">=", "<=", "==", "!=",
-                              "true", "false", "in", "notin"])
-  let (isFloat, isString, isBool) = checkDtype(body, floatSet, stringSet, boolSet)
+  let (isFloat, isString, isBool) = checkDtype(body, FloatSet, StringSet, BoolSet)
   var typ: TypeHint
   if isFloat:
     typ.inputType = some(ident"float")
@@ -263,14 +326,13 @@ proc determineHeuristicTypes(body: NimNode,
     typ.resType = typeHint.resType
   if typ.inputType.isNone or typ.resType.isNone:
     # attempt via formula
-    error("Could not determine data types of tensors in formula:\n" &
+    warning("Could not determine data types of tensors in formula:\n" &
       "  name: " & $name & "\n" &
       "  formula: " & $body.repr & "\n" &
       "  data type: " & $typ.inputType.repr & "\n" &
       "  output data type: " & $typ.resType.repr & "\n" &
       "Consider giving type hints via: `f{T -> U: <theFormula>}`")
-
-  result = FormulaTypes(inputType: typ.inputType.get, resType: typ.resType.get)
+  result = typ
 
 proc removeAll(s: string, chars: set[char]): string =
   result = newStringOfCap(s.len)
@@ -294,6 +356,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
   of nnkAccQuoted:
     let name = n[0].strVal
     result.add Assign(asgnKind: asgnKind,
+                      node: n,
                       element: ident(name & "Idx"),
                       tensor: ident(name),
                       col: newLit(name),
@@ -307,6 +370,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
     let colIdxName = genColSym(name, "Idx")
     let nameCol = newLit(name)
     result.add Assign(asgnKind: asgnKind,
+                      node: n,
                       element: colIdxName,
                       tensor: colName,
                       col: nameCol,
@@ -319,6 +383,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
       let colName = genColSym(buildFormula(name), "T")
       let colIdxName = genColSym(buildFormula(name), "Idx")
       result.add Assign(asgnKind: byTensor,
+                        node: n,
                         element: colIdxName,
                         tensor: colName,
                         col: n[1],
@@ -330,6 +395,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
       let colName = genColSym(buildFormula(name), "T")
       let colIdxName = genColSym(buildFormula(name), "Idx")
       result.add Assign(asgnKind: byIndex,
+                        node: n,
                         element: colIdxName,
                         tensor: colName,
                         col: n[0][1],
@@ -339,12 +405,10 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
     # - `col(someCol)` referring to full column access
     # - `idx(someCol)` referring to column index access
     let name = buildFormula(n[1])
-    echo "NAME ", name.repr
     let colName = genColSym(name, "T")
     let colIdxName = genColSym(name, "Idx")
-    echo colName.repr
-    echo colIdxName.repr
     result.add Assign(asgnKind: asgnKind,
+                      node: n,
                       element: colIdxName,
                       tensor: colName,
                       col: n[1],
@@ -375,31 +439,6 @@ proc countArgs(n: NimNode): tuple[args, optArgs: int] =
     if ch[ch.len - 1].kind != nnkEmpty:
       inc result.optArgs, chLen - 2
 
-proc typeAcceptableOrEmpty(n: NimNode): NimNode =
-  ## Returns a type that either matches `Dtypes` (everything storable
-  ## in a DF) or is a `Tensor[T]`. Returns that type.
-  ## Otherwise returns an empty node.
-  result = newEmptyNode()
-  case n.kind
-  of nnkIdent, nnkSym:
-    if n.strVal in Dtypes:
-      echo "TYPE IN DTYPES\n\n"
-      result = n
-  of nnkBracketExpr:
-    if n[0].kind in {nnkSym, nnkIdent} and n[0].strVal == "Tensor":
-      echo "TYPE IS TENSOR\n\n"
-      result = n
-  of nnkRefTy, nnkPtrTy, nnkInfix: discard
-  else:
-    error("Invalid type `" & $(n.treeRepr) & "`!")
-
-type
-  PossibleType = object
-    isGeneric: bool
-    typ: Option[NimNode]
-    asgnKind: Option[AssignKind]
-    resType: Option[NimNode]
-
 proc typeToAsgnKind(n: NimNode): AssignKind =
   ## NOTE: only use this function if you know that `n` represents a
   ## `type` and it is either `Tensor[T]` or `T` where `T` has to be
@@ -410,194 +449,469 @@ proc typeToAsgnKind(n: NimNode): AssignKind =
   else: error("Invalid call to `typeToAsgnKind` for non-type like node " &
     $(n.treeRepr) & "!")
 
-proc determineTypeFromProc(n: NimNode, arg, numArgs: int): PossibleType =
+func isTensorType(n: NimNode): bool =
+  n[0].kind in {nnkSym, nnkIdent} and n[0].strVal == "Tensor"
+
+proc typeAcceptableOrNone(n: NimNode): Option[NimNode] =
+  ## Returns a type that either matches `Dtypes` (everything storable
+  ## in a DF) or is a `Tensor[T]`. Returns that type.
+  ## Otherwise returns an empty node.
+  case n.kind
+  of nnkIdent, nnkSym:
+    if n.strVal in DtypesAll:
+      result = some(n)
+  of nnkBracketExpr:
+    if isTensorType(n):
+      result = some(n)
+  of nnkCall:
+    # sometimes the type shows up as something like (nnkCall (openSymChoice openArray T))
+    doAssert n.len == 3
+    if n[1].kind == nnkSym and n[1].strVal == "Tensor":
+      result = some(n)
+  of nnkRefTy, nnkPtrTy, nnkInfix: discard
+  of nnkEmpty:
+    # no return type
+    discard
+  else:
+    error("Invalid type `" & $(n.treeRepr) & "`!")
+
+proc typeAcceptable(n: NimNode): bool =
+  case n.kind
+  of nnkIdent, nnkSym:
+    if n.strVal in DtypesAll:
+      result = true
+  of nnkBracketExpr:
+    if n.isTensorType() and not n.isGeneric:
+      result = true
+  else: discard
+
+proc determineTypeFromProc(n: NimNode, numArgs: int): Option[ProcType] =
   # check if args matches our args
-  result = PossibleType()
-  let params = n.params
+  var res = ProcType()
+  let params = if n.kind == nnkProcTy: n[0]
+               else: n.params
   let (hasNumArgs, optArgs) = countArgs(params)
   if (hasNumArgs - numArgs) <= optArgs and numArgs <= hasNumArgs:
-    echo "PARAMS ", params.treeRepr, " arg ", arg
-    let isGeneric = n[2].kind != nnkEmpty
-    let pArg = params[arg] ## TODO: arg is wrong
-    echo pArg.treeREpr
-    let typ = typeAcceptableOrEmpty(pArg[pArg.len - 2]) # get second to last elment, which is type
-    if typ.kind != nnkEmpty:
-      echo n.repr
-      let resType = params[0]
-      result = PossibleType(isGeneric: isGeneric, typ: some(typ),
-                            asgnKind: some(typeToAsgnKind(resType)),
-                            resType: some(resType))
+    res.isGeneric = (not (n.kind == nnkProcTy)) and n[2].kind != nnkEmpty
+    res.resType = some(params[0])
+    for idx in 1 ..< params.len:
+      # skip index 0, cause that's the output type
+      let pArg = params[idx]
+      let numP = pArg.len - 2
+      for j in 0 ..< pArg.len - 2:
+        res.inputTypes.add pArg[pArg.len - 2]
+    if res.resType.isSome or res.inputTypes.len > 0:
+      result = some(res)
 
-proc findType(n: NimNode, arg, numArgs: int): PossibleType =
+proc toType(n: NimNode): NimNode =
+  case n.kind
+  of nnkIntLit .. nnkUInt64Lit: result = ident "int"
+  of nnkFloatLit .. nnkFloat128Lit: result = ident "float"
+  of nnkStrLit: result = ident "string"
+  of nnkIdent, nnkSym:
+    if n.strVal in ["true", "false"]: result = ident "bool"
+    elif n.strVal in DtypesAll: result = n
+    else: error("Invalid type " & $n.repr & " of kind " & $n.kind)
+  of nnkBracketExpr:
+    if n.isTensorType():
+      result = n
+    elif n[0].kind in {nnkSym, nnkIdent} and n[0].strVal == "typeDesc":
+      result = n[1]
+  else:
+    error("Invalid node " & $n.kind & " : " & n.repr)
+
+proc maybeAddSpecialTypes(possibleTypes: var PossibleTypes, n: NimNode) =
+  ## These don't appear as overloads sometimes?
+  if n.kind in {nnkSym, nnkIdent}:
+    if n.strVal in ["<", ">", ">=", "<=", "==", "!="]:
+      for dtype in Dtypes:
+        possibleTypes.add ProcType(inputTypes: @[ident(dtype),
+                                                 ident(dtype)],
+                                   isGeneric: false,
+                                   resType: some(ident("bool")))
+
+proc findType(n: NimNode, numArgs: int): PossibleTypes =
   ## This procedure tries to find type information about a given NimNode.
   ## It must be a symbol (or contain one) of some kind. It should not be used for
   ## literals, as they have fixed type information.
   ## NOTE: this may be changed in the future! Currently this is used to
-
-  ## TODO: this should be capable of determining something like
-  ## `energies.min` to be `seq/Tensor[T] ⇒ T`!
-
-  echo "NNN ", n.treerepr
-  doAssert not n.isLiteral
-  var possibleTypes = newSeq[PossibleType]()
+  var possibleTypes = PossibleTypes()
   case n.kind
+  of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
+    return PossibleTypes(isGeneric: false, kind: tkExpression, types: @[n.toType], asgnKind: some(byIndex))
   of nnkSym:
     ## TODO: chck if a node referring to our types
-    if n.strVal in Dtypes:
-      result = PossibleType(isGeneric: false, typ: some(n), asgnKind: some(byIndex),
-                            resType: some(n))
+    if n.strVal in DtypesAll:
+      return PossibleTypes(isGeneric: false, kind: tkExpression, types: @[n], asgnKind: some(byIndex))
     else:
       ## TODO: check if a proc by using `getImpl`
       let tImpl = n.getImpl
       case tImpl.kind
       of nnkProcDef, nnkFuncDef:
-        let pt = determineTypeFromProc(tImpl, arg, numArgs)
-        if pt.typ.isSome:
-          possibleTypes.add pt
+        let pt = determineTypeFromProc(tImpl, numArgs)
+        if pt.isSome:
+          possibleTypes.add pt.get
       of nnkTemplateDef:
         # cannot deduce from template
         return
       else:
-        error("How did we stumble over " & $(n.treeRepr) & " with type " &
+        # should be a symbol of a pure tree. Should have a well defined type
+        ## TODO: is this branch likely?
+        ## Should happen, yes. E.g. just a variable defined in local scope?
+        ##
+        let typ = n.getType
+        if typ.kind != nnkNilLit:
+          return PossibleTypes(isGeneric: false, kind: tkExpression,
+                               types: @[typ.toType], asgnKind: some(byIndex))
+        warning("How did we stumble over " & $(n.treeRepr) & " with type " &
           $(tImpl.treeRepr))
+        #return
   of nnkCheckedFieldExpr:
     let impl = n.getTypeImpl
     expectKind(impl, nnkProcTy)
+    ## TODO: fix to actually use proc type!
     let inputType = impl[0][1][1]
     let resType = impl[0][0]
-    possibleTypes.add PossibleType(isGeneric: inputType.isGeneric,
-                                   typ: some(inputType),
-                                   asgnKind: some(typeToAsgnKind(resType)),
-                                   resType: some(resType))
+    let pt = ProcType(inputTypes: @[inputType], resType: some(resType))
+    possibleTypes.add pt
   of nnkClosedSymChoice, nnkOpenSymChoice:
     for ch in n:
-      ## TODO: find union of all types
       let tImpl = ch.getImpl
       case tImpl.kind
       of nnkProcDef, nnkFuncDef:
-        let pt = determineTypeFromProc(tImpl, arg, numArgs)
-        if pt.typ.isSome:
-          possibleTypes.add pt
+        let pt = determineTypeFromProc(tImpl, numArgs)
+        if pt.isSome:
+          possibleTypes.add pt.get
       else:
         error("How did we stumble over " & $(ch.treeRepr) & " with type " &
           $(tImpl.treeRepr))
   else:
-    echo "Found node of kind ", n.kind, "? ", n.repr
-  if possibleTypes.len == 0:
-    error("Invalid input. No possible types found in node: " & n.repr)
-  var
-    allTensor = true
-    allScalar = true
-    allGeneric = true
-    noneGeneric = true
-    inputType: NimNode
-    resType: NimNode
-  for pt in possibleTypes:
-    doAssert pt.typ.isSome
-    let typ = pt.typ.get
-    allGeneric = allGeneric and pt.isGeneric
-    noneGeneric = noneGeneric and (not pt.isGeneric)
-    allTensor = allTensor and typ.kind == nnkBracketExpr
-    allScalar = allScalar and typ.kind in {nnkSym, nnkIdent}
-    ## TODO: WARNING we currently use the ``last`` type we encounter!! This does not
-    ## make sense really!
-    inputType = typ
-    echo "RES TYPE bo ", resType.treeRepr
-    resType = pt.resType.get
-    echo "RES TYPE af ", resType.treeRepr
-  if allGeneric and allTensor:
-    ## return `handAsTensor`
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byTensor),
-                          resType: some(resType))
-  elif allGeneric and allScalar:
-    ## return `handAsScalar`
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byIndex),
-                          resType: some(resType))
-  elif noneGeneric and allTensor:
-    ## can determine a type, determine union type, else heuristic, `handAsTensor`
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byTensor),
-                          resType: some(resType))
-  elif noneGeneric and allScalar:
-    ## can determine a type, determine union type, else heuristic, `handAsScalar`
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byIndex),
-                          resType: some(resType))
-    discard
-  elif not (noneGeneric xor allGeneric) and allTensor:
-    ## mixed generic and non generic. Overload cannot be used, need to
-    ## rely on heuristics
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byTensor),
-                          resType: some(resType))
-  elif not (noneGeneric xor allGeneric) and allScalar:
-    ## mixed generic and non generic. Overload cannot be used, need to
-    ## rely on heuristics
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byIndex),
-                          resType: some(resType))
-  elif not (allTensor xor allScalar):
-    ## assume `byIndex` for now
-    warning("Ambiguous formula. Symbol `" & $(n.repr) & "` can take both a `Tensor[T]` " &
-      "as well as `T`. Please use `df[\"foo\"]` to use overload taking a `Tensor[T]` " &
-      "or `df[\"foo\"][idx]` to select overload taking a scalar!")
-    result = PossibleType(isGeneric: true, typ: some(inputType), asgnKind: some(byIndex),
-                          resType: some(resType))
-  else:
-    error("how?")
-    error("Ambiguous formula. Symbol `" & $(n.repr) & "` can take both a `Tensor[T]` " &
-      "as well as `T`. Please use `df[\"foo\"]` to use overload taking a `Tensor[T]` " &
-      "or `df[\"foo\"][idx]` to select overload taking a scalar!")
-  echo "Final type ", result.repr
+    ## Else we deal with a pure node from which we can extract the type
+    ## TODO: Clarify what this is for better. Write down somewhere that we try to
+    ## determine types up to pure nodes, which means we may end up with arbitrary
+    ## nim nodes that have a type
+    let typ = n.getTypeInst
+    case typ.kind
+    of nnkProcDef, nnkFuncDef, nnkProcTy:
+      let pt = determineTypeFromProc(typ, numArgs)
+      if pt.isSome:
+        possibleTypes.add pt.get
+    else:
+      if typ.toType.kind != nnkNilLit:
+        return PossibleTypes(isGeneric: false, kind: tkExpression,
+                             types: @[typ.toType], asgnKind: some(byIndex))
 
-proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode],
-                        heuristicType: FormulaTypes,
-                        lastSym: string, arg: int, numArgs: var int): seq[Assign] =
+  ## possibly add special types
+  possibleTypes.maybeAddSpecialTypes(n)
+  result = possibleTypes
+
+proc isPureTree(n: NimNode): bool =
+  ## checks if this node tree is a "pure" tree. That means it does ``not``
+  ## contain any column references
+  result = true
+  if n.nodeIsDf or n.nodeIsDfIdx:
+    return false
+  for ch in n:
+    result = isPureTree(ch)
+    if not result:
+      return
+
+proc getTypeIfPureTree(tab: Table[string, NimNode], n: NimNode, numArgs: int): PossibleTypes =
+  let lSym = buildFormula(n)
+  if n.isPureTree and lSym in tab:
+    let nSym = tab[lSym]
+    result = findType(nSym, numArgs = numArgs)
+  else:
+    ## "hack" to get the correct type of the last node in case this is impure.
+    ## Needed in some cases like dotExpressions from an infix so that we know
+    ## the result of the full expression
+    if n.len > 0:
+      result = tab.getTypeIfPureTree(n[^1], numArgs)
+
+  ## TODO: there are cases where one can extract type information from impure trees.
+  ## `idx("a").float` is a nnkDotExpr that is impure, but let's us know that the output
+  ## type will be `float`.
+  ## The thing is this information will appear on the next recursion anyway. But for
+  ## certain cases (e.g. infix before such a impure dotExpr) we could use the information
+  ## already.
+
+proc typesMatch(n, m: NimNode): bool =
+  result = if n.kind in {nnkSym, nnkIdent, nnkBracketExpr} and
+              m.kind in {nnkSym, nnkIdent, nnkBracketExpr}:
+             n.repr == m.repr
+           else: false
+
+proc toTypeSet(s: seq[NimNode]): HashSet[string] =
+  result = initHashSet[string]()
+  for x in s:
+    result.incl x.repr
+
+proc toTypeSet(p: seq[ProcType], inputs: bool): HashSet[string] =
+  result = initHashSet[string]()
+  for pt in p:
+    if inputs:
+      for it in pt.inputTypes:
+        result.incl it.repr
+    else:
+      if pt.resType.isSome:
+        result.incl pt.resType.get.repr
+
+proc toTypeSet(p: PossibleTypes, inputs: bool): HashSet[string] =
+  case p.kind
+  of tkExpression:
+    result = p.types.toTypeSet
+  of tkProcedure:
+    result = p.procTypes.toTypeSet(inputs = inputs)
+  else:
+    discard
+
+proc matchingTypes(t, u: PossibleTypes): seq[NimNode] =
+  ## Checks if the types match.
+  ## If considering a chain of expressions, `t` is considered on the LHS so that
+  ## it's output will be the input of `u`.
+  var ts: HashSet[string]
+  var us: HashSet[string]
+  if t.kind == tkExpression:
+    ts = t.types.toTypeSet
+  elif t.kind == tkProcedure:
+    ts = t.procTypes.toTypeSet(false)
+  if u.kind == tkExpression:
+    us = u.types.toTypeSet
+  elif u.kind == tkProcedure:
+    us = u.procTypes.toTypeSet(true)
+  if ts.card > 0 and us.card > 0:
+    result = intersection(ts, us).toSeq.mapIt(ident(it))
+
+proc assignType(heuristicType: FormulaTypes, types: seq[NimNode], resType = newEmptyNode()): FormulaTypes =
+  if types.len == 1:
+    result = FormulaTypes(inputType: types[0],
+                          resType: heuristicType.resType)
+    if result.resType.kind == nnkEmpty:
+      result.resType = resType
+  elif types.len > 1:
+    ## TODO: apply heuristic rules to pick "most likely"? Done in `assignType` below
+    result = heuristicType
+  else:
+    result = heuristicType
+
+proc assignType(heuristicType: FormulaTypes, typ: PossibleTypes, arg = 0): FormulaTypes =
+  case typ.kind
+  of tkExpression:
+    if typ.types.len > 0:
+      # take the type with the highest priority as the input type
+      let typs = typ.types.sortTypes()
+      result = FormulaTypes(inputType: ident(typs[^1]),
+                            resType: heuristicType.resType)
+    else:
+      result = heuristicType
+  of tkProcedure:
+    if typ.procTypes.len > 0:
+      # access the `arg` (by default 0) argument to the command / ... to get its type
+      # filter out all possible input types and use it
+      var inTypes = newSeq[NimNode]()
+      for el in typ.procTypes:
+        if el.inputTypes.len > arg:
+          inTypes.add el.inputTypes[arg]
+      let inTypsSorted = inTypes.sortTypes()
+      result = FormulaTypes(inputType: ident(inTypsSorted[^1]),
+                            resType: heuristicType.resType)
+      if result.resType.kind == nnkEmpty:
+        # only use output type if not set and pick highest priority one
+        var outTyps = newSeq[NimNode]()
+        for el in typ.procTypes:
+          if el.resType.isSome:
+            outTyps.add el.resType.get
+        let outTypsSorted = outTyps.sortTypes()
+        if outTypsSorted.len > 0:
+          result.resType = ident(outTypsSorted[^1])
+    else:
+      result = heuristicType
+  else:
+    result = heuristicType
+
+proc toTypeSeq(t: PossibleTypes, inputs: bool): seq[NimNode] =
+  case t.kind
+  of tkExpression:
+    result = t.types
+  of tkProcedure:
+    for pt in t.procTypes:
+      if inputs:
+        result.add pt.inputTypes
+      elif pt.resType.isSome:
+        result.add pt.resType.get
+  else: discard
+
+proc detNumArgs(n: NimNode): int =
   case n.kind
-  of nnkCall, nnkCommand, nnkPrefix:  ## TODO: have to add nnkInfix
+  of nnkCall, nnkCommand, nnkPrefix:
+    # the `"command"` is 1 we need to subtract
+    result = n.len - 1
+  of nnkInfix:
+    result = 2
+  of nnkDotExpr:
+    result = 1
+  else:
+    result = 1
+    warning("What kind? " & $n.kind & " in node " & n.repr)
+
+proc argsValid(pt: ProcType, args: seq[PossibleTypes], impureIdxs: seq[int]): bool =
+  ## This procedure removes all `ProcTypes` from the input `pt` that do not match the given
+  ## `args` (excluding the impure indices!)
+  ## The `ProcTypes` need to contain all input types (even ones we do not support as DFs)
+  ## and we simply check if the args (possibly not of allowed types in DF due to being local vars)
+  ## match these types. If a mismatch is found, the entry is deleted.
+  ## Note: The arguments may be procedures themselves. In that case we check if the output types
+  ## of these procedures match the inputs.
+  ## If something has multiple overloads in the args (shouldn't be possible *I think*), we simply
+  ## check for `any` match.
+  result = true
+  if pt.inputTypes.len < args.len: return false
+  for i, inArg in pt.inputTypes:
+    if i in impureIdxs: continue
+    let arg = args[i]
+    case args[i].kind
+    of tkExpression:
+      var anyTyp = false
+      for t in arg.types:
+        if inArg == t:
+          anyTyp = true
+          break
+      if not anyTyp:
+        return false
+    of tkProcedure:
+      for argPt in arg.procTypes:
+        var anyTyp = false
+        if argPt.resType.isSome and inArg == argPt.resType.get:
+          anyTyp = true
+        if not anyTyp:
+          return false
+    else:
+      discard
+
+proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode], heuristicType: FormulaTypes): seq[Assign] =
+  ## This procedure tries to determine type information from the typed symbols stored in `TypedSymbols`,
+  ## so that we can override the `heuristicType`, which was determined in a first pass. This is to then
+  ## create `Assign` objects, which store the column / index references and give them the type information
+  ## that is required. That way we can automatically determine types for certain operations. For example:
+  ##
+  ## .. code-block:: nim
+  ##         ## ```
+  ##    proc max(x: int, y: string, z: float, b: int)
+  ##    f{ max(idx("a"), "hello", 5.5, someInt()) }
+  ##
+  ## will automatically determine that column `a` needs to be read as an integer due to the placement
+  ## as first argument of the procedure `max`. `max` is chosen because it is a common overload.
+  if n.isPureTree:
+    return
+  case n.kind
+  of nnkCall, nnkCommand, nnkPrefix:
     if n.isColCall:
       result.add addColRef(n, heuristicType, byTensor)
     elif n.isIdxCall:
       result.add addColRef(n, heuristicType, byIndex)
     else:
-      let lSym = buildFormula(n[0])
-      numArgs = n.len - 1 # -1 cause first element is name of call
-      echo "len  ", n.len
-      for idx in 1 ..< n.len:
-        echo "WALKING through ", n[idx].repr
-        result.add determineTypesImpl(n[idx], tab, heuristicType, lSym, idx, numArgs)
-      return result
-  of nnkDotExpr:
-    let lSym = buildFormula(n[1])
-    numArgs = 1
-    var asgns = determineTypesImpl(n[0], tab, heuristicType, lSym, 1, numArgs)
-    # possibly fixup return type using `lSym` from here
-    let nSym = tab[lSym]
-    let posType = findType(nSym, arg, numArgs)
-    if posType.resType.isSome:
-      asgns[^1].resType = posType.resType.get
-    result.add asgns
+      ## in this case is a regular call
+      ## determine type information from the procedure / w/e
+      var cmdTyp = tab.getTypeIfPureTree(n[0], detNumArgs(n))
+      doAssert n[0].isPureTree, "If this wasn't a pure tree, it would be a col reference!"
+      ## for each argument to the call / cmd get the type of the argument.
+      ## find then find the procedure / cmd /... that satisfies all requirements
+      ## e.g.
+      ## ```
+      ## proc foo(x: int, y: string, z: float, b: int)
+      ## f{ max(idx("a"), "hello", 5.5, someInt()) }
+      ## ```
+      ## needs to restrict to this specific `max` thanks to the arguments `y, z, b`
+      ## Arguments are only looked at for their *output* type, because that is the input to
+      ## the command / call / ...
+      doAssert cmdTyp.kind == tkProcedure, "In a call the first argument needs to have procedure signature, i.e. " &
+        "have an input and output type!"
+      # first extract all possible types for the call/cmd/... arguments
+      var impureIdxs = newSeq[int]()
+      var chTyps = newSeq[PossibleTypes]()
+      for i in 1 ..< n.len:
+        chTyps.add tab.getTypeIfPureTree(n[i], detNumArgs(n[i]))
+        if not n[i].isPureTree:
+          impureIdxs.add i
+      # remove all mismatching proc types
+      var idx = 0
+      while idx < cmdTyp.procTypes.len:
+        let pt = cmdTyp.procTypes[idx]
+        if not pt.argsValid(chTyps, impureIdxs):
+          cmdTyp.procTypes.delete(idx)
+          continue
+        inc idx
+      if impureIdxs.len > 0:
+        # can use the type for the impure argument
+        for idx in impureIdxs:
+          result.add determineTypesImpl(
+            n[idx], tab,
+            assignType(heuristicType,
+                       cmdTyp,
+                       # argument of the call is index - 1 (return type is 0, thus `impureIdxs` off by 1)
+                       arg = idx - 1))
   of nnkAccQuoted, nnkCallStrLit, nnkBracketExpr:
-    if lastSym.len == 0:
-      result.add addColRef(n, heuristicType, byIndex)
+    if n.nodeIsDf and not n.nodeIsDfIdx:
+      result.add addColRef(n, heuristicType, byTensor)
+    elif heuristicType.inputType.isColumnType():
+      result.add addColRef(n, heuristicType, byTensor)
     else:
-      echo "Getting types for last sym ", lastSym, " and it ", n.repr
-      let nSym = tab[lastSym]
-      let posType = findType(nSym, arg, numArgs)
-      let typ = if posType.typ.isSome:
-                  FormulaTypes(inputType: posType.typ.get,
-                               resType: posType.resType.get)
-                else: heuristicType
-      ## TODO: fix
-      let asgn = if posType.asgnKind.isSome: posType.asgnKind.get else: byIndex
-      echo "ASGN IN TYP ", asgn
-      result.add addColRef(n, typ, asgn)
+      result.add addColRef(n, heuristicType, byIndex)
+    ## TODO: need to handle regular `nnkBracketExpr`. Can this appear? If pure we wouldn't be here
+  of nnkInfix:
+    let lSym = buildFormula(n[0])
+    let nSym = tab[lSym]
+    let typ1 = tab.getTypeIfPureTree(n[1], detNumArgs(n))
+    let typ2 = tab.getTypeIfPureTree(n[2], detNumArgs(n))
+    doAssert not (n[1].isPureTree and n[2].isPureTree), "Both infix subtrees cannot be pure. We wouldn't have entered"
+    # infix has 2 arguments
+    let infixType = nSym.findType(numArgs = detNumArgs(n))
+    var reqType: NimNode
+    let matching1 = matchingTypes(typ1, infixType)
+    let matching2 = matchingTypes(typ2, infixType)
+    ## Now check if there is only a single result type of the infix type choices. If so
+    ## use that as the result (if none set already)
+    let resType = infixType.toTypeSet(inputs = false).toSeq.sortTypes()
+    ## TODO: think about applying similar logic to `nnkCall` here (i.e. don't use sets)
+    if resType.len > 0:
+      result.add determineTypesImpl(n[1], tab,
+                                    assignType(heuristicType, matching2, resType = ident(resType[^1])))
+      result.add determineTypesImpl(n[2], tab,
+                                    assignType(heuristicType, matching1, resType = ident(resType[^1])))
+    else:
+      result.add determineTypesImpl(n[1], tab,
+                                    assignType(heuristicType, matching2))
+      result.add determineTypesImpl(n[2], tab,
+                                    assignType(heuristicType, matching1))
+  of nnkDotExpr:
+    ## dot expression is similar to infix, but only has "one argument".
+    ## index 0 is our "operator" and index 1 our "argument"
+    ## In essence the impure node can never be the last node, right? That would mean something like
+    ## `a.myCall().b.idx("a")`
+    ## which does not really make sense.
+    doAssert not (n[0].isPureTree and n[1].isPureTree), "Not both trees can be pure"
+    let typ0 = tab.getTypeIfPureTree(n[0], detNumArgs(n))
+    let typ1 = tab.getTypeIfPureTree(n[1], detNumArgs(n))
+    doAssert n[1].isPureTree, "Impure tree as second child to `nnkDotExpr` does not make sense"
+    # extract types from `typ1`. Since `typ1` receives `n[0]` as its input, we can use
+    # it's type or input (argument 0 technically only!) as the type for the impure branch
+    result.add determineTypesImpl(n[0], tab,
+                                  assignType(heuristicType,
+                                             typ1))
+  #of nnkIfExpr:
+  #  Could add `ifExpr` because there we know that result type is type of argument. But better to rely on
+  #  type hints here (at least for now).
   else:
     for ch in n:
-      result.add determineTypesImpl(ch, tab, heuristicType, lastSym, 1, numArgs)
+      result.add determineTypesImpl(ch, tab, heuristicType)
 
-proc determineTypes(loop: NimNode, tab: Table[string, NimNode],
-                    heuristicType: FormulaTypes): Preface =
-  var lastSym = ""
-  var numArgs = 0
-  let args = determineTypesImpl(loop, tab, heuristicType,
-                                lastSym, 1, numArgs)
+
+proc determineTypes(loop: NimNode, tab: Table[string, NimNode]): Preface =
+  ## we give an empty node as return to fill it in a top down way. Result is
+  ## determined at top level. We go down until we find a result type, if any.
+  ## otherwise we will use the heuristics in the main code below.
+  let args = determineTypesImpl(loop, tab, FormulaTypes(inputType: newEmptyNode(),
+                                                        resType: newEmptyNode()))
   result = Preface(args: args)
 
 macro compileFormulaImpl*(rawName: untyped,
@@ -606,76 +920,69 @@ macro compileFormulaImpl*(rawName: untyped,
   ## symbols to the `TypedSymbols` table before this macro runs!
   ## TODO: make use of CT information of all involved symbols for better type
   ## determination
-  when false:
-    ##
-    for key, val in TypedSymbols:
-      for ch in val:
-        case ch.kind
-        of nnkSym:
-          echo ch.getImpl.repr
-          echo ch.getType.repr
-          echo "The symbol ", ch.treerepr
-          #echo ch.getImpl[3][0].treeRepr
-        of nnkClosedSymChoice, nnkOpenSymChoice:
-          for chch in ch:
-            echo chch.getType.repr
-            echo chch.getImpl[3][0].treeRepr
-            #echo chch.getImpl.treeRepr
-        else:
-          echo "Found node of kind ", ch.kind, "?"
-
   var fct = Formulas[rawName.strVal]
-  #for k, v in TypedSymbols:
-  #  echo k.repr
-  #  for key, val in v:
-  #    echo "\t", key.repr
-  let typeTab = TypedSymbols[rawName.strVal]
-  for k, v in typeTab:
-    echo "\t", k, " ad v ", v.treeRepr
-  var typ = determineHeuristicTypes(fct.loop, typeHint = fct.typeHint,
-                                    name = fct.rawName)
-  echo "LOOP ", fct.loop.treerepr
-  echo "---"
-
+  var typeTab = initTable[string, NimNode]()
+  if rawName.strVal in TypedSymbols:
+    typeTab = TypedSymbols[rawName.strVal]
   # generate the `preface`
   ## generating the preface is done by extracting all references to columns,
   ## using their names as `tensor` names (not element, since we in the general
   ## formula syntax can only refer to full columns)
   ## Explicit `df` usage (`df["col"][idx]` needs to be put into a temp variable,
   ## `genSym("col", nskVar)`)
-  fct.preface = determineTypes(fct.loop, typeTab, typ)
-  echo "PREFACE is ", fct.preface
+  fct.preface = determineTypes(fct.loop, typeTab)
   # compute the `resType`
-  var resTypeFromSymbols: NimNode
+  # use heuristics to determine a possible input / output type
+  ## TODO: the type hint isn't really needed here anymore, is it?
+  var typ = determineHeuristicTypes(fct.loop, typeHint = fct.typeHint,
+                                    name = fct.rawName)
+
+  var resTypeFromSymbols = newEmptyNode()
   var allScalar = true
+  var allAgree = true
+  ## Modify the result type in case all Assigns agree on one type
+  ## TODO: need to think the assignment of `resTypeFromSymbols` over again. Idea is simply to
+  ## use the `Assign` result types in case they all agree. Make sure this is correct.
+
   for arg in mitems(fct.preface.args):
-    if arg.colType.isGeneric:
-      arg.colType = typ.inputType
-    if arg.resType.isGeneric:
-      resTypeFromSymbols = typ.resType
+    if typ.inputType.isSome and not arg.colType.typeAcceptable:
+      arg.colType = typ.inputType.get
+    if typ.resType.isSome and not arg.resType.typeAcceptable:
+      arg.resType = typ.resType.get
+    if resTypeFromSymbols.kind == nnkEmpty:
+      resTypeFromSymbols = arg.resType
+    elif resTypeFromSymbols.repr != arg.resType.repr:
+      allAgree = false
     if arg.asgnKind == byIndex:
       allScalar = false
+    # apply user given type hints rigorously
+    if fct.typeHint.inputType.isSome:
+      arg.colType = fct.typeHint.inputType.get
+    if fct.typeHint.resType.isSome:
+      arg.resType = fct.typeHint.resType.get
 
-  fct.resType = if resTypeFromSymbols.kind != nnkNilLit: resTypeFromSymbols
-                else: typ.resType
-  echo "RES TYPE ", fct.resType
-  ## possibly overwrite funcKind
+    # check if any is `Empty`, if so error out at CT
+    if arg.colType.kind == nnkEmpty or arg.resType.kind == nnkEmpty:
+      error("Could not determine data types of tensors in formula:\n" &
+        "  name: " & $fct.name & "\n" &
+        "  formula: " & $fct.loop.repr & "\n" &
+        "  data type: " & $arg.colType.repr & "\n" &
+        "  output data type: " & $arg.resType.repr & "\n" &
+        "Consider giving type hints via: `f{T -> U: <theFormula>}`")
+
+  fct.resType = if fct.typeHint.resType.isSome:
+                  fct.typeHint.resType.get
+                elif resTypeFromSymbols.kind != nnkEmpty and allAgree:
+                  resTypeFromSymbols
+                else: typ.resType.get
+  # possibly overwrite funcKind
   fct.funcKind = if allScalar: fkScalar
                  else: FormulaKind(funcKind[1].intVal)
-
-  when false:
-    # possibly override formulaKind yet again due to `typeNodeTuples`
-    if typeNodeTuples.len > 0 and allowOverride:
-      # if a single `byValue` is involved, the output cannot be a scalar!
-      mFuncKind = if typeNodeTuples.allIt(it[0] == byTensor): fkScalar
-                  else: fkVector
 
   case fct.funcKind
   of fkVector: result = compileVectorFormula(fct)
   of fkScalar: result = compileScalarFormula(fct)
   else: error("Unreachable branch. `fkAssign` and `fkVariable` are already handled!")
-
-  echo "******\n\n ",result.repr
 
 proc parseTypeHint(n: var NimNode): TypeHint =
   case n.kind
@@ -705,6 +1012,9 @@ proc isPureFormula(n: NimNode): bool =
   case n.kind
   of nnkAccQuoted, nnkCallStrLit: result = false
   of nnkBracketExpr:
+    if nodeIsDf(n) or nodeIsDfIdx(n):
+      result = false
+  of nnkCall:
     if nodeIsDf(n) or nodeIsDfIdx(n):
       result = false
   else: discard
@@ -790,16 +1100,10 @@ proc compileFormula(n: NimNode): NimNode =
                else: newStmtList(formulaRhs)
     fct.typeHint = typeHint
     ## assign to global formula CT table
-    echo "--------------------"
-    echo fct.rawName
-    echo fct.name
-    echo "--------------------"
     Formulas[fct.rawName] = fct
 
     result = newStmtList()
     let syms = extractSymbols(formulaRhs)
-    for s in syms:
-      echo "@@@ ", s.repr, " and node ", s.treeRepr
     for s in syms:
       let sName = buildFormula(s)
       result.add quote do:
