@@ -1234,5 +1234,14 @@ suite "Formulas":
       proc complProcedure(x: int, s: string, b: seq[int]): int =
         result = x + b[0] + ord(s[0])
 
-      let fn = f{int: complProcedure(idx("a"), "hello", @[1, 2, 3])}
-      echo fn.evaluate(df)
+      let fn = f{"computeMe" ~ complProcedure(idx("a"), "hello", @[1, 2, 3])}
+      check fn.evaluate(df).toTensor(int) == @[106, 107, 108].toTensor()
+
+    block:
+      proc complProcedure(x: int, s: string, b: seq[int], s2: string): int =
+        result = x + b[0] + ord(s[0]) - ord(s2[0])
+      proc anotherCall(): int = 5
+      proc moreCalls(x: int): string = $x
+
+      let fn = f{"computeMe" ~ complProcedure(idx("a"), "hello", @[1, 2, 3], anotherCall().moreCalls())}
+      check fn.evaluate(df).toTensor(int) == @[53, 54, 55].toTensor()
