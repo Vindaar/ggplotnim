@@ -1245,3 +1245,24 @@ suite "Formulas":
 
       let fn = f{"computeMe" ~ complProcedure(idx("a"), "hello", @[1, 2, 3], anotherCall().moreCalls())}
       check fn.evaluate(df).toTensor(int) == @[53, 54, 55].toTensor()
+
+
+  test "Make me a test":
+    let df = seqsToDf({ "A" : concat(newSeqWith(50, "a"), newSeqWith(50, "b")),
+                        "C" : concat(newSeqWith(25, 5),
+                                     newSeqWith(25, 15),
+                                     newSeqWith(50, 35)),
+                        "B" : toSeq(0 ..< 100) })
+    echo df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
+
+    echo df.group_by(["A", "C"])
+      .summarize(f{float: "mean_B" << mean(`B`)},
+                 f{float: "sum_B" << sum(`B`)},
+                 f{int: "count_B" << col(`B`).len})
+
+    echo df.group_by(["A", "C"])
+      .summarize(f{float: "mean_B" << mean(`B`)},
+                 f{float: "sum_B" << sum(`B`)},
+                 f{float: "B_first" << col(`B`)[0]})
+
+    echo df.group_by("A").mutate(f{float: "meanB" << mean(`B`)}).pretty(-1)
