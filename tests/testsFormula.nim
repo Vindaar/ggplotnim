@@ -48,8 +48,6 @@ suite "Formulas":
 
     block:
       ## the following fails at CT, because type of output is ambiguous (max is overloaded)
-      ## TODO: it still doesn't give a proper error. Instead it constructs a formula with the
-      ## unconcrete type `Tensor[T]`!
       # let fn = f{ col("a").max }
       ## This one should always work
       let fn2 = f{float: col("a").max }
