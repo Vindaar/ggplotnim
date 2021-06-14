@@ -918,12 +918,31 @@ proc determineTypes(loop: NimNode, tab: Table[string, NimNode]): Preface =
                                                         resType: newEmptyNode()))
   result = Preface(args: args)
 
+proc parseOptionValue(n: NimNode): Option[FormulaKind] =
+  ## parses the AST of a `FormulaKind` into an `Option[T]` at CT
+  ## Note: shouldn't there be an easier way?...
+  expectKind n, nnkObjConstr
+  doAssert n[0][0].kind == nnkSym and n[0][0].strVal == "Option"
+  doAssert n[0][1].kind == nnkSym and n[0][1].strVal == "FormulaKind"
+  doAssert n.len == 3
+  if n[2].kind == nnkExprColonExpr and n[2][1].kind == nnkSym:
+    if n[2][1].strVal == "true":
+      # parse the number
+      doAssert n[1][1].kind == nnkCall
+      doAssert n[1][1][0].kind == nnkSym and n[1][1][0].strVal == "FormulaKind"
+      result = some(FormulaKind(n[1][1][1].intVal))
+    else:
+      result = none(FormulaKind)
+  else:
+    error("Bad input node " & $n.repr & " in `parseOptionValue`.")
+
 macro compileFormulaImpl*(rawName: untyped,
-                          funcKind: untyped): untyped =
+                          funcKindAst: untyped): untyped =
   ## This needs to be a macro, so that the calling code can add
   ## symbols to the `TypedSymbols` table before this macro runs!
   ## TODO: make use of CT information of all involved symbols for better type
   ## determination
+  let funcKind = parseOptionValue(funcKindAst)
   var fct = Formulas[rawName.strVal]
   var typeTab = initTable[string, NimNode]()
   if rawName.strVal in TypedSymbols:
@@ -979,9 +998,24 @@ macro compileFormulaImpl*(rawName: untyped,
                 elif resTypeFromSymbols.kind != nnkEmpty and allAgree:
                   resTypeFromSymbols
                 else: typ.resType.get
+
   # possibly overwrite funcKind
-  fct.funcKind = if allScalar: fkScalar
-                 else: FormulaKind(funcKind[1].intVal)
+  if funcKind.isSome:
+    ## raise error in case given function kind does not match what we expect
+    let fnk = funcKind.get
+    if allScalar and fnk != fkScalar:
+      error("Formula " & $fct.rawName & " has a mismatch between given formula " &
+        "kind:\n\t`" & $fnk & "` (mapping)\nand automatically determined formula kind:\n\t" &
+        "<< (reducing)\nPlease adjust the given kind to `<<`.")
+    elif not allScalar and fnk == fkScalar:
+      error("Formula " & $fct.rawName & " has a mismatch between given formula " &
+        "kind:\n\t`" & $fnk & "` (reducing)\nand automatically determined formula kind:\n\t" &
+        "`~` (mapping)\nPlease adjust the given kind to `~`.")
+    else:
+      # use the user given formula kind
+      fct.funcKind = fnk
+  else:
+    fct.funcKind = if allScalar: fkScalar else: fkVector
 
   case fct.funcKind
   of fkVector: result = compileVectorFormula(fct)
@@ -1079,6 +1113,9 @@ proc compileFormula(n: NimNode): NimNode =
                     name: `rawName`,
                     lhs: `formulaName`,
                     rhs: %~ `formulaRhs`)
+  elif isAssignment:
+    error("Assignment of unpure formulas (column reference in formula body) is " &
+      "unsupported. Use a reducing `<<` or mapping `~` formula.")
   else:
     ## The `funcKind` here is the ``preliminary`` determination of our
     ## FunctionKind. It may be overwritten at a later time in case the
@@ -1089,10 +1126,9 @@ proc compileFormula(n: NimNode): NimNode =
     ##   -> should imply `fkScalar` (and has to be an arg of a proc call)
     ## - type information of all symbols that are not column references, which
     ##   might be reducing operations (`mean(df["someCol"])` etc.).
-    let funcKind = if isAssignment: fkAssign
-                   elif isReduce: fkScalar
-                   elif isVector: fkVector
-                   else: fkVector
+    let funcKind = if isReduce: some(fkScalar)
+                   elif isVector: some(fkVector)
+                   else: none(FormulaKind)
 
     ## Generate a preliminary `FormulaCT` with the information we have so far
     var fct = FormulaCT()
