@@ -398,6 +398,9 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
                         col: n[0][1],
                         colType: dtype,
                         resType: resType)
+    else:
+      error("Invalid nnkBracketNode. Might contain a column reference, but " &
+        "is not a raw colunm reference!")
   of nnkCall:
     # - `col(someCol)` referring to full column access
     # - `idx(someCol)` referring to column index access
