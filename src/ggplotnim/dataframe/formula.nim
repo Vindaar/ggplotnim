@@ -851,12 +851,16 @@ proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode], heuristicType: 
                      cmdTyp,
                      arg = idx))
   of nnkAccQuoted, nnkCallStrLit, nnkBracketExpr:
-    if n.nodeIsDf and not n.nodeIsDfIdx:
-      result.add addColRef(n, heuristicType, byTensor)
-    elif heuristicType.inputType.isColumnType():
-      result.add addColRef(n, heuristicType, byTensor)
+    if n.nodeIsDf or n.nodeIsDfIdx:
+      if n.nodeIsDf and not n.nodeIsDfIdx:
+        result.add addColRef(n, heuristicType, byTensor)
+      elif heuristicType.inputType.isColumnType():
+        result.add addColRef(n, heuristicType, byTensor)
+      else:
+        result.add addColRef(n, heuristicType, byIndex)
     else:
-      result.add addColRef(n, heuristicType, byIndex)
+      for ch in n:
+        result.add determineTypesImpl(ch, tab, heuristicType)
     ## TODO: need to handle regular `nnkBracketExpr`. Can this appear? If pure we wouldn't be here
   of nnkInfix:
     let lSym = buildFormula(n[0])
