@@ -475,10 +475,16 @@ proc typeAcceptableOrNone(n: NimNode): Option[NimNode] =
   else:
     error("Invalid type `" & $(n.treeRepr) & "`!")
 
+import sugar
 proc typeAcceptable(n: NimNode): bool =
   case n.kind
   of nnkIdent, nnkSym:
-    if n.strVal in DtypesAll:
+    let nStr = n.strVal
+    if nStr in DtypesAll:
+      result = true
+    elif nStr.startsWith("Tensor") and
+         nStr.dup(removePrefix("Tensor["))[0 ..< ^1] in DtypesAll:
+      # stringified type `Tensor[int, float, ...]`. Check is a bit of a hack
       result = true
   of nnkBracketExpr:
     if n.isTensorType() and not n.isGeneric:
@@ -984,7 +990,7 @@ macro compileFormulaImpl*(rawName: untyped,
     if fct.typeHint.resType.isSome:
       arg.resType = fct.typeHint.resType.get
 
-    # check if any is `Empty`, if so error out at CT
+    # check if any is `Empty` or column type not acceptable, if so error out at CT
     if arg.colType.kind == nnkEmpty or arg.resType.kind == nnkEmpty:
       error("Could not determine data types of tensors in formula:\n" &
         "  name: " & $fct.name & "\n" &
@@ -992,12 +998,24 @@ macro compileFormulaImpl*(rawName: untyped,
         "  data type: " & $arg.colType.repr & "\n" &
         "  output data type: " & $arg.resType.repr & "\n" &
         "Consider giving type hints via: `f{T -> U: <theFormula>}`")
+    elif not arg.colType.typeAcceptable:
+      error("Input type for column " & $arg.node.repr & " in formula " &
+        $fct.rawName & " is ambiguous.\n" &
+        "Column type determined to be: " & $arg.colType.repr & "\n" &
+        "Consider giving type hints via: `f{T -> U: <theFormula>}` where " &
+        "`T` is the input type (`U` might not be required).")
 
   fct.resType = if fct.typeHint.resType.isSome:
                   fct.typeHint.resType.get
                 elif resTypeFromSymbols.kind != nnkEmpty and allAgree:
                   resTypeFromSymbols
                 else: typ.resType.get
+  # check if result type still not acceptable, if so error out
+  if not fct.resType.typeAcceptable:
+    error("Output type for formula " & $fct.rawName & " is ambiguous.\n" &
+      "Result type determined to be: " & $fct.resType.repr & "\n" &
+      "Consider giving type hints via: `f{T -> U: <theFormula>}` where" &
+      "`U` is the output type (`T`, input type, is required as well).")
 
   # possibly overwrite funcKind
   if funcKind.isSome:
