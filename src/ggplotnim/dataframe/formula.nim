@@ -212,11 +212,8 @@ proc extractSymbols(n: NimNode): seq[NimNode] =
   of nnkIntLit .. nnkFloat64Lit, nnkStrLit:
     result.add n
   of nnkBracketExpr:
-    # check if contains df[<something>], df[<something>][idx]
-    if not ((n[0].kind == nnkIdent and n[0].strVal == "df") or
-            (n[0].kind == nnkBracketExpr and
-             n[0][0].kind == nnkIdent and n[0][0].strVal == "df" and
-             n[1].kind == nnkIdent and n[1].strVal == "idx")):
+    # iff this is a pure (no column access) node, add as symbol
+    if n.isPureTree:
       result.add n
   of nnkDotExpr:
     ## If `DotExpr` consists only of Idents during the untyped pass,
