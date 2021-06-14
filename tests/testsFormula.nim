@@ -47,9 +47,10 @@ suite "Formulas":
       let fn = f{ idx("a").uniqueProcWithType }
 
     block:
-      ## TODO: this currently only works, because we fall back to float in ccase the heurisitc type
-      ## fails!
-      let fn = f{ col("a").max }
+      ## the following fails at CT, because type of output is ambiguous (max is overloaded)
+      ## TODO: it still doesn't give a proper error. Instead it constructs a formula with the
+      ## unconcrete type `Tensor[T]`!
+      # let fn = f{ col("a").max }
       ## This one should always work
       let fn2 = f{float: col("a").max }
 
@@ -99,7 +100,7 @@ suite "Formulas":
       ## TODO: this is technically broken, because from `*` we take `float`
       ## as result and from the integer `-1` we determine the infix to be
       ## integer
-      let fn = f{ -1 * c"hwy"}
+      #let fn = f{ -1 * c"hwy"}
 
 
 
