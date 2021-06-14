@@ -773,7 +773,7 @@ proc argsValid(pt: ProcType, args: seq[PossibleTypes], impureIdxs: seq[int]): bo
     of tkExpression:
       var anyTyp = false
       for t in arg.types:
-        if inArg == t:
+        if typesMatch(inArg, t):
           anyTyp = true
           break
       if not anyTyp:
@@ -818,21 +818,22 @@ proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode], heuristicType: 
       ## find then find the procedure / cmd /... that satisfies all requirements
       ## e.g.
       ## ```
-      ## proc foo(x: int, y: string, z: float, b: int)
+      ## proc max(x: int, y: string, z: float, b: int)
       ## f{ max(idx("a"), "hello", 5.5, someInt()) }
       ## ```
       ## needs to restrict to this specific `max` thanks to the arguments `y, z, b`
       ## Arguments are only looked at for their *output* type, because that is the input to
       ## the command / call / ...
-      doAssert cmdTyp.kind == tkProcedure, "In a call the first argument needs to have procedure signature, i.e. " &
-        "have an input and output type!"
+      doAssert cmdTyp.kind == tkProcedure, "In a call the first argument needs to " &
+        "have procedure signature, i.e. have an input and output type!"
       # first extract all possible types for the call/cmd/... arguments
       var impureIdxs = newSeq[int]()
       var chTyps = newSeq[PossibleTypes]()
       for i in 1 ..< n.len:
         chTyps.add tab.getTypeIfPureTree(n[i], detNumArgs(n[i]))
         if not n[i].isPureTree:
-          impureIdxs.add i
+          # i - 1 is impure idx, because i == 0 is return type of procedure
+          impureIdxs.add i - 1
       # remove all mismatching proc types
       var idx = 0
       while idx < cmdTyp.procTypes.len:
@@ -841,15 +842,14 @@ proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode], heuristicType: 
           cmdTyp.procTypes.delete(idx)
           continue
         inc idx
-      if impureIdxs.len > 0:
-        # can use the type for the impure argument
-        for idx in impureIdxs:
-          result.add determineTypesImpl(
-            n[idx], tab,
-            assignType(heuristicType,
-                       cmdTyp,
-                       # argument of the call is index - 1 (return type is 0, thus `impureIdxs` off by 1)
-                       arg = idx - 1))
+      # can use the type for the impure argument
+      for idx in impureIdxs:
+        result.add determineTypesImpl(
+          # idx + 1 because we shift it down by 1 when adding to `impureIdxs`
+          n[idx + 1], tab,
+          assignType(heuristicType,
+                     cmdTyp,
+                     arg = idx))
   of nnkAccQuoted, nnkCallStrLit, nnkBracketExpr:
     if n.nodeIsDf and not n.nodeIsDfIdx:
       result.add addColRef(n, heuristicType, byTensor)
