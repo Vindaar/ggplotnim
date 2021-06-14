@@ -88,9 +88,9 @@ suite "Formulas":
     block:
       type
         MS = object
-          trans: proc(x: string): float
+          trans: proc(x: float): float
       let col = %~ "someColumn"
-      let ms = MS(trans: (proc(x: string): float = 5.5))
+      let ms = MS(trans: (proc(x: float): float = 5.5))
       let fn = f{float: colStr ~ ms.trans( df[col.toStr][idx] ) }
     block:
       let fn = f{ `x` >= max(`x`) * 0.5 }
