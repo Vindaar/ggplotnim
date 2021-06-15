@@ -760,7 +760,7 @@ proc applyFilterFormula(df: DataFrame, fn: FormulaNode): Column =
   of fkScalar:
     if fn.valKind != VBool:
       raise newException(FormulaMismatchError, "Input reducing formula " & $fn.name & " does not " &
-        "return boolean value, but " & $fn.valKind & ". Only boolean reducing formulae" &
+        "return boolean value, but " & $fn.valKind & ". Only boolean reducing formulae " &
         "are supported in `filter`.")
     let scaleVal = fn.fnS(df)
     result = constantColumn(scaleVal.toBool, df.len)
