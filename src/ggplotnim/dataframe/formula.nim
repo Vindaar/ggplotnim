@@ -1023,16 +1023,15 @@ macro compileFormulaImpl*(rawName: untyped,
     ## raise error in case given function kind does not match what we expect
     let fnk = funcKind.get
     if allScalar and fnk != fkScalar:
-      error("Formula " & $fct.rawName & " has a mismatch between given formula " &
+      warning("Formula " & $fct.rawName & " has a mismatch between given formula " &
         "kind:\n\t`" & $fnk & "` (mapping)\nand automatically determined formula kind:\n\t" &
         "<< (reducing)\nPlease adjust the given kind to `<<`.")
     elif not allScalar and fnk == fkScalar:
       error("Formula " & $fct.rawName & " has a mismatch between given formula " &
         "kind:\n\t`" & $fnk & "` (reducing)\nand automatically determined formula kind:\n\t" &
         "`~` (mapping)\nPlease adjust the given kind to `~`.")
-    else:
-      # use the user given formula kind
-      fct.funcKind = fnk
+    # use the user given formula kind
+    fct.funcKind = fnk
   else:
     fct.funcKind = if allScalar: fkScalar else: fkVector
 
