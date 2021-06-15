@@ -1247,30 +1247,76 @@ suite "Formulas":
       check fn.evaluate(df).toTensor(int) == @[53, 54, 55].toTensor()
 
 
-  test "Make me a test":
+  test "dplyr / pandas comparison inspired tests":
+    # some of this functionality was either broken or didn't work before working on
+    # that dplyr & pandas comparison
     let df = seqsToDf({ "A" : concat(newSeqWith(50, "a"), newSeqWith(50, "b")),
                         "C" : concat(newSeqWith(25, 5),
                                      newSeqWith(25, 15),
                                      newSeqWith(50, 35)),
                         "B" : toSeq(0 ..< 100) })
-    echo df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
+    block:
+      let res = df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
+      check res.len == 1
+      check res["A", string][0] == "a"
+      check res["(sum B)", int][0] == 1225
 
-    echo df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
-    # now works:
-    echo df.group_by("A").filter(f{ sum(`B`) < 2000})
-    # runtime error: TODO write test! This *could* becoma a CT error in the future.
-    echo df.group_by("A").filter(f{ sum(`B`) * 2000})
+    block:
+      # now works:
+      let res = df.group_by("A").filter(f{ sum(`B`) < 2000})
+      check res.len == 50
+      check res["B", int] == toSeq(0 ..< 50).toTensor
+      check res["C", int] == concat(newSeqWith(25, 5), newSeqWith(25, 15)).toTensor
 
-    echo df.group_by("A").filter(f{ sum(`B`) < 2000})
+    block:
+      # runtime error: TODO write test! This *could* becoma a CT error in the future.
+      expect(FormulaMismatchError):
+        discard df.group_by("A").filter(f{ sum(`B`) * 2000})
 
-    echo df.group_by(["A", "C"])
-      .summarize(f{float: "mean_B" << mean(`B`)},
-                 f{float: "sum_B" << sum(`B`)},
-                 f{int: "count_B" << col(`B`).len})
+    block:
+      let res = df.group_by(["A", "C"])
+        .summarize(f{float: "mean_B" << mean(`B`)},
+                   f{int: "sum_B" << sum(`B`)},
+                   f{int: "count_B" << col(`B`).len})
+      check res.len == 3
+      check res["A", string] == ["a", "a", "b"].toTensor
+      check res["C", int] == [5, 15, 35].toTensor
+      check res["mean_B", float] == [12.0, 37.0, 74.5].toTensor
+      check res["sum_B", int] == [300, 925, 3725].toTensor
+      check res["count_B", int] == [25, 25, 50].toTensor
 
-    echo df.group_by(["A", "C"])
-      .summarize(f{float: "mean_B" << mean(`B`)},
-                 f{float: "sum_B" << sum(`B`)},
-                 f{float: "B_first" << col(`B`)[0]})
+    block:
+      let res = df.group_by(["A", "C"])
+        .summarize(f{float: "mean_B" << mean(`B`)},
+                   f{float: "sum_B" << sum(`B`)},
+                   f{float: "B_first" << col(`B`)[0]})
+      check res.len == 3
+      check res["A", string] == ["a", "a", "b"].toTensor
+      check res["C", int] == [5, 15, 35].toTensor
+      check res["mean_B", float] == [12.0, 37.0, 74.5].toTensor
+      check res["sum_B", int] == [300, 925, 3725].toTensor
+      check res["B_first", int] == [0, 25, 50].toTensor
 
-    echo df.group_by("A").mutate(f{float: "meanB" << mean(`B`)}).pretty(-1)
+    block:
+      let res = df.group_by("A").mutate(f{float: "meanB" << mean(`B`)})
+      check res.len == 100
+      check res["meanB", float] == concat(newSeqWith(50, 24.5), newSeqWith(50, 74.5)).toTensor
+
+  test "Test of idx + mean(col) == mapping operation":
+    ## This test is really only to test that the `mutate` formula shown here is
+    ## actually compiled correctly into a mapping operation, with or without
+    ## user given `~`
+    block:
+      let df = toDf(readCsv("data/mpg.csv"))
+        .group_by("class")
+        .mutate(f{float -> float: "subMeanHwy" ~ `cty` + mean(df["hwy"])})
+        .arrange("class")
+      check df.len == 234
+      check df["subMeanHwy", float][0 ..< 5] == [40.8, 39.8, 40.8, 39.8, 39.8].toTensor
+    block:
+      let df = toDf(readCsv("data/mpg.csv"))
+        .group_by("class")
+        .mutate(f{float -> float: `cty` + mean(df["hwy"])})
+        .arrange("class")
+      check df.len == 234
+      check df["(+ cty (mean df[\"hwy\"]))", float][0 ..< 5] == [40.8, 39.8, 40.8, 39.8, 39.8].toTensor
