@@ -32,6 +32,7 @@ type
       valKind*: ValueKind
       fnS*: proc(c: DataFrame): Value
 
+  FormulaMismatchError* = object of CatchableError
 
 type
   ## These are internal types used in the macro

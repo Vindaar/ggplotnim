@@ -749,28 +749,82 @@ proc filteredIdx(t: Tensor[bool]): Tensor[int] {.inline, noinit.} =
       inc idx
     inc j
 
-proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
-  ## returns the data frame filtered by the conditions given
+proc applyFilterFormula(df: DataFrame, fn: FormulaNode): Column =
+  case fn.kind
+  of fkVector:
+    if fn.resType != colBool:
+      raise newException(FormulaMismatchError, "Input mapping formula " & $fn.name & " does not " &
+        "return boolean values, but " & $fn.resType & ". Only boolean mapping formulae " &
+        "are supported in `filter`.")
+    result = fn.fnV(df)
+  of fkScalar:
+    if fn.valKind != VBool:
+      raise newException(FormulaMismatchError, "Input reducing formula " & $fn.name & " does not " &
+        "return boolean value, but " & $fn.valKind & ". Only boolean reducing formulae" &
+        "are supported in `filter`.")
+    let scaleVal = fn.fnS(df)
+    result = constantColumn(scaleVal.toBool, df.len)
+  else:
+    raise newException(FormulaMismatchError, "Given formula " & $fn.name & " is of unsupported kind " &
+      $fn.kind & ". Only reducing `<<` and mapping `~` formulas are supported in `filter`.")
+
+proc filterImpl(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
+  ## Implements filtering of mapping and scalar formulas on a `DataFrame`.
+  ## Does not differentiate between grouped and ungrouped inputs (done in
+  ## exported `filter` below).
   result = newDataFrame(df.ncols)
   var fullCondition: FormulaNode
-  var filterIdx = newColumn(colInt)
+  var filterIdx = newColumn(colBool)
   for c in conds:
-    if filterIdx.len > 0:
+    if filterIdx.kind == colBool and filterIdx.len > 0:
       # combine two tensors
-      let newIdx = c.fnV(df)
-      # `filterIdx` must be `bool`
-      assert filterIdx.kind == colBool
-      filterIdx.bCol.apply2_inline(newIdx.bCol):
-        # calculate logic and
-        x and y
+      let newIdx = df.applyFilterFormula(c)
+      if newIdx.kind == colConstant and newIdx.cCol == %~ false:
+        return newDataFrame()
+      elif newIdx.kind == colConstant:
+        # reducing formula evaluated true, do not have to combine anything
+        continue
+      else:
+        # combine existing indices and new indices
+        filterIdx.bCol.apply2_inline(newIdx.bCol):
+          # calculate logic and
+          x and y
     else:
-      # eval boolean function on DF
-      filterIdx = c.fnV(df)
-  let nonZeroIdx = filteredIdx(filterIdx.bCol)
-  for k in keys(df):
-    result.asgn(k, df[k].filter(nonZeroIdx))
-    # fill each key with the non zero elements
-  result.len = nonZeroIdx.size
+      # eval boolean scalar function on DF. Predicate decides to keep or drop full frame
+      filterIdx = df.applyFilterFormula(c)
+      if filterIdx.kind == colConstant and filterIdx.cCol == %~ false:
+        return newDataFrame()
+
+  case filterIdx.kind
+  of colBool:
+    let nonZeroIdx = filteredIdx(filterIdx.bCol)
+    for k in keys(df):
+      result.asgn(k, df[k].filter(nonZeroIdx))
+      # fill each key with the non zero elements
+    result.len = nonZeroIdx.size
+  of colConstant:
+    # assert value is true (scalar formula yielding true)
+    doAssert filterIdx.cCol == %~ true, "Constant column needs to be true"
+    result = df
+  else: doAssert false, "Invalid branch"
+
+proc filter*(df: DataFrame, conds: varargs[FormulaNode]): DataFrame =
+  ## Returns the data frame filtered by the conditions given. Multiple conditions are
+  ## evaluated successively and all only elements matching all conditions true will
+  ## remain. If the input data frame is grouped, the subgroups are evaluated individually.
+  ##
+  ## Both mapping and reducing formulas are supported, but each formula kind must return
+  ## a boolean value. In a case of a mismatch `FormulaMismatchError` is thrown.
+  case df.kind
+  of dfGrouped:
+    result = newDataFrame()
+    for (tup, subDf) in groups(df):
+      var mdf = subDf.filterImpl(conds)
+      for (str, val) in tup:
+        mdf[str] = constantColumn(val, mdf.len)
+      result.add mdf
+  else:
+    result = df.filterImpl(conds)
 
 proc calcNewColumn*(df: DataFrame, fn: FormulaNode): (string, Column) =
   ## calculates a new column based on the `fn` given
@@ -1443,5 +1497,5 @@ proc reduce*(node: FormulaNode, df: DataFrame): Value =
   of fkScalar:
     result = node.fnS(df)
   else:
-    raise newException(ValueError, "Cannot reduce a data frame using a formula " &
+    raise newException(FormulaMismatchError, "Cannot reduce a data frame using a formula " &
       "of kind " & $node.kind & "!")
