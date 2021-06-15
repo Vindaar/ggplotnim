@@ -811,7 +811,7 @@ t_in_s,  C1_in_V,  C2_in_V,  type
     let exp = toHashSet({6 : 79, 8 : 70, 4 : 81, 5 : 4})
     block:
       # manually
-      let res = mpg.group_by("cyl").summarize(f{int: "num" << c"cyl".len})
+      let res = mpg.group_by("cyl").summarize(f{int: "num" << col("cyl").len})
       check "num" in res
       check res.len == 4
       var resSet = initHashSet[(int, int)]()
