@@ -1255,6 +1255,14 @@ suite "Formulas":
                         "B" : toSeq(0 ..< 100) })
     echo df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
 
+    echo df.group_by("A").summarize(f{int: sum(`B`)}).filter(f{idx("(sum B)") < 2000})
+    # now works:
+    echo df.group_by("A").filter(f{ sum(`B`) < 2000})
+    # runtime error: TODO write test! This *could* becoma a CT error in the future.
+    echo df.group_by("A").filter(f{ sum(`B`) * 2000})
+
+    echo df.group_by("A").filter(f{ sum(`B`) < 2000})
+
     echo df.group_by(["A", "C"])
       .summarize(f{float: "mean_B" << mean(`B`)},
                  f{float: "sum_B" << sum(`B`)},

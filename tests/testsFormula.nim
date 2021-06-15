@@ -100,7 +100,10 @@ suite "Formulas":
       ## integer
       #let fn = f{ -1 * c"hwy"}
 
-
+    block:
+      let df = seqsToDf({"var1" : toSeq(0 ..< 10)})
+      let fn = f{ sum(`var1`) > 20000 }
+      echo fn.evaluate(df)
 
     ##block:
     ##  let fn = f{ max(idx("a"), 1) }
