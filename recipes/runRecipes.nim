@@ -29,19 +29,19 @@ proc main(compile = false,
     (compile and run):
     let t0 = epochTime()
     printWarning()
-    genCommands("nim c -r recipes/", ".nim")
+    genCommands("nim c -d:nimLegacyRandomInitRand -r recipes/", ".nim")
     echo "Compiling and running all recipes took ", epochTime() - t0
   elif compileDanger and run:
     let t0 = epochTime()
     printWarning()
-    genCommands("nim c -d:danger -r recipes/", ".nim")
+    genCommands("nim c -d:danger -d:nimLegacyRandomInitRand -r recipes/", ".nim")
     echo "Compiling and running (danger mode) all recipes took ", epochTime() - t0
   elif compile:
     printWarning()
-    genCommands("nim c recipes/", ".nim")
+    genCommands("nim c -d:nimLegacyRandomInitRand recipes/", ".nim")
   elif compileDanger:
     printWarning()
-    genCommands("nim c -d:danger recipes/", ".nim")
+    genCommands("nim c -d:danger -d:nimLegacyRandomInitRand recipes/", ".nim")
   elif json and run:
     let t0 = epochTime()
     for r in RecipeFiles:
