@@ -12,10 +12,9 @@ export ginger.types
 
 from seqmath import linspace
 
-import persvector
-export persvector
-
 when defined(defaultBackend):
+  import persvector
+  export persvector
   import ./ggplotnim/dataframe/fallback/formula
   export formula
 else:
