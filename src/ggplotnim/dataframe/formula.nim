@@ -561,6 +561,9 @@ proc toType(n: NimNode): NimNode =
       result = n
     elif n[0].kind in {nnkSym, nnkIdent} and n[0].strVal == "typeDesc":
       result = n[1]
+  of nnkEnumTy:
+    # cannot store enum type in Tensor, so return nil
+    discard
   else:
     error("Invalid node " & $n.kind & " : " & n.repr)
 
