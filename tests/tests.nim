@@ -230,7 +230,8 @@ suite "Formula":
 
   test "Testing ~ formula creation using f{} macro":
     let f = f{"meanCty" ~ (c"hwy" + c"cty")}
-    check f.name == "(~ meanCty (+ hwy cty))"
+    # manual parens still appear in `name`!
+    check f.name == "(~ meanCty ((+ hwy cty)))"
     when defined(defaultBackend):
       let g = meanCty ~ hwy + cty
       check $f == $g
@@ -240,7 +241,7 @@ suite "Formula":
     let h = f{%~ tup.a == %~ tup.b}
     check h.kind == fkVariable
     check h.val == %~ false
-    check h.name == "(== 5.5 ok)"
+    check h.name == "(== (%~ tup.a) (%~ tup.b))"
 
     let f2 = f{float: "min" << min(c"runTimes")}
     check $f2 == "min" # LHS of formula
@@ -272,7 +273,6 @@ suite "Formula":
   test "Formula, literal on RHS":
     let f = f{"from" ~ 0}
     check f.name == "(~ from 0)"
-    check $f == "from"
 
   test "Test formula creation of type `fkVariable`":
     let f1 = f{"Test"}
