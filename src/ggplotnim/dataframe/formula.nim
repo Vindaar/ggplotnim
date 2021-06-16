@@ -193,14 +193,16 @@ proc checkDtype(body: NimNode,
                 floatSet: HashSet[string],
                 stringSet: HashSet[string],
                 boolSet: HashSet[string]):
-                  tuple[isFloat: bool,
+                  tuple[isInt: bool,
+                        isFloat: bool,
                         isString: bool,
                         isBool: bool] =
   for i in 0 ..< body.len:
     case body[i].kind
     of nnkIdent:
       # check
-      result = (isFloat: body[i].strVal in floatSet or result.isFloat,
+      result = (isInt: result.isInt,
+                isFloat: body[i].strVal in floatSet or result.isFloat,
                 isString: body[i].strVal in stringSet or result.isString,
                 isBool: body[i].strVal in boolSet or result.isBool)
     of nnkCallStrLit, nnkAccQuoted, nnkCall:
@@ -209,11 +211,14 @@ proc checkDtype(body: NimNode,
       continue
     of nnkStrLit, nnkTripleStrLit, nnkRStrLit:
       result.isString = true
-    of nnkIntLit .. nnkFloat64Lit:
+    of nnkIntLit .. nnkUInt64Lit:
+      result.isInt = true
+    of nnkFloatLit, nnkFloat64Lit:
       result.isFloat = true
     else:
       let res = checkDtype(body[i], floatSet, stringSet, boolSet)
-      result = (isFloat: result.isFloat or res.isFloat,
+      result = (isInt: result.isInt or res.isInt,
+                isFloat: result.isFloat or res.isFloat,
                 isString: result.isString or res.isString,
                 isBool: result.isBool or res.isBool)
 
@@ -308,9 +313,13 @@ proc determineHeuristicTypes(body: NimNode,
   # which allows for something like
   # `"10." & "5" == $(val + 0.5)` as a valid bool expression
   # walk tree and check for symbols
-  let (isFloat, isString, isBool) = checkDtype(body, FloatSet, StringSet, BoolSet)
+  let (isInt, isFloat, isString, isBool) = checkDtype(body, FloatSet, StringSet, BoolSet)
   var typ: TypeHint
+  if isInt:
+    typ.inputType = some(ident"int")
+    typ.resType = some(ident"int")
   if isFloat:
+    # overrides int if it appears
     typ.inputType = some(ident"float")
     typ.resType = some(ident"float")
   if isString:
@@ -323,6 +332,8 @@ proc determineHeuristicTypes(body: NimNode,
       typ.inputType = some(ident"string")
     elif isFloat:
       typ.inputType = some(ident"float")
+    elif isInt:
+      typ.inputType = some(ident"int")
     else:
       # is bool tensor
       typ.inputType = some(ident"bool")
@@ -337,7 +348,7 @@ proc determineHeuristicTypes(body: NimNode,
       # in cases like:
       # `f{int: x > 4}` the are sure of the result, apply to col only
       typ.inputType = dtype
-    elif isFloat or isString:
+    elif isFloat or isString or isInt:
       # override dtype, result still clear
       typ.inputType = dtype
     else:
