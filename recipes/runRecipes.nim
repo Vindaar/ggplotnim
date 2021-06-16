@@ -25,11 +25,17 @@ proc main(compile = false,
           compileDanger = false,
           run = false,
           json = false) =
-  if not compile and not compileDanger and not run and not json:
+  if (not compile and not compileDanger and not run and not json) or
+    (compile and run):
     let t0 = epochTime()
     printWarning()
     genCommands("nim c -r recipes/", ".nim")
-    echo "Compilating and running all recipes took ", epochTime() - t0
+    echo "Compiling and running all recipes took ", epochTime() - t0
+  elif compileDanger and run:
+    let t0 = epochTime()
+    printWarning()
+    genCommands("nim c -d:danger -r recipes/", ".nim")
+    echo "Compiling and running (danger mode) all recipes took ", epochTime() - t0
   elif compile:
     printWarning()
     genCommands("nim c recipes/", ".nim")
