@@ -1,3 +1,12 @@
+* v0.3.26
+- *major* rewrite of the formula macro. Behavior is essentially the
+  same, but more robust, generalizes better and fully working index /
+  column specification and *much* better automatic type deduction.
+- =filter= can now take a scalar (reducing) formula returning a
+  bool. Useful in combination with a =group_by= call
+- fixed stacking of histograms in case of =hdOutline= ("lowest"
+  element was ignored)
+- =readCsvTyped= is now the default CSV parser
 * v0.3.25
 - fix issue #110; facets now support multiple geoms in one facet plot
 - add classifying using shapes (marker kind & line shape). However,
