@@ -54,36 +54,6 @@ proc getKeys*(df: DataFrame): seq[string] =
   for k in keys(df):
     result.add k
 
-proc raw*(node: FormulaNode): string =
-  ## prints the raw stringification of `node`
-  result = node.name
-
-proc toUgly*(result: var string, node: FormulaNode) =
-  var comma = false
-  case node.kind:
-  of fkVariable:
-    result = $node.val
-  of fkAssign:
-    result.add "(<- "
-    result.add $node.lhs & " "
-    result.add $node.rhs & ")"
-  of fkVector:
-    result = $node.colName
-    #result.add "(" & $node.colName & " "
-    #result.add $node.resType & ")"
-  of fkScalar:
-    result = $node.valName
-    #result.add "(" & $node.valName & " "
-    #result.add $node.valKind & ")"
-
-proc `$`*(node: FormulaNode): string =
-  ## Converts `node` to its string representation
-  result = newStringOfCap(1024)
-  toUgly(result, node)
-
-## The following 3 procs `evaluate` and `reduce` are for API compliance with
-## ggplotnims default backend.
-
 func len*[T](t: Tensor[T]): int =
   assert t.shape.len == 1
   result = t.size
