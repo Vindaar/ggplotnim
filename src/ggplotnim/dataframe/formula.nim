@@ -363,7 +363,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
   of nnkCallStrLit:
     # call str lit needs to be handled indendently, because it may contain
     # symbols that are invalid for a Nim identifier
-    let name = buildFormula(n)
+    let name = buildName(n)
     let colName = genColSym(name, "T")
     let colIdxName = genColSym(name, "Idx")
     let nameCol = newLit(name)
@@ -378,8 +378,8 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
     if nodeIsDf(n):
       # `df["someCol"]`
       let name = n[1]
-      let colName = genColSym(buildFormula(name), "T")
-      let colIdxName = genColSym(buildFormula(name), "Idx")
+      let colName = genColSym(buildName(name), "T")
+      let colIdxName = genColSym(buildName(name), "Idx")
       result.add Assign(asgnKind: byTensor,
                         node: n,
                         element: colIdxName,
@@ -390,8 +390,8 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
     elif nodeIsDfIdx(n):
       # `df["someCol"][idx]`
       let name = n[0][1]
-      let colName = genColSym(buildFormula(name), "T")
-      let colIdxName = genColSym(buildFormula(name), "Idx")
+      let colName = genColSym(buildName(name), "T")
+      let colIdxName = genColSym(buildName(name), "Idx")
       result.add Assign(asgnKind: byIndex,
                         node: n,
                         element: colIdxName,
@@ -405,7 +405,7 @@ proc addColRef(n: NimNode, typeHint: FormulaTypes, asgnKind: AssignKind): seq[As
   of nnkCall:
     # - `col(someCol)` referring to full column access
     # - `idx(someCol)` referring to column index access
-    let name = buildFormula(n[1])
+    let name = buildName(n[1])
     let colName = genColSym(name, "T")
     let colIdxName = genColSym(name, "Idx")
     result.add Assign(asgnKind: asgnKind,
@@ -624,7 +624,7 @@ proc isPureTree(n: NimNode): bool =
       return
 
 proc getTypeIfPureTree(tab: Table[string, NimNode], n: NimNode, numArgs: int): PossibleTypes =
-  let lSym = buildFormula(n)
+  let lSym = buildName(n)
   if n.isPureTree and lSym in tab:
     let nSym = tab[lSym]
     result = findType(nSym, numArgs = numArgs)
@@ -870,7 +870,7 @@ proc determineTypesImpl(n: NimNode, tab: Table[string, NimNode], heuristicType: 
         result.add determineTypesImpl(ch, tab, heuristicType)
     ## TODO: need to handle regular `nnkBracketExpr`. Can this appear? If pure we wouldn't be here
   of nnkInfix:
-    let lSym = buildFormula(n[0])
+    let lSym = buildName(n[0])
     let nSym = tab[lSym]
     let typ1 = tab.getTypeIfPureTree(n[1], detNumArgs(n))
     let typ2 = tab.getTypeIfPureTree(n[2], detNumArgs(n))
@@ -1114,7 +1114,7 @@ proc compileFormula(n: NimNode): NimNode =
     else:
       formulaRhs = node
 
-  let fnName = buildFormula(node)
+  let fnName = buildName(node)
   let rawName = newLit fnName
   if isPureFormula(formulaRhs):
     # simply output a pure formula node
@@ -1163,7 +1163,7 @@ proc compileFormula(n: NimNode): NimNode =
     result = newStmtList()
     let syms = extractSymbols(formulaRhs)
     for s in syms:
-      let sName = buildFormula(s)
+      let sName = buildName(s)
       result.add quote do:
         addSymbols(`rawName`, `sName`, `s`)
     var cpCall = nnkCall.newTree(ident"compileFormulaImpl",

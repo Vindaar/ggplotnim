@@ -230,10 +230,10 @@ proc `$`*(p: Preface): string =
     result.add &"asgnKind: {ch.asgnKind}, "
     result.add &"node: {ch.node.repr}, "
     result.add &"tensor: {ch.tensor.strVal}, "
-    result.add &"col: {buildFormula(ch.col)}, "
+    result.add &"col: {buildName(ch.col)}, "
     result.add &"rbKind: {ch.rbKind}, "
-    result.add &"colType: {buildFormula(ch.colType)}, "
-    result.add &"resType: {buildFormula(ch.resType)})"
+    result.add &"colType: {buildName(ch.colType)}, "
+    result.add &"resType: {buildName(ch.resType)})"
     if i < p.args.high:
       result.add ", "
   result.add ")"
@@ -308,11 +308,9 @@ proc replaceByIdx(n: NimNode, preface: var Preface): NimNode =
     if n[0].kind == nnkIdent and n in preface:
       return n
     # if `df["someCol"]` replace by full tensor (e.g. in a call taking tensor)
-    ## TODO: analyze for these, put into preface!
     if nodeIsDf(n) and n in preface:
       return preface.get(n, useIdx = true)
     if nodeIsDfIdx(n) and n in preface:
-      ## TODO: fix me for the case of `col(someCol)` the buildFormula call does not make sense!
       return preface.get(n, useIdx = true)
   of nnkCall:
     if (nodeIsDf(n) or nodeIsDfIdx(n)) and n in preface:
@@ -341,7 +339,6 @@ proc replaceByElement(n: NimNode, preface: var Preface): NimNode =
     if n[0].kind == nnkIdent and n in preface:
       return preface.get(n, useIdx = false)
     # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
-    ## TODO: analyze for these and put into preface!
     if nodeIsDf(n) and n in preface:
       return preface.get(n, useIdx = false)
     if nodeIsDfIdx(n) and n in preface:
@@ -370,7 +367,6 @@ proc replaceByColumn(n: NimNode, preface: var Preface): NimNode =
     if n[0].kind == nnkIdent and n in preface:
       return preface[n].tensor
     # for `df["someCol"]` replace by full tensor, e.g. for call taking tensor
-    ## TODO: analyze for these and put into preface!
     if nodeIsDf(n) and n in preface:
       return preface[n].tensor
     if nodeIsDfIdx(n) and n in preface:

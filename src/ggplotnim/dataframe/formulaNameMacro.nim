@@ -73,5 +73,18 @@ proc build(n: NimNode): string =
     warning("Node kind " & $n.kind & " not implemented " &
       "for FormulaNode string representation. Node is:\n" & $(n.treeRepr))
 
-proc buildFormula*(n: NimNode): string =
+proc buildName*(n: NimNode): string =
+  ## Builds the formula name in a lisp like representation. Only for debugging
+  ## and printing purposes.
   result = build(n)
+
+proc buildResultColName*(n: NimNode): NimNode =
+  ## Builds the name of the resulting column name of a formula. Mainly it simply uses the node
+  ## as is, except for column references via accented quotes and call string literals, in which
+  ## case we simply use the string values underlying.
+  ## We need to be able to use symbols from the local scope (or possible proc calls) to determine
+  ## the resulting column name at runtime.
+  case n.kind
+  of nnkAccQuoted: result = newLit(n[0].strVal)
+  of nnkCallStrLit: result = newLit(n[1].strVal)
+  else: result = n
