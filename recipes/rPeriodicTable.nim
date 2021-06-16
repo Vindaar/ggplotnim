@@ -7,38 +7,21 @@ import ggplotnim, sequtils, seqmath, strutils
 ##
 
 var elements = toDf(readCsv("data/elements.csv"))
-echo elements.pretty(5)
+showBrowser(elements)
 
-elements["group"] = elements["group"].toTensor(Value).map_inline(
-  if x == %~ "-":
-    %~ -1
-  elif x.kind == VString:
-    %~ parseInt(x.toStr)
-  else:
-    x)
-
-# convert atomic mass floats to strings without explicit `"`
-elements["atomic mass"] = elements["atomic mass"].toTensor(Value).map_inline(
-  try:
-    %~ parseFloat(pretty(x, emphStrNumber = false))
-  except ValueError:
-    x
-)
-
-var top = elements.filter(f{c"group" != -1})
-var bottom = elements.filter(f{c"group" == -1})
-top["x"] = top["group"]
-top["y"] = top["period"]
+# split the lanthanides and actinides from the rest
+var top = elements.filter(f{classify(`group`) != fcNaN})
+  .rename(f{"x" <- "group"},
+          f{"y" <- "period"})
+var bottom = elements.filter(f{classify(`group`) == fcNaN})
 echo top["x"]
 echo top["y"]
 
 const nrows = 2
 const hshift = 3.5
-const vshift = 3
+const vshift = 3.0
 bottom["x"] = toColumn cycle(arange(0, bottom.len div nrows), nrows).mapIt(it.float + hshift)
-bottom["y"] = bottom["period"].toTensor(float).map_inline:
-  x + vshift
-echo bottom
+bottom = bottom.mutate(f{"y" ~ `period` + vshift})
 const tile_width = 0.95
 const tile_height = 0.95
 
@@ -58,7 +41,7 @@ func cycle[T](s: openArray[T]; nums: seq[int]): seq[T] =
       result[idx] = s[i]
       inc idx
 # finally define rows and cols
-let groupdf= seqsToDf({
+let groupdf = seqsToDf({
     "group": arange(1, 19),
     "y": cycle(@[1, 2, 4, 2, 1], @[1, 1, 10, 5, 1])})
 let periodDf = seqsToDf({
@@ -66,12 +49,12 @@ let periodDf = seqsToDf({
     "x": cycle(@[0.5], @[7])})
 
 ggplot(elements, aes("x", "y", fill = "metal")) +
-  geom_tile(aes = aes(width = f{tileWidth},
-                      height = f{tileHeight})) +
+  geom_tile(aes = aes(width = tileWidth,
+                      height = tileHeight)) +
   geom_tile(data = splitDf,
-            aes = aes(x = f{3 - tileWidth/4.0 + 0.25},
-                      width = f{tileWidth / 2.0},
-                      height = f{tileHeight})) +
+            aes = aes(x = 3 - tileWidth/4.0 + 0.25,
+                      width = tileWidth / 2.0,
+                      height = tileHeight)) +
   scale_y_continuous() +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
