@@ -512,7 +512,7 @@ proc compileFormula(stmts: NimNode): NimNode =
   let fct = parseFormulaCT(stmts)
   result = generateClosure(fct)
 
-macro fn*(y: untyped): untyped =
+macro formula(y: untyped): untyped =
   ## TODO: add some ability to explicitly create formulas of
   ## different kinds more easily! Essentially force the type without
   ## a check to avoid having to rely on heuristics.
@@ -534,7 +534,7 @@ macro fn*(y: untyped): untyped =
 when isMainModule:
   import math
   import arraymancer / laser / strided_iteration / foreach
-  let f1 = fn:
+  let f1 = formula:
     preface:
       t in df["foo", int] # t refers to each element of `foo` in the loop
       u in df["bar", float]
