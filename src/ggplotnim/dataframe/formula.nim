@@ -1096,31 +1096,31 @@ proc compileFormula(n: NimNode): NimNode =
   let typeHint = parseTypeHint(node)
   let tilde = recurseFind(node,
                           cond = ident"~")
-  var formulaName = ""
+  var formulaName = newNilLit()
   var formulaRhs = newNilLit()
   if tilde.kind != nnkNilLit and node[0].ident != toNimIdent"~":
     # only reorder the tree, if it does contain a tilde and the
     # tree is not already ordered (i.e. nnkInfix at top with tilde as
     # LHS)
     let replaced = reorderRawTilde(node, tilde)
-    formulaName = buildFormula(tilde[1])
+    formulaName = buildResultColName(tilde[1])
     formulaRhs = replaced
     isVector = true
   elif tilde.kind != nnkNilLit:
     # already tilde at level 0: infix(~, arg1, arg2)
-    formulaName = buildFormula(node[1])
+    formulaName = buildResultColName(node[1])
     formulaRhs = node[2]
     isVector = true
   else:
     # no tilde in node
     # check for `<-` assignment
     if node.len > 0 and eqIdent(node[0], ident"<-"):
-      formulaName = buildFormula(node[1])
+      formulaName = buildResultColName(node[1])
       formulaRhs = node[2]
       isAssignment = true
     # check for `<<` reduction
     elif node.len > 0 and eqIdent(node[0], ident"<<"):
-      formulaName = buildFormula(node[1])
+      formulaName = buildResultColName(node[1])
       formulaRhs = node[2]
       isReduce = true
     else:
@@ -1163,7 +1163,7 @@ proc compileFormula(n: NimNode): NimNode =
     ## Generate a preliminary `FormulaCT` with the information we have so far
     var fct = FormulaCT()
     # assign the name
-    fct.name = if formulaName.len == 0: newLit(fnName) else: newLit(formulaName)
+    fct.name = if formulaName.kind != nnkNilLit: formulaName else: newLit(fnName)
     fct.rawName = fnName
     # assign the loop
     fct.loop = if formulaRhs.kind == nnkStmtList: formulaRhs
