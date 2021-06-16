@@ -200,3 +200,17 @@ suite "Formulas":
     let countCol = "count"
     let fn = f{int: countCol ~ 0}
     check fn.evaluate(df).iCol == [0, 0, 0].toTensor
+
+  test "Name of long formula":
+    const cut_rms_trans_low = 0.1
+    const cut_rms_trans_high = 1.5
+    proc inRegion(x, y: float, r: string): bool =
+      discard
+
+    let fn = f{float -> bool:
+      `rmsTransverse` >= cut_rms_trans_low and
+      `rmsTransverse` <= cut_rms_trans_high and
+      inRegion(df["centerX"][idx], df["centerY"][idx], "crSilver") and
+      `hits` < 500}
+
+    check $fn == "(and (and (and (>= rmsTransverse cut_rms_trans_low) (<= rmsTransverse cut_rms_trans_high)) (inRegion df["centerX"][idx] df["centerY"][idx] crSilver)) (< hits 500))"
