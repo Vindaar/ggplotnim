@@ -4,7 +4,7 @@ import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
 when defined(defaultBackend):
   import dataframe/fallback/formula
 else:
-  import dataframe/arraymancer_backend
+  import dataframe/dataframe
 import ginger except Scale
 
 from seqmath import histogram, linspace, round

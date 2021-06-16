@@ -1,7 +1,7 @@
 import options, sequtils
 import ginger
 import ggplot_types, ggplot_scales
-from dataframe/arraymancer_backend import `$` # for `$` of FormulaNode
+from dataframe/dataframe import `$` # for `$` of FormulaNode
 
 proc getPlotBackground*(theme: Theme): Style =
   ## returns a suitable style (or applies default) for the background of

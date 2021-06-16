@@ -7,7 +7,7 @@ when defined(defaultBackend):
   import dataframe/fallback/formula
   import persvector
 else:
-  import dataframe/arraymancer_backend
+  import dataframe/dataframe
 
 import ginger except Scale
 
