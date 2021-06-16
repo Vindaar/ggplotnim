@@ -24,6 +24,7 @@ task testCI, "Run standard tests w/o cairo dependency":
   exec "nim c -d:noCairo -r tests/test_issue2.nim"
   exec "nim c -d:noCairo -r tests/test_issue20.nim"
   exec "nim c -d:noCairo -r tests/test_issue28.nim"
+  exec "nim c -d:noCairo -r tests/testsFormula.nim"
 
 task test, "Run standard tests":
   exec "nim c -r tests/testDf.nim"
@@ -31,6 +32,7 @@ task test, "Run standard tests":
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/test_issue20.nim"
   exec "nim c -r tests/test_issue28.nim"
+  exec "nim c -r tests/testsFormula.nim"
 
 task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/testDf.nim"
@@ -38,6 +40,7 @@ task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/test_issue20.nim"
   exec "nim c -r tests/test_issue28.nim"
+  exec "nim c -r tests/testsFormula.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
 
 import os, strutils, strformat
