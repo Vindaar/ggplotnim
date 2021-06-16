@@ -146,6 +146,7 @@ suite "Formulas":
           trans: proc(x: float): float
       let col = %~ "a"
       let ms = MS(trans: (proc(x: float): float = 5.5))
+      let colStr = "log10(x4)"
       let fn = f{float: colStr ~ ms.trans( df[col.toStr][idx] ) }
       check fn.evaluate(df).fCol == [5.5, 5.5, 5.5].toTensor
 
@@ -177,3 +178,8 @@ suite "Formulas":
       ## should value that decision.
       # here we only check it compiles (no CT error anymore)
       let fn = f{float -> float: "subMeanHwy" ~ 0.0 + mean(col("hwy"))}
+
+  test "Name test":
+    let f = f{"meanCty" ~ (c"hwy" + c"cty")}
+    # name is the full name. Manual parens (nnkPar) are included in representation.
+    check f.name == "(~ meanCty ((+ hwy cty)))"
