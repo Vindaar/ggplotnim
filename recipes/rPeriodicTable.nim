@@ -7,7 +7,7 @@ import ggplotnim, sequtils, seqmath, strutils
 ##
 
 var elements = toDf(readCsv("data/elements.csv"))
-showBrowser(elements)
+echo elements.pretty(5)
 
 # split the lanthanides and actinides from the rest
 var top = elements.filter(f{classify(`group`) != fcNaN})

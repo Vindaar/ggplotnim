@@ -13,7 +13,7 @@ let muOverRho = logMuOverRho.mapIt(exp(it))
 const massAttenuationFile = "data/mass_attenuation_nist_data.txt"
 # skip one line after header, second header line
 var dfMuRhoTab = toDf(readCsv(massAttenuationFile, header = "#", 
-                              skipLines = 1, sep = ' '))
+                              sep = ' '))
   # convert MeV energy to keV
   .mutate(f{"Energy" ~ c"Energy" * 1000.0})
   .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})
