@@ -213,4 +213,4 @@ suite "Formulas":
       inRegion(df["centerX"][idx], df["centerY"][idx], "crSilver") and
       `hits` < 500}
 
-    check $fn == "(and (and (and (>= rmsTransverse cut_rms_trans_low) (<= rmsTransverse cut_rms_trans_high)) (inRegion df["centerX"][idx] df["centerY"][idx] crSilver)) (< hits 500))"
+    check $fn == """(and (and (and (>= rmsTransverse cut_rms_trans_low) (<= rmsTransverse cut_rms_trans_high)) (inRegion df["centerX"][idx] df["centerY"][idx] crSilver)) (< hits 500))"""
