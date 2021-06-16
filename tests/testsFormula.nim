@@ -13,7 +13,8 @@ suite "Formulas":
   let e = [11, 12, 13]
   let f = [false, true, false]
   let g = ["hello", "world", "foo"]
-  let df = seqsToDf(a, b, c, d, e, f, g)
+  let h = [2.5, 7.5, NaN]
+  let df = seqsToDf(a, b, c, d, e, f, g, h)
   test "Basic `idx` tests with automatic type deduction from context":
     block:
       # - infix, "a" read as integer automatically
@@ -124,6 +125,16 @@ suite "Formulas":
                              else:
                                `c` }
       check fn.evaluate(df).iCol == [3, 5, 6].toTensor
+
+    block:
+      ## TODO: 1. we need the parenthesis (otherwise lexer error)
+      ## 2. return type is deduced to be bool. It should be taken from
+      ## the if expression! `nnkIfExpr` not implemented yet.
+      let fn = f{float -> float: "h" ~ (if classify(idx("h")) == fcNaN:
+                                          -1.0
+                                        else:
+                                          `h`)}
+      check fn.evaluate(df).fCol == [2.5, 7.5, -1.0].toTensor
 
   test "Dot expression requiring `Value` input works automatically":
     block:
