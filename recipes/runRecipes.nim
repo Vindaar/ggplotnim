@@ -1,4 +1,4 @@
-import shell, os, macros, times
+import shell, os, macros, times, cligen
 
 import recipeFiles
 
@@ -21,25 +21,37 @@ template printWarning(): untyped =
   echo "because it leads to extremely bad performance, due to the overhead of "
   echo "compiling each module indepentently! Compile and run `allRecipes.nim` instead!"
 
-if paramCount() == 0:
-  let t0 = epochTime()
-  printWarning()
-  genCommands("nim c -r recipes/", ".nim")
-  echo "Compilating and running all recipes took ", epochTime() - t0
-if paramCount() > 0:
-  let p0 = paramStr(1)
-  if p0 == "-c" or p0 == "--compile":
+proc main(compile = false,
+          compileDanger = false,
+          run = false,
+          json = false) =
+  if not compile and not compileDanger and not run and not json:
+    let t0 = epochTime()
+    printWarning()
+    genCommands("nim c -r recipes/", ".nim")
+    echo "Compilating and running all recipes took ", epochTime() - t0
+  elif compile:
     printWarning()
     genCommands("nim c recipes/", ".nim")
-  elif p0 == "-cd" or p0 == "--compileDanger":
+  elif compileDanger:
     printWarning()
     genCommands("nim c -d:danger recipes/", ".nim")
-  elif p0 == "-r" or p0 == "--run":
+  elif json and run:
     let t0 = epochTime()
-    genCommands("./recipes/")
-    echo "Running all recipes took ", epochTime() - t0
-  elif p0 == "--json" or p0 == "--run":
+    for r in RecipeFiles:
+      generateJsonFile(r, toRun = true)
+    echo "Generating all source files to generate JSON and running them took ", epochTime() - t0
+  elif json:
     let t0 = epochTime()
     for r in RecipeFiles:
       generateJsonFile(r)
+    echo "Generating all source files to generate JSON took ", epochTime() - t0
+  elif run:
+    let t0 = epochTime()
+    genCommands("./recipes/")
     echo "Running all recipes took ", epochTime() - t0
+  else:
+    doAssert false
+
+when isMainModule:
+  dispatch main
