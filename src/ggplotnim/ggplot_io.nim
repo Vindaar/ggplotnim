@@ -1,4 +1,4 @@
-import dataframe/[arraymancer_backend, value, column]
+import dataframe/[dataframe, value, column]
 
 import memfiles, streams, strutils, tables, parsecsv, sequtils
 # for `showBrowser`

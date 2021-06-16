@@ -1,5 +1,5 @@
 import ggplot_types, ggplot_scales, ggplot_utils
-import dataframe / arraymancer_backend
+import dataframe / dataframe
 
 import ginger except Scale
 

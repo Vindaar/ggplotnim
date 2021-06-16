@@ -3,7 +3,7 @@ import chroma
 when defined(defaultBackend):
   import dataframe/fallback/formula
 else:
-  import dataframe/arraymancer_backend
+  import dataframe/dataframe
 import ginger except Scale
 
 when defined(defaultBackend):

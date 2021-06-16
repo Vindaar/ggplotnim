@@ -5,7 +5,7 @@ when defined(defaultBackend):
   import dataframe/fallback/formula
   import persvector
 else:
-  import dataframe/arraymancer_backend
+  import dataframe/dataframe
 import ginger
 
 iterator enumerateData(geom: FilledGeom): (Value, GgStyle, seq[GgStyle], DataFrame) =

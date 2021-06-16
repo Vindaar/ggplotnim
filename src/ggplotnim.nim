@@ -18,8 +18,8 @@ when defined(defaultBackend):
   import ./ggplotnim/dataframe/fallback/formula
   export formula
 else:
-  import ./ggplotnim/dataframe/arraymancer_backend
-  export arraymancer_backend
+  import ./ggplotnim/dataframe/dataframe
+  export dataframe
 
 import ggplotnim / [
   ggplot_utils, ggplot_types, ggplot_theme, ggplot_io, ggplot_ticks,

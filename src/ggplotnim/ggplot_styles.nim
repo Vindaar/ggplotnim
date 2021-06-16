@@ -3,7 +3,7 @@ import ginger except Scale
 when defined(defaultBackend):
   import dataframe/fallback/formula
 else:
-  import dataframe/arraymancer_backend
+  import dataframe/dataframe
 #[
 Contains procs dealing with styles and defines defaults for
 different geoms.
