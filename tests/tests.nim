@@ -184,8 +184,6 @@ suite "Value":
     check $n22 == "\"-2.441E-04\""
 
     # check that `emphStrNumber` can be disabled
-    echo n16.pretty(emphStrNumber = false).repr
-    echo n16.str.repr
     check n16.pretty(emphStrNumber = false) == "6.084E+01"
     check n17.pretty(emphStrNumber = false) == "1.676E+01"
     check n18.pretty(emphStrNumber = false) == "6.863E+00"
