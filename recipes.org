@@ -96,7 +96,7 @@ classes. In these cases a stacked histogram may be useful. Considering
 the =mpg= dataset, this is done via:
 #+BEGIN_SRC nim :tangle recipes/rStackedMpgHistogram.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
   geom_histogram() + 
   theme_opaque() +
@@ -113,7 +113,7 @@ This generates:
 The same as above can also be represented with lines using =geom_freqpoly=:
 #+BEGIN_SRC nim :tangle recipes/rStackedMpgFreqpoly.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", color = "class")) + 
   geom_freqpoly() + 
   theme_opaque() +
@@ -136,7 +136,7 @@ For instance we can use it to make the above plot a little more
 pretty:
 #+BEGIN_SRC nim :tangle recipes/rFreqPolyWithAlpha.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
   geom_freqpoly(alpha = some(0.3)) + 
   theme_opaque() +
@@ -155,7 +155,7 @@ Given a continuous data column we may want to calculate a histogram
 with N bins:
 #+BEGIN_SRC nim :tangle recipes/rMpgHistoNumBins.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(bins = 20) + # by default 30 bins are used
   theme_opaque() +
@@ -172,7 +172,7 @@ bins. E.g. we want to bin by 1.5 mpg, which can be done using the
 =binWidth= argument:
 #+BEGIN_SRC nim :tangle recipes/rMpgHistoBinWidth.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(binWidth = 1.5) +
   theme_opaque() +
@@ -191,7 +191,7 @@ edge of the last bin! So the below starts at 0 on the left side and
 the last bin ends at 40 on the right side.
 #+BEGIN_SRC nim :tangle recipes/rMpgHistoCustomBreaks.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(breaks = @[0'f64, 10, 15, 19, 23, 25, 40]) +
   theme_opaque() +
@@ -211,7 +211,7 @@ here we'll just bin the point data in the same way as the histogram
 itself and draw the points into the center bin positions.
 #+BEGIN_SRC nim :tangle recipes/rMpgHistoPlusPoints.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("cty")) +
   geom_histogram(breaks = breaks) +
@@ -239,7 +239,7 @@ geom) might be boring. That's why the =geom_*= procs also take a
 our points monokai pink:
 #+BEGIN_SRC nim :tangle recipes/rMpgCustomColorPoint.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("displ", "cty")) +
   geom_point(color = some(parseHex("F92672"))) +
@@ -298,7 +298,7 @@ of counts. =FormulaNode= and other Nim function support will probably
 be added at some point (or when desired by someone):
 #+BEGIN_SRC nim :tangle recipes/rMpgSimpleBarPlot.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class")) + 
   geom_bar() + 
   theme_opaque() +
@@ -329,9 +329,9 @@ let cols = toSeq(0 .. 7).mapIt($it)
 # make `parseInt` work on Values, so we can parse the long form 
 # `Channel` column
 #liftScalarStringProc(parseInt)
-let df = toDf(readCsv("data/szinti_channel_counts.txt", 
-                      sep = '\t',
-                      colNames = cols))
+let df = readCsv("data/szinti_channel_counts.txt",
+                 sep = '\t',
+                 colNames = cols)
   .gather(cols, key = "Channel", value = "Count")
   .mutate(f{string -> int: "Channel" ~ parseInt( df["Channel"][idx] )})
 let dfMean = df.group_by("Channel").summarize(f{float: "Mean counts / min" << mean( c"Count" )})
@@ -356,7 +356,7 @@ which is supposed to be split by as well. For instance whether cars of
 a specific class are 4WD, RWD or FWD:
 #+BEGIN_SRC nim :tangle recipes/rMpgStackedBarPlot.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", fill = "drv")) + 
   geom_bar() + 
   theme_opaque() +
@@ -374,7 +374,7 @@ the =mpg= displacement versus the highway efficiency by the city
 efficiency to get an even fuller picture:
 #+BEGIN_SRC nim :tangle recipes/rMpgContinuousColorPoints.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("displ", "hwy", color = "cty")) + 
   geom_point() + 
   theme_opaque() +
@@ -391,7 +391,7 @@ columns, we can show the same thing using points instead. The same
 plot as above is then:
 #+BEGIN_SRC nim :tangle recipes/rMpgStackedPointPlot.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", color = "drv")) + 
   geom_point(stat = "count") + 
   geom_line(stat = "count") + 
@@ -409,7 +409,7 @@ axis that contains discrete data while providing a continuous y axis.
 
 #+BEGIN_SRC nim :tangle recipes/rMpgDiscreteXScale.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 # coloring by class is of course not required to make this work :)
 ggplot(df, aes("cyl", "hwy", color = "class")) + 
   geom_point() + 
@@ -424,7 +424,7 @@ Results in:
 
 #+BEGIN_SRC nim :tangle recipes/rDiscreteYAxis.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cyl")) +
   geom_point() +
   theme_opaque() +
@@ -437,7 +437,7 @@ ggplot(df, aes("hwy", "cyl")) +
 
 #+BEGIN_SRC nim :tangle recipes/rBothDiscreteAxes.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", "cyl", color = "class")) +
   geom_point() +
   theme_opaque() +
@@ -521,7 +521,7 @@ with two different colors.
 The naive way to do this is the following:
 #+BEGIN_SRC nim :tangle recipes/rTwoSensorsBadStyle.nim
 import ggplotnim, sequtils, seqmath
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
 ggplot(df) +
   geom_line(aes(x = "in_s", y = "C1_in_V", color = "C1")) +
   geom_line(aes(x = "in_s", y = "C2_in_V", color = "C2")) +
@@ -544,7 +544,7 @@ of that column. This simplifies the plotting to a single call to
 =geom_line= by specifying the =Channel= column as the discrete color scale:
 #+BEGIN_SRC nim :tangle recipes/rTwoSensorsGoodStyle.nim
 import ggplotnim, sequtils, seqmath
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
 let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # Plotting via `df` directly causes scale problems!
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
@@ -567,7 +567,7 @@ listed by year and we want a bar plot of the number of shifts each
 person did per year. Also we need a much wider plot for this dataset:
 #+BEGIN_SRC nim :tangle recipes/rBarPlotRotatedLabels.nim
 import ggplotnim
-let df = toDf(readCsv("data/fake_shifter_data.txt"))
+let df = readCsv("data/fake_shifter_data.txt")
 ggplot(df, aes("Shifters", fill = "Year")) +
   geom_bar() +
   xlab(rotate = -45.0, margin = 1.75, alignTo = "right") +
@@ -631,7 +631,7 @@ annotation onto the plot.
 import ggplotnim
 import algorithm, sequtils, strformat, strutils
 # get the data from one of the other recipes
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
 let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # assume we want to create an annotation that prints the largest 5 values of
 # Channel 2; get largest values, sorted by time (`in_s`)
@@ -689,7 +689,7 @@ This becomes a little more complicated in combination with the
 First of all we can use it to enlarge the x range:
 #+BEGIN_SRC nim :tangle recipes/rEnlargeXRange.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   xlim(10.0, 60.0) +
@@ -703,7 +703,7 @@ which gives us:
 On the other hand we can also use it to limit the range of a plot:
 #+BEGIN_SRC nim :tangle recipes/rLimitXRange.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   xlim(10.0, 30.0) +
@@ -730,7 +730,7 @@ add margin in =y= to achieve that.
 
 #+BEGIN_SRC nim :tangle recipes/rCreateMarginBuffer.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   ylim(5.0, 25.0) +
@@ -758,7 +758,7 @@ channel from the [[Plotting column Y1 and Y2 against X]] example above.
 #+BEGIN_SRC nim :tangle recipes/rHighlightMinMax.nim
 import ggplotnim, algorithm
 # base this on one of the above examples
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
   .gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # filter to Channel 2 and sort by voltage
 let dfSorted = df.filter(f{c"Channel" == "C2_in_V"})
@@ -805,7 +805,7 @@ The other way to achieve this is to provide a =FormulaNode= to the
 
 #+BEGIN_SRC nim :tangle recipes/rFormulaAesthetic.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes(f{235 / c"cty"}, "displ")) + 
   geom_point() +
   xlab("cty [L / 100km]") +
@@ -870,7 +870,7 @@ so they fit. If too many elements are shown, they won't fit the plot.
 An example below in which we classify by color and size:
 #+BEGIN_SRC nim :tangle recipes/rMultipleLegends.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) +
   geom_point() +
   theme_opaque() +
@@ -1010,7 +1010,7 @@ completely valid =geom=, which means we can replace e.g. a
 (although it may be messy):
 #+BEGIN_SRC nim :tangle recipes/rSimpleGeomText.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ")) + 
   geom_text(aes(text = "manufacturer")) + 
   theme_opaque() +
@@ -1028,7 +1028,7 @@ we can end up showing 5 different scales in a single plot! Again, the
 following may not be the most reasonable example, but well...
 #+BEGIN_SRC nim :tangle recipes/rClassifiedGeomText.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ", color = "class", size = "cyl")) + 
   geom_text(aes(text = "manufacturer")) + 
   theme_opaque() +
@@ -1049,7 +1049,7 @@ or =y= scale of the aesthetic for =geom_text= to nudge it to the side.
 Let's start from a simple combination of =geom_point= and =geom_text=:
 #+BEGIN_SRC nim :tangle recipes/rAnnotateUsingGeomText.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ")) + 
   geom_point() +
   geom_text(aes(x = f{c"hwy" + 0.3}, 
@@ -1069,7 +1069,7 @@ This is still pretty messy and usually not what one might use
 want to annotate the car model with the best fuel economy:
 #+BEGIN_SRC nim :tangle recipes/rAnnotateMaxValues.nim
 import ggplotnim 
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 let dfMax = df.mutate(f{"mpgMean" ~ (`cty` + `hwy`) / 2.0})
   .arrange("mpgMean")
   .tail(1)
@@ -1101,7 +1101,7 @@ annotated heatmap from the combination.
 #+BEGIN_SRC nim :tangle recipes/rAnnotatedHeatmap.nim
 import ggplotnim, math
 
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 let dfRed = df.group_by(["class", "cyl"]).summarize(f{float: "meanHwy" << mean( c"hwy" )})
 # stringification of formula is default name
 let meanHwyCol = "meanHwy"
@@ -1300,7 +1300,7 @@ this will result in a combinatorial explosion.
 #+BEGIN_SRC nim :tangle recipes/rSimpleFacet.nim
 import ggplotnim
 
-let mpg = toDf(readCsv("data/mpg.csv"))
+let mpg = readCsv("data/mpg.csv")
 ggplot(mpg, aes("displ", "hwy")) +
   geom_point(aes(color = "manufacturer")) +
   facet_wrap(["drv", "cyl"]) + 
@@ -1341,7 +1341,7 @@ an overview of the distributions of these properties. Thanks to
 
 #+BEGIN_SRC nim :tangle recipes/rFacetTpa.nim
 import ggplotnim
-let df = toDf(readCsv("data/run_305_tpa_data.csv"))
+let df = readCsv("data/run_305_tpa_data.csv")
 # gather all columns to a long format df
 echo df
 let dfLong = df.gather(getKeys(df), key = "Property", value = "Value")
@@ -1453,7 +1453,7 @@ simply done by using the =weight= aes pointing to said column:
 
 #+BEGIN_SRC nim :tangle recipes/rWeightedHistogram.nim
 import ggplotnim
-let df = toDf(readCsv("data/diamonds.csv"))
+let df = readCsv("data/diamonds.csv")
 ggplot(df, aes("carat", weight = "price")) + 
   geom_histogram() + 
   ylab("Binned carat weighted by price") + 
@@ -1480,7 +1480,7 @@ returns a smooth estimation of the underlying distribution.
 
 #+BEGIN_SRC nim :tangle recipes/rHistogramDensity.nim
 import ggplotnim
-let df = toDf(readCsv("data/diamonds.csv"))
+let df = readCsv("data/diamonds.csv")
 ggplot(df, aes("carat")) + 
   geom_histogram(density = true) + 
   theme_opaque() +
@@ -1614,7 +1614,7 @@ We will draw the example from [[Change alpha of the fill color]] as
 outlined histograms.
 #+begin_src nim :tangle recipes/rHistogramOutline.nim
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", color = "class")) + 
   geom_histogram(lineWidth = some(2.0), 
                  alpha = some(0.0), # make transparent (only fill)
@@ -1660,7 +1660,7 @@ proc getMean(bins, counts: Tensor[float]): float =
     result += bins[i] * counts[i]
   result /= counts.sum
 
-let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+let df = readCsv("data/gaussSigma_runs.csv")
 echo df
 let mean = getMean(df["bins", float], df["counts", float])
 let ymax = df["counts", float].max
@@ -1695,7 +1695,7 @@ Let's remove those distracting lines for the mean, turn off the legend
 and paint it black!
 #+begin_src nim :tangle recipes/rRidgeLineGaussBlack.nim
 import ggplotnim
-let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+let df = readCsv("data/gaussSigma_runs.csv")
 ggplot(df, aes("bins", "counts", fill = "Run")) +
   ggridges("Run", overlap = 3.0) +
   geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
@@ -1714,7 +1714,7 @@ But well, some people might prefer to go full Joy Division (just
 remove the classification by "Run"):
 #+begin_src nim :tangle recipes/rJoyplot.nim
 import ggplotnim
-let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+let df = readCsv("data/gaussSigma_runs.csv")
 ggplot(df, aes("bins", "counts")) +
   ggridges("Run", overlap = 3.0) +
   geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
@@ -1742,7 +1742,7 @@ simple example:
 #+begin_src nim :tangle recipes/rSimpleVegaLite.nim
 import ggplotnim
 import ggplotnim/ggplot_vega
-let mpg = toDf(readCsv("data/mpg.csv"))
+let mpg = readCsv("data/mpg.csv")
 ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   geom_point() +
   ggtitle("ggplotnim in Vega-Lite!") +
@@ -1804,7 +1804,7 @@ import ggplotnim, sequtils, seqmath, strutils
 ## https://plotnine.readthedocs.io/en/stable/generated/plotnine.geoms.geom_tile.html
 ##
 
-var elements = toDf(readCsv("data/elements.csv"))
+var elements = readCsv("data/elements.csv")
 echo elements.pretty(5)
 
 # split the lanthanides and actinides from the rest
@@ -2239,8 +2239,8 @@ let muOverRho = logMuOverRho.mapIt(exp(it))
 
 const massAttenuationFile = "data/mass_attenuation_nist_data.txt"
 # skip one line after header, second header line
-var dfMuRhoTab = toDf(readCsv(massAttenuationFile, header = "#", 
-                              sep = ' '))
+var dfMuRhoTab = readCsv(massAttenuationFile, header = "#", 
+                         sep = ' ')
   # convert MeV energy to keV
   .mutate(f{"Energy" ~ c"Energy" * 1000.0})
   .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})

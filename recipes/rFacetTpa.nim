@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/run_305_tpa_data.csv"))
+let df = readCsv("data/run_305_tpa_data.csv")
 # gather all columns to a long format df
 echo df
 let dfLong = df.gather(getKeys(df), key = "Property", value = "Value")

@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/fake_shifter_data.txt"))
+let df = readCsv("data/fake_shifter_data.txt")
 ggplot(df, aes("Shifters", fill = "Year")) +
   geom_bar() +
   xlab(rotate = -45.0, margin = 1.75, alignTo = "right") +

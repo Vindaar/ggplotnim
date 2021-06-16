@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/diamonds.csv"))
+let df = readCsv("data/diamonds.csv")
 ggplot(df, aes("carat", weight = "price")) + 
   geom_histogram() + 
   ylab("Binned carat weighted by price") + 

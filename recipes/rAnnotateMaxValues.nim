@@ -1,5 +1,5 @@
 import ggplotnim 
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 let dfMax = df.mutate(f{"mpgMean" ~ (`cty` + `hwy`) / 2.0})
   .arrange("mpgMean")
   .tail(1)

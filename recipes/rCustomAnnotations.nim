@@ -1,7 +1,7 @@
 import ggplotnim
 import algorithm, sequtils, strformat, strutils
 # get the data from one of the other recipes
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
 let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # assume we want to create an annotation that prints the largest 5 values of
 # Channel 2; get largest values, sorted by time (`in_s`)

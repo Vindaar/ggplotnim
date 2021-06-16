@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
   geom_histogram() + 
   theme_opaque() +

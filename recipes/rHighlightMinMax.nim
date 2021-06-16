@@ -1,6 +1,6 @@
 import ggplotnim, algorithm
 # base this on one of the above examples
-let df = toDf(readCsv("data/50-18004.CSV"))
+let df = readCsv("data/50-18004.CSV")
   .gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # filter to Channel 2 and sort by voltage
 let dfSorted = df.filter(f{c"Channel" == "C2_in_V"})
