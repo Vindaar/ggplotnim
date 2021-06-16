@@ -28,7 +28,13 @@ proc build(n: NimNode): string =
   of nnkDotExpr, nnkBracketExpr:
     result = n.repr
   of nnkPrefix:
-    result = &"({n[0].strVal} {build(n[1])})"
+    when (NimMajor, NimMinor, NimPatch) < (1, 5, 0):
+      if n[0].strVal == "-":
+        result = &"-{build(n[1])}"
+      else:
+        result = &"({n[0].strVal} {build(n[1])})"
+    else:
+      result = &"({n[0].strVal} {build(n[1])})"
   of nnkAccQuoted:
     result = build(n[0])
   of nnkCallStrLit:
