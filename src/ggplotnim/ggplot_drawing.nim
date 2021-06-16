@@ -335,11 +335,19 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
     when T is Table[int, float]:
       if viewIdx notin prevVals:
         prevVals[viewIdx] = 0.0
-      curStack = %~ prevVals[viewIdx]
+      # if we have a histogram with `hdOutline` need to add `p.y` already
+      if fg.geom.kind == gkHistogram and fg.geom.hdKind == hdOutline:
+        curStack = p.y + %~ prevVals[viewIdx]
+      else:
+        curStack = %~ prevVals[viewIdx]
     elif T is seq[float]:
       if prevVals.len < df.len:
         prevVals = newSeq[float](df.len)
-      curStack = %~ prevVals[idx]
+      # if we have a histogram with `hdOutline` need to add `p.y` already
+      if fg.geom.kind == gkHistogram and fg.geom.hdKind == hdOutline:
+        curStack = p.y + %~ prevVals[idx]
+      else:
+        curStack = %~ prevVals[idx]
     else:
       curStack = p.y
     when not CoordsFlipped:
