@@ -1153,8 +1153,9 @@ proc compileFormula(n: NimNode): NimNode =
 
   let fnName = buildName(node)
   let rawName = newLit fnName
-  if isPureFormula(formulaRhs):
-    # simply output a pure formula node
+  if isPureFormula(formulaRhs) and tilde.kind == nnkNilLit:
+    # simply output a pure formula node that does not contain a `~`
+    # (and thus forces a constant mapping)
     if not isAssignment:
       ## TODO: allow in formulaExp.nim
       result = quote do:
