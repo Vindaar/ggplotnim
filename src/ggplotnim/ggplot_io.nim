@@ -1,6 +1,8 @@
 import dataframe/[arraymancer_backend, value, column]
 
 import memfiles, streams, strutils, tables, parsecsv, sequtils
+# for `showBrowser`
+import browsers, strformat, os
 
 proc countLines(s: var FileStream): int =
   ## quickly counts the number of lines and then resets stream to beginning
@@ -443,3 +445,62 @@ proc writeCsv*(df: DataFrame, filename: string, sep = ',', header = "",
       inc idx
     data.add "\n"
   writeFile(filename, data)
+
+proc showBrowser*(df: DataFrame, toRemove = false) =
+  ## Displays the given DataFrame as a table in the default browser.
+  ##
+  ## Note: the HTML generation is not written for speed at this time. For very large
+  ## dataframes expect bad performance.
+  const tmpl = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even) {
+  background-color: #dddddd;
+}
+</style>
+</head>
+<body>
+
+<table>
+  $#
+</table>
+
+</body>
+</html>
+"""
+  var
+    header: string
+    body: string
+  header = "<thead>\n<tr>"
+  for k in df.getKeys:
+    header.add &"<th> {k} <br><br> {df[k].kind.toNimType} </th>"
+  header.add "</tr>\n</thead>"
+  body = "<tbody>"
+  for row in df:
+    body.add "<tr>\n"
+    for x in row:
+      body.add &"<td>{pretty(x)}</td>"
+    body.add "\n</tr>"
+  body.add "</tbody>"
+  let fname = getTempDir() / "df.html"
+  writeFile(fname, tmpl % [header & body])
+  openDefaultBrowser(fname)
+  if toRemove:
+    # opening browsers may be slow, so wait a long time before we delete (file still needs to
+    # be there when the browser is finally open. Thus default is to keep the file
+    sleep(1000)
+    removeFile(fname)
