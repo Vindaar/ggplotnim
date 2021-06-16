@@ -183,3 +183,8 @@ suite "Formulas":
     let f = f{"meanCty" ~ (c"hwy" + c"cty")}
     # name is the full name. Manual parens (nnkPar) are included in representation.
     check f.name == "(~ meanCty ((+ hwy cty)))"
+
+  test "Constant mapping of integer":
+    let countCol = "count"
+    let fn = f{int: countCol ~ 0}
+    check fn.evaluate(df).iCol == [0, 0, 0].toTensor
