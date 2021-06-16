@@ -946,10 +946,9 @@ proc parseOptionValue(n: NimNode): Option[FormulaKind] =
 
 macro compileFormulaImpl*(rawName: untyped,
                           funcKindAst: untyped): untyped =
-  ## This needs to be a macro, so that the calling code can add
-  ## symbols to the `TypedSymbols` table before this macro runs!
-  ## TODO: make use of CT information of all involved symbols for better type
-  ## determination
+  ## Second stage of formula macro. In a sense the "typed" stage (even if it's an untyped macro).
+  ## Extracts the typed symbols from `TypedSymbols` CT table and uses it to determine possible
+  ## types for column references.
   let funcKind = parseOptionValue(funcKindAst)
   var fct = Formulas[rawName.strVal]
   var typeTab = initTable[string, NimNode]()
@@ -1042,6 +1041,7 @@ macro compileFormulaImpl*(rawName: untyped,
   else: error("Unreachable branch. `fkAssign` and `fkVariable` are already handled!")
 
 proc parseTypeHint(n: var NimNode): TypeHint =
+  ## extracts possible type hints from the node `T -> U: ...`
   case n.kind
   of nnkExprColonExpr:
     case n[0].kind
@@ -1060,6 +1060,8 @@ proc parseTypeHint(n: var NimNode): TypeHint =
   else: discard # no type hint
 
 proc isPureFormula(n: NimNode): bool =
+  ## Checks if the input tree `n` is a pure formula. A pure formula is any Nim AST
+  ## that does not contain a column reference.
   result = true
   if n.len > 0:
     for ch in n:
@@ -1077,6 +1079,15 @@ proc isPureFormula(n: NimNode): bool =
   else: discard
 
 proc compileFormula(n: NimNode): NimNode =
+  ## Preprocessing stage of formula macro. Performs preprocessing steps and extracts
+  ## basic information:
+  ## - possible type hints
+  ## - possible AST reordering if `~` involved
+  ## - extracts possible `~`, `<<`, `<-` symbols
+  ## - generates result column name (from possible LHS)
+  ## - generates formula name
+  ## - extracts pure subtrees and adds them to `TypedSymbols` CT table
+  ## - calls second stage `compileFormulaImpl`
   var isAssignment = false
   var isReduce = false
   var isVector = false
