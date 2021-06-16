@@ -79,7 +79,7 @@ task recipes, "Generate and run all recipes":
   when not defined(windows):
     # depend on existing `.nim` files in repo on windows then..
     exec "ntangle recipes.org"
-  exec "nim c -r recipes/allRecipes.nim"
+  exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipes.nim"
 
 task recipesJson, "Generate and run all recipes with JSON output":
   when not defined(windows):
