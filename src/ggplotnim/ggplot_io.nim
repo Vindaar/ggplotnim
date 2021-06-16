@@ -4,6 +4,11 @@ import memfiles, streams, strutils, tables, parsecsv, sequtils
 # for `showBrowser`
 import browsers, strformat, os
 
+# no-op for backward compatibility with `toDf(readCsv(...))`
+proc toDf*(df: DataFrame): DataFrame {.deprecated: "`toDf` is not required anymore, because `readCsv` " &
+  "already returns an actual `DataFrame` nowadays. Feel free to remove the `toDf` call."} =
+  df
+
 proc countLines(s: var FileStream): int =
   ## quickly counts the number of lines and then resets stream to beginning
   ## of file
@@ -95,7 +100,7 @@ template copyBuf(data: ptr UncheckedArray[char], buf: var string,
 
 template parseHeaderCol(data: ptr UncheckedArray[char], buf: var string,
                         colNames: var seq[string],
-                        header: string,
+                        header: string, quote: char,
                         idx, colStart): untyped =
   copyBuf(data, buf, idx, colStart)
   if col == 0:
@@ -105,8 +110,10 @@ template parseHeaderCol(data: ptr UncheckedArray[char], buf: var string,
     else:
       buf.removePrefix(header)
       # and remove possible whitespace
-      buf = buf.strip
-  colNames.add buf
+      buf = buf.strip(chars = Whitespace + {quote})
+  let bufStripped = buf.strip(chars = Whitespace + {quote})
+  if idx - colStart > 0 and bufStripped.len > 0:
+    colNames.add bufStripped
 
 template guessType(data: ptr UncheckedArray[char], buf: var string,
                    colTypes: var seq[ColKind],
@@ -189,7 +196,8 @@ proc parseNumber(data: ptr UncheckedArray[char],
   elif nD == 1:
     return rtError                              # ONLY "[+-]*\.*"
 
-  if data[idx] notin {sep, '\n', '\r', '\l', 'e', 'E'}: ## TODO: generalize this?
+  # `\0` is necessary to support parsing until the end of the file in case of no line break
+  if data[idx] notin {'\0', sep, '\n', '\r', '\l', 'e', 'E'}: ## TODO: generalize this?
     return rtError
 
   if data[idx] in {'E', 'e'}:                   # optional exponent
@@ -284,35 +292,148 @@ template parseCol(data: ptr UncheckedArray[char], buf: var string,
 
 template parseLine(data: ptr UncheckedArray[char], buf: var string,
                    sep: char,
+                   quote: char,
                    col, idx, colStart, row: var int,
+                   lastWasSep, inQuote: var bool,
                    toBreak: static bool,
                    fnToCall: untyped): untyped =
-  if unlikely(data[idx] in {'\n', '\r', '\l'}):
+  if unlikely(data[idx] == quote):
+    inQuote = not inQuote
+  elif unlikely(inQuote):
+    inc idx
+    # skip ahead in case we start quote
+    continue
+  elif unlikely(data[idx] in {'\n', '\r', '\l'}):
     fnToCall
     inc row
     col = 0
     if data[idx] == '\r' and data[idx + 1] == '\l':
       inc idx
     colStart = idx + 1
-    inc idx
+    lastWasSep = false
     when toBreak:
+      inc idx
       break
-  elif unlikely(data[idx] == sep):
-    # convert last col to data
-    fnToCall
-    inc col
+  elif unlikely(skipInitialSpace and lastWasSep and data[idx] == ' '):
     colStart = idx + 1
+  elif unlikely(data[idx] == sep):
+    # convert last column to data
+    if idx - colStart > 0 or col > 0:
+      # only call if we have seen something yet!
+      fnToCall
+      inc col
+    colStart = idx + 1
+    lastWasSep = true
   elif unlikely(data[idx] in toSkip):
     colStart = idx + 1
+    lastWasSep = false
+  elif unlikely(lastWasSep):
+    lastWasSep = false
   else:
     discard
   inc idx
 
-proc readCsvTyped*(fname: string,
-                   sep: char = ',',
-                   header: string = "",
-                   skipLines = 0,
-                   toSkip: set[char] = {}): DataFrame =
+proc readCsvTypedImpl(data: ptr UncheckedArray[char],
+                      size: int,
+                      lineCnt: int,
+                      sep: char = ',',
+                      header: string = "",
+                      skipLines = 0,
+                      toSkip: set[char] = {},
+                      colNamesIn: seq[string] = @[],
+                      skipInitialSpace = true,
+                      quote = '"'): DataFrame =
+  ## Implementation of the CSV parser that works on a data array of chars.
+  result = newDataFrame()
+  var
+    idx = 0
+    row = 0
+    col = 0
+    colStart = 0
+    lastWasSep = false
+    inQuote = false
+    buf = newString(80)
+
+  # 1. first parse the header
+  var colNames: seq[string]
+  while idx < size:
+    parseLine(data, buf, sep, quote, col, idx, colStart, row, lastWasSep, inQuote, toBreak = true):
+      parseHeaderCol(data, buf, colNames, header, quote, idx, colStart)
+
+  if colNamesIn.len > 0 and colNamesIn.len != colNames.len:
+    raise newException(IOError, "Input data contains " & $colNames.len & " columns, but " &
+      "given " & $colNamesIn.len & " column names given: " & $colNamesIn)
+  elif colNamesIn.len > 0:
+    colNames = colNamesIn
+    # reset index and row back to 0
+    row = 0
+    idx = 0
+
+  # 1a. if `header` is set, skip all additional lines starting with header
+  if header.len > 0:
+    while idx < size:
+      parseLine(data, buf, sep, quote, col, idx, colStart, row, lastWasSep, inQuote, toBreak = false):
+        if col == 0 and data[colStart] != header[0]:
+          break
+
+  let numCols = colNames.len
+  # 1b. skip `skipLines`
+  let rowStart = row
+  while idx < size:
+    parseLine(data, buf, sep, quote, col, idx, colStart, row, lastWasSep, inQuote, toBreak = false):
+      if row - rowStart == skipLines:
+        break
+  # compute the number of skipped lines in total
+  let skippedLines = row
+  # reset row to 0
+  row = 0
+
+  # 2. peek the first line to determine the data types
+  var colTypes = newSeq[ColKind](numCols)
+  var lastIdx = idx
+  var lastColStart = colStart
+  while idx < size:
+    parseLine(data, buf, sep, quote, col, idx, colStart, row, lastWasSep, inQuote, toBreak = true):
+      guessType(data, buf, colTypes, col, idx, colStart, numCols)
+  # 2a. revert the indices (make it a peek)
+  idx = lastIdx
+  colStart = lastColStart
+  dec row
+  # 3. create the starting columns
+  var cols = newSeq[Column](numCols)
+  let dataLines = lineCnt - skippedLines
+  for i in 0 ..< colTypes.len:
+    # create column of length:
+    # lines in file - header - skipLines
+    cols[i] = newColumn(colTypes[i], dataLines)
+  # 4. parse the actual data
+  doAssert row >= 0, "Parsing the header failed"
+  var
+    retType: RetType
+    intVal: int
+    floatVal: float
+  while idx < size:
+    parseLine(data, buf, sep, quote, col, idx, colStart, row, lastWasSep, inQuote, toBreak = false):
+      parseCol(data, buf, cols[col], sep, colTypes, col, idx, colStart, row, numCols,
+               intVal, floatVal, retType)
+  if row + skippedLines < lineCnt:
+    # missing linebreak at end of last line
+    doAssert row + skippedLines == lineCnt - 1, "Bad file. Please report an issue."
+    parseCol(data, buf, cols[col], sep, colTypes, col, idx, colStart, row, numCols,
+             intVal, floatVal, retType)
+  for i, col in colNames:
+    result[col] = cols[i]
+  result.len = dataLines
+
+proc readCsv*(fname: string,
+              sep: char = ',',
+              header: string = "",
+              skipLines = 0,
+              toSkip: set[char] = {},
+              colNames: seq[string] = @[],
+              skipInitialSpace = true,
+              quote = '"',
+             ): DataFrame =
   ## Reads a DF from a CSV file using the separator character `sep`.
   ##
   ## `toSkip` can be used to skip optional characters that may be present
@@ -335,80 +456,43 @@ proc readCsvTyped*(fname: string,
     if slice.size > 0:
       inc lineCnt
 
-  var
-    idx = 0
-    row = -1 # to skip header
-    ## we're dealing with ASCII files, thus each byte can be interpreted as a char
-    data = cast[ptr UncheckedArray[char]](ff.mem)
-    col = 0
-    colStart = 0
-    buf = newString(80)
-
-  # 1. first parse the header
-  var colNames: seq[string]
-  while idx < ff.size:
-    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
-      parseHeaderCol(data, buf, colNames, header, idx, colStart)
-
-  # 1a. if `header` is set, skip all additional lines starting with header
-  var cnt = 0 # column counter, used to determine skipped lines
-  if header.len > 0:
-    while idx < ff.size:
-      parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
-        if col == 0 and data[colStart] != header[0]:
-          break
-        inc cnt
-  let numCols = colNames.len
-  # 1b. skip `skipLines`
-  while idx < ff.size:
-    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
-      if cnt div numCols == skipLines:
-        break
-      inc cnt
-  # reset row to 0
-  row = 0
-  # compute the number of skipped lines in total
-  let skippedLines = cnt div numCols + 1 # + 1 for header
-
-  # 2. peek the first line to determine the data types
-  var colTypes = newSeq[ColKind](numCols)
-  var lastIdx = idx
-  var lastColStart = colStart
-  while idx < ff.size:
-    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = true):
-      guessType(data, buf, colTypes, col, idx, colStart, numCols)
-  # 2a. revert the indices (make it a peek)
-  idx = lastIdx
-  dec row
-  colStart = lastColStart
-  # 3. create the starting columns
-  var cols = newSeq[Column](numCols)
-  let dataLines = lineCnt - skippedLines
-  for i in 0 ..< colTypes.len:
-    # create column of length:
-    # lines in file - header - skipLines
-    cols[i] = newColumn(colTypes[i], dataLines)
-  # 4. parse the actual data
-  doAssert row >= 0, "Parsing the header failed"
-  var
-    retType: RetType
-    intVal: int
-    floatVal: float
-  while idx < ff.size:
-    parseLine(data, buf, sep, col, idx, colStart, row, toBreak = false):
-      parseCol(data, buf, cols[col], sep, colTypes, col, idx, colStart, row, numCols,
-               intVal, floatVal, retType)
-  for i, col in colNames:
-    result[col] = cols[i]
-  result.len = dataLines
-
+  ## we're dealing with ASCII files, thus each byte can be interpreted as a char
+  var data = cast[ptr UncheckedArray[char]](ff.mem)
+  result = readCsvTypedImpl(data, ff.size, lineCnt, sep, header, skipLines, toSkip, colNames)
   ff.close()
 
-proc readCsv*(fname: string,
-              sep = ',',
-              header = "",
-              skipLines = 0,
-              colNames: seq[string] = @[]): OrderedTable[string, seq[string]] =
+proc parseCsvString*(csvData: string,
+                     sep: char = ',',
+                     header: string = "",
+                     skipLines = 0,
+                     toSkip: set[char] = {},
+                     colNames: seq[string] = @[]): DataFrame =
+  ## Parses a `DataFrame` from a string containing CSV data.
+  ##
+  ## `toSkip` can be used to skip optional characters that may be present
+  ## in the data. For instance if a CSV file is separated by `,`, but contains
+  ## additional whitespace (`5, 10, 8` instead of `5,10,8`) this can be
+  ## parsed correctly by setting `toSkip = {' '}`.
+  ##
+  ## `header` designates the symbol that defines the header of the CSV file.
+  ## By default it's empty meaning that the first line will be treated as
+  ## the header. If a header is given, e.g. `"#"`, this means we will determine
+  ## the column names from the first line (which has to start with `#`) and
+  ## skip every line until the first line starting without `#`.
+  ##
+  ## `skipLines` is used to skip `N` number of lines at the beginning of the
+  ## file.
+  result = newDataFrame()
+
+  ## we're dealing with ASCII files, thus each byte can be interpreted as a char
+  var data = cast[ptr UncheckedArray[char]](csvData[0].unsafeAddr)
+  result = readCsvTypedImpl(data, csvData.len, countLines(csvData), sep, header, skipLines, toSkip, colNames)
+
+proc readCsvAlt*(fname: string,
+                 sep = ',',
+                 header = "",
+                 skipLines = 0,
+                 colNames: seq[string] = @[]): OrderedTable[string, seq[string]] =
   ## returns a CSV file as a table of `header` keys vs. `seq[string]`
   ## values, where idx 0 corresponds to the first data value
   ## The `header` field can be used to designate the symbol used to
