@@ -85,7 +85,7 @@ task recipesJson, "Generate and run all recipes with JSON output":
   when not defined(windows):
     exec "ntangle recipes.org"
   exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
-  exec "nim c -r recipes/allRecipesJson.nim"
+  exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim"
 
 task generateJson, "Generate the JSON results for all recipes":
   exec "nim c -r recipes/runRecipes.nim --json"
