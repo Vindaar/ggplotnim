@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/mpg.csv"))
+let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ")) + 
   geom_point() +
   geom_text(aes(x = f{c"hwy" + 0.3}, 

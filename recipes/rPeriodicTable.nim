@@ -6,7 +6,7 @@ import ggplotnim, sequtils, seqmath, strutils
 ## https://plotnine.readthedocs.io/en/stable/generated/plotnine.geoms.geom_tile.html
 ##
 
-var elements = toDf(readCsv("data/elements.csv"))
+var elements = readCsv("data/elements.csv")
 echo elements.pretty(5)
 
 # split the lanthanides and actinides from the rest

@@ -7,7 +7,7 @@ proc getMean(bins, counts: Tensor[float]): float =
     result += bins[i] * counts[i]
   result /= counts.sum
 
-let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+let df = readCsv("data/gaussSigma_runs.csv")
 echo df
 let mean = getMean(df["bins", float], df["counts", float])
 let ymax = df["counts", float].max

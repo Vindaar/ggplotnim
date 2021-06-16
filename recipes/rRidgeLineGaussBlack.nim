@@ -1,5 +1,5 @@
 import ggplotnim
-let df = toDf(readCsv("data/gaussSigma_runs.csv"))
+let df = readCsv("data/gaussSigma_runs.csv")
 ggplot(df, aes("bins", "counts", fill = "Run")) +
   ggridges("Run", overlap = 3.0) +
   geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
