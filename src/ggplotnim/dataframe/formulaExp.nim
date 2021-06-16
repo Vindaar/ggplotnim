@@ -531,7 +531,7 @@ macro formula(y: untyped): untyped =
   ## - `idx`: can be used to access the loop iteration index
   result = compileFormula(y)
 
-when isMainModule:
+when false:
   import math
   import arraymancer / laser / strided_iteration / foreach
   let f1 = formula:
