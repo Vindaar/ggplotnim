@@ -142,10 +142,11 @@ proc recurseFind(n: NimNode, cond: NimNode): NimNode =
 proc compileVectorFormula(fct: FormulaCT): NimNode =
   let fnClosure = generateClosure(fct)
   # given columns
-  var colName = if fct.name.kind == nnkNilLit: newLit(fct.rawName) else: fct.name
+  let rawName = newLit(fct.rawName)
+  var colName = if fct.name.kind == nnkNilLit: rawName else: fct.name
   let dtype = fct.resType
   result = quote do:
-    FormulaNode(name: `colName`,
+    FormulaNode(name: `rawName`,
                 colName: `colName`, kind: fkVector,
                 resType: toColKind(type(`dtype`)),
                 fnV: `fnClosure`)
@@ -153,8 +154,8 @@ proc compileVectorFormula(fct: FormulaCT): NimNode =
 
 proc compileScalarFormula(fct: FormulaCT): NimNode =
   let fnClosure = generateClosure(fct)
-  let valName = if fct.name.kind == nnkNilLit: newLit(fct.rawName) else: fct.name
-  let rawName = fct.rawName
+  let rawName = newLit(fct.rawName)
+  let valName = if fct.name.kind == nnkNilLit: rawName else: fct.name
   let dtype = fct.resType
   result = quote do:
     FormulaNode(name: `rawName`,
