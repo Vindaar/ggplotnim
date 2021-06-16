@@ -126,15 +126,16 @@ suite "Formulas":
                                `c` }
       check fn.evaluate(df).iCol == [3, 5, 6].toTensor
 
-    block:
-      ## TODO: 1. we need the parenthesis (otherwise lexer error)
-      ## 2. return type is deduced to be bool. It should be taken from
-      ## the if expression! `nnkIfExpr` not implemented yet.
-      let fn = f{float -> float: "h" ~ (if classify(idx("h")) == fcNaN:
-                                          -1.0
-                                        else:
-                                          `h`)}
-      check fn.evaluate(df).fCol == [2.5, 7.5, -1.0].toTensor
+    when (NimMajor, NimMinor, NimPatch) >= (1, 4, 0):
+      block:
+        ## TODO: 1. we need the parenthesis (otherwise lexer error)
+        ## 2. return type is deduced to be bool. It should be taken from
+        ## the if expression! `nnkIfExpr` not implemented yet.
+        let fn = f{float -> float: "h" ~ (if classify(idx("h")) == fcNaN:
+                                            -1.0
+                                          else:
+                                            `h`)}
+        check fn.evaluate(df).fCol == [2.5, 7.5, -1.0].toTensor
 
   test "Dot expression requiring `Value` input works automatically":
     block:
