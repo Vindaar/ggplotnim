@@ -56,6 +56,31 @@ type
     inputTypes: seq[NimNode] # types of all arguments
     resType: Option[NimNode]
 
+proc raw*(node: FormulaNode): string =
+  ## prints the raw stringification of `node`
+  result = node.name
+
+proc toUgly*(result: var string, node: FormulaNode) =
+  ## This is the formula stringification, which can be used to access the corresponding
+  ## column of in a DF that corresponds to the formula
+  var comma = false
+  case node.kind:
+  of fkVariable:
+    result = $node.val
+  of fkAssign:
+    result.add "(<- "
+    result.add $node.lhs & " "
+    result.add $node.rhs & ")"
+  of fkVector:
+    result = $node.colName
+  of fkScalar:
+    result = $node.valName
+
+proc `$`*(node: FormulaNode): string =
+  ## Converts `node` to its string representation
+  result = newStringOfCap(1024)
+  toUgly(result, node)
+
 proc add(p: var PossibleTypes, pt: ProcType) =
   doAssert p.kind in {tkProcedure, tkNone}
   if p.kind == tkNone:
