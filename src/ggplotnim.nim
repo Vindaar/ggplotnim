@@ -12,14 +12,9 @@ export ginger.types
 
 from seqmath import linspace
 
-when defined(defaultBackend):
-  import persvector
-  export persvector
-  import ./ggplotnim/dataframe/fallback/formula
-  export formula
-else:
-  import ./ggplotnim/dataframe/dataframe
-  export dataframe
+## ggplotnim continues to make the dataframe available of course
+import datamancer
+export datamancer
 
 import ggplotnim / [
   ggplot_utils, ggplot_types, ggplot_theme, ggplot_io, ggplot_ticks,
@@ -663,13 +658,8 @@ proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
   result = Facet(sfKind: sfKind)
   for f in fns:
     when T is FormulaNode:
-      when defined(defaultBackend):
-        doAssert f.kind == fkTerm
-        doAssert f.rhs.val.kind == VString
-        result.columns.add f.rhs.val.str
-      else:
-        doAssert f.kind == fkVariable
-        result.columns.add f.name
+      doAssert f.kind == fkVariable
+      result.columns.add f.name
     else:
       result.columns.add f
 
@@ -736,12 +726,8 @@ func sec_axis*(trans: FormulaNode = f{""},
                name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
   var fn: Option[FormulaNode]
-  when defined(defaultBackend):
-    if not trans.isNil:
-      fn = some(trans)
-  else:
-    if trans.name.len > 0:
-      fn = some(trans)
+  if trans.name.len > 0:
+    fn = some(trans)
   if not transFn.isNil and not invTransFn.isNil:
     result = SecondaryAxis(scKind: scTransformedData,
                            transFn: transFn, invTransFn: invTransFn,

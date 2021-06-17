@@ -1,9 +1,6 @@
 import ggplot_types, ggplot_scales, ggplot_utils
 import ginger except Scale
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-else:
-  import dataframe/dataframe
+import datamancer
 #[
 Contains procs dealing with styles and defines defaults for
 different geoms.
