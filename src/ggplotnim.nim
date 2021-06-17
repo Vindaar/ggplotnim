@@ -17,7 +17,7 @@ import datamancer
 export datamancer
 
 import ggplotnim / [
-  ggplot_utils, ggplot_types, ggplot_theme, ggplot_io, ggplot_ticks,
+  ggplot_utils, ggplot_types, ggplot_theme, ggplot_ticks,
   # utils dealing with scales
   ggplot_scales,
   # first stage of drawing: collect and fill `Scales`:
@@ -32,7 +32,6 @@ import ggplotnim / [
 ]
 export ggplot_types
 export ggplot_utils
-export ggplot_io
 
 import ggplotnim / colormaps / viridisRaw
 
