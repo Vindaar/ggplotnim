@@ -11,35 +11,23 @@ srcDir        = "src"
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.11"
 requires "ginger >= 0.2.10"
+requires "datamancer >= 0.1.0"
 requires "shell >= 0.4.3"
-requires "arraymancer >= 0.6.2"
 requires "webview"
 
 task testCI, "Run standard tests w/o cairo dependency":
   # This runs all tests suitable for a CI environment, which does not provide
   # cairo. Most tests are independent of cairo anyways
-  exec "nim c -d:noCairo -r tests/testDf.nim"
   exec "nim c -d:noCairo -r tests/tests.nim"
   exec "nim c -d:noCairo -r tests/test_issue2.nim"
-  exec "nim c -d:noCairo -r tests/test_issue20.nim"
-  exec "nim c -d:noCairo -r tests/test_issue28.nim"
-  exec "nim c -d:noCairo -r tests/testsFormula.nim"
 
 task test, "Run standard tests":
-  exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
-  exec "nim c -r tests/test_issue20.nim"
-  exec "nim c -r tests/test_issue28.nim"
-  exec "nim c -r tests/testsFormula.nim"
 
 task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
-  exec "nim c -r tests/testDf.nim"
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
-  exec "nim c -r tests/test_issue20.nim"
-  exec "nim c -r tests/test_issue28.nim"
-  exec "nim c -r tests/testsFormula.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
 
 import os, strutils, strformat
