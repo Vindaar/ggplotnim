@@ -8,22 +8,41 @@ import ginger except Scale
 Contains procs dealing with `ggplot.Scale`.
 ]#
 
-proc scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
+proc scaleFromData*(c: Column, s: Scale, ignoreInf: static bool = true): ginger.Scale =
   ## Combination of `colMin`, `colMax` to avoid running over the data
   ## twice. For large DFs to plot this makes a big difference.
+  ##
+  ## The input `Scale` is just for error messages.
   if c.len == 0: return (low: 0.0, high: 0.0)
-  let t = c.toTensor(float, dropNulls = true)
-  var
-    minVal = t[0]
-    maxVal = t[0]
-  for x in t:
-    when ignoreInf:
-      if (classify(x) == fcNegInf or
-          classify(x) == fcInf):
-        continue
-    minVal = min(x, minVal)
-    maxVal = max(x, maxVal)
-  result = (low: minVal, high: maxVal)
+  case c.kind
+  of colFloat, colInt, colObject:
+    # if we have a `colObject` here it (barring no bugs) means it was determined
+    # to be continuous. That means it can be converted to float, because it is numeric
+    # as long as we drop null values, which we do.
+    let t = c.toTensor(float, dropNulls = true)
+    var
+      minVal = t[0]
+      maxVal = t[0]
+    for x in t:
+      when ignoreInf:
+        if (classify(x) == fcNegInf or
+            classify(x) == fcInf):
+          continue
+      minVal = min(x, minVal)
+      maxVal = max(x, maxVal)
+    result = (low: minVal, high: maxVal)
+  of colConstant:
+    # for a constant it can be valid, as long as the value is int / float
+    let cVal = c.cCol
+    if cVal.kind in {VInt, VFloat}:
+      echo cVal
+      result = (low: cVal.toFloat, high: cVal.toFloat)
+    else:
+      raise newException(ValueError, "The input column `" & $s.col & "` is constant " &
+        " with value: " & $cVal & ". Cannot compute a numeric scale from it.")
+  of colBool, colString, colNone:
+    raise newException(ValueError, "The input column `" & $s.col & "` is of kind " & $c.kind &
+      " and thus discrete. `scaleFromData` should never be called.")
 
 proc getColName*(s: Scale): string =
   ## returns the name of the referred column of the given Scale `s`.

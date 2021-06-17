@@ -23,102 +23,107 @@ proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   let idxNum = min(num - 1, sHigh)
   result = toSeq(0 .. idxNum).mapIt(r.rand(sHigh))
 
-proc guessType(s: seq[Value], drawSamples: static bool = true): ValueKind =
-  ## returns a ``guess`` (!) of the data type stored in `s`.
-  ## We check a subset of 100 elements of the seq (or the whole if
-  ## < 100 elements) and see if they match a single ValueKind.
-  ## If they do match, return it, else return `VNull`
-  when drawSamples:
-    let indices = drawSampleIdx(s.high)
-  else:
-    # else we take all values as our indices
-    let indices = toSeq(0 .. s.high)
-  result = VNull
-  var resultSet = false
-  for i in indices:
-    if not resultSet:
-      result = s[i].kind
-      resultSet = true
-    else:
-      if result != s[i].kind:
-        case result
-        of VInt, VFloat:
-          result = VFloat
-        of VString:
-          result = VString # string "encompasses" all numbers
-        else:
-          return VNull
-
-proc isDiscreteData(s: seq[Value], drawSamples: static bool = true): bool =
+proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
+                    discreteThreshold = 0.125): bool =
   ## returns an ``estimate`` (!) of whether the given sequence of
-  ## data is most likely discrete or continuous. First determine
-  ## most probable type, then check for discreteness
-  ## - if Values are strings: discrete
+  ## data is most likely discrete or continuous. This depends mainly
+  ## on the column kind of the input column. If the column is:
+  ## - float: continuous
+  ## - string: discrete
+  ## - bool: discrete
+  ## - int: discrete
   ## - if float / int: generate set of first 100 elements, check
   ##   if cardinality of set > 50: continuous, else discrete
   ## - if bool: discrete
-  let guessedT = s.guessType(drawSamples = drawSamples)
-  # TODO: Improve error messages in the case of guessedT == VNull
-  # or change handling of that case
-  case guessedT
-  of VFloat, VInt:
-    # same approach as in `guessType`
+  ##
+  ## It is possible to overwrite this by manually setting discreteness
+  ## of a scale (use `scale_x/y_discrete/continuous` or `factor(col)`
+  ## as an argument to `aes` for continuous data to be discrete).
+  ##
+  ## The associated `Scale` is only used for better error messages.
+  case col.kind
+  of colInt:
     when drawSamples:
-      let indices = drawSampleIdx(s.high)
+      let indices = drawSampleIdx(col.high)
     else:
-      let indices = toSeq(0 .. s.high)
-    let elements = indices.mapIt(s[it]).toHashSet
-    if elements.card > (indices.len.float / 8.0).round.int:
+      let indices = toSeq(0 .. col.high)
+    let elements = indices.mapIt(col[it, int]).toHashSet
+    if elements.card > (indices.len.float * discreteThreshold).round.int:
       result = false
+      echo "INFO: The integer column `", $s.col, "` has been automatically ",
+       "determined to be continuous. To overwrite this behavior use ",
+       "`scale_x/y_discrete` or apply `factor` to the column name in the `aes` ",
+       "call."
     else:
       result = true
-  of VString:
+      echo "INFO: The integer column `", $s.col, "` has been automatically ",
+       "determined to be discrete. To overwrite this behavior use ",
+       "`scale_x/y_continuous`."
+  of colFloat:
+     result = false
+  of colString:
     # while the "discreteness" condition above might not always be satisfied for
     # strings, how would we represent string data on continuous scales?
     result = true
-  of VBool:
+  of colBool:
     result = true
-  of VNull:
-    raise newException(ValueError, "Either `guessType` failed to determine the type " &
-      "due to multiple base types in the column or the data is really `VNull`")
-    #result = false
-  of VObject:
-     raise newException(Exception, "A VObject can neither be discrete nor continuous!")
-
-proc discreteAndType(df: DataFrame, col: FormulaNode,
-                     dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
-    tuple[isDiscrete: bool, vKind: ValueKind] =
-  ## deteremines both the `ValueKind` of the given column as well whether that
-  ## data is discrete.
-  let indices = drawSampleIdx(df.high)
-  let data = indices.mapIt(df[$col, it])
-  let isDiscrete = block:
-    if dcKind.isSome:
-      let dc = dcKind.get
-      dc == dcDiscrete
+  of colConstant:
+    # quite the literal definiton of a constant!
+    result = true
+  of colObject:
+    ## use the same approach as for `colInt` if data is only numeric. If contains
+    ## non numeric data (except `VNull`) it's discrete.
+    when drawSamples:
+      let indices = drawSampleIdx(col.high)
     else:
-      isDiscreteData(data, drawSamples = false)
-  result = (isDiscrete: isDiscrete,
-            vKind: guessType(data, drawSamples = false))
+      let indices = toSeq(0 .. col.high)
+    var discreteObjectCol = false
+    let elVals = indices.mapIt(col[it, Value])
+    let elementKinds = elVals.mapIt(it.kind).toHashSet
+    if VObject in elementKinds:
+      raise newException(ValueError, "Input column " & $s.col & " contains object like " &
+        "values (key / value pairs in a single element). Such a column cannot be plotted.")
+    elif VString in elementKinds or
+         VBool in elementKinds:
+      discreteObjectCol = true
+    else:
+      let elements = indices.mapIt(col[it, Value]).toHashSet
+      if elements.card <= (indices.len.float * discreteThreshold).round.int:
+        discreteObjectCol = true
+    if not discreteObjectCol:
+      result = false
+      echo "INFO: The object column `", $s.col, "` has been automatically ",
+       "determined to be continuous. To overwrite this behavior use ",
+       "`scale_x/y_discrete` or apply `factor` to the column name in the `aes` ",
+       "call."
+    else:
+      result = true
+      echo "INFO: The object column `", $s.col, "` has been automatically ",
+       "determined to be discrete. To overwrite this behavior use ",
+       "`scale_x/y_continuous`."
+  of colNone:
+    raise newException(ValueError, "Input column " & $s.col & " is empty. Such a column " &
+      "cannot be plotted.")
 
-## TODO: make use of column type information, duh!
 proc discreteAndType(data: Column,
+                     s: Scale,
                      dcKind: Option[DiscreteKind] = none[DiscreteKind]()):
     tuple[isDiscrete: bool, vKind: ValueKind] =
-  ## deteremines both the `ValueKind` of the given column as well whether that
-  ## data is discrete.
-  let indices = drawSampleIdx(data.high)
+  ## Returns the column kind (as a `ValueKind`) of the input column and the
+  ## discreteness. For integer data we guess the discreteness based on a
+  ## threshold of unique values in the column.
+  ##
+  ## The associated `Scale` is only used for better error messages.
   let vKind = toValueKind(data.kind)
-  # get data and check if discrete
-  let data = indices.mapIt(data[it, Value])
+  # auto determine discreteness iff not set manually by user
   let isDiscrete = block:
     if dcKind.isSome:
       let dc = dcKind.get
       dc == dcDiscrete
     else:
-      isDiscreteData(data, drawSamples = false)
+      isDiscreteData(data, s, drawSamples = true)
   result = (isDiscrete: isDiscrete,
-            vKind: vKind)
+            vKind: toValueKind(data.kind))
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value],
@@ -372,7 +377,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     else: discard
 
     # now determine labels, data scale from `data`
-    let (isDiscrete, vKind) = discreteAndType(data, dcKindOpt)
+    let (isDiscrete, vKind) = discreteAndType(data, s, dcKindOpt)
     if vKind == VNull:
       echo "WARNING: Unexpected data type VNull of column: ", s.col, "!"
       continue
@@ -394,7 +399,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       dataScaleOpt = if s.dcKind == dcContinuous and s.dataScale.low != s.dataScale.high:
                        some(s.dataScale)
                      else:
-                       some(scaleFromData(data))
+                       some(scaleFromData(data, s))
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
