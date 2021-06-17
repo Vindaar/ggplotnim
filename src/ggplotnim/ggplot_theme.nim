@@ -20,8 +20,8 @@ proc getCanvasBackground*(theme: Theme): Style =
   if theme.canvasColor.isSome:
     result.fillColor = theme.canvasColor.unsafeGet
   else:
-    # default background: transparent
-    result.fillColor = transparent
+    # default background: white
+    result.fillColor = white
 
 proc calculateMarginRange*(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale =
   var margin: float

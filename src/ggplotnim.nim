@@ -1191,8 +1191,14 @@ proc canvasColor*(color: Color): Theme =
 
 func theme_opaque*(): Theme =
   ## returns the "opaque" theme. For the time being this only means the
-  ## canvas of the plot is white instead of transparent
+  ## canvas of the plot is white, which is the default starting from version
+  ## `v0.4.0`. For the old behavior add `theme_transparent`.
   result = Theme(canvasColor: some(white))
+
+func theme_transparent*(): Theme =
+  ## returns the "transparent" theme. This is the default for plots before
+  ## version `v0.4.0`.
+  result = Theme(canvasColor: some(transparent))
 
 func theme_void*(color: Color = white): Theme =
   ## returns the "void" theme. This means:
