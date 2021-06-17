@@ -9,6 +9,8 @@
   by default (which is a breaking change). To overwrite use
   =scale_x/y/..._discrete= or simply =factor(col)= in =aes=. Fixes
   issue #91.
+- changes the default background color from transparent to white (ref
+  #117). Thanks @pietroppeter for the feedback!
   
 * v0.3.26
 - *major* rewrite of the formula macro. Behavior is essentially the
