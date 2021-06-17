@@ -16,7 +16,7 @@ df["spikes"] = toColumn spikes
 df["neurons"] = toColumn randomTensor(numx * numy, 1.0)
 df["lineSize"] = toColumn sizes
 
-ggplot(df, aes("neurons", "spikes", color = "lineSize")) +
+ggplot(df, aes("neurons", "spikes", color = factor("lineSize"))) +
   geom_linerange(aes(ymin = f{c"spikes" - c"lineSize" / 2.0},
                      ymax = f{c"spikes" + c"lineSize" / 2.0})) +
   scale_y_continuous() + # make sure y is considered cont.
