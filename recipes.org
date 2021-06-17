@@ -23,10 +23,6 @@ The document contains two kinds of recipes.
    certain kind. Here also alternative ways might be presented. For
    some people maybe the more interesting read. :)
 
-Note that all recipes here use =theme_opaque= to contain a white
-background (instead of a transparent one) to be better for github's
-dark mode.
-
 ** GTTP "Get To The Point" recipes
 
 The recipes in this section present the simplest way to achieve the
@@ -54,7 +50,6 @@ and create the plot:
 #+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
 ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rSimpleLinePlot.png")
 #+END_SRC
 This results in the following plot:
@@ -76,7 +71,6 @@ let y = x.mapIt(pow(sin(it), 2.0))
 let df = seqsToDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rLinePlotSize.png", width = width, height = height)
 #+END_SRC
 You can see that =ggsave= accepts a =width= and =height= argument. The
@@ -99,7 +93,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
   geom_histogram() + 
-  theme_opaque() +
   ggsave("media/recipes/rStackedMpgHistogram.png")
 #+END_SRC
 This generates:
@@ -116,7 +109,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", color = "class")) + 
   geom_freqpoly() + 
-  theme_opaque() +
   ggsave("media/recipes/rStackedMpgFreqpoly.png")
 #+END_SRC
 This generates:
@@ -139,7 +131,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
   geom_freqpoly(alpha = some(0.3)) + 
-  theme_opaque() +
   ggsave("media/recipes/rFreqPolyWithAlpha.png")
 #+END_SRC
 Notice how if a fill color is set, the lines are always drawn down to
@@ -158,7 +149,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(bins = 20) + # by default 30 bins are used
-  theme_opaque() +
   ggsave("media/recipes/rMpgHistoNumBins.png")
 #+END_SRC
 This generates:
@@ -175,7 +165,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(binWidth = 1.5) +
-  theme_opaque() +
   ggsave("media/recipes/rMpgHistoBinWidth.png")
 #+END_SRC
 This generates:
@@ -194,7 +183,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy")) + 
   geom_histogram(breaks = @[0'f64, 10, 15, 19, 23, 25, 40]) +
-  theme_opaque() +
   ggsave("media/recipes/rMpgHistoCustomBreaks.png")
 #+END_SRC
 This generates:
@@ -216,7 +204,6 @@ let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("cty")) +
   geom_histogram(breaks = breaks) +
   geom_point(stat="bin", breaks = breaks, binPosition = "center") +
-  theme_opaque() +
   ggsave("media/recipes/rMpgHistoPlusPoints.png")
 #+END_SRC
 Note both additional arguments to the =geom_point= call. The
@@ -243,7 +230,6 @@ let df = readCsv("data/mpg.csv")
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("displ", "cty")) +
   geom_point(color = some(parseHex("F92672"))) +
-  theme_opaque() +
   ggsave("media/recipes/rMpgCustomColorPoint.png")
 #+END_SRC
 Gives:
@@ -264,7 +250,6 @@ let counts = @[0.1, 0.8, 0.3, 0.05, 0.0] # <- last element is dummy
 let df = seqsToDf({"bin_edges" : bins, "counts" : counts})
 ggplot(df, aes("bin_edges", "counts")) + 
   geom_histogram(stat = "identity") +
-  theme_opaque() +
   ggsave("media/recipes/rPrebinnedHisto.png")
 #+END_SRC
 There are a couple of important things to mention here. In the case
@@ -301,7 +286,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class")) + 
   geom_bar() + 
-  theme_opaque() +
   ggsave("media/recipes/rMpgSimpleBarPlot.png")
 #+END_SRC
 Giving us the following result:
@@ -340,7 +324,6 @@ ggplot(dfMean, aes("Channel", "Mean counts / min")) +
   geom_bar(stat = "identity", position = "identity") +
   scale_x_discrete(name = "Channel number") +
   ggtitle("Mean counts per channel") +
-  theme_opaque() +
   ggsave("media/recipes/rBarPlotCompStats.png")
 #+END_SRC
 
@@ -359,7 +342,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", fill = "drv")) + 
   geom_bar() + 
-  theme_opaque() +
   ggsave("media/recipes/rMpgStackedBarPlot.png")
 #+END_SRC
 Results in:
@@ -377,7 +359,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("displ", "hwy", color = "cty")) + 
   geom_point() + 
-  theme_opaque() +
   ggsave("media/recipes/rMpgContinuousColorPoints.png")
 #+END_SRC
 See:
@@ -395,7 +376,6 @@ let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", color = "drv")) + 
   geom_point(stat = "count") + 
   geom_line(stat = "count") + 
-  theme_opaque() +
   ggsave("media/recipes/rMpgStackedPointPlot.png")
 #+END_SRC
 Results in:
@@ -413,7 +393,6 @@ let df = readCsv("data/mpg.csv")
 # coloring by class is of course not required to make this work :)
 ggplot(df, aes("cyl", "hwy", color = "class")) + 
   geom_point() + 
-  theme_opaque() +
   ggsave("media/recipes/rMpgDiscreteXScale.png")
 #+END_SRC
 Results in:
@@ -427,7 +406,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cyl")) +
   geom_point() +
-  theme_opaque() +
   ggsave("media/recipes/rDiscreteYAxis.png")
 #+END_SRC
 
@@ -440,7 +418,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("class", "cyl", color = "class")) +
   geom_point() +
-  theme_opaque() +
   ggsave("media/recipes/rBothDiscreteAxes.png")
 #+END_SRC
 
@@ -495,7 +472,6 @@ proc createDataFrame(): DataFrame =
 let df = createDataFrame()
 ggplot(df, aes("tenors", "pathValues", color = "pathNames")) + 
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rDiscreteXLine.png")
 #+END_SRC
 Results in:
@@ -525,7 +501,6 @@ let df = readCsv("data/50-18004.CSV")
 ggplot(df) +
   geom_line(aes(x = "in_s", y = "C1_in_V", color = "C1")) +
   geom_line(aes(x = "in_s", y = "C2_in_V", color = "C2")) +
-  theme_opaque() +
   ggsave("media/recipes/rTwoSensorsBadStyle.png")
 #+END_SRC
 This generates the following:
@@ -549,7 +524,6 @@ let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # Plotting via `df` directly causes scale problems!
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rTwoSensorsGoodStyle.png")
 #+END_SRC
 Which then results in the following nicer plot (note that the legend
@@ -572,7 +546,6 @@ ggplot(df, aes("Shifters", fill = "Year")) +
   geom_bar() +
   xlab(rotate = -45.0, margin = 1.75, alignTo = "right") +
   ggtitle("Number of shifts done by each shifter by year") +
-  theme_opaque() +
   ggsave("media/recipes/rBarPlotRotatedLabels.png", width = 5000, height = 1000)
 #+END_SRC
 NOTE: It's recommended to generate a plot as this as a vector graphic
@@ -604,7 +577,6 @@ let df = seqsToDf({ "Trial" : trials,
 
 ggplot(df, aes(x="Trial", y="Value")) +
   geom_bar(stat="identity", position="identity") +
-  theme_opaque() +
   ggsave("media/recipes/rNegativeBarPlot.png")
 #+END_SRC
 
@@ -666,7 +638,6 @@ ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
            y = 0.06,
            font = font,
            backgroundColor = parseHex("FFEBB7")) +
-  theme_opaque() +
   ggsave("media/recipes/rCustomAnnotations.png")
 #+END_SRC
 
@@ -693,7 +664,6 @@ let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   xlim(10.0, 60.0) +
-  theme_opaque() +
   ggsave("media/recipes/rEnlargeXRange.png")
 #+END_SRC
 which gives us:
@@ -707,7 +677,6 @@ let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   xlim(10.0, 30.0) +
-  theme_opaque() +
   ggsave("media/recipes/rLimitXRange.png")
 #+END_SRC
 
@@ -735,7 +704,6 @@ ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   ylim(5.0, 25.0) +
   yMargin(0.1) +
-  theme_opaque() +
   ggsave("media/recipes/rCreateMarginBuffer.png")
 #+END_SRC
 
@@ -777,7 +745,6 @@ ggplot(df, aes("in_s", "V", color = "Channel")) +
   geom_point(data = dfMin,
              color = some(parseHex("0000FF")),
              size = some(5.0)) +
-  theme_opaque() +
   ggsave("media/recipes/rHighlightMinMax.png")
 #+END_SRC
 
@@ -809,7 +776,6 @@ let df = readCsv("data/mpg.csv")
 ggplot(df, aes(f{235 / c"cty"}, "displ")) + 
   geom_point() +
   xlab("cty [L / 100km]") +
-  theme_opaque() +
   ggsave("media/recipes/rFormulaAesthetic.png")
 #+END_SRC
 
@@ -852,7 +818,6 @@ ggplot(df, aes("x", "y")) +
   geom_point() +
   # define errors as a formula, which references our "y" scale
   geom_errorbar(aes(yMin = f{`y` - 0.03}, yMax = f{`y` + 0.05})) +
-  theme_opaque() +
   ggsave("media/recipes/rErrorBar.png")
 #+END_SRC
 
@@ -873,7 +838,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", "displ", size = "cyl", color = "cty")) +
   geom_point() +
-  theme_opaque() +
   ggsave("media/recipes/rMultipleLegends.png")
 #+END_SRC
 
@@ -916,7 +880,6 @@ ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
   #scale_x_discrete() +
   #scale_y_discrete() +
-  theme_opaque() +
   ggsave("media/recipes/rSimpleTile.png")
 #+END_SRC
 
@@ -957,7 +920,6 @@ for x in countup(-256, 254, 2):
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_raster() +
-  theme_opaque() +
   ggsave("media/recipes/rSimpleRaster.png")
 #+END_SRC
 
@@ -986,7 +948,6 @@ ggplot(df, aes("xs", "ys", fill = "vals")) +
   facet_wrap("Map") +
   xlim(0, 256) + ylim(0, 256) +
   geom_raster() +
-  theme_opaque() +
   ggsave("media/recipes/rFacetRaster.png", width = 920)
 #+END_SRC
 
@@ -1013,7 +974,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ")) + 
   geom_text(aes(text = "manufacturer")) + 
-  theme_opaque() +
   ggsave("media/recipes/rSimpleGeomText.png")
 #+END_SRC
 This generates:
@@ -1031,7 +991,6 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("hwy", "displ", color = "class", size = "cyl")) + 
   geom_text(aes(text = "manufacturer")) + 
-  theme_opaque() +
   ggsave("media/recipes/rClassifiedGeomText.png")
 #+END_SRC
 This generates:
@@ -1057,7 +1016,6 @@ ggplot(df, aes("hwy", "displ")) +
             alignKind = taLeft, 
             # font = some(font(10.0, ...)) <- you can also change the font
             ) + 
-  theme_opaque() +
   ggsave("media/recipes/rAnnotateUsingGeomText.png")
 #+END_SRC
 This generates:
@@ -1083,7 +1041,6 @@ ggplot(df, aes("hwy", "displ")) +
   geom_text(data = dfMax,
             aes = aes(y = f{c"displ" + 0.2}, 
                       text = "mpgMean")) +
-  theme_opaque() +
   ggsave("media/recipes/rAnnotateMaxValues.png")
 #+END_SRC
 This generates:
@@ -1110,7 +1067,6 @@ ggplot(dfRed, aes("class", "cyl", fill = meanHwyCol)) +
   geom_tile() +
   geom_text(aes(text = meanHwyCol)) +
   scale_y_discrete() +
-  theme_opaque() +
   ggsave("media/recipes/rAnnotatedHeatmap.png")
 #+END_SRC
 
@@ -1146,7 +1102,6 @@ let plt1 = ggcreate(
   ggplot(df, aes("t", "Re x(t)")) + 
     geom_line() + 
     xlim(-0.02, 0.05) + 
-    theme_opaque() +
     ggtitle("Real part of x(t)=e^{j 100 π t}"),
   width = 800, height = 300
 )
@@ -1154,7 +1109,6 @@ let plt2 = ggcreate(
   ggplot(df, aes("t", "Im x(t)")) + 
     geom_line() + 
     xlim(-0.02, 0.05) + 
-    theme_opaque() +
     ggtitle("Imaginary part of x(t)=e^{j 100 π t}"),
   width = 800, height = 300
 )
@@ -1221,7 +1175,6 @@ ggplot(df, aes("neurons", "spikes", color = factor("lineSize"))) +
   scale_y_continuous() + # make sure y is considered cont.
   ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
   ggtitle("Spike raster plot") +
-  theme_opaque() +
   ggsave("media/recipes/rAutoColoredNeuralSpikes.png")
 #+END_SRC
 
@@ -1264,7 +1217,6 @@ plt + scale_y_continuous() + # make sure y is considered cont.
   xlab("Neurons") +
   ylab("Spikes") +
   ggtitle("Spike raster plot, manual colors") +
-  theme_opaque() +
   ggsave("media/recipes/rCustomColoredNeuralSpikes.png")
 #+END_SRC
 
@@ -1304,7 +1256,6 @@ let mpg = readCsv("data/mpg.csv")
 ggplot(mpg, aes("displ", "hwy")) +
   geom_point(aes(color = "manufacturer")) +
   facet_wrap(["drv", "cyl"]) + 
-  theme_opaque() +
   ggsave("media/recipes/rSimpleFacet.png")
 #+END_SRC
 
@@ -1351,7 +1302,6 @@ ggplot(dfLong, aes("Value")) +
   geom_histogram(bins = 100, position = "identity", 
                  binBy = "subset") + # `binBy subset` means the histogram will be calculated 
                                      # in the data range of each properties data range
-  theme_opaque() +
   ggsave("media/recipes/rFacetTpa.png", width = 800, height = 600)
 #+END_SRC
 
@@ -1405,7 +1355,6 @@ ggplot(df, aes("x", "y")) +
   scale_x_continuous(labels = proc(x: float): string =
                               getDateStr(nowTmpl() - int(x).months)) +
   xlab(label = " ") +
-  theme_opaque() +
   ggsave("media/recipes/rFormatDatesPlot.png")
 #+END_SRC
 
@@ -1431,7 +1380,6 @@ ggplot(df, aes("x", "y")) +
   scale_x_continuous(labels = proc(x: float): string =
                               x.formatFloat(ffDecimal, 2)) +
   xlab(label = " ") +
-  theme_opaque() +
   ggsave("media/recipes/rFormatDecimalsPlot.png")
 #+END_SRC
 
@@ -1457,7 +1405,6 @@ let df = readCsv("data/diamonds.csv")
 ggplot(df, aes("carat", weight = "price")) + 
   geom_histogram() + 
   ylab("Binned carat weighted by price") + 
-  theme_opaque() +
   ggsave("media/recipes/rWeightedHistogram.png")
 #+END_SRC
 
@@ -1483,7 +1430,6 @@ import ggplotnim
 let df = readCsv("data/diamonds.csv")
 ggplot(df, aes("carat")) + 
   geom_histogram(density = true) + 
-  theme_opaque() +
   ggsave("media/recipes/rHistogramDensity.png")
 #+END_SRC
 
@@ -1516,7 +1462,6 @@ ggplot(df, aes("pos", "name")) +
                       2 : color(0.0, 0.0, 1.0),
                       3 : color(1.0, 1.0, 0.0),
                       4 : color(1.0, 0.0, 1.0) }.toTable) +
-  theme_opaque() +
   ggsave("media/recipes/rCustomFill.png")
 #+END_SRC
 
@@ -1552,7 +1497,6 @@ ggplot(df, aes("pos", "name")) +
   scale_x_discrete() +
   scale_y_discrete() +
   margin(left = 6.0) +
-  theme_opaque() +
   ggsave("media/recipes/rCustomMargins.png")
 #+END_SRC
 
@@ -1581,7 +1525,6 @@ ggplot(df, aes("x", "y")) +
   geom_line() +
   margin(top = 2) +
   ggtitle("This is a very long title which gets cropped on the right side as it's longer than the image width.") +
-  theme_opaque() +
   ggsave("media/recipes/rLongTitleMultiline.png")
 #+end_src
 
@@ -1619,7 +1562,6 @@ ggplot(df, aes("cty", color = "class")) +
   geom_histogram(lineWidth = some(2.0), 
                  alpha = some(0.0), # make transparent (only fill)
                  hdKind = hdOutline) + # draw as outline
-  theme_opaque() +
   ggsave("media/recipes/rHistogramOutline.png")
 #+end_src
 
@@ -1681,7 +1623,6 @@ ggplot(df, aes("bins", "counts", fill = "Run")) +
     color = some(parseHex("FF0000"))) + # color the line red
   margin(top = 2) + # increase top margin due to large overlap
   xlab("gaussSigma") + ylab("Counts") +
-  theme_opaque() +
   ggsave("media/recipes/rRidgeLineGauss.png", width = 1200, height = 1200)
 #+end_src
 
@@ -2025,7 +1966,6 @@ classification via the =InPoly= column.
 ggplot(df, aes(x, y)) +
   geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
   geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
-  theme_opaque() +
   ggsave("./media/recipes/rPointInPolygons.png")
 #+END_SRC
 
@@ -2105,7 +2045,6 @@ And finally create the plot of the dependency:
 ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   geom_line() +
   ggtitle("Gravitational acceleration of Earth depending on radial distance") +
-  theme_opaque() +
   ggsave("media/recipes/rNewtonAcceleration.png")
 #+END_SRC
 The resulting plot is the following:
@@ -2205,7 +2144,6 @@ proc makePlot(pstart, pstop: float, fname: string) =
     scale_x_log10() +
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium pressure in mbar") +
-    theme_opaque() +
     ggsave(fname)
 
 makePlot(-6.0, 2.0, "media/recipes/rAxionMassesLogLog.png")
@@ -2260,7 +2198,6 @@ ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) +
   geom_point(data = dfMuRho.filter(f{`type` == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
-  theme_opaque() +
   ggsave("media/recipes/rMassAttenuationFunction.png")
 #+END_SRC
 
@@ -2356,7 +2293,6 @@ proc m_a_vs_density(pstart, pstop: float) =
     scale_x_log10() + 
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium density in g / cm^3") +
-    theme_opaque() +
     ggsave("media/recipes/rAxionMassVsDensity.png")
 
 m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,
