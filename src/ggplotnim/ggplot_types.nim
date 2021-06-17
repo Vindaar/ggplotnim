@@ -1,17 +1,10 @@
 import options, tables, hashes, macros, strformat
 import chroma
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-else:
-  import dataframe/dataframe
+import datamancer
 import ginger except Scale
 
-when defined(defaultBackend):
-  type
-    ScaleTransform* = proc(v: Value): Value
-else:
-  type
-    ScaleTransform* = proc(v: float): float
+type
+  ScaleTransform* = proc(v: float): float
 
 # something like
 # aes: array[AesKind, Option[Scale]]
@@ -435,20 +428,12 @@ type
 
 
 proc `==`*(s1, s2: Scale): bool =
-  when defined(defaultBackend):
-    if s1.dcKind == s2.dcKind and
-       s1.col == s2.col:
-      # the other fields ``will`` be computed to the same!
-      result = true
-    else:
-      result = false
+  if s1.dcKind == s2.dcKind and
+     s1.col.name == s2.col.name:
+    # the other fields ``will`` be computed to the same!
+    result = true
   else:
-    if s1.dcKind == s2.dcKind and
-       s1.col.name == s2.col.name:
-      # the other fields ``will`` be computed to the same!
-      result = true
-    else:
-      result = false
+    result = false
 
 proc hash*(s: GgStyle): Hash =
   if s.color.isSome:
@@ -514,41 +499,21 @@ proc hash*(x: ScaleValue): Hash =
   of scText: discard
   result = !$result
 
-when defined(defaultBackend):
-  proc hash*(fn: FormulaNode): Hash =
-    result = hash(fn.kind.int)
-    case fn.kind
-    of fkVariable:
-      result = result !& hash(fn.val)
-    of fkFunction:
-      result = result !& hash(fn.fnName)
-      result = result !& hash(fn.arg)
-      result = result !& hash(fn.fnKind.int)
-      case fn.fnKind
-      of funcVector:
-        result = result !& hash(fn.fnV)
-      of funcScalar:
-        result = result !& hash(fn.fnS)
-    of fkTerm:
-      result = result !& hash(fn.lhs)
-      result = result !& hash(fn.rhs)
-      result = result !& hash(fn.op.int)
-else:
-  proc hash*(fn: FormulaNode): Hash =
-    result = hash(fn.kind.int)
-    result = result !& hash(fn.name)
-    case fn.kind
-    of fkVariable:
-      result = result !& hash(fn.val)
-    of fkAssign:
-      result = result !& hash(fn.lhs)
-      result = result !& hash(fn.rhs)
-    of fkVector:
-      result = result !& hash(fn.resType)
-      result = result !& hash(fn.fnV)
-    of fkScalar:
-      result = result !& hash(fn.valKind)
-      result = result !& hash(fn.fnS)
+proc hash*(fn: FormulaNode): Hash =
+  result = hash(fn.kind.int)
+  result = result !& hash(fn.name)
+  case fn.kind
+  of fkVariable:
+    result = result !& hash(fn.val)
+  of fkAssign:
+    result = result !& hash(fn.lhs)
+    result = result !& hash(fn.rhs)
+  of fkVector:
+    result = result !& hash(fn.resType)
+    result = result !& hash(fn.fnV)
+  of fkScalar:
+    result = result !& hash(fn.valKind)
+    result = result !& hash(fn.fnS)
 
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)

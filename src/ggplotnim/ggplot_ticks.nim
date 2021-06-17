@@ -297,10 +297,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
     numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
     if theme.yTickLabelMargin.isSome:
       marginOpt = some(view.getTickLabelMargin(theme, axKind))
-  when defined(defaultBackend):
-    let hasScale = not scale.col.isNil
-  else:
-    let hasScale = scale.col.name.len > 0
+  let hasScale = scale.col.name.len > 0
   if hasScale:
     case scale.dcKind
     of dcDiscrete:

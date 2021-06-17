@@ -1,11 +1,7 @@
 import sequtils, tables, sets
 import ggplot_types, ggplot_styles, ggplot_scales
 import colormaps / viridisRaw
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-  import persvector
-else:
-  import dataframe/dataframe
+import datamancer
 import ginger
 
 iterator enumerateData(geom: FilledGeom): (Value, GgStyle, seq[GgStyle], DataFrame) =
@@ -113,65 +109,35 @@ proc moveBinPosition(x: var Value, bpKind: BinPositionKind, binWidth: float) =
 proc readErrorData(df: DataFrame, idx: int, fg: FilledGeom):
   tuple[xMin, xMax, yMin, yMax: Option[float]] =
   ## reads all error data available
-  when defined(defaultBackend):
-    template getField(field: untyped): untyped =
-      fg.geom.aes.field.unsafeGet.col
-    if fg.geom.aes.xMin.isSome:
-      result.xMin = some(evaluate(getField(xMin), df, idx).toFloat)
-    if fg.geom.aes.xMax.isSome:
-      result.xMax = some(evaluate(getField(xMax), df, idx).toFloat)
-    if fg.geom.aes.yMin.isSome:
-      result.yMin = some(evaluate(getField(yMin), df, idx).toFloat)
-    if fg.geom.aes.yMax.isSome:
-      result.yMax = some(evaluate(getField(yMax), df, idx).toFloat)
-  else:
-    ## TODO: we have to move this to `postprocess` to handle these properly
-    ## Need to assign fields to `FilledGeom` depending on `geomKind`
-    ## Here we then just have to check which field it is, which will tell us
-    ## the column of `df`, then we just write
-    ## `result.xMin = some(df[fg.xMin][idx, float])`
-    if fg.xMin.isSome:
-      result.xMin = some(df[fg.xMin.unsafeGet][idx, float])
-    if fg.xMax.isSome:
-      result.xMax = some(df[fg.xMax.unsafeGet][idx, float])
-    if fg.yMin.isSome:
-      result.yMin = some(df[fg.yMin.unsafeGet][idx, float])
-    if fg.yMax.isSome:
-      result.yMax = some(df[fg.yMax.unsafeGet][idx, float])
+  ## TODO: we have to move this to `postprocess` to handle these properly
+  ## Need to assign fields to `FilledGeom` depending on `geomKind`
+  ## Here we then just have to check which field it is, which will tell us
+  ## the column of `df`, then we just write
+  ## `result.xMin = some(df[fg.xMin][idx, float])`
+  if fg.xMin.isSome:
+    result.xMin = some(df[fg.xMin.unsafeGet][idx, float])
+  if fg.xMax.isSome:
+    result.xMax = some(df[fg.xMax.unsafeGet][idx, float])
+  if fg.yMin.isSome:
+    result.yMin = some(df[fg.yMin.unsafeGet][idx, float])
+  if fg.yMax.isSome:
+    result.yMax = some(df[fg.yMax.unsafeGet][idx, float])
 
 proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
   tuple[width, height: float] =
   ## reads all error data available
-  when defined(defaultBackend):
-    template getField(field: untyped): untyped =
-      fg.geom.aes.field.unsafeGet.col
-    if fg.geom.aes.width.isSome:
-      result.width = evaluate(getField(width), df, idx).toFloat
-    else:
-      result.width = 1.0
-    if fg.geom.aes.height.isSome:
-      result.height = evaluate(getField(height), df, idx).toFloat
-    else:
-      result.height = 1.0
+  if fg.width.isSome:
+    result.width = df[fg.width.unsafeGet][idx, float]
   else:
-    if fg.width.isSome:
-      result.width = df[fg.width.unsafeGet][idx, float]
-    else:
-      result.width = 1.0
-    if fg.height.isSome:
-      result.height = df[fg.height.unsafeGet][idx, float]
-    else:
-      result.height = 1.0
+    result.width = 1.0
+  if fg.height.isSome:
+    result.height = df[fg.height.unsafeGet][idx, float]
+  else:
+    result.height = 1.0
 
 proc readText(df: DataFrame, idx: int, fg: FilledGeom): string =
   ## reads all error data available
-  when defined(defaultBackend):
-    #template getField(field: untyped): untyped =
-    #  fg.geom.aes.field.unsafeGet.col
-    #doAssert fg.text.isSome, "text has to be `some` for `geom_text`!"
-    result = df[fg.text, idx].toStr #evaluate(getField(text), df, idx)
-  else:
-    result = df[fg.text][idx, string]
+  result = df[fg.text][idx, string]
 
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
@@ -593,12 +559,8 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
   var linePoints: seq[Coord]
   if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
-    when defined(defaultBackend):
-      var xT = df[$fg.xcol]
-      var yT = df[$fg.ycol]
-    else:
-      var xT = df[$fg.xcol].toTensor(Value)
-      var yT = df[$fg.ycol].toTensor(Value)
+    var xT = df[$fg.xcol].toTensor(Value)
+    var yT = df[$fg.ycol].toTensor(Value)
     for i in 0 ..< df.len:
       if styles.len > 1:
         style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)

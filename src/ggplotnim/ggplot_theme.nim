@@ -55,30 +55,18 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
       result = $xScale.col
   of akY:
     let yScale = getYScale(filledScales)
-    when defined(defaultBackend):
-      if yScale.name.len > 0:
-        result = yScale.name
-      elif not yScale.col.isNil:
-        result = $yScale.col
-      else:
-        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
-                                             it.geom.density):
-                   "density"
-                 else:
-                   "count"
+    if yScale.name.len > 0:
+      result = yScale.name
+    elif yScale.col.name.len > 0:
+      result = $yScale.col
     else:
-      if yScale.name.len > 0:
-        result = yScale.name
-      elif yScale.col.name.len > 0:
-        result = $yScale.col
-      else:
-        ## TODO: make this nicer by having a better approach to propagate
-        ## the density information from geoms to here!
-        result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
-                                             it.geom.density):
-                   "density"
-                 else:
-                   "count"
+      ## TODO: make this nicer by having a better approach to propagate
+      ## the density information from geoms to here!
+      result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
+                                           it.geom.density):
+                 "density"
+               else:
+                 "count"
 
 proc buildTheme*(filledScales: FilledScales, p: GgPlot): Theme =
   ## builds the final theme used for the plot. It takes the theme of the

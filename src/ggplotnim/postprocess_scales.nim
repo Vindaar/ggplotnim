@@ -1,10 +1,7 @@
 import sequtils, algorithm, tables
 
 import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-else:
-  import dataframe/dataframe
+import datamancer
 import ginger except Scale
 
 from seqmath import histogram, linspace, round
@@ -82,20 +79,15 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
       # refs https://github.com/nim-lang/Nim/pull/14447
       # alternative would be to use `sugar.capture(s)` instead of `closureScope`
     if s.scKind == scTransformedData:
-      when defined(defaultBackend):
+      # create a closureScope to capture the value of `s` and `col` instead
+      # of the reference
+      closureScope:
         let col = evaluate(s.col)
-        let fn = f{col ~ s.trans( col ) }
+        let colStr = getColName(s)
+        # make a copy of `s` which we hand to the closure
+        let ms = s
+        let fn = f{float: colStr ~ ms.trans( df[col.toStr][idx] ) }
         fns.add fn
-      else:
-        # create a closureScope to capture the value of `s` and `col` instead
-        # of the reference
-        closureScope:
-          let col = evaluate(s.col)
-          let colStr = getColName(s)
-          # make a copy of `s` which we hand to the closure
-          let ms = s
-          let fn = f{float: colStr ~ ms.trans( df[col.toStr][idx] ) }
-          fns.add fn
     else:
       # `s.col` may be pointing to scale which sets constant value or involves
       # a calculation of a column
@@ -188,7 +180,7 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   ## last processed DF!
   ## NOTE: This modifies `yieldDf` adding all continuous scale columns to it
   result[0] = baseStyle
-  when defined(defaultBackend) or not toClone:
+  when not toClone:
     result[2] = yieldDf
   else:
     result[2] = clone(yieldDf)
@@ -209,39 +201,20 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   if result[1].len == 0:
     result = (baseStyle, @[baseStyle], result[2])
 
-when defined(defaultBackend):
-  proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
-                           col: string, pos: PositionKind) =
-    ## adds the `df` column `col` elements to the `sumCounts` data frame in the
-    ## same column taking into account the geom position kind.
-    case pos
-    of pkStack:
-      if sumCounts.len == 0:
-        sumCounts = df
-      else:
-        for i in 0 ..< df.len:
-          sumCounts[col, i] = sumCounts[col, i] + df[col, i]
-    of pkIdentity, pkDodge:
-      sumCounts = df
-    of pkFill: sumCounts[col] = toVector(%~ @[1]) # max for fill always 1.0
-else:
-  proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
-                           col: string, pos: PositionKind) =
-    ## adds the `df` column `col` elements to the `sumCounts` data frame in the
-    ## same column taking into account the geom position kind.
-    case pos
-    of pkStack:
-      if sumCounts.len == 0:
-        when defined(defaultBackend):
-          sumCounts = df
-        else:
-          sumCounts = clone(df)
-      else:
-        for i in 0 ..< df.len:
-          sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
-    of pkIdentity, pkDodge:
-      sumCounts = df
-    of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
+proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
+                         col: string, pos: PositionKind) =
+  ## adds the `df` column `col` elements to the `sumCounts` data frame in the
+  ## same column taking into account the geom position kind.
+  case pos
+  of pkStack:
+    if sumCounts.len == 0:
+      sumCounts = clone(df)
+    else:
+      for i in 0 ..< df.len:
+        sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
+  of pkIdentity, pkDodge:
+    sumCounts = df
+  of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
 
 proc addBinCountsByPosition(sumHist: var seq[float], hist: seq[float],
                             pos: PositionKind) =
@@ -258,25 +231,15 @@ proc addBinCountsByPosition(sumHist: var seq[float], hist: seq[float],
     sumHist = hist
   of pkFill: sumHist = @[1.0] # max for fill always 1.0
 
-when defined(defaultBackend):
-  proc addZeroKeys(df: var DataFrame, keys: seq[Value], xCol, countCol: string) =
-    ## Adds the `keys` columns which have zero count values to the `df`.
-    ## This is needed for `count` stats, since the `groups` iterator does not
-    ## yield empty subgroups, yet we need those for the plot.
-    let existKeys = df[xCol].unique
-    let zeroKeys = keys.filterIt(it notin existKeys)
-    let zeroVals = zeroKeys.mapIt(0)
-    df.add seqsToDf({ xCol: zeroKeys, countCol: zeroVals })
-else:
-  proc addZeroKeys(df: var DataFrame, keys: Column, xCol, countCol: string) =
-    ## Adds the `keys` columns which have zero count values to the `df`.
-    ## This is needed for `count` stats, since the `groups` iterator does not
-    ## yield empty subgroups, yet we need those for the plot.
-    let existKeys = df[xCol].unique
-    var dfZero = colsToDf(keys).filter(f{string: `keys` notin existKeys})
-    dfZero.transmuteInplace(f{int: countCol ~ 0},
-                            f{xCol <- "keys"})
-    df.add dfZero
+proc addZeroKeys(df: var DataFrame, keys: Column, xCol, countCol: string) =
+  ## Adds the `keys` columns which have zero count values to the `df`.
+  ## This is needed for `count` stats, since the `groups` iterator does not
+  ## yield empty subgroups, yet we need those for the plot.
+  let existKeys = df[xCol].unique
+  var dfZero = colsToDf(keys).filter(f{string: `keys` notin existKeys})
+  dfZero.transmuteInplace(f{int: countCol ~ 0},
+                          f{xCol <- "keys"})
+  df.add dfZero
 
 proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
   ## TODO: currently we compute the `numX` and `numY` here. But that is not really required
@@ -493,12 +456,9 @@ proc callHistogram(geom: Geom,
   ## and chooses the correct field for the calculation
   doAssert geom.statKind == stBin, "Can only bin `stBin` geoms!"
   template readTmpl(sc: untyped): untyped =
-    when defined(defaultBackend):
-      sc.col.evaluate(df).vToSeq.mapIt(it.toFloat)
-    else:
-      ## TODO: investigate! why is `data` here only a view of the full tensor?
-      ## Shouldn't `filter` + `groups` iterator return a new tensor?
-      sc.col.evaluate(df).toTensor(float).clone.toRawSeq
+    ## TODO: investigate! why is `data` here only a view of the full tensor?
+    ## Shouldn't `filter` + `groups` iterator return a new tensor?
+    sc.col.evaluate(df).toTensor(float).clone.toRawSeq
   let data = readTmpl(scale)
   var
     hist: seq[float]
@@ -661,26 +621,17 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                                              g.kind,
                                                              toClone = true)
       result.setXAttributes(yieldDf, x)
-      when defined(defaultBackend):
-        result.yScale = mergeScales(result.yScale,
-                                    (low: 0.0,
-                                     high: max(sumCounts[countCol]).toFloat))
-      else:
-        result.yScale = mergeScales(result.yScale,
-                                    (low: 0.0,
-                                     high: max(sumCounts[countCol].toTensor(int)).float))
+      result.yScale = mergeScales(result.yScale,
+                                  (low: 0.0,
+                                   high: max(sumCounts[countCol].toTensor(int)).float))
   else:
     let yieldDf = df.count(xCol, name = countCol)
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
     result.setXAttributes(yieldDf, x)
-    when defined(defaultBackend):
-      result.yScale = mergeScales(result.yScale,
-                                  (low: 0.0, high: yieldDf[countCol].max.toFloat))
-    else:
-      result.yScale = mergeScales(result.yScale,
-                                  (low: 0.0,
-                                   high: max(yieldDf[countCol].toTensor(int)).float))
+    result.yScale = mergeScales(result.yScale,
+                                (low: 0.0,
+                                 high: max(yieldDf[countCol].toTensor(int)).float))
 
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the

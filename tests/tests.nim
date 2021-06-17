@@ -17,31 +17,6 @@ proc almostEq(a, b: float, epsilon = 1e-8): bool =
     echo "Comparison failed: a = ", a, ", b = ", b
 
 suite "Formula":
-  when defined(defaultBackend):
-    test "Testing ~ formula creation":
-      let f = x ~ y
-      let a = x ~ (a - b)
-      let g = n ~ m + a * b * d
-      let g2 = n ~ m + a - b + d
-      let g3 = n ~ m + a * b / d
-      let single = ~ x
-      let gg1 = hwy ~ (displ + cyl - cty)
-      let gg2 = hwy ~ displ + cyl - cty
-
-      check $f == "(~ x y)"
-      check $a == "(~ x (- a b))"
-      check $g == "(~ n (+ m (* (* a b) d)))"
-      check $g2 == "(~ n (+ (- (+ m a) b) d))"
-      check $g3 == "(~ n (+ m (/ (* a b) d)))"
-      check $single == "(~ \"\" x)" # LHS is empty string value
-      check $gg1 == "(~ hwy (- (+ displ cyl) cty))"
-      check $gg2 == "(~ hwy (- (+ displ cyl) cty))"
-  else:
-    ## Currently not supported on arraymancer backend.
-    ## In practice (at least I) only used it for facet wrap.
-    ## For more complex formulae it's too fragile.
-    discard
-
   test "Testing ~ formula creation using f{} macro":
     let s = Scale(col: f{"testCol"},
                   scKind: scTransformedData,

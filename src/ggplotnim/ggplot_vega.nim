@@ -1,10 +1,6 @@
 import json, tables, options, strutils, chroma, webview, sequtils
 import ggplot_types, ggplot_styles, ggplot_theme, ggplot_scales, collect_and_fill
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-  import persvector
-else:
-  import dataframe/dataframe
+import datamancer
 import ginger except Scale
 
 const vegaLiteTmpl = """

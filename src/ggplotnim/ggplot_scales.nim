@@ -1,10 +1,7 @@
 import tables, sets, algorithm, macros, strutils
+import datamancer
 
 import ggplot_types, ggplot_utils
-when defined(defaultBackend):
-  import dataframe/fallback/formula
-else:
-  import dataframe/dataframe
 import ginger except Scale
 
 #[
