@@ -8,6 +8,23 @@ import ginger except Scale
 Contains procs dealing with `ggplot.Scale`.
 ]#
 
+proc scaleFromData*(c: Column, ignoreInf: static bool = true): ginger.Scale =
+  ## Combination of `colMin`, `colMax` to avoid running over the data
+  ## twice. For large DFs to plot this makes a big difference.
+  if c.len == 0: return (low: 0.0, high: 0.0)
+  let t = c.toTensor(float, dropNulls = true)
+  var
+    minVal = t[0]
+    maxVal = t[0]
+  for x in t:
+    when ignoreInf:
+      if (classify(x) == fcNegInf or
+          classify(x) == fcInf):
+        continue
+    minVal = min(x, minVal)
+    maxVal = max(x, maxVal)
+  result = (low: minVal, high: maxVal)
+
 proc getColName*(s: Scale): string =
   ## returns the name of the referred column of the given Scale `s`.
   ## Usually this is just the stringification of `s.col`, but for

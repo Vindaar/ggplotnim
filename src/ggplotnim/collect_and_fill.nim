@@ -1,6 +1,7 @@
 import tables, algorithm, sequtils, random, sets, math, macros, options
 
 import ggplot_types, ggplot_utils
+from ggplot_scales import scaleFromData
 import ggplotnim / colormaps / viridisRaw
 import postprocess_scales
 import datamancer
