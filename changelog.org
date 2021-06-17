@@ -1,3 +1,15 @@
+* v0.4.0
+
+- removal of the internal dataframe. This has been made a standalone
+  package: [[https://github.com/SciNim/Datamancer][Datamancer]]
+- runtime errors regarding empty columns, determination of
+  discreteness and DF columns with object like data have been improved
+  significantly. Added info messages for auto determination of types.
+- floating point columns are now always treated as continuous columns
+  by default (which is a breaking change). To overwrite use
+  =scale_x/y/..._discrete= or simply =factor(col)= in =aes=. Fixes
+  issue #91.
+  
 * v0.3.26
 - *major* rewrite of the formula macro. Behavior is essentially the
   same, but more robust, generalizes better and fully working index /
