@@ -9,7 +9,6 @@ let plt1 = ggcreate(
   ggplot(df, aes("t", "Re x(t)")) + 
     geom_line() + 
     xlim(-0.02, 0.05) + 
-    theme_opaque() +
     ggtitle("Real part of x(t)=e^{j 100 π t}"),
   width = 800, height = 300
 )
@@ -17,7 +16,6 @@ let plt2 = ggcreate(
   ggplot(df, aes("t", "Im x(t)")) + 
     geom_line() + 
     xlim(-0.02, 0.05) + 
-    theme_opaque() +
     ggtitle("Imaginary part of x(t)=e^{j 100 π t}"),
   width = 800, height = 300
 )

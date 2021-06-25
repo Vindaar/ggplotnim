@@ -9,5 +9,4 @@ ggplot(df, aes("x", "y")) +
   geom_line() +
   margin(top = 2) +
   ggtitle("This is a very long title which gets cropped on the right side as it's longer than the image width.") +
-  theme_opaque() +
   ggsave("media/recipes/rLongTitleMultiline.png")

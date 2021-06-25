@@ -33,5 +33,4 @@ ggplot(dfMuRho, aes("E / keV", "mu/rho", color = "type")) +
   geom_point(data = dfMuRho.filter(f{`type` == "NIST"})) +
   scale_y_log10() +
   ggtitle("Mass attenuation coefficient interpolation and data") +
-  theme_opaque() +
   ggsave("media/recipes/rMassAttenuationFunction.png")

@@ -36,5 +36,4 @@ ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
            y = 0.06,
            font = font,
            backgroundColor = parseHex("FFEBB7")) +
-  theme_opaque() +
   ggsave("media/recipes/rCustomAnnotations.png")

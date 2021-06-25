@@ -4,5 +4,4 @@ let dfnew = df.gather(["C1_in_V", "C2_in_V"], key = "Channel", value = "V")
 # Plotting via `df` directly causes scale problems!
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rTwoSensorsGoodStyle.png")

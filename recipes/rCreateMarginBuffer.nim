@@ -4,5 +4,4 @@ ggplot(df, aes("hwy", "cty")) +
   geom_point() +
   ylim(5.0, 25.0) +
   yMargin(0.1) +
-  theme_opaque() +
   ggsave("media/recipes/rCreateMarginBuffer.png")

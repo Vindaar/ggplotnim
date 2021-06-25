@@ -28,5 +28,4 @@ ggplot(df, aes("bins", "counts", fill = "Run")) +
     color = some(parseHex("FF0000"))) + # color the line red
   margin(top = 2) + # increase top margin due to large overlap
   xlab("gaussSigma") + ylab("Counts") +
-  theme_opaque() +
   ggsave("media/recipes/rRidgeLineGauss.png", width = 1200, height = 1200)
