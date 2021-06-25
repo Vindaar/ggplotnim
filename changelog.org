@@ -1,3 +1,6 @@
+* v0.4.2
+- make shallow copies of all input data frames
+
 * v0.4.1
 - fix issue #99 by doing a rewrite of the stacking logic. Handled in
   post processing stage now and data is stored in DF (same as for
