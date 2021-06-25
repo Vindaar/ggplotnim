@@ -396,6 +396,12 @@ proc determineDataScale(s: Scale,
     # TODO: assign somewhere else?
     result = (low: 0.0, high: 1.0)
 
+proc reversed[A, B](t: OrderedTable[A, B]): OrderedTable[A, B] =
+  result = initOrderedTable[A, B]()
+  let keys = toSeq(t.keys)
+  for k in keys.reversed:
+    result[k] = t[k]
+
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
@@ -440,6 +446,14 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     if g.position == pkStack and result.dcKindY == dcContinuous:
       # only update required if stacking, as we've computed the range beforehand
       result.yScale = mergeScales(result.yScale, (low: result.yScale.low, high: col.toTensor(float).max))
+    ## NOTE: reverse in case of:
+    ## - gkHistogram
+    ## - pkStack
+    ## - hdOutline
+    ## In this case we have to draw the largest one *first* so that the smaller ones
+    ## are drown *on top of* the largest
+    if g.kind == gkHistogram and g.position == pkStack and g.hdKind == hdOutline:
+      result.yieldData = result.yieldData.reversed
   else:
     var yieldDf = df
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
