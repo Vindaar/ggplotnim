@@ -10,36 +10,6 @@ iterator enumerateData(geom: FilledGeom): (Value, GgStyle, seq[GgStyle], DataFra
   for (label, tup) in pairs(geom.yieldData):
     yield (label, tup[0], tup[1], tup[2])
 
-proc drawStackedPolyLine(view: var Viewport,
-                         prevVals: seq[float],
-                         linePoints: seq[Point],
-                         style: Style): GraphObject =
-  ## used both for `gkLine` as well as `gkPolyLine`!
-  # It tries to take care of drawing separate poly lines for each "unconnected" line, i.e.
-  # each line disconnected by more than 1 empty bin
-  # This is somewhat complicated.
-  var polyLines: seq[seq[Point]]
-  let nElems = linePoints.len
-  for i, p in linePoints:
-    let (x, y) = p
-    # add the current value to the current bin value
-    let binVal = prevVals[i] + y
-    if y > 0 or # has data int it, add
-       binVal == 0 or # nothing in the bin yet, add
-       polyLines[^1].len == 0 or # current polyLine is empty, add
-      (polyLines[^1].len > 0 and i > 0 and # sanity checks
-        (linePoints[i - 1].y > 0 and y == 0) # this element is empty, but last
-                                             # was not, so add to draw back to 0
-      ):
-      polyLines[^1].add (x: x, y: binVal)
-    elif polyLines[^1].len > 0 and i != nElems - 1 and linePoints[i + 1].y == 0:
-      # only create new seq, if has content and next element is 0
-      polyLines.add newSeq[Point]()
-  # now create the poly lines from the data
-  for line in polyLines:
-    if line.len > 0:
-      result = view.initPolyLine(line, some(style))
-
 template getXY(view, df, xT, yT, fg, i, theme, xORK, yORK: untyped,
                xMaybeString: static bool = true): untyped =
   ## this template retrieves the current x and y values at index `i` from the `df`
