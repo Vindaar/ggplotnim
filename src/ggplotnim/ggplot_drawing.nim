@@ -561,7 +561,11 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     linePoints = newSeqOfCap[Coord](df.len)
     var xT = df[$fg.xcol].toTensor(Value)
     var yT = df[$fg.ycol].toTensor(Value)
-    for i in 0 ..< df.len:
+    # determine last position to draw. If `binPosition` is `bpNone` we're not interpreting data as
+    # bins, use last. Else last is right bin edge, drop it
+    let lastElement = if fg.geom.binPosition == bpNone: df.high
+                      else: df.high - 1
+    for i in 0 .. lastElement:
       if styles.len > 1:
         style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
       # get current x, y values, possibly clipping them
