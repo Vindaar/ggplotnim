@@ -238,7 +238,9 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
 
 proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
              numXTicks = 10, numYTicks = 10): GgPlot =
-  result = GgPlot(data: data,
+  # create new DF object (underlying data same) so that we don't mess up
+  # the table of the user
+  result = GgPlot(data: data.shallowCopy,
                   numXticks: numXTicks,
                   numYticks: numYTicks)
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
@@ -462,7 +464,7 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                      hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo. Outline
                                                              # does not allow `position = "stack"`.
                     ): Geom =
-  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
@@ -502,7 +504,7 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                     binBy = "full",
                     density = false
                    ): Geom =
-  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
@@ -541,7 +543,7 @@ proc geom_tile*(aes: Aesthetics = aes(),
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
-  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
@@ -577,7 +579,7 @@ proc geom_raster*(aes: Aesthetics = aes(),
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
-  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
@@ -615,7 +617,7 @@ proc geom_text*(aes: Aesthetics = aes(),
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
-  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
