@@ -1,3 +1,15 @@
+* v0.4.1
+- fix issue #99 by doing a rewrite of the stacking logic. Handled in
+  post processing stage now and data is stored in DF (same as for
+  counts)
+- fix issue that last bin edge showed up as points etc. if using
+  points together with a histogram
+- fix drawing of frequency polygon lines, now take into account bin
+  width to close of the final lines on each site
+- hdOutline histograms can now be drawn correctly as stacked
+  histograms (but if using alpha they are still visible behind the
+  other bars!)
+
 * v0.4.0
 
 - removal of the internal dataframe. This has been made a standalone
