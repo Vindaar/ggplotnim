@@ -276,18 +276,16 @@ proc getDrawPosImpl(
     of gkText:
       result = view.getContinuous(fg, val, axKind)
 
-proc getDrawPos[T](view: Viewport, viewIdx: int,
-                   fg: FilledGeom,
-                   p: tuple[x: Value, y: Value],
-                   binWidths: tuple[x, y: float], # bin widths
-                   df: DataFrame, idx: int,
-                   prevVals: var T): Coord =
+proc getDrawPos(view: Viewport, viewIdx: int,
+                fg: FilledGeom,
+                p: tuple[x: Value, y: Value],
+                binWidths: tuple[x, y: float], # bin widths
+                df: DataFrame, idx: int): Coord =
   const CoordsFlipped = false # placeholder. Will be part of Theme
                               # if true, a discrete stacking / bar plot
                               # will be done parallel to x axis instead
   case fg.geom.position
   of pkIdentity:
-    # ignore `prevVals`
     var mp = p
     if fg.geomKind == gkBar or (fg.geomKind == gkHistogram and fg.hdKind == hdBars):
       when not CoordsFlipped:
@@ -298,24 +296,14 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
     result.y = view.getDrawPosImpl(fg, mp.y, binWidths.y, fg.dcKindY, akY)
   of pkStack:
     var curStack: Value
-    when T is Table[int, float]:
-      if viewIdx notin prevVals:
-        prevVals[viewIdx] = 0.0
-      # if we have a histogram with `hdOutline` need to add `p.y` already
-      if fg.geom.kind == gkHistogram and fg.geom.hdKind == hdOutline:
-        curStack = p.y + %~ prevVals[viewIdx]
-      else:
-        curStack = %~ prevVals[viewIdx]
-    elif T is seq[float]:
-      if prevVals.len < df.len:
-        prevVals = newSeq[float](df.len)
-      # if we have a histogram with `hdOutline` need to add `p.y` already
-      if fg.geom.kind == gkHistogram and fg.geom.hdKind == hdOutline:
-        curStack = p.y + %~ prevVals[idx]
-      else:
-        curStack = %~ prevVals[idx]
+    if not ((fg.geom.kind == gkHistogram and fg.geom.hdKind == hdBars) or
+             fg.geom.kind == gkBar):
+      # use the existing y value. For stacked histograms the y column has been
+      # modified to store stacked values
+      curStack = %~ p.y
     else:
-      curStack = p.y
+      # only required for actual bars, due to how they are drawn
+      curStack = %~ df[PrevValsCol, float][idx]
     when not CoordsFlipped:
       # stacking / histograms along the Y axis
       result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
@@ -324,11 +312,6 @@ proc getDrawPos[T](view: Viewport, viewIdx: int,
       # stacking / histograms along the X axis
       result.x = view.getDrawPosImpl(fg, curStack, binWidths.x, fg.dcKindX, akX)
       result.y = view.getDrawPosImpl(fg, p.y, binWidths.y, fg.dcKindY, akY)
-    # TODO: extend to coord flipped!
-    when T is Table[int, float]:
-      prevVals[viewIdx] += p.y.toFloat(allowNull = true)
-    elif T is seq[float]:
-      prevVals[idx] += p.y.toFloat(allowNull = true)
   else:
     doAssert false, "not implemented yet"
 
@@ -526,7 +509,6 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
   ##   visible bars between each bin (i.e. using alpha on histogram fills).
   ##   Setting alpha of outline to alpha inside does not work, due to overlapping
   ##   outlines of neighboring bars.
-
   result = newSeq[Coord]()
   var
     p: Coord = linePoints[0]
@@ -553,12 +535,11 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
     p.x.pos = curX
     result.add p
 
-proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
-                  viewMap: Table[(Value, Value), int],
-                  df: DataFrame,
-                  prevVals: var T,
-                  styles: seq[GgStyle],
-                  theme: Theme) =
+proc drawSubDf(view: var Viewport, fg: FilledGeom,
+               viewMap: Table[(Value, Value), int],
+               df: DataFrame,
+               styles: seq[GgStyle],
+               theme: Theme) =
   ## draws the given sub df
   # get behavior for elements outside the plot range
   let xOutsideRange = if theme.xOutsideRange.isSome: theme.xOutsideRange.unsafeGet else: orkClip
@@ -601,17 +582,9 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
                        fg,
                        p = p,
                        binWidths = binWidths,
-                       df, i,
-                       prevVals)
+                       df, i)
       case fg.geom.position
-      of pkIdentity:
-        case fg.geomKind
-        of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
-        of gkHistogram:
-          if fg.hdKind == hdOutline: linePoints.add pos
-          else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
-        else: locView.draw(fg, pos, p.y, binWidths, df, i, style)
-      of pkStack:
+      of pkIdentity, pkStack:
         case fg.geomKind
         of gkLine, gkFreqPoly, gkRaster: linePoints.add pos
         of gkHistogram:
@@ -670,26 +643,11 @@ proc createGobjFromGeom*(view: var Viewport,
   view.prepareViews(fg, theme)
   # if discretes, calculate mapping from labels to viewport
   var viewMap = calcViewMap(fg)
-  var prevValsCont = newSeq[float]()
-  var prevValsDiscr = initTable[int, float]()
   let anyDiscrete = if viewMap.len == 0: false else: true
   for (lab, baseStyle, styles, subDf) in enumerateData(fg):
     if labelVal.isSome:
       if labelVal.unsafeGet notin lab:
         # skip this label
         continue
-    if fg.geom.position == pkStack and anyDiscrete:
-      view.drawSubDf(fg, viewMap, subDf,
-                     prevValsDiscr,
-                     styles, theme)
-    elif fg.geom.position == pkStack and not anyDiscrete:
-      view.drawSubDf(fg, viewMap, subDf,
-                     prevValsCont,
-                     styles, theme)
-    else:
-      # no stacking, prevVals arg given as float
-      # TODO: find better data type
-      var dummy = 0.0
-      view.drawSubDf(fg, viewMap, subDf,
-                     dummy,
-                     styles, theme)
+    view.drawSubDf(fg, viewMap, subDf,
+                   styles, theme)

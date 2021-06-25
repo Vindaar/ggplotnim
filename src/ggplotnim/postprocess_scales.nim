@@ -201,35 +201,28 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
   if result[1].len == 0:
     result = (baseStyle, @[baseStyle], result[2])
 
-proc addCountsByPosition(sumCounts: var DataFrame, df: DataFrame,
-                         col: string, pos: PositionKind) =
-  ## adds the `df` column `col` elements to the `sumCounts` data frame in the
-  ## same column taking into account the geom position kind.
-  case pos
-  of pkStack:
-    if sumCounts.len == 0:
-      sumCounts = clone(df)
-    else:
-      for i in 0 ..< df.len:
-        sumCounts[col, i] = sumCounts[col][i, int] + df[col][i, int]
-  of pkIdentity, pkDodge:
-    sumCounts = df
-  of pkFill: sumCounts[col] = toColumn(@[1]) # max for fill always 1.0
-
-proc addBinCountsByPosition(sumHist: var seq[float], hist: seq[float],
-                            pos: PositionKind) =
-  ## adds the `hist` sequence elements to the `sumHist` sequence taking into
-  ## account the geom position kind
-  case pos
-  of pkStack:
-    if sumHist.len == 0:
-      sumHist = hist
-    else:
-      for i in 0 .. sumHist.high:
-        sumHist[i] += hist[i]
-  of pkIdentity, pkDodge:
-    sumHist = hist
-  of pkFill: sumHist = @[1.0] # max for fill always 1.0
+proc addCountsByPosition(colSum: var Column, col: Column,
+                         pos: PositionKind) =
+  ## adds the `hist` sequence elements to the `colSum` sequence taking into
+  ## account the geom position kind, only if `col` is actually float, int or
+  ## Value
+  case col.kind
+  of colObject, colInt, colFloat:
+    case pos
+    of pkStack:
+      if colSum.len == 0:
+        colSum = col
+      else:
+        for i in 0 .. colSum.high:
+          withNativeDtype(col):
+            when dtype is float or dtype is int or dtype is Value:
+              colSum[i] = colSum[i, dtype] + col[i, dtype]
+            # else we leave it unmodified
+    of pkIdentity, pkDodge:
+      colSum = col
+    of pkFill: colSum = toColumn @[1.0] # max for fill always 1.0
+  else:
+    colSum = col
 
 proc addZeroKeys(df: var DataFrame, keys: Column, xCol, countCol: string) =
   ## Adds the `keys` columns which have zero count values to the `df`.
@@ -425,15 +418,31 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
+    var col = newColumn(colFloat)
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      let yieldDf = subDf
+
+      var yieldDf = subDf
       result.setXAttributes(yieldDf, x)
+      ## TODO: refactor out `yieldDf` mutations? Can be combined with other `filled*Geom`?
+      if g.position == pkStack: # only needed for gkHistogram (hdBars) + gkBar
+        yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
+                              else: col.clone
+      # possibly modify `col` if stacking
+      col.addCountsByPosition(subDf[result.ycol], g.position)
+      if g.position == pkStack and
+         not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
+        # assign stacked column as new y
+        yieldDf[result.ycol] = col
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
                                                              toClone = true)
+    if g.position == pkStack and result.dcKindY == dcContinuous:
+      # only update required if stacking, as we've computed the range beforehand
+      result.yScale = mergeScales(result.yScale, (low: result.yScale.low, high: col.toTensor(float).max))
   else:
-    let yieldDf = df
+    var yieldDf = df
+    yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     result.setXAttributes(yieldDf, x)
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
@@ -492,7 +501,7 @@ proc callHistogram(geom: Geom,
   result = (hist, binEdges, binWidths)
 
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
-  let countCol = if g.density: "density" else: "count" # do not hardcode!
+  let countCol = if g.density: "density" else: CountCol # do not hardcode!
   const widthCol = "binWidths"
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
@@ -520,9 +529,9 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
 
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
-    # sumHist used to calculate height of stacked histogram. Stored as `float`,
+    # `col` used to calculate height of stacked histogram. Stored as `float`,
     # since histogram may be float (if weights used)
-    var sumHist: seq[float]
+    var col = newColumn(colFloat)
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
@@ -533,17 +542,26 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                             range = x.dataScale)
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
-      sumHist.addBinCountsByPosition(hist, g.position)
-      let yieldDf = seqsToDf({ getColName(x) : bins,
+      var yieldDf = seqsToDf({ getColName(x) : bins,
                                countCol: hist })
+      if g.position == pkStack: # only needed for gkHistogram (hdBars) + gkBar
+        yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
+                              else: col.clone
+      # possibly modify column by stacking, else use `hist`
+      col.addCountsByPosition(toColumn hist, g.position)
+      if g.position == pkStack:
+        if not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
+          # use sum to reassign y column
+          yieldDf[result.ycol] = col
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,
                                                              toClone = true)
       result.numX = max(result.numX, yieldDf.len)
-      result.xScale = mergeScales(result.xScale, (low: bins.min.float,
-                                                  high: bins.max.float))
-      result.yScale = mergeScales(result.yScale, (low: 0.0,
-                                                  high: sumHist.max.float))
+      # needs to be done for each
+      result.xScale = mergeScales(result.xScale,
+                                  (low: bins.min.float, high: bins.max.float))
+      result.yScale = mergeScales(result.yScale,
+                                  (low: 0.0, high: col.toTensor(float).max))
   else:
     # before we assign calculate histogram
     let (hist, bins, binWidths) = g.callHistogram(
@@ -552,9 +570,10 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       weightScale = filledScales.getWeightScale(g),
       range = x.dataScale
     )
-    let yieldDf = seqsToDf({ getColName(x) : bins,
+    var yieldDf = seqsToDf({ getColName(x) : bins,
                              countCol: hist,
                              widthCol: binWidths})
+    yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     let key = ("", Value(kind: VNull))
     # TODO: does it make sense to apply continuous scales to a histogram result?
     # because: The input DF does not match (element wise) to the resulting DF of
@@ -578,7 +597,6 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   else: discard
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
-  const countCol = "count" # do not hardcode!
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
                                                              yIsNone = true)
@@ -588,7 +606,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   let xCol = getColName(x)
   result = FilledGeom(geom: g,
                       xcol: xCol,
-                      ycol: countCol,
+                      ycol: CountCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
@@ -604,34 +622,42 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
   if mapDiscCols.len > 0:
     df = df.group_by(mapDiscCols)
-    # sumCounts used to calculate height of stacked histogram
+    # `col` used to calculate height of stacked histogram
     # TODO: can be simplified by implementing `count` of `grouped` DFs!
-    var sumCounts = DataFrame()
+    var col = newColumn(colInt)
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf.count(xCol, name = countCol)
+      var yieldDf = subDf.count(xCol, name = CountCol)
       # all values, which are zero still have to be accounted for! Add those keys with
       # zero values
-      yieldDf.addZeroKeys(allClasses, xCol, countCol)
+      yieldDf.addZeroKeys(allClasses, xCol, CountCol)
       # now arrange by `x.col` to force correct order
       yieldDf = yieldDf.arrange(xCol)
-      sumCounts.addCountsByPosition(yieldDf, countCol, g.position)
+      if g.position == pkStack: # only needed for gkHistogram (hdBars) + gkBar
+        yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
+                              else: col.clone
+      # possibly modify `col` by stacking `yCol`, else use `yCol`
+      col.addCountsByPosition(yieldDf[result.yCol], g.position)
+      if g.position == pkStack and
+         not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
+        # use new col to modify `y` column
+        yieldDf[result.ycol] = col
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,
                                                              toClone = true)
       result.setXAttributes(yieldDf, x)
       result.yScale = mergeScales(result.yScale,
-                                  (low: 0.0,
-                                   high: max(sumCounts[countCol].toTensor(int)).float))
+                                  (low: 0.0, high: col.toTensor(int).max.float))
   else:
-    let yieldDf = df.count(xCol, name = countCol)
+    var yieldDf = df.count(xCol, name = CountCol)
+    yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
     result.setXAttributes(yieldDf, x)
     result.yScale = mergeScales(result.yScale,
                                 (low: 0.0,
-                                 high: max(yieldDf[countCol].toTensor(int)).float))
+                                 high: max(yieldDf[CountCol].toTensor(int)).float))
 
 
   # `numY` for `count` stat is just max of the y scale. Since this uses `count` the

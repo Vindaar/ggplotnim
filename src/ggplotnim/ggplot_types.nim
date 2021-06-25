@@ -6,6 +6,10 @@ import ginger except Scale
 type
   ScaleTransform* = proc(v: float): float
 
+## two constants for count columns and previous values
+const CountCol* = "counts_GGPLOTNIM_INTERNAL"
+const PrevValsCol* = "prevVals_GGPLOTNIM_INTERNAL"
+
 # something like
 # aes: array[AesKind, Option[Scale]]
 type
