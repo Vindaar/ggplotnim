@@ -468,8 +468,12 @@ func getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: Fil
   let py = if fg.dcKindY == dcDiscrete: p.y else: Value(kind: VNull)
   result = viewMap[(px, py)]
 
-proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind) =
-  ## extends the given `linePoints` down to the axis given by `axKind`.
+proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
+                      df: DataFrame, fg: FilledGeom) =
+  ## extends the given `linePoints` down to the axis given by `axKind` or
+  ## simply to the extension of the full bin width to left and right.
+  ## This makes sure all lines start at the main axis and on the outside edges
+  ## of the edge bins.
   ## `axKind` refers to what is the ``main`` axis (default is `akX`)!
   ## so that the line does not start "in the air".
   var lStart = linePoints[0]
@@ -477,24 +481,38 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind) =
   case axKind
   of akX:
     # normal case, main axis is x
-    if not almostEqual(lStart.y.pos, 0.0):
-      lStart.y.pos = 0.0
-      # insert at beginning
-      linePoints.insert(lStart, 0)
-    if not almostEqual(lEnd.y.pos, 0.0):
-      lEnd.y.pos = 0.0
-      # add at the end
-      linePoints.add(lEnd)
+    # get bin width and add extension to left
+    lStart.y.pos = 0.0
+    var binWidth: float
+    if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
+      binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+      lStart.x.pos = lStart.x.pos - binWidth
+    # insert at beginning
+    linePoints.insert(lStart, 0)
+    # now get last bin  width and extend to right
+    lEnd.y.pos = 0.0
+    if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
+      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.xcol, dcKind = fg.dcKindX)
+      lEnd.x.pos = lEnd.x.pos + binWidth
+    # add at the end
+    linePoints.add(lEnd)
   of akY:
-    # normal case, main axis is x
-    if not almostEqual(lStart.x.pos, 0.0):
-      lStart.x.pos = 0.0
-      # insert at beginning
-      linePoints.insert(lStart, 0)
-    if not almostEqual(lEnd.x.pos, 0.0):
-      lEnd.x.pos = 0.0
-      # add at the end
-      linePoints.add(lEnd)
+    # inverted case
+    # get bin width, extend to top
+    var binWidth: float
+    lStart.x.pos = 0.0
+    if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
+      binWidth = readOrCalcBinWidth(df, 0, fg.ycol, dcKind = fg.dcKindY)
+      lStart.y.pos = lStart.y.pos - binWidth
+    # insert at beginning
+    linePoints.insert(lStart, 0)
+    # now to bottom
+    lEnd.x.pos = 0.0
+    if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
+      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.ycol, dcKind = fg.dcKindY)
+      lEnd.y.pos = lEnd.y.pos + binWidth
+    # add at the end
+    linePoints.add(lEnd)
 
 proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
                               linePoints: seq[Coord]): seq[Coord] =
@@ -621,18 +639,18 @@ proc drawSubDf[T](view: var Viewport, fg: FilledGeom,
     if styles.len == 1:
       let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
       # connect line down to axis, if fill color is not transparent
-      if style.fillColor != transparent:
+      if style.fillColor != transparent or fg.geomKind == gkFreqPoly:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
-        linePoints.extendLineToAxis(akX)
+        linePoints.extendLineToAxis(akX, df, fg)
       view.addObj view.initPolyLine(linePoints, some(style))
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
       # `(x1/y1)` to `(x2/y2)` with the style of `(x1/x2)`. We could build the average
       # of styles between the two, but we don't atm!
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
-      if style.fillColor != transparent:
+      if style.fillColor != transparent or fg.geomKind == gkFreqPoly:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
-        linePoints.extendLineToAxis(akX)
+        linePoints.extendLineToAxis(akX, df, fg)
       for i in 0 ..< styles.high: # last element covered by i + 1
         let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
