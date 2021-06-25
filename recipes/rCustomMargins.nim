@@ -12,5 +12,4 @@ ggplot(df, aes("pos", "name")) +
   scale_x_discrete() +
   scale_y_discrete() +
   margin(left = 6.0) +
-  theme_opaque() +
   ggsave("media/recipes/rCustomMargins.png")

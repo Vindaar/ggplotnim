@@ -8,5 +8,4 @@ ggplot(df, aes("x", "y")) +
   geom_point() +
   # define errors as a formula, which references our "y" scale
   geom_errorbar(aes(yMin = f{`y` - 0.03}, yMax = f{`y` + 0.05})) +
-  theme_opaque() +
   ggsave("media/recipes/rErrorBar.png")

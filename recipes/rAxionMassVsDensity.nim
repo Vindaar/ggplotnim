@@ -81,7 +81,6 @@ proc m_a_vs_density(pstart, pstop: float) =
     scale_x_log10() + 
     scale_y_log10() +
     ggtitle("Sensitive axion mass in eV depending on helium density in g / cm^3") +
-    theme_opaque() +
     ggsave("media/recipes/rAxionMassVsDensity.png")
 
 m_a_vs_density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit) * 0.9,

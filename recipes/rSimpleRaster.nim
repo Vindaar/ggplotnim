@@ -12,5 +12,4 @@ for x in countup(-256, 254, 2):
 let df = seqsToDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_raster() +
-  theme_opaque() +
   ggsave("media/recipes/rSimpleRaster.png")

@@ -15,5 +15,4 @@ ggplot(df, aes("x", "y")) +
   scale_x_continuous(labels = proc(x: float): string =
                               getDateStr(nowTmpl() - int(x).months)) +
   xlab(label = " ") +
-  theme_opaque() +
   ggsave("media/recipes/rFormatDatesPlot.png")

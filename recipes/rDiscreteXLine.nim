@@ -39,5 +39,4 @@ proc createDataFrame(): DataFrame =
 let df = createDataFrame()
 ggplot(df, aes("tenors", "pathValues", color = "pathNames")) + 
   geom_line() +
-  theme_opaque() +
   ggsave("media/recipes/rDiscreteXLine.png")

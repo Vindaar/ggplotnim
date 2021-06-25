@@ -9,5 +9,4 @@ ggplot(dfLong, aes("Value")) +
   geom_histogram(bins = 100, position = "identity", 
                  binBy = "subset") + # `binBy subset` means the histogram will be calculated 
                                      # in the data range of each properties data range
-  theme_opaque() +
   ggsave("media/recipes/rFacetTpa.png", width = 800, height = 600)

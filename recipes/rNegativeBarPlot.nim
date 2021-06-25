@@ -8,5 +8,4 @@ let df = seqsToDf({ "Trial" : trials,
 
 ggplot(df, aes(x="Trial", y="Value")) +
   geom_bar(stat="identity", position="identity") +
-  theme_opaque() +
   ggsave("media/recipes/rNegativeBarPlot.png")

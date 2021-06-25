@@ -10,5 +10,4 @@ ggplot(df, aes("x", "y")) +
   scale_x_continuous(labels = proc(x: float): string =
                               x.formatFloat(ffDecimal, 2)) +
   xlab(label = " ") +
-  theme_opaque() +
   ggsave("media/recipes/rFormatDecimalsPlot.png")

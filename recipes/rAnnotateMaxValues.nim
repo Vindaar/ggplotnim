@@ -13,5 +13,4 @@ ggplot(df, aes("hwy", "displ")) +
   geom_text(data = dfMax,
             aes = aes(y = f{c"displ" + 0.2}, 
                       text = "mpgMean")) +
-  theme_opaque() +
   ggsave("media/recipes/rAnnotateMaxValues.png")
