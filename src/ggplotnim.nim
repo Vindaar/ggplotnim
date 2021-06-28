@@ -2354,6 +2354,26 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   result.filledScales = filledScales
   result.view = img
 
+proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480) =
+  ## creates a simple multi plot in a grid. Currently no smart layouting
+  var pltViews = newSeq[PlotView](plts.len)
+  # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
+  # why the args are inverted! (it returns (rows, cols))
+  let (cols, rows) = calcRowsColumns(0, 0, plts.len)
+  var img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float)
+  img.layout(cols = cols, rows = rows)
+
+  for i, plt in plts:
+    let pp =  ggcreate(plt, width = width.float,
+                       height = height.float)
+    # embed the finished plots into the the new viewport
+    img.embedAt(i, pp.view)
+
+  # combine both into a single viewport to draw as one image
+  echo img.children.len
+
+  img.draw(fname)
+
 proc ggdraw*(view: Viewport, fname: string) =
   ## draws the given viewport and stores it in `fname`.
   ## It assumes that the `view` was created as the field of
