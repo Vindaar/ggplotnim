@@ -503,22 +503,6 @@ proc hash*(x: ScaleValue): Hash =
   of scText: discard
   result = !$result
 
-proc hash*(fn: FormulaNode): Hash =
-  result = hash(fn.kind.int)
-  result = result !& hash(fn.name)
-  case fn.kind
-  of fkVariable:
-    result = result !& hash(fn.val)
-  of fkAssign:
-    result = result !& hash(fn.lhs)
-    result = result !& hash(fn.rhs)
-  of fkVector:
-    result = result !& hash(fn.resType)
-    result = result !& hash(fn.fnV)
-  of fkScalar:
-    result = result !& hash(fn.valKind)
-    result = result !& hash(fn.fnS)
-
 proc hash*(x: Scale): Hash =
   result = hash(x.scKind.int)
   result = result !& hash(x.col)
