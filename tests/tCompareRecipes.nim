@@ -139,6 +139,7 @@ suite "Compare recipe output":
         let cmpRes = compareJson(resFile, expFile)
         check cmpRes
         if not cmpRes:
+          echo "Comparison of ", resFile, " with ", expFile, " failed."
           break
 
       ## NOTE: this is only safe against regressions of `ggplotnim`, because the
