@@ -3,6 +3,11 @@
   them onto a grid of plots (not as a facet etc. but simply multiple,
   unrelated plots)
 - remove datamancer leftover (hashes of =FormulaNode=)
+- fixes error bar issue #94 by upstream fix in ginger
+- fixes error bar plots drawing to 0 value if min / max missing, fixes
+  #122
+- avoids drawing multiple constant lines in =geom_linerange= by
+  filtering to unique row pairs, fixes #124
 
 * v0.4.2
 - make shallow copies of all input data frames
