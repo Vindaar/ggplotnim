@@ -101,6 +101,8 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## `var df = if ...` in `postProcessScales`. However, this has a significant
   ## performance cost for plots with many geoms (e.g. `benchmarks/bench_many_geoms.nim`
   ## incurs a performance regression of 50% if cloned).
+
+  ## TODO: Here is where our constant columns turn object for the first (but not last) time
   df.mutateInplace(fns)
 
 proc separateScalesApplyTrafos(
@@ -396,6 +398,34 @@ proc determineDataScale(s: Scale,
     # TODO: assign somewhere else?
     result = (low: 0.0, high: 1.0)
 
+proc maybeFilterUnique(df: var DataFrame, fg: FilledGeom) =
+  ## If `fg` is of kind `gkErrorBar` we may filter the data frame to
+  ## only unique values in the x/y x/yMin/Max columns
+  if fg.geomKind == gkErrorBar:
+    var collectCols = newSeq[string]()
+    var hasX = false
+    var hasY = false
+    template addIt(field, isX: untyped): untyped =
+      if fg.field.isSome:
+        collectCols.add fg.field.get
+        if isX: hasX = true
+        else: hasY = true
+    addIt(xMin, true)
+    addIt(xMax, true)
+    addIt(yMin, false)
+    addIt(yMax, false)
+    if hasX: collectCols.add fg.ycol # add y if we have ranges in x
+    if hasY: collectCols.add fg.xcol # add x if we have ranges in y
+    when false:
+      ## It would be ideal if we could trust that constant columns actually remain
+      ## constant. But in the processing before this procedure, there are too many
+      ## changes that possibly make it an object column. Thus better we just apply
+      ## unique regardless
+      if collectCols.allIt(df[it].kind == colConstant):
+        # all associated columns are constant,
+        df = df.unique(collectCols)
+    df = df.unique(collectCols)
+
 proc reversed[A, B](t: OrderedTable[A, B]): OrderedTable[A, B] =
   result = initOrderedTable[A, B]()
   let keys = toSeq(t.keys)
@@ -441,6 +471,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # assign stacked column as new y
         yieldDf[result.ycol] = col
+
+      yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
                                                              toClone = true)
     if g.position == pkStack and result.dcKindY == dcContinuous:
@@ -457,6 +489,7 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   else:
     var yieldDf = df
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
+    yieldDf.maybeFilterUnique(result)
     result.setXAttributes(yieldDf, x)
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
@@ -567,6 +600,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
         if not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
           # use sum to reassign y column
           yieldDf[result.ycol] = col
+      yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,
                                                              toClone = true)
@@ -588,6 +622,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                              countCol: hist,
                              widthCol: binWidths})
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
+    yieldDf.maybeFilterUnique(result)
     let key = ("", Value(kind: VNull))
     # TODO: does it make sense to apply continuous scales to a histogram result?
     # because: The input DF does not match (element wise) to the resulting DF of
@@ -657,6 +692,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # use new col to modify `y` column
         yieldDf[result.ycol] = col
+      yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,
                                                              toClone = true)
@@ -667,6 +703,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     var yieldDf = df.count(xCol, name = CountCol)
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     let key = ("", Value(kind: VNull))
+    yieldDf.maybeFilterUnique(result)
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
     result.setXAttributes(yieldDf, x)
     result.yScale = mergeScales(result.yScale,
