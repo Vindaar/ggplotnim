@@ -297,8 +297,8 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
               axis: akX,
               kind: ukData)
     result = initErrorBar(view, pos,
-                          errorUp = toC1(xMax.getOrDefault(0.0)),
-                          errorDown = toC1(xMin.getOrDefault(0.0)),
+                          errorUp = toC1(xMax.getOrDefault(pos.x.pos)),
+                          errorDown = toC1(xMin.getOrDefault(pos.x.pos)),
                           axKind = akX,
                           ebKind = style.errorBarKind,
                           style = some(style))
@@ -309,8 +309,8 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
               axis: akY,
               kind: ukData)
     result = initErrorBar(view, pos,
-                          errorUp = toC1(yMax.getOrDefault(0.0)),
-                          errorDown = toC1(yMin.getOrDefault(0.0)),
+                          errorUp = toC1(yMax.getOrDefault(pos.y.pos)),
+                          errorDown = toC1(yMin.getOrDefault(pos.y.pos)),
                           axKind = akY,
                           ebKind = style.errorBarKind,
                           style = some(style))
