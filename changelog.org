@@ -1,3 +1,7 @@
+* v0.4.4
+- combining ~stat = "count"~ with a continuous classification now
+  yields a runtime exception, explaining that it's not well defined.
+
 * v0.4.3
 - add =ggmulti= helper that takes multiple =ggplot= calls and puts
   them onto a grid of plots (not as a facet etc. but simply multiple,
