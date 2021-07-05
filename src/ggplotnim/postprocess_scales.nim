@@ -645,6 +645,21 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   of dcDiscrete: result.xLabelSeq = x.labelSeq
   else: discard
 
+proc maybeRaise(xCol: string, cont: seq[Scale]) =
+  ## We raise from `filledCountGeom` in case we have some continuous classification in
+  ## addition to our count column `xCol`. This is because `count` reduces the information
+  ## in the data frame and the columns for `cont` won't exist afterwards.
+  ##
+  ## Ref: issue #100
+  if cont.len > 0:
+    var errMsg = "Cannot perform continuous action using the following formulae: ["
+    for i, c in cont:
+      errMsg.add "(Column: " & $c.col & ", kind: " & $c.scKind & ")"
+      if i < cont.high:
+        errMsg.add ", "
+    errMsg.add "] in a `count` statistics on column `" & xCol & "`."
+    raise newException(ValueError, errMsg)
+
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales,
@@ -674,6 +689,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     # `col` used to calculate height of stacked histogram
     # TODO: can be simplified by implementing `count` of `grouped` DFs!
     var col = newColumn(colInt)
+    maybeRaise(xCol, cont)
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
@@ -700,6 +716,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0, high: col.toTensor(int).max.float))
   else:
+    maybeRaise(xCol, cont)
     var yieldDf = df.count(xCol, name = CountCol)
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     let key = ("", Value(kind: VNull))
