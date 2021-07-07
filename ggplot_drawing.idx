@@ -1,0 +1,1 @@
+createGobjFromGeom	ggplot_drawing.html#createGobjFromGeom,Viewport,FilledGeom,Theme	ggplot_drawing: createGobjFromGeom(view: var Viewport; fg: FilledGeom; theme: Theme;\n                   labelVal = none[Value]())	

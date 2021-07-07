@@ -1,0 +1,5 @@
+getPlotBackground	ggplot_theme.html#getPlotBackground,Theme	ggplot_theme: getPlotBackground(theme: Theme): Style	
+getCanvasBackground	ggplot_theme.html#getCanvasBackground,Theme	ggplot_theme: getCanvasBackground(theme: Theme): Style	
+calculateMarginRange	ggplot_theme.html#calculateMarginRange,Theme,,AxisKind	ggplot_theme: calculateMarginRange(theme: Theme; scale: ginger.Scale; axKind: AxisKind): ginger.Scale	
+hasSecondary	ggplot_theme.html#hasSecondary,Theme,AxisKind	ggplot_theme: hasSecondary(theme: Theme; axKind: AxisKind): bool	
+buildTheme	ggplot_theme.html#buildTheme,FilledScales,GgPlot	ggplot_theme: buildTheme(filledScales: FilledScales; p: GgPlot): Theme	

@@ -1,0 +1,4 @@
+toVegaLite	ggplot_vega.html#toVegaLite,GgPlot,FilledScales,Theme,float,float	ggplot_vega: toVegaLite(p: GgPlot; filledScales: FilledScales; theme: Theme;\n           width, height: float): JsonNode	
+showVega	ggplot_vega.html#showVega,JsonNode,string	ggplot_vega: showVega(data: JsonNode; fname: string)	
+ggvegaCreate	ggplot_vega.html#ggvegaCreate,GgPlot,VegaDraw	ggplot_vega: ggvegaCreate(p: GgPlot; vegaDraw: VegaDraw): JsonNode	
+`+`	ggplot_vega.html#+,GgPlot,VegaDraw	ggplot_vega: `+`(p: GgPlot; d: VegaDraw)	

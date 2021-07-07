@@ -1,0 +1,3 @@
+mergeUserStyle	ggplot_styles.html#mergeUserStyle,GgStyle,GgStyle,GeomKind	ggplot_styles: mergeUserStyle(s: GgStyle; uStyle: GgStyle; geomKind: GeomKind): Style	
+changeStyle	ggplot_styles.html#changeStyle,GgStyle,ScaleValue	ggplot_styles: changeStyle(s: GgStyle; scVal: ScaleValue): GgStyle	
+applyStyle	ggplot_styles.html#applyStyle,GgStyle,DataFrame,seq[Scale],seq[]	ggplot_styles: applyStyle[T: string | FormulaNode](style: var GgStyle; df: DataFrame;\n                                    scales: seq[Scale]; keys: seq[(T, Value)])	
