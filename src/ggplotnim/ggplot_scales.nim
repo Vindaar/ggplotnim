@@ -25,6 +25,7 @@ proc scaleFromData*(c: Column, s: Scale, ignoreInf: static bool = true): ginger.
       maxVal = t[0]
     for x in t:
       when ignoreInf:
+        mixin fcNegInf, fcInf, classify # `import std/math` would work too
         if (classify(x) == fcNegInf or
             classify(x) == fcInf):
           continue
