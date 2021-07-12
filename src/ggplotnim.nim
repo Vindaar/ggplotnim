@@ -1,7 +1,7 @@
 ## .. include:: ./docs/ggplotnim_autogen.rst
 
 import sequtils, tables, sets, algorithm, strutils, macros
-import parsecsv, streams, hashes, sugar, math
+import parsecsv, streams, hashes, sugar, math, times
 from os import createDir, splitFile
 
 when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
@@ -822,6 +822,46 @@ proc scale_x_continuous*(name: string = "",
                    secondaryAxis: secAxisOpt,
                    formatContinuousLabel: labels)
 
+proc scale_x_date*(name: string = "",
+                   isTimestamp = false, # if true, `x` column is assumed to be a unix timestamp
+                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
+                   formatString: string = "yyyy-MM",
+                   dateSpacing: Duration = initDuration(days = 1)
+                  ): DateScale =
+  ## creates a continuous x axis that generates labels according to
+  ## the desired date time information
+  # NOTE: because we add this to every linear scale, we can use this in post processing to
+  # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
+  if not isTimestamp and parseDate.isNil:
+    raise newException(ValueError, "A `DateScale` needs either `isTimestamp = true` " &
+      "or a `parseDate` procedure.")
+  result = DateScale(name: name,
+                     axKind: akX,
+                     isTimestamp: isTimestamp,
+                     parseDate: parseDate,
+                     formatString: formatString,
+                     dateSpacing: dateSpacing)
+
+proc scale_y_date*(name: string = "",
+                   isTimestamp = false, # if true, `y` column is assumed to be a unix timestamp
+                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
+                   formatString: string = "yyyy-MM",
+                   dateSpacing: Duration = initDuration(days = 1)
+                  ): DateScale =
+  ## creates a continuous y axis that generates labels according to
+  ## the desired date time information
+  # NOTE: because we add this to every linear scale, we can use this in post processing to
+  # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
+  if not isTimestamp and parseDate.isNil:
+    raise newException(ValueError, "A `DateScale` needs either `isTimestamp = true` " &
+      "or a `parseDate` procedure.")
+  result = DateScale(name: name,
+                     axKind: akY,
+                     isTimestamp: isTimestamp,
+                     parseDate: parseDate,
+                     formatString: formatString,
+                     dateSpacing: dateSpacing)
+
 proc scale_y_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
                          labels: proc(x: float): string = nil,
@@ -1563,6 +1603,32 @@ proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   result.aes = applyScale(result.aes, scale)
   for p in mitems(result.geoms):
     p.aes = applyScale(p.aes, scale)
+
+proc `+`*(p: GgPlot, dateScale: DateScale): GgPlot =
+  ## Add the given `DateScale` to the plot, which means filling the optional
+  ## `dateScale` field
+  template clone(newScale, oldScale: untyped): untyped =
+    when defined(gcDestructors):
+      newScale =  new Scale
+      newScale[] = oldScale[]
+    else:
+      `newScale` = deepCopy(oldScale)
+
+  template assignCopyScale(arg, field, ds: untyped): untyped =
+    if arg.field.isSome:
+      var mscale: Scale
+      clone(mscale, arg.field.get)
+      mscale.dateScale = some(ds)
+      arg.field = some(mscale)
+
+  result = p
+  case dateScale.axKind
+  of akX: assignCopyScale(result.aes, x, dateScale)
+  of akY: assignCopyScale(result.aes, y, dateScale)
+  for g in mitems(result.geoms):
+    case dateScale.axKind
+    of akX: assignCopyScale(g.aes, x, dateScale)
+    of akY: assignCopyScale(g.aes, y, dateScale)
 
 template anyScale(arg: untyped): untyped =
   if arg.main.isSome or arg.more.len > 0:
