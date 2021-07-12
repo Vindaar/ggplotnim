@@ -1318,7 +1318,13 @@ the encompassing data range of all subplots. Especially thanks to
 having the =hits= property in there, this would lead to useless
 binning.
 
-*** Custom tick labels via callback for dates 
+*** Custom tick labels via callback for dates
+
+*NOTE*: Starting from version =v0.4.4= this approach is not
+recommended to be used for *dates*, but only to customize other
+numerical data. In this approach the actual *placement* of the ticks
+does not change, only the *label* does. See [[Adjusting tick labels
+according to custom date time information]] below for the best approach now.
 
 Starting from version =v0.3.7= (thanks to @cooldome !) it's possible
 to hand a callback to define custom tick labels. 
