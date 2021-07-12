@@ -8,6 +8,8 @@ different geoms.
 
 ## The default styles we use for each geom in case neither the user provides
 ## a setting nor a mapping
+from chroma import parseHex
+const StatSmoothColor = parseHex("3366FF") # color used by ggplot2 for smoothed lines
 const PointDefaultStyle = Style(size: 3.0,
                                 marker: mkCircle,
                                 color: black,
@@ -17,6 +19,11 @@ const LineDefaultStyle = Style(lineWidth: 1.0,
                                size: 5.0, # used to draw error bar 'T' horizontal
                                color: grey20,
                                fillColor: transparent)
+const SmoothDefaultStyle = Style(lineWidth: 2.0,
+                                 lineType: ltSolid,
+                                 size: 5.0, # used to draw error bar 'T' horizontal
+                                 color: StatSmoothColor,
+                                 fillColor: transparent)
 const BarDefaultStyle = Style(lineWidth: 1.0,
                               lineType: ltSolid,
                               color: grey20,
@@ -33,12 +40,14 @@ const TextDefaultStyle = Style(font: font(12.0),
                                size: 12.0,
                                color: black)
 
-func defaultStyle(geomKind: GeomKind): Style =
+func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
   case geomKind
   of gkPoint:
     result = PointDefaultStyle
   of gkLine, gkFreqPoly, gkErrorBar:
-    result = LineDefaultStyle
+    case statKind
+    of stSmooth: result = SmoothDefaultStyle
+    else: result = LineDefaultStyle
   of gkBar:
     result = BarDefaultStyle
   of gkHistogram:
@@ -51,19 +60,23 @@ func defaultStyle(geomKind: GeomKind): Style =
     # raster doesn't have default style atm (what would that imply?)
     discard
 
-func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
+func mergeUserStyle*(s: GgStyle, fg: FilledGeom): Style =
   ## merges the given `Style` with the desired `userStyle`.
   # Have to differentiate between 3 cases of priority:
   # 1. `uStyle`
   # 2. `s`
   # 3. default style for a given geom
+  let uStyle = fg.geom.userStyle
+  let geomKind = fg.geomKind
+  let statKind = fg.geom.statKind # for "smooth" use different style
+
   template fillField(field: untyped): untyped =
     if uStyle.field.isSome:
       result.field = uStyle.field.unsafeGet
     elif s.field.isSome:
       result.field = s.field.unsafeGet
     else:
-      result.field = defaultStyle(geomKind).field
+      result.field = defaultStyle(geomKind, statKind).field
   fillField(color)
   fillField(size)
   fillField(lineType)
@@ -89,7 +102,7 @@ func mergeUserStyle*(s: GgStyle, uStyle: GgStyle, geomKind: GeomKind): Style =
   ## TODO: This will overwrite a user style!!
   if result.color != result.fillColor:
     result.font.color = result.color
-  let defSize = defaultStyle(geomKind).size
+  let defSize = defaultStyle(geomKind, statKind).size
   if result.size != defSize:
     result.font.size = result.size * 2.5
 

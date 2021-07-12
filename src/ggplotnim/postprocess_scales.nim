@@ -5,6 +5,8 @@ import datamancer
 import ginger except Scale
 
 from seqmath import histogram, linspace, round
+from scinim / signals import savitzkyGolayFilter
+from polynumeric import polyFit, eval, initPoly
 
 func getScales(gid: uint16, filledScales: FilledScales,
                yIsNone = false): (Scale, Scale, seq[Scale]) =
@@ -500,6 +502,111 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
+proc callSmoother(geom: Geom,
+                  df: DataFrame,
+                  scale: Scale,
+                  range: ginger.Scale): Tensor[float] =
+  ## Calls the correct smoother for the `SmoothMethodKind` of `geom`.
+  ## Either a Savitzky-Golay filter or a Levenberg-Marquardt fit.
+  # compute the window size in points based on the `span` and scale
+  doAssert geom.statKind == stSmooth, "Needs to be stat 'smooth' to perform smoothing."
+  case geom.methodKind
+  of smSVG:
+    var windowSize = (df.len.float * geom.span).round.int
+    if windowSize mod 2 == 0:
+      inc windowSize
+    if windowSize < 1 or windowSize > df.len:
+      raise newException(ValueError, "The given `span` value of " & $geom.span & " results in a " &
+        "Savitzky-Golay filter window of " & $windowSize & " for input data with length " & $df.len & ".")
+    result = savitzkyGolayFilter(df[getColName(scale), float],
+                                 windowSize, geom.polyOrder)
+  of smPoly:
+    let xPoints = arange(df.len.float)
+    let polyCoeff = polyFit(xPoints, df[getColName(scale), float], geom.polyOrder)
+    # `initPoly` takes the coefficients in reversed order (highest order first)
+    let p = initPoly(polyCoeff.toRawSeq.reversed)
+    result = xPoints.map_inline(p.eval(x))
+  of smLM:
+    raise newException(Exception, "Levenberg-Marquardt fitting is not implemented yet.")
+
+
+proc filledSmoothGeom(df: var DataFrame, g: Geom,
+                      filledScales: FilledScales): FilledGeom =
+  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+                                                             filledScales)
+  let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
+
+  result = FilledGeom(geom: g,
+                      xcol: getColName(x),
+                      ycol: SmoothValsCol,
+                      dcKindX: x.dcKind,
+                      dcKindY: y.dcKind,
+                      geomKind: g.kind)
+  result.xScale = determineDataScale(x, cont, df)
+  result.yScale = determineDataScale(y, cont, df)
+  result.fillOptFields(filledScales, df)
+
+  # w/ all groupings
+  var style: GgStyle
+  for setVal in setDiscCols:
+    applyStyle(style, df, discretes, setDiscCols.mapIt((it, Value(kind: VNull))))
+  if mapDiscCols.len > 0:
+    df = df.group_by(mapDiscCols)
+    var col = newColumn(colFloat)
+    for keys, subDf in groups(df, order = SortOrder.Descending):
+      # now consider settings
+      applyStyle(style, subDf, discretes, keys)
+      let smoothed = g.callSmoother(subDf,
+                                    y, # need the column which contains the data to be smoothed
+                                    range = x.dataScale)
+
+      var yieldDf = subDf
+      yieldDf[SmoothValsCol] = smoothed
+      result.setXAttributes(yieldDf, x)
+      ## TODO: refactor out `yieldDf` mutations? Can be combined with other `filled*Geom`?
+      if g.position == pkStack: # only needed for gkHistogram (hdBars) + gkBar
+        yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
+                              else: col.clone
+      # possibly modify `col` if stacking
+      col.addCountsByPosition(subDf[result.ycol], g.position)
+      if g.position == pkStack and
+         not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
+        # assign stacked column as new y
+        yieldDf[result.ycol] = col
+
+      yieldDf.maybeFilterUnique(result)
+      result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
+                                                             toClone = true)
+    if g.position == pkStack and result.dcKindY == dcContinuous:
+      # only update required if stacking, as we've computed the range beforehand
+      result.yScale = mergeScales(result.yScale, (low: result.yScale.low, high: col.toTensor(float).max))
+    ## NOTE: reverse in case of:
+    ## - gkHistogram
+    ## - pkStack
+    ## - hdOutline
+    ## In this case we have to draw the largest one *first* so that the smaller ones
+    ## are drown *on top of* the largest
+    if g.kind == gkHistogram and g.position == pkStack and g.hdKind == hdOutline:
+      result.yieldData = result.yieldData.reversed
+  else:
+    let smoothed = g.callSmoother(df,
+                                  y, # need the column which contains the data to be smoothed
+                                  range = x.dataScale)
+    var yieldDf = df.shallowCopy()
+    yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
+    yieldDf[SmoothValsCol] = smoothed
+    yieldDf.maybeFilterUnique(result)
+    result.setXAttributes(yieldDf, x)
+    let key = ("", Value(kind: VNull))
+    result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
+
+  case y.dcKind
+  of dcDiscrete: result.yLabelSeq = y.labelSeq
+  else: discard
+  # `numX` == `numY` since `identity` maps `X -> Y`
+  result.numY = result.numX
+
+
 proc callHistogram(geom: Geom,
                    df: DataFrame,
                    scale: Scale,
@@ -750,6 +857,8 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
         filledGeom = filledIdentityGeom(df, g, filledScales)
       of stCount:
         filledGeom = filledCountGeom(df, g, filledScales)
+      of stSmooth:
+        filledGeom = filledSmoothGeom(df, g, filledScales)
       else:
         filledGeom = filledBinGeom(df, g, filledScales)
     of gkHistogram, gkFreqPoly:
@@ -766,6 +875,9 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stCount:
         raise newException(Exception, "For discrete counts of your data use " &
           "`geom_bar` instead!")
+      of stSmooth:
+        raise newException(Exception, "Smoothing statistics not implemented for histogram & frequency polygons. " &
+          "Do you want a `density` plot using `geom_density` instead?")
     of gkBar:
       case g.statKind
       of stIdentity:
@@ -780,6 +892,9 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stBin:
         raise newException(Exception, "For continuous binning of your data use " &
           "`geom_histogram` instead!")
+      of stSmooth:
+        raise newException(Exception, "Smoothing statistics not supported for bar plots. Do you want a " &
+          "`density` plot using `geom_density` instead?")
     if not xScale.isEmpty:
       xScale = mergeScales(xScale, filledGeom.xScale)
       yScale = mergeScales(yScale, filledGeom.yScale)
