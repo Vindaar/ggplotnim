@@ -2294,10 +2294,10 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     let marginH = toRelative(strHeight(AnnotRectMargin, annot.font),
                             length = some(pointHeight(view)))
     let marginW = toRelative(strHeight(AnnotRectMargin, annot.font),
-                            length = some(pointWidth(view)))
+                             length = some(pointWidth(view)))
     let totalHeight = quant(
       toRelative(getStrHeight(annot.text, annot.font),
-                 length = some(view.hView)).val +
+                 length = some(pointHeight(view))).val +
       marginH.pos * 2.0,
       unit = ukRelative)
     # find longest line of annotation to base background on
@@ -2316,7 +2316,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     # left and bottom positions, shifted each by one margin
     let rectX = left - marginW.pos
     let rectY = bottom - totalHeight.toRelative(
-      length = some(view.hView)
+      length = some(pointHeight(view))
     ).val + marginH.pos
     # create background rectangle
     let annotRect = view.initRect(
