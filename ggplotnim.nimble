@@ -14,6 +14,7 @@ requires "ginger == 0.2.11"
 requires "datamancer >= 0.1.7"
 requires "shell >= 0.4.3"
 requires "webview"
+requires "https://github.com/SciNim/scinim >= 0.1.0"
 
 task testCI, "Run standard tests w/o cairo dependency":
   # This runs all tests suitable for a CI environment, which does not provide
