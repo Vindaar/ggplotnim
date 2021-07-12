@@ -1,6 +1,19 @@
 * v0.4.4
 - combining ~stat = "count"~ with a continuous classification now
   yields a runtime exception, explaining that it's not well defined.
+- allow to rotate annotations. Note: if combined with a non
+  transparent background, the background and text are not correctly
+  aligned at the moment (rotation happens around different points for
+  each object).
+- add =scale_x/y_date= to create ticks and labels according to
+  sensible date time values.
+- add =geom_smooth= to smooth noisy data. Two smoothers are currently
+  implemented:
+  - Savitzky-Golay filter (often also called "LOESS" or local
+    regression)
+  - polynomial fit.
+  With Levenberg-Marquardt fits to be implemented soon (possibly via a
+  C dependency on =mpfit= in the beginning though)
 
 * v0.4.3
 - add =ggmulti= helper that takes multiple =ggplot= calls and puts
