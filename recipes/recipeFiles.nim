@@ -62,7 +62,8 @@ const RecipeFiles* = @["rStackedMpgHistogram",
                        "rHistogramOutline",
                        "rRidgeLineGauss",
                        "rRidgeLineGaussBlack",
-                       "rJoyplot"
+                       "rJoyplot",
+                       "rGeomSmooth"
                        ]
 
 proc generateJsonFile*(f: string, toRun = false) =
