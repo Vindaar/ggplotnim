@@ -9,6 +9,7 @@ type
 ## two constants for count columns and previous values
 const CountCol* = "counts_GGPLOTNIM_INTERNAL"
 const PrevValsCol* = "prevVals_GGPLOTNIM_INTERNAL"
+const SmoothValsCol* = "smoothVals_GGPLOTNIM_INTERNAL"
 
 # something like
 # aes: array[AesKind, Option[Scale]]
@@ -50,6 +51,7 @@ type
     stIdentity = "identity"
     stCount = "count"
     stBin = "bin"
+    stSmooth = "smooth"
     # and more to be added...
 
   DiscreteKind* = enum
@@ -224,6 +226,12 @@ type
     hdBars = "bars" ## draws historams by drawing individual bars right next to
                     ## one another
     hdOutline = "line" ## draws histograms by drawing the outline of all bars
+
+  SmoothMethodKind* = enum
+    smSVG = "svg",   ## Savitzky-Golay filter smoothing ("LOESS")
+    smLM = "lm",     ## Perform a Levenberg-Marquardt fit
+    smPoly = "poly"  ## Perform a polynomial fit of given order
+
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
@@ -247,7 +255,10 @@ type
                         # as the range to call `histogram` with
       density*: bool ## if true will compute the density instead of counts in
                      ## each bin
-
+    of stSmooth:
+      span*: float                  ## The window width we use to compute the smoothed output
+      polyOrder*: int               ## Polynomial order to use for SVG filter
+      methodKind*: SmoothMethodKind ## The method to use for smoothing (Savitzky-Golay, LM)
     else: discard
 
   ## `OutsideRangeKind` determines what is done to values, which lay outside of the
@@ -572,7 +583,13 @@ proc `$`*(g: Geom): string =
     result.add "("
     result.add &"numBins: {g.numBins}, "
     result.add &"binWidth: {g.binWidth}, "
-    result.add &"binEdges: {g.binEdges}, "
+    result.add &"binEdges: {g.binEdges}"
+    result.add ")"
+  of stSmooth:
+    result.add "("
+    result.add &"span: {g.span}, "
+    result.add &"polyOrder: {g.polyOrder}, "
+    result.add &"methodKind: {g.methodKind}"
     result.add ")"
   else: discard
   result.add ")"

@@ -447,6 +447,44 @@ proc geom_line*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
+proc geom_smooth*(aes: Aesthetics = aes(),
+                  data = DataFrame(),
+                  color = none[Color](), # color of the line
+                  size = none[float](), # width of the line
+                  lineType = none[LineType](), # type of line
+                  fillColor = none[Color](),
+                  alpha = none[float](),
+                  span = 0.7,
+                  smoother = "svg", ## the smoothing method to use `svg`, `lm`, `poly`
+                  polyOrder = 5,    ## polynomial order to use (no effect for `lm`)
+                  bins = -1,
+                  binWidth = 0.0,
+                  breaks: seq[float] = @[],
+                  binPosition = "none",
+                  position = "identity",
+                  binBy = "full",
+                  density = false
+                 ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let smKind = parseEnum[SmoothMethodKind](smoother)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let bbKind = parseEnum[BinByKind](binBy)
+  let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
+                          fillColor = fillColor, alpha = alpha)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkLine,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stSmooth,
+                methodKind: smKind,
+                span: span,
+                polyOrder: polyOrder)
+
+  assignBinFields(result, stSmooth, bins, binWidth, breaks, bbKind, density)
+
 proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
                      binWidth = 0.0, bins = 30,

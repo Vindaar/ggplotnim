@@ -516,7 +516,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
   let yOutsideRange = if theme.yOutsideRange.isSome: theme.yOutsideRange.unsafeGet else: orkClip
   # needed for histogram
   var
-    style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
+    style = mergeUserStyle(styles[0], fg)
     locView = view # current view, either child of `view` or `view` itself
     viewIdx = 0
     p: tuple[x, y: Value]
@@ -536,7 +536,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
                       else: df.high - 1
     for i in 0 .. lastElement:
       if styles.len > 1:
-        style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
+        style = mergeUserStyle(styles[i], fg)
       # get current x, y values, possibly clipping them
       p = getXY(view, df, xT, yT, fg, i, theme, xOutsideRange,
                 yOutsideRange, xMaybeString = true)
@@ -580,7 +580,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
   case fg.geomKind
   of gkLine, gkFreqPoly, gkHistogram:
     if styles.len == 1:
-      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
+      let style = mergeUserStyle(styles[0], fg)
       # connect line down to axis, if fill color is not transparent
       if style.fillColor != transparent or fg.geomKind == gkFreqPoly:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
@@ -595,7 +595,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
         ## TODO: check `CoordFlipped` so that we know where "down" is!
         linePoints.extendLineToAxis(akX, df, fg)
       for i in 0 ..< styles.high: # last element covered by i + 1
-        let style = mergeUserStyle(styles[i], fg.geom.userStyle, fg.geomKind)
+        let style = mergeUserStyle(styles[i], fg)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
   of gkRaster:
     ## TODO: currently ignores the `linepoints` completely. These would include the
