@@ -443,7 +443,7 @@ suite "Annotations":
         # account the margin we use:
         when not defined(noCairo) and defined(linux):
           check almostEq(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
-          check almostEq(gobj.reOrigin.y.pos, 0.85734, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 0.85176428, epsilon = 1e-4)
         else:
           discard
     # check number of lines
@@ -477,7 +477,7 @@ suite "Annotations":
         # rough position check
         when not defined(noCairo) and defined(linux):
           check almostEq(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
-          check almostEq(gobj.reOrigin.y.pos, 0.35734, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 0.35176428, epsilon = 1e-4)
         check gobj.style.isSome
         check gobj.style.unsafeGet.color == color(1.0, 1.0, 1.0, 1.0)
         check gobj.style.unsafeGet.fillColor == color(1.0, 1.0, 1.0, 1.0)
