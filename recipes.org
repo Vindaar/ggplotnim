@@ -1615,10 +1615,13 @@ ggplot(df, aes("days", "count")) +
 
 [[media/recipes/rGeomSmooth.png]]
 
-As we can see, in this case both algorithms give good results. The
-Savitzky-Golay filter represents more of the variation of the actual
-change in the data, whereas the polynomial fit is just a smooth
-interpolation of the data.
+As we can see, in this case both algorithms give more or less good
+results. The Savitzky-Golay filter represents more of the variation of
+the actual change in the data, whereas the polynomial fit is just a
+smooth interpolation of the data. The latter shows some artifacts in
+places, e.g. on the left is an unphysical bump (c/f Runge's
+phenomenon), which make it less suited for some datasets and
+polynomial order combinations. 
 
 In case of the Savitzky-Golay filter it's possible to keep more of the
 local information by choosing a smaller span size (argument
