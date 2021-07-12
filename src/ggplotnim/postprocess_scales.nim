@@ -502,14 +502,16 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
-proc callSmoother(geom: Geom,
+proc callSmoother(fg: FilledGeom,
                   df: DataFrame,
                   scale: Scale,
                   range: ginger.Scale): Tensor[float] =
   ## Calls the correct smoother for the `SmoothMethodKind` of `geom`.
   ## Either a Savitzky-Golay filter or a Levenberg-Marquardt fit.
   # compute the window size in points based on the `span` and scale
+  let geom = fg.geom
   doAssert geom.statKind == stSmooth, "Needs to be stat 'smooth' to perform smoothing."
+  let data = df[getColName(scale), float]
   case geom.methodKind
   of smSVG:
     var windowSize = (df.len.float * geom.span).round.int
@@ -518,17 +520,17 @@ proc callSmoother(geom: Geom,
     if windowSize < 1 or windowSize > df.len:
       raise newException(ValueError, "The given `span` value of " & $geom.span & " results in a " &
         "Savitzky-Golay filter window of " & $windowSize & " for input data with length " & $df.len & ".")
-    result = savitzkyGolayFilter(df[getColName(scale), float],
+    result = savitzkyGolayFilter(data,
                                  windowSize, geom.polyOrder)
   of smPoly:
-    let xPoints = arange(df.len.float)
-    let polyCoeff = polyFit(xPoints, df[getColName(scale), float], geom.polyOrder)
+    # for a polynomial least squares fit we also need the x values
+    let xData = df[fg.xcol, float]
+    let polyCoeff = polyFit(xData, data, geom.polyOrder)
     # `initPoly` takes the coefficients in reversed order (highest order first)
     let p = initPoly(polyCoeff.toRawSeq.reversed)
-    result = xPoints.map_inline(p.eval(x))
+    result = xData.map_inline(p.eval(x))
   of smLM:
     raise newException(Exception, "Levenberg-Marquardt fitting is not implemented yet.")
-
 
 proc filledSmoothGeom(df: var DataFrame, g: Geom,
                       filledScales: FilledScales): FilledGeom =
@@ -556,11 +558,10 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      let smoothed = g.callSmoother(subDf,
-                                    y, # need the column which contains the data to be smoothed
-                                    range = x.dataScale)
-
       var yieldDf = subDf
+      let smoothed = result.callSmoother(yieldDf,
+                                         y, # need the column which contains the data to be smoothed
+                                         range = x.dataScale)
       yieldDf[SmoothValsCol] = smoothed
       result.setXAttributes(yieldDf, x)
       ## TODO: refactor out `yieldDf` mutations? Can be combined with other `filled*Geom`?
@@ -568,7 +569,7 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
         yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
                               else: col.clone
       # possibly modify `col` if stacking
-      col.addCountsByPosition(subDf[result.ycol], g.position)
+      col.addCountsByPosition(yieldDf[result.ycol], g.position)
       if g.position == pkStack and
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # assign stacked column as new y
@@ -589,10 +590,10 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
     if g.kind == gkHistogram and g.position == pkStack and g.hdKind == hdOutline:
       result.yieldData = result.yieldData.reversed
   else:
-    let smoothed = g.callSmoother(df,
-                                  y, # need the column which contains the data to be smoothed
-                                  range = x.dataScale)
     var yieldDf = df.shallowCopy()
+    let smoothed = result.callSmoother(yieldDf,
+                                       y, # need the column which contains the data to be smoothed
+                                       range = x.dataScale)
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     yieldDf[SmoothValsCol] = smoothed
     yieldDf.maybeFilterUnique(result)
