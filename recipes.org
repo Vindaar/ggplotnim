@@ -1628,6 +1628,40 @@ local information by choosing a smaller span size (argument
 =span=). That results in a more wiggly result, which may be preferable
 in some use cases.
 
+*** Using =geom_smooth= to perform a linear fit
+
+=geom_smooth= currently provides two ways to "smooth" data. Either
+using a Savitzky-Golay filter (to smooth using a convolution in a
+fixed window with specific polynomial coefficients) and regular
+polynomial fits to the data.
+
+One special case that is commonly used of polynomial fits, is fitting
+a polynomial of order 1. Or in other words, fitting a line.
+
+Let's showcase this by fitting independent lines to multiple classes
+of a dataset. Namely, we will take our classy =mpg= dataset and plot
+the engine displacement =displ= against the highway fuel efficiency
+=hwy=. In addition we will classify these by color based on the class
+of car =class= each car model is in.
+
+Then we'll fit a linear model to all classes that tells us the trend
+in engine displacement vs. fuel economy for different classes of cars.
+
+All we need to do to accomplish this, is add one =geom_smooth= layer,
+in which we use the ="poly"= smoother using ~polyOrder = 1~ (a line):
+#+begin_src nim :tangle recipes/rLinearFit.nim
+import ggplotnim
+let df = readCsv("data/mpg.csv")
+ggplot(df, aes("displ", "hwy", color = "class")) +
+  geom_point() +
+  geom_smooth(smoother = "poly", polyOrder = 1) +
+  ggsave("media/recipes/rLinearFit.png")
+#+end_src
+
+This gives us the following pretty plot:
+
+[[media/recipes/rLinearFit.png]]
+
 *** Ridgeline plots
 
 Ridgeline plots (sometimes also called [[https://clauswilke.com/blog/2017/09/15/goodbye-joyplots/][joyplots]], referencing the album
