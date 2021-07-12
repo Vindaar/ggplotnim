@@ -1573,6 +1573,58 @@ ggplot(df, aes("cty", color = "class")) +
 
 [[media/recipes/rHistogramOutline.png]]
 
+
+*** Smoothing noisy data with =geom_smooth=
+
+In case of dealing with noisy data, one might want to see the trend of
+the data =geom_smooth= is the tool for the job.
+
+It provides (currently) two different smoothing methods to apply to
+data.
+
+1. A Savitzky-Golay filter (often called "LOESS" or local regression
+   in certain bubbles)
+2. A polynomial fit of arbitrary order N.
+
+(The latter can of course be used to perform a linear fit to the
+data)
+
+*Note*: both the Savitzky-Golay filter use LAPACK to solve a least
+squares problem, which means you need a working LAPACK installation.
+
+Let us look at the commits per day to all Nimble repositories
+(thanks to @haxscramper for the dataset!).
+
+In this example we leave the x labels as a unix timestamp. Combine it
+with the plot below ([[Adjusting tick labels according to custom date
+time information]]) to see how to improve on that.
+
+#+begin_src nim :tangle recipes/rGeomSmooth.nim
+import ggplotnim
+let df = readCsv("data/commits_nimble.csv")
+ggplot(df, aes("days", "count")) +
+  geom_line() + # plot the raw data as a line
+  geom_smooth() + # draw a default smoother. This is a Saitzky-Golay filter of
+                  # order 5 and a window `span` of 70%
+  geom_smooth(smoother = "poly", # add a polynomial smoother using the full range
+              polyOrder = 7,     # of order 7
+              color = some(parseHex("FF0000")), # and red line
+              size = some(1.0)) + # that is not as thick
+  ggsave("media/recipes/rGeomSmooth.png")
+#+end_src
+
+[[media/recipes/rGeomSmooth.png]]
+
+As we can see, in this case both algorithms give good results. The
+Savitzky-Golay filter represents more of the variation of the actual
+change in the data, whereas the polynomial fit is just a smooth
+interpolation of the data.
+
+In case of the Savitzky-Golay filter it's possible to keep more of the
+local information by choosing a smaller span size (argument
+=span=). That results in a more wiggly result, which may be preferable
+in some use cases.
+
 *** Ridgeline plots
 
 Ridgeline plots (sometimes also called [[https://clauswilke.com/blog/2017/09/15/goodbye-joyplots/][joyplots]], referencing the album
