@@ -1,4 +1,4 @@
-import options, tables, hashes, macros, strformat
+import options, tables, hashes, macros, strformat, times
 import chroma
 import datamancer
 import ginger except Scale
@@ -94,6 +94,15 @@ type
   DiscreteFormat* = proc(x: Value): string
   ContinuousFormat* = proc(x: float): string
 
+  DateScale* = object
+    name*: string
+    axKind*: AxisKind  ## which axis does it belong to?
+    isTimestamp*: bool ## is it a timestamp?
+    parseDate*: proc(s: string): DateTime ## possible parser for string columns
+    #formatDate*: proc(dt: DateTime): string # formatter for labels, required
+    formatString*: string ## the string to format dates with
+    dateSpacing*: Duration ## required duration between two ticks
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -118,6 +127,7 @@ type
       trans*: ScaleTransform
       invTrans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
+      dateScale*: Option[DateScale] # an optional date scale associated to this axis
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
@@ -599,6 +609,7 @@ proc `$`*(s: Scale): string =
     result.add &", reversed: {s.reversed}"
     result.add &", trans.isNil?: {s.trans.isNil}"
     result.add &", secondaryAxis: {s.secondaryAxis}"
+    result.add &", dateScale: {s.dateScale}"
   else: discard
   result.add &", hasDiscreteness: {s.hasDiscreteness}"
   result.add &", dcKind: {s.dcKind}"

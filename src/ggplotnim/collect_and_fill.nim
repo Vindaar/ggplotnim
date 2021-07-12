@@ -407,6 +407,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
                                axKindOpt, transOpt, invTransOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
+      # assign the `dateScale` if any
+      filled.dateScale = s.dateScale
       # `dcKind` is already populated and won't be deduced
       # so that `s.dcKind` and `isDiscrete` are consistent
       if s.dcKind == dcDiscrete and isDiscrete:

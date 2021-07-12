@@ -4,7 +4,7 @@ import datamancer
 import ginger except Scale
 
 import seqmath
-import math, sequtils
+import math, sequtils, times
 
 proc smallestPow(invTrans: ScaleTransform, x: float): float =
   doAssert x > 0.0
@@ -275,6 +275,67 @@ proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D
   of akX: result = result.toRelative(length = some(pointHeight(view)))
   of akY: result = result.toRelative(length = some(pointWidth(view)))
 
+proc removeTicksWithinSpacing(ticks: var seq[float], tickLabels: var seq[string],
+                              dateSpacing: Duration) =
+  ## Remove all ticks that are not `dateSpacing` away from the last tick, so that we have
+  ## ticks in a well spaced distance.
+  # TODO: we could alternatively just use the start date to compute the next one
+  # using DateTime + Duration?
+  doAssert ticks.len > 0
+  var curDur = ticks[0].int.fromUnix.utc()
+  var i = 0
+  while i < ticks.len:
+    let tpU = ticks[i].int.fromUnix.utc()
+    if tpU - curDur > dateSpacing:
+      # keep this
+      curDur = tpU
+      inc i
+    else:
+      # remove this index
+      ticks.delete(i)
+      tickLabels.delete(i)
+
+proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: Scale,
+                           dataScale: ginger.Scale,
+                           theme: Theme,
+                           hideTickLabels = false,
+                           margin = none[Coord1D]()): seq[GraphObject] =
+  ## Handles generation of ticks that respect the `DateScale` object. Namely parses the data
+  ## in the given axis according to `isTimestamp` or `parseDate` and then leaves only those
+  ## ticks within `dateSpacing` according to `formatString`.
+  var rotate: Option[float]
+  var alignTo: Option[TextAlignKind]
+  case axKind
+  of akX:
+    rotate = theme.xTicksRotate
+    alignTo = theme.xTicksTextAlign
+  of akY:
+    rotate = theme.yTicksRotate
+    alignTo = theme.yTicksTextAlign
+  # get data for column
+  let dateScale = scale.dateScale.get
+  var data: seq[DateTime]
+  if dateScale.isTimestamp:
+    data = p.data[getColName(scale), int].map_inline(x.fromUnix().utc()).toRawSeq
+  else:
+    data = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toRawSeq
+  # using date time data, compute the ticks using `formatString`
+  var tickLabels = data.mapIt(it.format(dateScale.formatString)).deduplicate
+  # unique values are now our ticks
+  # compute their location
+  var tickPos = tickLabels.mapIt(it.parse(dateScale.formatString).toTime.toUnixFloat)
+  # remove those that are too close
+  removeTicksWithinSpacing(tickPos, tickLabels, dateScale.dateSpacing)
+  let tickCoord = tickPos.toCoord1D(axKind, scale.dataScale)
+  let (tickObjs, labObjs) = view.tickLabels(tickCoord, tickLabels, axKind, isSecondary = false,
+                                            rotate = rotate,
+                                            alignToOverride = alignTo,
+                                            font = theme.tickLabelFont,
+                                            margin = margin)
+  if not hideTickLabels:
+    view.addObj concat(tickObjs, labObjs)
+  result = tickObjs
+
 proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                   axKind: AxisKind, theme: Theme,
                   hideTickLabels = false,
@@ -317,15 +378,19 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             format = format)
     of dcContinuous:
       let dataScale = view.getCorrectDataScale(axKind)
-      result = view.handleContinuousTicks(p, axKind, dataScale,
-                                          scale.scKind,
-                                          numTicks,
-                                          trans = scale.trans,
-                                          invTrans = scale.invTrans,
-                                          theme = theme,
-                                          hideTickLabels = hideTickLabels,
-                                          margin = marginOpt,
-                                          format = scale.formatContinuousLabel)
+      if scale.dateScale.isNone:
+        result = view.handleContinuousTicks(p, axKind, dataScale,
+                                            scale.scKind,
+                                            numTicks,
+                                            trans = scale.trans,
+                                            invTrans = scale.invTrans,
+                                            theme = theme,
+                                            hideTickLabels = hideTickLabels,
+                                            margin = marginOpt,
+                                            format = scale.formatContinuousLabel)
+      else:
+        result = view.handleDateScaleTicks(p, axKind, scale, dataScale, theme,
+                                           hideTickLabels, marginOpt)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         # we discard the result, because we only use it to generate the grid lines. Those
