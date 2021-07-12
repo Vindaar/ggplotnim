@@ -626,7 +626,7 @@ let font = font(12.0, family = "monospace")
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
   geom_line() +
   # either for instance in relative coordinates of the plot viewport
-  # Values smaller 0.0 or larger 1.0 work too. Puts the annotation outside 
+  # Values smaller 0.0 or larger 1.0 work too. Puts the annotation outside
   # of the plot
   annotate(annot,
            left = 0.5,
