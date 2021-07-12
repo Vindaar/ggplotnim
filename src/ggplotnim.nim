@@ -2292,7 +2292,8 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     ## TODO: Fix ginger calculations / figure out if / why cairo text extents
     # are bad in width direction
     let marginH = toRelative(strHeight(AnnotRectMargin, annot.font),
-                            length = some(pointHeight(view)))
+                             length = some(pointHeight(view)))
+    # use same ``amount`` of space correctly converted to relative coords
     let marginW = toRelative(strHeight(AnnotRectMargin, annot.font),
                              length = some(pointWidth(view)))
     let totalHeight = quant(
