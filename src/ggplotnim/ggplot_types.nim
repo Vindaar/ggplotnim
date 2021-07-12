@@ -331,6 +331,7 @@ type
     y*: Option[float]
     text*: string
     font*: Font
+    rotate*: Option[float]
     backgroundColor*: Color
 
   GgPlot* = object
