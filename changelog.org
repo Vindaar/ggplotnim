@@ -14,7 +14,7 @@
   - polynomial fit.
   With Levenberg-Marquardt fits to be implemented soon (possibly via a
   C dependency on =mpfit= in the beginning though)
-
+- add =geom_smooth= recipe =rGeomSmooth.nim=
 * v0.4.3
 - add =ggmulti= helper that takes multiple =ggplot= calls and puts
   them onto a grid of plots (not as a facet etc. but simply multiple,
