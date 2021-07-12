@@ -1447,6 +1447,7 @@ proc annotate*(text: string,
                x = NaN,
                y = NaN,
                font = font(12.0),
+               rotate = 0.0,
                backgroundColor = white): Annotation =
   ## creates an annotation of `text` with a background
   ## `backgroundColor` (by default white) using the given
@@ -1462,12 +1463,15 @@ proc annotate*(text: string,
   ##   well defined, thus we fall back to relative scaling on that axis!
   ## In principle you can mix and match left/x and bottom/y! If both are given
   ## the former will be prioritized.
+  ##
+  ## NOTE: using `rotate` together with a background is currently broken.
   result = Annotation(left: left.orNone,
                       bottom: bottom.orNone,
                       x: x.orNone,
                       y: y.orNone,
                       text: text,
                       font: font,
+                      rotate: some(rotate),
                       backgroundColor: backgroundColor)
   if result.x.isNone and result.left.isNone or
      result.y.isNone and result.bottom.isNone:
@@ -2283,6 +2287,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       rectWidth,
       totalHeight,
       style = some(rectStyle),
+      rotate = annot.rotate,
       name = "annotationBackground")
     # create actual annotation
     let annotText = view.initMultiLineText(
@@ -2290,6 +2295,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       text = annot.text,
       textKind = goText,
       alignKind = taLeft,
+      rotate = annot.rotate,
       fontOpt = some(annot.font))
     view.addObj concat(@[annotRect], annotText)
 
