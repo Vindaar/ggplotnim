@@ -4,7 +4,7 @@ import datamancer
 import ginger except Scale
 
 import seqmath
-import math, sequtils, times
+import math, sequtils, times, sets
 
 proc smallestPow(invTrans: ScaleTransform, x: float): float =
   doAssert x > 0.0
@@ -270,30 +270,50 @@ proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D
   ## going to `appear` to be at the same distant no matter the facetting or size of the
   ## resulting plot
   ## Using `M` for a default height
+  # TODO: possibly add `bearing` or `advance` to position? Need to adjust position at which
+  # text is printed based on it I think?
   result = Coord1D(pos: margin, kind: ukStrHeight, text: "M", font: font)
   case axKind
   of akX: result = result.toRelative(length = some(pointHeight(view)))
   of akY: result = result.toRelative(length = some(pointWidth(view)))
+
+proc withoutIdxs[T](s: seq[T], idxs: HashSet[int]): seq[T] =
+  ## Simple helper to return a sequence that does not contain the indices
+  ## in `idxs`. This is easier to maintain than a mutating `while` loop with
+  ## a bunch of new index computions (as indices change after each removal).
+  result = newSeqOfCap[T](idxs.card)
+  for i, x in s:
+    if i notin idxs:
+      result.add x
 
 proc removeTicksWithinSpacing(ticks: var seq[float], tickLabels: var seq[string],
                               dateSpacing: Duration) =
   ## Remove all ticks that are not `dateSpacing` away from the last tick, so that we have
   ## ticks in a well spaced distance.
   # TODO: we could alternatively just use the start date to compute the next one
-  # using DateTime + Duration?
+  # using DateTime + Duration? Note: I think that would be worse, because the
+  # string formatting is a lossy "floor" like computation, e.g. adding 52 weeks
+  # results in 11 months.
   doAssert ticks.len > 0
   var curDur = ticks[0].int.fromUnix.utc()
-  var i = 0
-  while i < ticks.len:
+  var lastDist: Duration
+  var idxsToDelete = initHashSet[int]()
+  # 1. pass over all ticks and compute indices to remove
+  for i in 1 ..< ticks.len:         # start at index 1, 0 stored in `curDur`
     let tpU = ticks[i].int.fromUnix.utc()
-    if tpU - curDur > dateSpacing:
-      # keep this
-      curDur = tpU
-      inc i
-    else:
-      # remove this index
-      ticks.delete(i)
-      tickLabels.delete(i)
+    if tpU - curDur >= dateSpacing: # cross over point of dateSpacing
+      # check whether the last one or this one was closer to `dateSpacing`
+      if lastDist < abs((tpU - curDur) - dateSpacing): # keep last one
+        idxsToDelete.excl i - 1 # ``exclude`` the last one as it was included last iter!
+                                # else nothing to do, keep current one
+        idxsToDelete.incl i     # but remove `i`
+        curDur = ticks[i-1].int.fromUnix.utc() # new start last index
+      else: curDur = tpU        # new start point this index
+    else: idxsToDelete.incl i   # else delete index
+    lastDist = abs((tpU - curDur) - dateSpacing)
+  # 2. remove all indices that are marked as delete
+  ticks = ticks.withoutIdxs(idxsToDelete)
+  tickLabels = tickLabels.withoutIdxs(idxsToDelete)
 
 proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: Scale,
                            dataScale: ginger.Scale,
