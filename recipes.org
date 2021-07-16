@@ -1628,6 +1628,76 @@ local information by choosing a smaller span size (argument
 =span=). That results in a more wiggly result, which may be preferable
 in some use cases.
 
+*** Adjusting tick labels according to custom date time information
+
+In the above example [[Smoothing noisy data with =geom_smooth=]] the x
+axis contains unix timestamps as the date format. This is often enough
+for quickly checking things, but once a plot should be presentable to
+others or for a better understanding of specific dates (as unix
+timestamps are hard to assign to actual calendar dates), assigning
+labels that are human readable is very useful.
+
+Starting from =ggplotnim= version =v0.4.4= one can achieve this with
+the added =scale_x/y_date=, which assigns a date scale to either the =x=
+or =y= axis.
+
+It requires 3 of 4 arguments:
+- =isTimestamp: bool=: tells the procedure whether the associated axis (=x=
+  or =y=) contains time data as a unix timestamp (as integer or
+  float).
+- =parseDate=: if =isTimestamp= is =false=, we require a procedure of
+  signature:
+  #+begin_src nim
+  proc(x: string): DateTime
+  #+end_src
+  which simply performs the necessary conversion of a string storing
+  date time information to a =DateTime= object (we don't use a format
+  string here as it is more restrictive in what is possible here. It
+  may be added as an additional argument in the future though).
+- =formatString: string=: The format string to use to convert a =DateTime=
+  object to a tick label. This defines what the tick label will look
+  like later.
+As these 3 arguments alone are not enough to determine *where* and
+*how many* ticks to place, a last argument is required:
+- =dateSpacing: Duration=: It simply gives a =Duration= object that
+  stores the duration required between two ticks. Be careful when
+  dealing with multiple years, as =Duration= does not support years
+  and a full year is not exactly 52 weeks, but 52 weeks + 1 day { when
+  ignoring leap years etc. }).
+
+Let's use this information to turn the above plot into one with a
+sensible x axis:
+
+#+begin_src nim :tangle recipes/rScaleXDate.nim
+import ggplotnim, times
+var df = readCsv("data/commits_nimble.csv")
+ggplot(df, aes("days", "count")) +
+  geom_line() +
+  scale_x_date(isTimestamp = true,                       # x is unix timestamp
+               formatString = "MMM-yyyy",                # format as 'Jan-1970'
+               dateSpacing = initDuration(days = 1,      # one year is roughly
+                                          weeks = 52)) + # 365.25 days, but we use 365
+  geom_smooth(span = 0.64) +
+  ylab("Commit count") + xlab("Date") +
+  ggtitle("Daily commit counts in all nimble repositories") +
+  ggsave("media/recipes/rScaleXDate.png")
+#+end_src
+
+As we can see, we now get nice yearly labels of the month. The label
+is placed exactly at the start of the month of that year!
+
+*Note*: In principle using ~weeks = 52~ is enough, as we internally
+first filter to all unique tick labels that are possible for the
+format string. Then we check the distance between the last acceptable
+tick and next ones to find that which is closest to being
+=dateSpacing= away from it. The first tick label is computed from the
+date range on the axis. With 52 weeks this would already always fall
+to the next exact year, as we only keep month + year information in
+the format string.
+
+[[media/recipes/rScaleXData.png]]
+
+  
 *** Using =geom_smooth= to perform a linear fit
 
 =geom_smooth= currently provides two ways to "smooth" data. Either
