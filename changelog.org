@@ -6,7 +6,7 @@
   aligned at the moment (rotation happens around different points for
   each object).
 - add =scale_x/y_date= to create ticks and labels according to
-  sensible date time values.
+  sensible date time values. 
 - add =geom_smooth= to smooth noisy data. Two smoothers are currently
   implemented:
   - Savitzky-Golay filter (often also called "LOESS" or local
@@ -15,6 +15,10 @@
   With Levenberg-Marquardt fits to be implemented soon (possibly via a
   C dependency on =mpfit= in the beginning though)
 - add =geom_smooth= recipe =rGeomSmooth.nim=
+- add =geom_smooth= recipe =rLinearFit.nim= showcasing how to use
+  polynomial smoothing of order 1 for linear fits to the data.
+- add recipe showing how to create date time based custom ticks and
+  labels =rScaleXDate.nim=.
 * v0.4.3
 - add =ggmulti= helper that takes multiple =ggplot= calls and puts
   them onto a grid of plots (not as a facet etc. but simply multiple,
