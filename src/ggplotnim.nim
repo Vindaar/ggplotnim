@@ -1,7 +1,7 @@
 ## .. include:: ./docs/ggplotnim_autogen.rst
 
 import sequtils, tables, sets, algorithm, strutils, macros
-import parsecsv, streams, hashes, sugar, math
+import parsecsv, streams, hashes, sugar, math, times
 from os import createDir, splitFile
 
 when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
@@ -447,6 +447,44 @@ proc geom_line*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
+proc geom_smooth*(aes: Aesthetics = aes(),
+                  data = DataFrame(),
+                  color = none[Color](), # color of the line
+                  size = none[float](), # width of the line
+                  lineType = none[LineType](), # type of line
+                  fillColor = none[Color](),
+                  alpha = none[float](),
+                  span = 0.7,
+                  smoother = "svg", ## the smoothing method to use `svg`, `lm`, `poly`
+                  polyOrder = 5,    ## polynomial order to use (no effect for `lm`)
+                  bins = -1,
+                  binWidth = 0.0,
+                  breaks: seq[float] = @[],
+                  binPosition = "none",
+                  position = "identity",
+                  binBy = "full",
+                  density = false
+                 ): Geom =
+  let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
+  let smKind = parseEnum[SmoothMethodKind](smoother)
+  let bpKind = parseEnum[BinPositionKind](binPosition)
+  let bbKind = parseEnum[BinByKind](binBy)
+  let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
+                          fillColor = fillColor, alpha = alpha)
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkLine,
+                userStyle: style,
+                aes: aes.fillIds({gid}),
+                binPosition: bpKind,
+                statKind: stSmooth,
+                methodKind: smKind,
+                span: span,
+                polyOrder: polyOrder)
+
+  assignBinFields(result, stSmooth, bins, binWidth, breaks, bbKind, density)
+
 proc geom_histogram*(aes: Aesthetics = aes(),
                      data = DataFrame(),
                      binWidth = 0.0, bins = 30,
@@ -821,6 +859,68 @@ proc scale_x_continuous*(name: string = "",
                    hasDiscreteness: true,
                    secondaryAxis: secAxisOpt,
                    formatContinuousLabel: labels)
+
+proc scale_x_date*(name: string = "",
+                   isTimestamp = false, # if true, `x` column is assumed to be a unix timestamp
+                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
+                   formatString: string = "yyyy-MM-dd",
+                   dateSpacing: Duration = initDuration(days = 1)
+                  ): DateScale =
+  ## Creates a continuous `x` axis that generates labels according to the desired date time
+  ## information.
+  ##
+  ## `isTimestamp` means the corresponding `x` column of the input data is a unix timestamp,
+  ## either as an integer or a floating value.
+  ##
+  ## `parseDate` is required if the data is ``not`` a timestamp. It needs to handle the parsing
+  ## of the stored string data in the `x` column to convert it to `DateTime` objects.
+  ##
+  ## `dateSpacing` is the desired distance between each tick. It is used as a reference
+  ## taking into account the given `formatString`. Of all possible ticks allowed by
+  ## `formatString` those ticks are used that have the closest distance to `dateSpacing`,
+  ## starting with the first tick in the date range that can be represented by `formatString`.
+  # NOTE: because we add this to every linear scale, we can use this in post processing to
+  # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
+  if not isTimestamp and parseDate.isNil:
+    raise newException(ValueError, "A `DateScale` needs either `isTimestamp = true` " &
+      "or a `parseDate` procedure.")
+  result = DateScale(name: name,
+                     axKind: akX,
+                     isTimestamp: isTimestamp,
+                     parseDate: parseDate,
+                     formatString: formatString,
+                     dateSpacing: dateSpacing)
+
+proc scale_y_date*(name: string = "",
+                   isTimestamp = false, # if true, `y` column is assumed to be a unix timestamp
+                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
+                   formatString: string = "yyyy-MM-dd",
+                   dateSpacing: Duration = initDuration(days = 1)
+                  ): DateScale =
+  ## Creates a continuous `y` axis that generates labels according to the desired date time
+  ## information.
+  ##
+  ## `isTimestamp` means the corresponding `y` column of the input data is a unix timestamp,
+  ## either as an integer or a floating value.
+  ##
+  ## `parseDate` is required if the data is ``not`` a timestamp. It needs to handle the parsing
+  ## of the stored string data in the `y` column to convert it to `DateTime` objects.
+  ##
+  ## `dateSpacing` is the desired distance between each tick. It is used as a reference
+  ## taking into account the given `formatString`. Of all possible ticks allowed by
+  ## `formatString` those ticks are used that have the closest distance to `dateSpacing`,
+  ## starting with the first tick in the date range that can be represented by `formatString`.
+  # NOTE: because we add this to every linear scale, we can use this in post processing to
+  # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
+  if not isTimestamp and parseDate.isNil:
+    raise newException(ValueError, "A `DateScale` needs either `isTimestamp = true` " &
+      "or a `parseDate` procedure.")
+  result = DateScale(name: name,
+                     axKind: akY,
+                     isTimestamp: isTimestamp,
+                     parseDate: parseDate,
+                     formatString: formatString,
+                     dateSpacing: dateSpacing)
 
 proc scale_y_continuous*(name: string = "",
                          secAxis: SecondaryAxis = sec_axis(),
@@ -1407,6 +1507,7 @@ proc annotate*(text: string,
                x = NaN,
                y = NaN,
                font = font(12.0),
+               rotate = 0.0,
                backgroundColor = white): Annotation =
   ## creates an annotation of `text` with a background
   ## `backgroundColor` (by default white) using the given
@@ -1422,12 +1523,15 @@ proc annotate*(text: string,
   ##   well defined, thus we fall back to relative scaling on that axis!
   ## In principle you can mix and match left/x and bottom/y! If both are given
   ## the former will be prioritized.
+  ##
+  ## NOTE: using `rotate` together with a background is currently broken.
   result = Annotation(left: left.orNone,
                       bottom: bottom.orNone,
                       x: x.orNone,
                       y: y.orNone,
                       text: text,
                       font: font,
+                      rotate: some(rotate),
                       backgroundColor: backgroundColor)
   if result.x.isNone and result.left.isNone or
      result.y.isNone and result.bottom.isNone:
@@ -1563,6 +1667,32 @@ proc `+`*(p: GgPlot, scale: Scale): GgPlot =
   result.aes = applyScale(result.aes, scale)
   for p in mitems(result.geoms):
     p.aes = applyScale(p.aes, scale)
+
+proc `+`*(p: GgPlot, dateScale: DateScale): GgPlot =
+  ## Add the given `DateScale` to the plot, which means filling the optional
+  ## `dateScale` field
+  template clone(newScale, oldScale: untyped): untyped =
+    when defined(gcDestructors):
+      newScale =  new Scale
+      newScale[] = oldScale[]
+    else:
+      `newScale` = deepCopy(oldScale)
+
+  template assignCopyScale(arg, field, ds: untyped): untyped =
+    if arg.field.isSome:
+      var mscale: Scale
+      clone(mscale, arg.field.get)
+      mscale.dateScale = some(ds)
+      arg.field = some(mscale)
+
+  result = p
+  case dateScale.axKind
+  of akX: assignCopyScale(result.aes, x, dateScale)
+  of akY: assignCopyScale(result.aes, y, dateScale)
+  for g in mitems(result.geoms):
+    case dateScale.axKind
+    of akX: assignCopyScale(g.aes, x, dateScale)
+    of akY: assignCopyScale(g.aes, y, dateScale)
 
 template anyScale(arg: untyped): untyped =
   if arg.main.isSome or arg.more.len > 0:
@@ -2184,12 +2314,13 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     ## TODO: Fix ginger calculations / figure out if / why cairo text extents
     # are bad in width direction
     let marginH = toRelative(strHeight(AnnotRectMargin, annot.font),
-                            length = some(pointHeight(view)))
+                             length = some(pointHeight(view)))
+    # use same ``amount`` of space correctly converted to relative coords
     let marginW = toRelative(strHeight(AnnotRectMargin, annot.font),
-                            length = some(pointWidth(view)))
+                             length = some(pointWidth(view)))
     let totalHeight = quant(
       toRelative(getStrHeight(annot.text, annot.font),
-                 length = some(view.hView)).val +
+                 length = some(pointHeight(view))).val +
       marginH.pos * 2.0,
       unit = ukRelative)
     # find longest line of annotation to base background on
@@ -2208,7 +2339,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     # left and bottom positions, shifted each by one margin
     let rectX = left - marginW.pos
     let rectY = bottom - totalHeight.toRelative(
-      length = some(view.hView)
+      length = some(pointHeight(view))
     ).val + marginH.pos
     # create background rectangle
     let annotRect = view.initRect(
@@ -2217,6 +2348,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       rectWidth,
       totalHeight,
       style = some(rectStyle),
+      rotate = annot.rotate,
       name = "annotationBackground")
     # create actual annotation
     let annotText = view.initMultiLineText(
@@ -2224,6 +2356,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       text = annot.text,
       textKind = goText,
       alignKind = taLeft,
+      rotate = annot.rotate,
       fontOpt = some(annot.font))
     view.addObj concat(@[annotRect], annotText)
 

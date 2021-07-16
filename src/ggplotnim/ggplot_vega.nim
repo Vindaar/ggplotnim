@@ -193,7 +193,7 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
     var mark: JsonNode
     let scales = collectScales(filledScales, fg.geom)
     for (lab, baseStyle, styles, subDf) in enumerateData(fg):
-      let style = mergeUserStyle(styles[0], fg.geom.userStyle, fg.geomKind)
+      let style = mergeUserStyle(styles[0], fg)
       ## TODO: only add style if there is only one label (i.e. no discrete classification)
       mark = genMark(fg, style)
 

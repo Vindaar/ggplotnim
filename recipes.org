@@ -626,7 +626,7 @@ let font = font(12.0, family = "monospace")
 ggplot(dfNew, aes("in_s", "V", color = "Channel")) +
   geom_line() +
   # either for instance in relative coordinates of the plot viewport
-  # Values smaller 0.0 or larger 1.0 work too. Puts the annotation outside 
+  # Values smaller 0.0 or larger 1.0 work too. Puts the annotation outside
   # of the plot
   annotate(annot,
            left = 0.5,
@@ -1318,7 +1318,13 @@ the encompassing data range of all subplots. Especially thanks to
 having the =hits= property in there, this would lead to useless
 binning.
 
-*** Custom tick labels via callback for dates 
+*** Custom tick labels via callback for dates
+
+*NOTE*: Starting from version =v0.4.4= this approach is not
+recommended to be used for *dates*, but only to customize other
+numerical data. In this approach the actual *placement* of the ticks
+does not change, only the *label* does. See [[Adjusting tick labels
+according to custom date time information]] below for the best approach now.
 
 Starting from version =v0.3.7= (thanks to @cooldome !) it's possible
 to hand a callback to define custom tick labels. 
@@ -1566,6 +1572,165 @@ ggplot(df, aes("cty", color = "class")) +
 #+end_src
 
 [[media/recipes/rHistogramOutline.png]]
+
+
+*** Smoothing noisy data with =geom_smooth=
+
+In case of dealing with noisy data, one might want to see the trend of
+the data =geom_smooth= is the tool for the job.
+
+It provides (currently) two different smoothing methods to apply to
+data.
+
+1. A Savitzky-Golay filter (often called "LOESS" or local regression
+   in certain bubbles)
+2. A polynomial fit of arbitrary order N.
+
+(The latter can of course be used to perform a linear fit to the
+data)
+
+*Note*: both the Savitzky-Golay filter use LAPACK to solve a least
+squares problem, which means you need a working LAPACK installation.
+
+Let us look at the commits per day to all Nimble repositories
+(thanks to @haxscramper for the dataset!).
+
+In this example we leave the x labels as a unix timestamp. Combine it
+with the plot below ([[Adjusting tick labels according to custom date
+time information]]) to see how to improve on that.
+
+#+begin_src nim :tangle recipes/rGeomSmooth.nim
+import ggplotnim
+let df = readCsv("data/commits_nimble.csv")
+ggplot(df, aes("days", "count")) +
+  geom_line() + # plot the raw data as a line
+  geom_smooth() + # draw a default smoother. This is a Saitzky-Golay filter of
+                  # order 5 and a window `span` of 70%
+  geom_smooth(smoother = "poly", # add a polynomial smoother using the full range
+              polyOrder = 7,     # of order 7
+              color = some(parseHex("FF0000")), # and red line
+              size = some(1.0)) + # that is not as thick
+  ggsave("media/recipes/rGeomSmooth.png")
+#+end_src
+
+[[media/recipes/rGeomSmooth.png]]
+
+As we can see, in this case both algorithms give more or less good
+results. The Savitzky-Golay filter represents more of the variation of
+the actual change in the data, whereas the polynomial fit is just a
+smooth interpolation of the data. The latter shows some artifacts in
+places, e.g. on the left is an unphysical bump (c/f Runge's
+phenomenon), which make it less suited for some datasets and
+polynomial order combinations. 
+
+In case of the Savitzky-Golay filter it's possible to keep more of the
+local information by choosing a smaller span size (argument
+=span=). That results in a more wiggly result, which may be preferable
+in some use cases.
+
+*** Adjusting tick labels according to custom date time information
+
+In the above example [[Smoothing noisy data with =geom_smooth=]] the x
+axis contains unix timestamps as the date format. This is often enough
+for quickly checking things, but once a plot should be presentable to
+others or for a better understanding of specific dates (as unix
+timestamps are hard to assign to actual calendar dates), assigning
+labels that are human readable is very useful.
+
+Starting from =ggplotnim= version =v0.4.4= one can achieve this with
+the added =scale_x/y_date=, which assigns a date scale to either the =x=
+or =y= axis.
+
+It requires 3 of 4 arguments:
+- =isTimestamp: bool=: tells the procedure whether the associated axis (=x=
+  or =y=) contains time data as a unix timestamp (as integer or
+  float).
+- =parseDate=: if =isTimestamp= is =false=, we require a procedure of
+  signature:
+  #+begin_src nim
+  proc(x: string): DateTime
+  #+end_src
+  which simply performs the necessary conversion of a string storing
+  date time information to a =DateTime= object (we don't use a format
+  string here as it is more restrictive in what is possible here. It
+  may be added as an additional argument in the future though).
+- =formatString: string=: The format string to use to convert a =DateTime=
+  object to a tick label. This defines what the tick label will look
+  like later.
+As these 3 arguments alone are not enough to determine *where* and
+*how many* ticks to place, a last argument is required:
+- =dateSpacing: Duration=: It simply gives a =Duration= object that
+  stores the duration required between two ticks. Be careful when
+  dealing with multiple years, as =Duration= does not support years
+  and a full year is not exactly 52 weeks, but 52 weeks + 1 day { when
+  ignoring leap years etc. }).
+
+Let's use this information to turn the above plot into one with a
+sensible x axis:
+
+#+begin_src nim :tangle recipes/rScaleXDate.nim
+import ggplotnim, times
+var df = readCsv("data/commits_nimble.csv")
+ggplot(df, aes("days", "count")) +
+  geom_line() +
+  scale_x_date(isTimestamp = true,                       # x is unix timestamp
+               formatString = "MMM-yyyy",                # format as 'Jan-1970'
+               dateSpacing = initDuration(days = 1,      # one year is roughly
+                                          weeks = 52)) + # 365.25 days, but we use 365
+  geom_smooth(span = 0.64) +
+  ylab("Commit count") + xlab("Date") +
+  ggtitle("Daily commit counts in all nimble repositories") +
+  ggsave("media/recipes/rScaleXDate.png")
+#+end_src
+
+As we can see, we now get nice yearly labels of the month. The label
+is placed exactly at the start of the month of that year!
+
+*Note*: In principle using ~weeks = 52~ is enough, as we internally
+first filter to all unique tick labels that are possible for the
+format string. Then we check the distance between the last acceptable
+tick and next ones to find that which is closest to being
+=dateSpacing= away from it. The first tick label is computed from the
+date range on the axis. With 52 weeks this would already always fall
+to the next exact year, as we only keep month + year information in
+the format string.
+
+[[media/recipes/rScaleXData.png]]
+
+  
+*** Using =geom_smooth= to perform a linear fit
+
+=geom_smooth= currently provides two ways to "smooth" data. Either
+using a Savitzky-Golay filter (to smooth using a convolution in a
+fixed window with specific polynomial coefficients) and regular
+polynomial fits to the data.
+
+One special case that is commonly used of polynomial fits, is fitting
+a polynomial of order 1. Or in other words, fitting a line.
+
+Let's showcase this by fitting independent lines to multiple classes
+of a dataset. Namely, we will take our classy =mpg= dataset and plot
+the engine displacement =displ= against the highway fuel efficiency
+=hwy=. In addition we will classify these by color based on the class
+of car =class= each car model is in.
+
+Then we'll fit a linear model to all classes that tells us the trend
+in engine displacement vs. fuel economy for different classes of cars.
+
+All we need to do to accomplish this, is add one =geom_smooth= layer,
+in which we use the ="poly"= smoother using ~polyOrder = 1~ (a line):
+#+begin_src nim :tangle recipes/rLinearFit.nim
+import ggplotnim
+let df = readCsv("data/mpg.csv")
+ggplot(df, aes("displ", "hwy", color = "class")) +
+  geom_point() +
+  geom_smooth(smoother = "poly", polyOrder = 1) +
+  ggsave("media/recipes/rLinearFit.png")
+#+end_src
+
+This gives us the following pretty plot:
+
+[[media/recipes/rLinearFit.png]]
 
 *** Ridgeline plots
 

@@ -1,4 +1,4 @@
-import options, tables, hashes, macros, strformat
+import options, tables, hashes, macros, strformat, times
 import chroma
 import datamancer
 import ginger except Scale
@@ -9,6 +9,7 @@ type
 ## two constants for count columns and previous values
 const CountCol* = "counts_GGPLOTNIM_INTERNAL"
 const PrevValsCol* = "prevVals_GGPLOTNIM_INTERNAL"
+const SmoothValsCol* = "smoothVals_GGPLOTNIM_INTERNAL"
 
 # something like
 # aes: array[AesKind, Option[Scale]]
@@ -50,6 +51,7 @@ type
     stIdentity = "identity"
     stCount = "count"
     stBin = "bin"
+    stSmooth = "smooth"
     # and more to be added...
 
   DiscreteKind* = enum
@@ -94,6 +96,15 @@ type
   DiscreteFormat* = proc(x: Value): string
   ContinuousFormat* = proc(x: float): string
 
+  DateScale* = object
+    name*: string
+    axKind*: AxisKind  ## which axis does it belong to?
+    isTimestamp*: bool ## is it a timestamp?
+    parseDate*: proc(s: string): DateTime ## possible parser for string columns
+    #formatDate*: proc(dt: DateTime): string # formatter for labels, required
+    formatString*: string ## the string to format dates with
+    dateSpacing*: Duration ## required duration between two ticks
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -118,6 +129,7 @@ type
       trans*: ScaleTransform
       invTrans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
+      dateScale*: Option[DateScale] # an optional date scale associated to this axis
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
@@ -214,6 +226,12 @@ type
     hdBars = "bars" ## draws historams by drawing individual bars right next to
                     ## one another
     hdOutline = "line" ## draws histograms by drawing the outline of all bars
+
+  SmoothMethodKind* = enum
+    smSVG = "svg",   ## Savitzky-Golay filter smoothing ("LOESS")
+    smLM = "lm",     ## Perform a Levenberg-Marquardt fit
+    smPoly = "poly"  ## Perform a polynomial fit of given order
+
   Geom* = object
     gid*: uint16 # unique id of the geom
     data*: Option[DataFrame] # optionally a geom may have its own data frame
@@ -237,7 +255,10 @@ type
                         # as the range to call `histogram` with
       density*: bool ## if true will compute the density instead of counts in
                      ## each bin
-
+    of stSmooth:
+      span*: float                  ## The window width we use to compute the smoothed output
+      polyOrder*: int               ## Polynomial order to use for SVG filter
+      methodKind*: SmoothMethodKind ## The method to use for smoothing (Savitzky-Golay, LM)
     else: discard
 
   ## `OutsideRangeKind` determines what is done to values, which lay outside of the
@@ -321,6 +342,7 @@ type
     y*: Option[float]
     text*: string
     font*: Font
+    rotate*: Option[float]
     backgroundColor*: Color
 
   GgPlot* = object
@@ -561,7 +583,13 @@ proc `$`*(g: Geom): string =
     result.add "("
     result.add &"numBins: {g.numBins}, "
     result.add &"binWidth: {g.binWidth}, "
-    result.add &"binEdges: {g.binEdges}, "
+    result.add &"binEdges: {g.binEdges}"
+    result.add ")"
+  of stSmooth:
+    result.add "("
+    result.add &"span: {g.span}, "
+    result.add &"polyOrder: {g.polyOrder}, "
+    result.add &"methodKind: {g.methodKind}"
     result.add ")"
   else: discard
   result.add ")"
@@ -599,6 +627,7 @@ proc `$`*(s: Scale): string =
     result.add &", reversed: {s.reversed}"
     result.add &", trans.isNil?: {s.trans.isNil}"
     result.add &", secondaryAxis: {s.secondaryAxis}"
+    result.add &", dateScale: {s.dateScale}"
   else: discard
   result.add &", hasDiscreteness: {s.hasDiscreteness}"
   result.add &", dcKind: {s.dcKind}"
