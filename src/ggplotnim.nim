@@ -2491,8 +2491,23 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   result.filledScales = filledScales
   result.view = img
 
-proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480) =
-  ## creates a simple multi plot in a grid. Currently no smart layouting
+proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string): TeXOptions =
+  result = TexOptions(
+      texTemplate: if texTemplate.len > 0: some(texTemplate)
+                   else: none(string),
+      standalone: standalone,
+      onlyTikZ: onlyTikZ,
+      useTeX: useTeX
+  )
+
+proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
+              useTeX = false,
+              onlyTikZ = false,
+              standalone = false,
+              texTemplate = "") =
+  ## Creates a simple multi plot in a grid. Currently no smart layouting
+  ##
+  ## For an explanaiton of the TeX arguments, see the `ggsave` docstring.
   var pltViews = newSeq[PlotView](plts.len)
   # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
   # why the args are inverted! (it returns (rows, cols))
@@ -2507,40 +2522,103 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480)
     img.embedAt(i, pp.view)
 
   # combine both into a single viewport to draw as one image
-  echo img.children.len
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  img.draw(fname, texOptions)
 
-  img.draw(fname)
-
-proc ggdraw*(view: Viewport, fname: string) =
+proc ggdraw*(view: Viewport, fname: string,
+             texOptions: TexOptions) =
   ## draws the given viewport and stores it in `fname`.
   ## It assumes that the `view` was created as the field of
   ## a `PlotView` object from a `GgPlot` object with `ggcreate`
-  view.draw(fname)
+  view.draw(fname, texOptions)
 
-proc ggdraw*(plt: PlotView, fname: string) =
+proc ggdraw*(plt: PlotView, fname: string,
+             texOptions: TeXOptions) =
   ## draws the viewport of the given `PlotView` and stores it in `fname`.
   ## It assumes that the `plt`` was created from a `GgPlot` object with
   ## `ggcreate`
-  plt.view.draw(fname)
+  plt.view.draw(fname, texOptions)
 
-proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0) =
+proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
+             texOptions: TexOptions) =
+  ## This is the same as the `ggsave` proc below for the use case of calling it
+  ## directly on a `GgPlot` object using a possible TeX options object.
+  ##
+  ##See the docstring there.
   let plt = p.ggcreate(width = width, height = height)
   # make sure the target directory exists, create if not
   createDir(fname.splitFile().dir)
-  plt.view.ggdraw(fname)
+  plt.view.ggdraw(fname, texOptions)
 
-proc ggsave*(fname: string, width = 640.0, height = 480.0): Draw =
+proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
+             useTeX = false,
+             onlyTikZ = false,
+             standalone = false,
+             texTemplate = "") =
+  ## This is the same as the `ggsave` proc below for the use case of calling it
+  ## directly on a `GgPlot` object with the possible TeX options.
+  ##
+  ## See the docstring below.
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  p.ggsave(fname, width, height, texOptions)
+
+proc ggsave*(fname: string, width = 640.0, height = 480.0,
+             useTeX = false,
+             onlyTikZ = false,
+             standalone = false,
+             texTemplate = ""
+            ): Draw =
+  ## Generates the plot and saves it as `fname` with the given
+  ## `width` and `height`.
+  ##
+  ## Possible file types:
+  ## - `png`
+  ## - `svg`
+  ## - `pdf`
+  ## - `tex`
+  ##
+  ## If the output file is to be stored as a `pdf`, `useTeX` decides whether to
+  ## create the file using Cairo or a local LaTeX installation (by default system
+  ## `xelatex` if available, with `pdflatex` as the fallback). In case `useTeX` is
+  ## `true`, `standalone` is always taken to be `true` (unless a `texTemplate` is given).
+  ##
+  ## If the File type is `tex`, `onlyTikZ` determines whether to output ``only`` the
+  ## TikZ code to a file or create a full TeX document (that can be directly compiled).
+  ##
+  ## Further, `standalone` decides what kind of document is created in case `onlyTikZ`
+  ## is false. `standalone` means it's meant as a TeX file that only contains the plot
+  ## and produces a cropped plot upon compilation. If `standalone` is `false` the document
+  ## is an `article`.
+  ##
+  ## The priority of `onlyTikZ`, `standalone` and `texTemplate` is as follows:
+  ## 1. `texTemplate`: if given will be used regardless of the others
+  ## 2. `onlyTikZ`: higher precedence than standalone
+  ## 3. `standalone`: only chosen if above two are `false` / empty
+  ##
+  ## Finally, if a `texTemplate` is given that template is used to embed the `TikZ` code.
+  ## The template ``must`` contain a single `$#` for the location at which the `TikZ` code
+  ## is to be embeded.
+  ##
+  ## The default TeX templates are found here:
+  ## https://github.com/Vindaar/ginger/blob/master/src/ginger/backendTikZ.nim#L244-L274
+  ##
+  ## The required TeX packages are thus: `inputenc, geometry, unicode-math, amsmath, siunitx, tikz`.
+  ##
+  ## Note: `unicode-math` is incompatible with `pdflatex`!
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
   Draw(fname: fname,
        width: some(width),
-       height: some(height))
+       height: some(height),
+       texOptions: texOptions)
 
 proc `+`*(p: GgPlot, d: Draw) =
   if d.width.isSome and d.height.isSome:
     p.ggsave(d.fname,
              width = d.width.get,
-             height = d.height.get)
+             height = d.height.get,
+             texOptions = d.texOptions)
   else:
-    p.ggsave(d.fname)
+    p.ggsave(d.fname, texOptions = d.texOptions)
 
 from json import `%`
 proc ggvega*(fname = "", width = 640.0, height = 480.0,

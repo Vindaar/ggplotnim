@@ -173,6 +173,7 @@ type
     fname*: string
     width*: Option[float]
     height*: Option[float]
+    texOptions*: TeXOptions
 
   ## helper to generate a json file from a ggplot call by creating a `JsonNode`
   ## of the final plot `Viewport`. This is mainly used for the CI.
@@ -188,7 +189,6 @@ type
     width*: Option[float]
     height*: Option[float]
     asPrettyJson*: bool
-
 
   # bin position kind stores the different ways bins can be represented
   # Either as left bin edges, center positions or right edges
