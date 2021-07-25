@@ -272,7 +272,8 @@ proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D
   ## Using `M` for a default height
   # TODO: possibly add `bearing` or `advance` to position? Need to adjust position at which
   # text is printed based on it I think?
-  result = Coord1D(pos: margin, kind: ukStrHeight, text: "M", font: font)
+  result = Coord1D(pos: margin, kind: ukStrHeight, backend: view.backend,
+                   text: "M", font: font)
   case axKind
   of akX: result = result.toRelative(length = some(pointHeight(view)))
   of akY: result = result.toRelative(length = some(pointWidth(view)))
