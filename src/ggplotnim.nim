@@ -1861,9 +1861,11 @@ proc handleLabels(view: Viewport, theme: Theme) =
       case axKind
       of akX:
         marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
+                            backend: view.backend,
                             text: labNames[labLens], font: font)
       of akY:
         marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
+                            backend: view.backend,
                             text: labNames[labLens], font: font) +
                     Coord1D(pos: 0.3, kind: ukCentimeter)
 
@@ -2306,6 +2308,8 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
   # this is 0.5 times the string height. Margin between text and
   # the background rectangle
   const AnnotRectMargin = 0.5
+  let backend = view.backend
+
   for annot in p.annotations:
     # style to use for this annotation
     let rectStyle = Style(fillColor: annot.backgroundColor,
@@ -2313,22 +2317,22 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     let (left, bottom) = view.getLeftBottom(annot)
     ## TODO: Fix ginger calculations / figure out if / why cairo text extents
     # are bad in width direction
-    let marginH = toRelative(strHeight(AnnotRectMargin, annot.font),
+    let marginH = toRelative(strHeight(backend, AnnotRectMargin, annot.font),
                              length = some(pointHeight(view)))
     # use same ``amount`` of space correctly converted to relative coords
-    let marginW = toRelative(strHeight(AnnotRectMargin, annot.font),
+    let marginW = toRelative(strHeight(backend, AnnotRectMargin, annot.font),
                              length = some(pointWidth(view)))
     let totalHeight = quant(
-      toRelative(getStrHeight(annot.text, annot.font),
+      toRelative(getStrHeight(backend, annot.text, annot.font),
                  length = some(pointHeight(view))).val +
       marginH.pos * 2.0,
       unit = ukRelative)
     # find longest line of annotation to base background on
     let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
     let maxLine = annot.text.strip.splitLines.sortedByIt(
-      getStrWidth(it, font).val
+      getStrWidth(backend, it, font).val
     )[^1]
-    let maxWidth = getStrWidth(maxLine, annot.font)
+    let maxWidth = getStrWidth(backend, maxLine, annot.font)
     # calculate required width for background rectangle. string width +
     # 2 * margin
     let rectWidth = quant(
@@ -2369,13 +2373,13 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
   if "\n" notin title:
     # user does not do manual wrapping. Check if needs to be wrapped.
-    let strWidth = getStrWidth(title, font)
+    let strWidth = getStrWidth(view.backend, title, font)
     if strWidth > width:
       # rebuild and wrap
       var line: string
       var mTitle: string
       for word in title.split(' '):
-        let lineWidth = getStrWidth(line & word, font)
+        let lineWidth = getStrWidth(view.backend, line & word, font)
         if lineWidth < width:
           line.add word & " " # we add a space even at the end of line...
         else:
