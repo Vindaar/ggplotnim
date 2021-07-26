@@ -31,6 +31,8 @@ task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   exec "nim c -r tests/tests.nim"
   exec "nim c -r tests/test_issue2.nim"
   exec "nim c -r tests/tCompareRecipes.nim"
+  #exec "ntangle recipes.org"
+  #exec "nim c -r recipes/rGeomSmooth.nim"
 
 import os, strutils, strformat
 const
