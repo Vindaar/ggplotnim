@@ -54,16 +54,21 @@ jobs:
         run: |
           brew install imagemagick cairo
 
+      - name: Setup MSYS2 (Windows)
+        if: ${{matrix.target == 'windows'}}
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+          update: true
+          install: base-devel git mingw-w64-x86_64-toolchain
+
       - name: Install dependencies (Windows)
         if: ${{matrix.target == 'windows'}}
-        shell: powershell
+        shell: msys2 {0}
         run: |
-          bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem D:\a\ggplotnim\ggplotnim\nim\bin\cacert.pem
-          choco install imagemagick wget
-          wget -O cairo-windows.zip https://github.com/preshing/cairo-windows/releases/download/1.17.2/cairo-windows-1.17.2.zip
-          tar -xf cairo-windows.zip
-          cp cairo-windows-1.17.2/lib/x64/cairo.dll ggplotnim/tests/libcairo-2.dll
-          cp cairo-windows-1.17.2/lib/x64/cairo.dll ggplotnim/recipes/libcairo-2.dll
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm mingw-w64-x86_64-cairo
+          pacman -S --needed --noconfirm mingw-w64-x86_64-lapack
 
       - name: Setup nimble & deps
         shell: bash
@@ -75,8 +80,17 @@ jobs:
           nimble install ntangle -y
           nimble install -y
 
-      - name: Run tests
+      - name: Run tests (Linux & Mac)
+        if: ${{matrix.target != 'windows'}}
         shell: bash
+        run: |
+          cd ggplotnim
+          nimble -y fullTest
+          nimble -y testCI
+
+      - name: Run tests (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: msys2 {0}
         run: |
           cd ggplotnim
           nimble -y fullTest
