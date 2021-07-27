@@ -20,19 +20,32 @@ requires "https://github.com/SciNim/scinim >= 0.1.0"
 task testCI, "Run standard tests w/o cairo dependency":
   # This runs all tests suitable for a CI environment, which does not provide
   # cairo. Most tests are independent of cairo anyways
-  exec "nim c -d:noCairo -r tests/tests.nim"
-  exec "nim c -d:noCairo -r tests/test_issue2.nim"
+  when defined(windows):
+    exec "nim c -d:noCairo -d:lapack=liblapack -r tests/tests.nim"
+    exec "nim c -d:noCairo -d:lapack=liblapack -r tests/test_issue2.nim"
+  else:
+    exec "nim c -d:noCairo -r tests/tests.nim"
+    exec "nim c -d:noCairo -r tests/test_issue2.nim"
+
 
 task test, "Run standard tests":
-  exec "nim c -r tests/tests.nim"
-  exec "nim c -r tests/test_issue2.nim"
+  when defined(windows):
+    exec "nim c -r -d:lapack=liblapack tests/tests.nim"
+    exec "nim c -r -d:lapack=liblapack tests/test_issue2.nim"
+  else:
+    exec "nim c -r tests/tests.nim"
+    exec "nim c -r tests/test_issue2.nim"
 
 task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
-  exec "nim c -r tests/tests.nim"
-  exec "nim c -r tests/test_issue2.nim"
-  exec "nim c -r tests/tCompareRecipes.nim"
-  #exec "ntangle recipes.org"
-  #exec "nim c -r recipes/rGeomSmooth.nim"
+  when defined(windows):
+    exec "nim c -r -d:lapack=liblapack tests/tests.nim"
+    exec "nim c -r -d:lapack=liblapack tests/test_issue2.nim"
+    exec "nim c -r -d:lapack=liblapack tests/tCompareRecipes.nim"
+  else:
+    exec "nim c -r tests/tests.nim"
+    exec "nim c -r tests/test_issue2.nim"
+    exec "nim c -r tests/tCompareRecipes.nim"
+
 
 import os, strutils, strformat
 const
@@ -68,16 +81,23 @@ when canImport(docs / docs):
     )
 
 task recipes, "Generate and run all recipes":
-  when not defined(windows):
+  when defined(windows):
     # depend on existing `.nim` files in repo on windows then..
+    exec "nim c -r -d:nimLegacyRandomInitRand -d:lapack=liblapack recipes/allRecipes.nim"
+  else:
     exec "ntangle recipes.org"
-  exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipes.nim"
+    exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipes.nim"
+
 
 task recipesJson, "Generate and run all recipes with JSON output":
-  when not defined(windows):
+  when defined(windows):
+    # depend on existing `.nim` files in repo on windows then..
+    exec "nim c -r -d:lapack=liblapack recipes/recipeFiles.nim" # to generate the `_json.nim` files
+    exec "nim c -r -d:lapack=liblapack -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim"
+  else:
     exec "ntangle recipes.org"
-  exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
-  exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim"
+    exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
+    exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim"
 
 task generateJson, "Generate the JSON results for all recipes":
   exec "nim c -r recipes/runRecipes.nim --json"
