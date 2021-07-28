@@ -359,6 +359,8 @@ type
     geoms*: seq[Geom]
     annotations*: seq[Annotation]
     theme*: Theme
+    backend*: BackendKind ## the backend to use. Determined automatically from filename and
+                          ## possible options given to `ggsave`
 
   StyleLabel* = object
     style*: GgStyle

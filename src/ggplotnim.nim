@@ -2428,7 +2428,8 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   # create the plot
   var img = initViewport(name = "root",
                          wImg = width,
-                         hImg = height)
+                         hImg = height,
+                         backend = p.backend)
 
   # set color of canvas background
   img.background(style = some(getCanvasBackground(theme)))
@@ -2513,11 +2514,17 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   ## Creates a simple multi plot in a grid. Currently no smart layouting
   ##
   ## For an explanaiton of the TeX arguments, see the `ggsave` docstring.
+  # determine file type (neeeded fro backend in `ggcreate`) and create tex options
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  let fType = parseFilename(fname)
+  let backend = fType.toBackend(texOptions)
+
   var pltViews = newSeq[PlotView](plts.len)
   # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
   # why the args are inverted! (it returns (rows, cols))
   let (cols, rows) = calcRowsColumns(0, 0, plts.len)
-  var img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float)
+  var img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float,
+                         backend = backend)
   img.layout(cols = cols, rows = rows)
 
   for i, plt in plts:
@@ -2527,7 +2534,6 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
     img.embedAt(i, pp.view)
 
   # combine both into a single viewport to draw as one image
-  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
   img.draw(fname, texOptions)
 
 proc ggdraw*(view: Viewport, fname: string,
@@ -2544,12 +2550,19 @@ proc ggdraw*(plt: PlotView, fname: string,
   ## `ggcreate`
   plt.view.draw(fname, texOptions)
 
+proc assignBackend(p: GgPlot, fname: string, texOptions: TexOptions): GgPlot =
+  ## assigns the correct backend based on filename `fname` and `texOptions`
+  result = p
+  let fType = parseFilename(fname)
+  result.backend = fType.toBackend(texOptions)
+
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
              texOptions: TexOptions) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
   ##See the docstring there.
+  let p = p.assignBackend(fname, texOptions) # local copy w/ correct backend
   let plt = p.ggcreate(width = width, height = height)
   # make sure the target directory exists, create if not
   createDir(fname.splitFile().dir)
