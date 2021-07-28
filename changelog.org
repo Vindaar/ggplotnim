@@ -1,3 +1,7 @@
+* v0.4.5
+- adds support for generation of native LaTeX plots using =ginger's=
+  TikZ backend
+- adds a recipe showcasing the TikZ backend: =rTikZLandau.nim=
 * v0.4.4
 - combining ~stat = "count"~ with a continuous classification now
   yields a runtime exception, explaining that it's not well defined.
