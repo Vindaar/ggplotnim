@@ -2346,14 +2346,16 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       length = some(pointHeight(view))
     ).val + marginH.pos
     # create background rectangle
-    let annotRect = view.initRect(
-      Coord(x: Coord1D(pos: rectX, kind: ukRelative),
-            y: Coord1D(pos: rectY, kind: ukRelative)),
-      rectWidth,
-      totalHeight,
-      style = some(rectStyle),
-      rotate = annot.rotate,
-      name = "annotationBackground")
+    var annotRect: GraphObject
+    if annot.backgroundColor != transparent:
+      annotRect = view.initRect(
+        Coord(x: Coord1D(pos: rectX, kind: ukRelative),
+              y: Coord1D(pos: rectY, kind: ukRelative)),
+        rectWidth,
+        totalHeight,
+        style = some(rectStyle),
+        rotate = annot.rotate,
+        name = "annotationBackground")
     # create actual annotation
     let annotText = view.initMultiLineText(
       origin = c(left, bottom),
@@ -2362,7 +2364,10 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       alignKind = taLeft,
       rotate = annot.rotate,
       fontOpt = some(annot.font))
-    view.addObj concat(@[annotRect], annotText)
+    if not annotRect.isNil:
+      view.addObj concat(@[annotRect], annotText)
+    else:
+      view.addObj annotText
 
 proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   ## Draws a title onto the `view` (which should be the header of the plot).
