@@ -2397,10 +2397,10 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
     discard
 
   let titleObj = view.initMultiLineText(c(0.0, 0.9),
-                                     title,
-                                     textKind = goText,
-                                     alignKind = taLeft,
-                                     fontOpt = some(font))
+                                        title,
+                                        textKind = goText,
+                                        alignKind = taLeft,
+                                        fontOpt = some(font))
   view.addObj titleObj
 
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
