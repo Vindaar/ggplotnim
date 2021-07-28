@@ -2623,6 +2623,24 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   ## The required TeX packages are thus: `inputenc, geometry, unicode-math, amsmath, siunitx, tikz`.
   ##
   ## Note: `unicode-math` is incompatible with `pdflatex`!
+  ##
+  ## Note 2: Placing text on the TikZ backend comes with some quirks:
+  ##
+  ## 1. text placement may be *slightly* different than on the Cairo backend, as we currently
+  ##   use a hack to determine string widths / heights based on font size alone. `ginger` needs
+  ##   an overhaul to handle embedding of coordinates into viewports to keep string width / height
+  ##   information until the locations are written to the output file (so that we can make use
+  ##   of text size information straight from TeX)
+  ## 2. Text is placed into TikZ `node` elements. These have some quirky behavior for more
+  ##   complex LaTeX constructs. E.g. it is not really possible to use an `equation` environment
+  ##   in them (leads to "Missing $ inserted" errors).
+  ## 3. because of hacky string width / height determination placing a non transparent background
+  ##   for annotations leads to background rectangles that are too small. Keep the background color
+  ##   transparent for the time being.
+  ## 4. Do not include line breaks `\n` in your annotations if you wish to
+  ##   let LaTeX handle line breaks for you. Any manual line break `\n`
+  ##   will be handled by `ginger`. Due to the string height hack, this
+  ##   can give somewhat ugly results.
   let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
   Draw(fname: fname,
        width: some(width),
