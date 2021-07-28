@@ -2557,7 +2557,7 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TexOptions): GgPlot =
   result.backend = fType.toBackend(texOptions)
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
-             texOptions: TexOptions = TeXOptions()) =
+             texOptions: TexOptions) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
