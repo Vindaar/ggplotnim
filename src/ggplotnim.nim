@@ -2376,7 +2376,7 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   ## title to multiple lines.
   var title = title
   let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
-  if "\n" notin title:
+  if "\n" notin title and view.backend != bkTikZ: # for tikZ let LaTeX handle line wrapping
     # user does not do manual wrapping. Check if needs to be wrapped.
     let strWidth = getStrWidth(view.backend, title, font)
     if strWidth > width:
