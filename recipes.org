@@ -1732,6 +1732,97 @@ This gives us the following pretty plot:
 
 [[media/recipes/rLinearFit.png]]
 
+*** Native LaTeX plots using the TikZ backend
+
+There are many reasons why one might want to produce a TeX file as the
+target for a plot. Two major ones:
+- matching fonts & font sizes for plots in a LaTeX document
+- type setting arbitrary text (maths, physics, chemistry equations &
+  formulae, ...)
+
+From =ggplotnim= version =v0.4.4= the TikZ backend allows one to do
+just that. In principle it generates a basic =.tex= file. Different
+options allow to define the document class (=article= or
+=standalone=), purely emitting a TikZ command (=\begin{tikzpicture}
+... \end{tikzpicture)=) or just giving a full TeX template into which
+the TikZ image will be inserted (requires a =strutils.%= compatible
+string with a single =$#= argument).
+
+Alternatively, it is possible to directly compile the generated TeX
+files to PDFs using a local TeX compiler. By default we use =xelatex=
+(for better unicode support). 
+
+Note: Placing text on the TikZ backend comes with some quirks:
+1. text placement may be *slightly* different than on the Cairo
+   backend, as we currently use a hack to determine string widths /
+   heights based on font size alone. =ginger= needs an overhaul to
+   handle embedding of coordinates into viewports to keep string width
+   / height information until the locations are written to the output
+   file (so that we can make use of text size information straight
+   from TeX)
+2. Text is placed into TikZ =node= elements. These have some quirky
+   behavior for more complex LaTeX constructs. E.g. it is not really
+   possible to use an =equation= environment in them (leads to
+   "Missing $ inserted" errors).
+3. because of hacky string width / height determination placing a non
+   transparent background for annotations leads to background
+   rectangles that are too small. Keep the background color
+   transparent for the time being.
+4. Do not include line breaks =\n= in your annotations if you wish to
+   let LaTeX handle line breaks for you. Any manual line break =\n=
+   will be handled by =ginger=. Due to the string height hack, this
+   can give somewhat ugly results.
+
+Let's create a plot in which we draw a [[https://en.wikipedia.org/wiki/Landau_distribution][Landau distribution]] and
+annotate the text with the correct mathematical formula to showcase
+math typesetting.
+
+#+begin_src nim :tangle recipes/rTikZLandau.nim
+import ggplotnim, math, sequtils, latexdsl, strutils, ginger
+proc landauApprox(x: float): float =
+  result = 1.0 / sqrt(2 * PI) * exp(- (x + exp(-x)) / 2 )
+
+proc annotateText(): string =
+  # pure math in raw string due to too many invalid nim constructs for `latex` 
+  # macro (would result in ugly mix of strings and identifiers)
+  # Need manual math mode via `$`!
+  let eq = r"$p(x) = \frac{1}{2πi}\int_{a-i∞}^{a+i∞} e^{s \log(s) + xs}\, ds$" 
+  let eqApprox = r"$p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$"
+  # align text with math using 2 line breaks for better separation (single line break is too
+  # squished. Cannot use `equation` or similar in a TikZ node afaiu :/)
+  result = r"The Landau distribution\\ \\ " &
+    eq & r"\\ \\" &
+    r"reduces to the approximation:\\ \\ " &
+    eqApprox & r"\\ \\ " & 
+    r"for $μ = 0, c = 1$"
+     
+let x = linspace(-5.0, 15.0, 1000)
+let y = x.mapIt(landauApprox(it))
+let df = seqsToDf(x, y)
+ggplot(df, aes("x", "y")) +
+  geom_line() +                             # draw our Landau data as a line
+  annotate(annotateText(),                  # add our text annotation
+           x = 5.0, y = 0.1,                # at this location in 'data space'
+           backgroundColor = transparent) + # transparent background as we do manual TeX line breaks
+  ggtitle(r"Approximation of Landau distribution: " & 
+    r"$p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$",
+    titleFont = font(12.0)) +
+  ggsave("media/recipes/rTikZLandau.tex", standalone = true) # standalone to get TeX file w/ only plot
+  # use:
+  # ggsave("media/recipes/rTikZLandau.pdf", useTex = true, standalone = true)
+  # to directly compile to standalone PDF (using local xelatex)
+#+end_src
+
+which results in a (document class 'standalone') TeX file. After
+compilation with =xelatex= it yields the following plot (converted to
+a PNG to show here):
+
+[[media/recipes/rTikZLandau.png]]
+
+The generated TeX file can be found here:
+
+[[media/recipes/rTikZLandau.tex]]
+
 *** Ridgeline plots
 
 Ridgeline plots (sometimes also called [[https://clauswilke.com/blog/2017/09/15/goodbye-joyplots/][joyplots]], referencing the album
