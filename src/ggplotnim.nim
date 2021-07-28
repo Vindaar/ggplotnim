@@ -2537,14 +2537,14 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   img.draw(fname, texOptions)
 
 proc ggdraw*(view: Viewport, fname: string,
-             texOptions: TexOptions) =
+             texOptions: TexOptions = TexOptions()) =
   ## draws the given viewport and stores it in `fname`.
   ## It assumes that the `view` was created as the field of
   ## a `PlotView` object from a `GgPlot` object with `ggcreate`
   view.draw(fname, texOptions)
 
 proc ggdraw*(plt: PlotView, fname: string,
-             texOptions: TeXOptions) =
+             texOptions: TeXOptions = TexOptions()) =
   ## draws the viewport of the given `PlotView` and stores it in `fname`.
   ## It assumes that the `plt`` was created from a `GgPlot` object with
   ## `ggcreate`
@@ -2557,7 +2557,7 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TexOptions): GgPlot =
   result.backend = fType.toBackend(texOptions)
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
-             texOptions: TexOptions) =
+             texOptions: TexOptions = TeXOptions()) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
