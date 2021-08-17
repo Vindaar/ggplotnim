@@ -1315,6 +1315,14 @@ func theme_void*(color: Color = white): Theme =
                  hideTickLabels: some(true),
                  hideLabels: some(true))
 
+func backgroundColor*(color: Color = grey92): Theme =
+  ## Sets the background color of the plotting area to `color`.
+  result = Theme(plotBackgroundColor: some(color))
+
+func gridLineColor*(color: Color = white): Theme =
+  ## Sets the color of the grid lines.
+  result = Theme(gridLineColor: some(color))
+
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
   of "none": result = none[TextAlignKind]()
@@ -1585,6 +1593,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(subTitle)
   ifSome(plotBackgroundColor)
   ifSome(canvasColor)
+  ifSome(gridLineColor)
   ifSome(xRange)
   ifSome(yRange)
   ifSome(xMargin)
@@ -1993,7 +2002,8 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
     var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
                                           theme = theme, centerTicks = false,
                                           format = format)
-    let grdLines = view.initGridLines(some(xticks), some(yticks))
+    let grdLines = view.initGridLines(some(xticks), some(yticks),
+                                      style = some(theme.getGridLineColor()))
     view.addObj @[grdLines]
   if not hideLabels:
     view.handleLabels(theme)
@@ -2057,7 +2067,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       view.updateDataScale(xticks)
       view.updateDataScale(yticks)
 
-    let grdLines = view.initGridLines(some(xticks), some(yticks))
+    let grdLines = view.initGridLines(some(xticks), some(yticks),
+                                      style = some(theme.getGridLineColor()))
 
     # given the just created plot and tick labels, have to check
     # whether we should enlarge the column / row for the y / x label and
@@ -2248,7 +2259,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
         yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
                                       hideTickLabels = hideYLabels)
 
-        let grdLines = plotView.initGridLines(some(xticks), some(yticks))
+        let grdLines = plotView.initGridLines(some(xticks), some(yticks),
+                                              style = some(theme.getGridLineColor()))
         plotView.addObj grdLines
         setGridAndTicks = true
 
