@@ -1,3 +1,7 @@
+* v0.4.6
+- add =backgroundColor= to change the color of the plotting area
+  manually
+- add =gridLineColor= to change the color of the grid lines manually  
 * v0.4.5
 - adds support for generation of native LaTeX plots using =ginger's=
   TikZ backend
