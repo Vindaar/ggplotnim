@@ -465,6 +465,12 @@ proc geom_smooth*(aes: Aesthetics = aes(),
                   binBy = "full",
                   density = false
                  ): Geom =
+  ## Draws a smooth line that is a filtered version of the `x` and `y` data given as
+  ## the `aes` of the plot (or to this geom).
+  ##
+  ## Note: if the input data is considered to be discrete (either manually or automatically
+  ## if it's an integer column), a `ValueError` will be raised at runtime as smoothing
+  ## is incompatible with a discrete plot and thus would lead to an undesirable outcome.
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let smKind = parseEnum[SmoothMethodKind](smoother)
   let bpKind = parseEnum[BinPositionKind](binPosition)
