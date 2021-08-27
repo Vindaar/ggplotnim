@@ -51,14 +51,17 @@ proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
     if elements.card > (indices.len.float * discreteThreshold).round.int:
       result = false
       echo "INFO: The integer column `", $s.col, "` has been automatically ",
-       "determined to be continuous. To overwrite this behavior use ",
-       "`scale_x/y_discrete` or apply `factor` to the column name in the `aes` ",
-       "call."
+       "determined to be continuous. To overwrite this behavior add a ",
+       "`+ scale_x/y_discrete()` call to the plotting chain. Choose `x`",
+       " or `y` depending on which axis this column refers to. Or apply a",
+       " `factor` to the column name in the `aes` call, i.e.",
+       " `aes(..., factor(\"" & $s.col & "\"), ...)`."
     else:
       result = true
       echo "INFO: The integer column `", $s.col, "` has been automatically ",
-       "determined to be discrete. To overwrite this behavior use ",
-       "`scale_x/y_continuous`."
+       "determined to be discrete. To overwrite this behavior add a ",
+       "`+ scale_x/y_continuous()` call to the plotting chain. Choose `x`",
+       " or `y` depending on which axis this column refers to."
   of colFloat:
      result = false
   of colString:
