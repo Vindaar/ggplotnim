@@ -532,17 +532,26 @@ proc callSmoother(fg: FilledGeom,
   of smLM:
     raise newException(Exception, "Levenberg-Marquardt fitting is not implemented yet.")
 
+func getExceptionMessageDiscrete(ax, col: string): string =
+  result = "The input data for the `" & ax & "` scale - column `" & col &
+    "` - is discrete. This is incompatible with smoothing statistics (`geom_smooth`, ...)" &
+    ". Add a `+ scale_" & ax & "_continuous()` call to the plotting chain to force the" &
+    " data to be treated as continuous if the data is fine as is."
+
 proc filledSmoothGeom(df: var DataFrame, g: Geom,
                       filledScales: FilledScales): FilledGeom =
   let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
                                                              filledScales)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
 
+  if x.dcKind == dcDiscrete: raise newException(ValueError, getExceptionMessageDiscrete("x", $x.col))
+  if y.dcKind == dcDiscrete: raise newException(ValueError, getExceptionMessageDiscrete("y", $y.col))
+
   result = FilledGeom(geom: g,
                       xcol: getColName(x),
                       ycol: SmoothValsCol,
-                      dcKindX: x.dcKind,
-                      dcKindY: y.dcKind,
+                      dcKindX: dcContinuous, # smoothed data ``must`` be continuous!
+                      dcKindY: dcContinuous,
                       geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
   result.yScale = determineDataScale(y, cont, df)
@@ -601,9 +610,6 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
 
-  case y.dcKind
-  of dcDiscrete: result.yLabelSeq = y.labelSeq
-  else: discard
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
