@@ -1,3 +1,9 @@
+* v0.4.7
+- fix =geom_smooth= internal handling when filling smoothed
+  =FilledGeom= objects to raise if input data is considered
+  discrete. This is incompatible with smoothing statistics.
+- improved the info messages for automatic determination of
+  discreteness of the input data based on @haxscramper's input.  
 * v0.4.6
 - add =backgroundColor= to change the color of the plotting area
   manually
