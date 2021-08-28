@@ -2515,25 +2515,34 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   result.filledScales = filledScales
   result.view = img
 
-proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string): TeXOptions =
+proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
+                  caption, label, placement: string): TeXOptions =
   result = TexOptions(
       texTemplate: if texTemplate.len > 0: some(texTemplate)
                    else: none(string),
       standalone: standalone,
       onlyTikZ: onlyTikZ,
-      useTeX: useTeX
+      useTeX: useTeX,
+      caption: if caption.len > 0: some(caption) else: none(string),
+      label: if label.len > 0: some(label) else: none(string),
+      placement: placement
   )
 
 proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
               useTeX = false,
               onlyTikZ = false,
               standalone = false,
-              texTemplate = "") =
+              texTemplate = "",
+              caption = "",
+              label = "",
+              placement = "htbp"
+             ) =
   ## Creates a simple multi plot in a grid. Currently no smart layouting
   ##
   ## For an explanaiton of the TeX arguments, see the `ggsave` docstring.
   # determine file type (neeeded fro backend in `ggcreate`) and create tex options
-  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
+                                caption, label, placement)
   let fType = parseFilename(fname)
   let backend = fType.toBackend(texOptions)
 
@@ -2590,19 +2599,27 @@ proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
              useTeX = false,
              onlyTikZ = false,
              standalone = false,
-             texTemplate = "") =
+             texTemplate = "",
+             caption = "",
+             label = "",
+             placement = "htbp"
+            ) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object with the possible TeX options.
   ##
   ## See the docstring below.
-  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
+                                caption, label, placement)
   p.ggsave(fname, width, height, texOptions)
 
 proc ggsave*(fname: string, width = 640.0, height = 480.0,
              useTeX = false,
              onlyTikZ = false,
              standalone = false,
-             texTemplate = ""
+             texTemplate = "",
+             caption = "",
+             label = "",
+             placement = "htbp"
             ): Draw =
   ## Generates the plot and saves it as `fname` with the given
   ## `width` and `height`.
@@ -2631,9 +2648,12 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   ## 2. `onlyTikZ`: higher precedence than standalone
   ## 3. `standalone`: only chosen if above two are `false` / empty
   ##
-  ## Finally, if a `texTemplate` is given that template is used to embed the `TikZ` code.
+  ## Further, if a `texTemplate` is given that template is used to embed the `TikZ` code.
   ## The template ``must`` contain a single `$#` for the location at which the `TikZ` code
   ## is to be embeded.
+  ##
+  ## Finally, if a `caption` and / or `label` are given, the output will wrap the `tikzpicture`
+  ## in a figure environment, with placement options `placement`.
   ##
   ## The default TeX templates are found here:
   ## https://github.com/Vindaar/ginger/blob/master/src/ginger/backendTikZ.nim#L244-L274
@@ -2659,7 +2679,8 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   ##   let LaTeX handle line breaks for you. Any manual line break `\n`
   ##   will be handled by `ginger`. Due to the string height hack, this
   ##   can give somewhat ugly results.
-  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate)
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
+                                caption, label, placement)
   Draw(fname: fname,
        width: some(width),
        height: some(height),
@@ -2679,6 +2700,25 @@ proc ggvega*(fname = "", width = 640.0, height = 480.0,
              pretty = true): VegaDraw =
   VegaDraw(fname: fname, width: some(width),
            height: some(height), asPrettyJson: pretty)
+
+proc ggvegatex*(fname: string, width = 640.0, height = 480.0,
+                caption = "",
+                label = "",
+                placement = "htbp"): VegaTeX =
+  ## Generates two versions of of the given plot. The filename should `not` contain any
+  ## extension. We will generate a `.tex` file and a `.json` file.
+  ##
+  ## The TeX file is suppposed to be inserted (using `\input`) into the LaTeX file.
+  ##
+  ## The JSON file should be stored as a GitHub gist from which it can be imported into the
+  ## Vega-Lite viewer.
+  ##
+  ## NOTE: The `width` and `height` arguments don't have any purpose at this time.
+  let texOptions = toTeXOptions(true, true, false, "",
+                                caption, label, placement)
+  VegaTeX(fname: fname,
+          width: some(width), height: some(height),
+          texOptions: texOptions)
 
 proc `%`*(t: tuple): json.JsonNode =
   result = json.newJObject()
