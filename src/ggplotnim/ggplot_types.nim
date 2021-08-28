@@ -190,6 +190,13 @@ type
     height*: Option[float]
     asPrettyJson*: bool
 
+  # helper object that refers to 2 plots. A TeX version and a Vega version
+  VegaTeX* = object
+    fname*: string
+    width*: Option[float]
+    height*: Option[float]
+    texOptions*: TeXOptions
+
   # bin position kind stores the different ways bins can be represented
   # Either as left bin edges, center positions or right edges
   BinPositionKind* = enum
