@@ -1329,6 +1329,12 @@ func gridLineColor*(color: Color = white): Theme =
   ## Sets the color of the grid lines.
   result = Theme(gridLineColor: some(color))
 
+proc theme_latex*(): Theme =
+  ## Returns a theme that is designed to produce figures that look nice in a LaTeX document
+  ## without manual adjustment of figure sizes.
+  result = Theme(titleFont: some(font(10.0)),
+                 labelFont: some(font(10.0)))
+
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
   of "none": result = none[TextAlignKind]()
