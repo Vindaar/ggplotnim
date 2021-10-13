@@ -2,7 +2,9 @@
 - add =ggvega_tex=, a saving helper that generates the same plot both
   as a TikZ LaTeX native file (as a =.tex=) as well as a Vega-Lite
   plot in form of a =.json= file
-- add a LaTeX theme (mainly different font sizes than default).  
+- add a LaTeX theme (mainly different font sizes than default).
+- fix performance regression when plotting stacked histogram (default,
+  also applies to non mapped histograms) in particular for large input DFs
 * v0.4.7
 - fix =geom_smooth= internal handling when filling smoothed
   =FilledGeom= objects to raise if input data is considered
