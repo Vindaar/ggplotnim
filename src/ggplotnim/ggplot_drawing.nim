@@ -273,7 +273,9 @@ proc getDrawPos(view: Viewport, viewIdx: int,
       curStack = %~ p.y
     else:
       # only required for actual bars, due to how they are drawn
-      curStack = %~ df[PrevValsCol, float][idx]
+      # NOTE: if `PrevVals` is a constant column this causes a conversion to a full tensor each time
+      # Thus access column first and then element of column (gives the constant element each time)
+      curStack = %~ df[PrevValsCol][idx, float]
     when not CoordsFlipped:
       # stacking / histograms along the Y axis
       result.x = view.getDrawPosImpl(fg, p.x, binWidths.x, fg.dcKindX, akX)
