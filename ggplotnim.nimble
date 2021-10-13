@@ -10,7 +10,7 @@ srcDir        = "src"
 
 requires "nim >= 1.0.0"
 requires "https://github.com/Vindaar/seqmath >= 0.1.11"
-requires "ginger == 0.3.5"
+requires "ginger == 0.3.6"
 requires "datamancer >= 0.1.7"
 requires "arraymancer >= 0.7.5"
 requires "shell >= 0.4.3"
