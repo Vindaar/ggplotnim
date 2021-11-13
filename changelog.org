@@ -1,3 +1,6 @@
+* v0.4.9
+- add support for more shapes when using =geom_point= (9 shapes in
+  total now)
 * v0.4.8
 - add =ggvega_tex=, a saving helper that generates the same plot both
   as a TikZ LaTeX native file (as a =.tex=) as well as a Vega-Lite

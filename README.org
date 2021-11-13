@@ -122,9 +122,7 @@ Facets:
 Scales:
 - size (both for discrete and continuous data)
 - color (both for discrete and continuous data)
-Shape as a scale is not properly implemented, simply because ginger
-only provides 2 (circle, cross) different marker shapes so far. Feel free to
-[[https://github.com/Vindaar/ginger/blob/master/src/ginger.nim#L2267-L2292][add more]]!
+- shape (multiple shapes for lines and points) 
 
 ** Examples
 
