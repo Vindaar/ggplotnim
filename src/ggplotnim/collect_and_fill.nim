@@ -173,7 +173,7 @@ proc fillDiscreteShapeScale(vKind: ValueKind, col: FormulaNode,
   else:
     for i, k in labelSeq:
       result.valueMap[k] = ScaleValue(kind: scShape,
-                                      marker: MarkerKind(i mod 2),
+                                      marker: MarkerKind(i mod (MarkerKind.high.ord + 1)),
                                       lineType: LineType(i mod (ord(LineType.high) - 1) + 1))
 
 proc fillDiscreteLinearTransScale(
