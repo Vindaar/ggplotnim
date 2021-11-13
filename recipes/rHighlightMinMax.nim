@@ -14,7 +14,7 @@ ggplot(df, aes("in_s", "V", color = "Channel")) +
   # NOTE: Style arguments use `Option[T]`!
   geom_point(data = dfMax,
              color = some(parseHex("FF0000")),
-             size = some(10.0),
+             size = some(5.0),
              marker = some(mkCross)) +
   geom_point(data = dfMin,
              color = some(parseHex("0000FF")),
