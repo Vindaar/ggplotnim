@@ -1,3 +1,5 @@
+* v0.4.10
+- improve text placement of x labels (in particular of relevance for TikZ)
 * v0.4.9
 - add support for more shapes when using =geom_point= (9 shapes in
   total now)
