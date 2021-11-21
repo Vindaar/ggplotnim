@@ -1873,6 +1873,8 @@ proc handleLabels(view: Viewport, theme: Theme) =
     xlabTxt = theme.xLabel.unwrap()
     ylabTxt = theme.yLabel.unwrap()
   template getMargin(marginVar, themeField, nameVal, axKind: untyped): untyped =
+    ## looks at all *tick labels* to determine the longest (string length) label to
+    ## place x / y label such that it avoids overlap
     if not themeField.isSome:
       let labs = view.objects.filterIt(it.name == nameVal)
       let labNames = labs.mapIt(it.txtText)
@@ -1881,9 +1883,10 @@ proc handleLabels(view: Viewport, theme: Theme) =
       let font = if theme.labelFont.isSome: theme.labelFont.get else: font(8.0)
       case axKind
       of akX:
-        marginVar = Coord1D(pos: 1.1, kind: ukStrHeight,
+        marginVar = Coord1D(pos: 1.0, kind: ukStrHeight,
                             backend: view.backend,
-                            text: labNames[labLens], font: font)
+                            text: labNames[labLens], font: font) +
+          Coord1D(pos: 0.3, kind: ukCentimeter)
       of akY:
         marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
                             backend: view.backend,
