@@ -167,7 +167,7 @@ suite "GgPlot":
 
   test "Bar plot with string based scale":
     let mpg = toDf(readCsv("data/mpg.csv"))
-    let plt = ggcreate(ggplot(mpg, aes("class")) + geom_bar())
+    let plt = ggcreate(ggplot(mpg, aes("class"), backend = bkCairo) + geom_bar())
     let plotview = plt.view[4]
     check plotview.name == "plot"
     proc calcPos(classes: seq[string]): seq[float] =
@@ -314,7 +314,7 @@ suite "GgPlot":
     let x = logspace(-6, 1.0, 100)
     let y = x.mapIt(exp(-it))
     let df = seqsToDf({"x" : x, "exp" : y})
-    let pltView = ggcreate(ggplot(df, aes("x", "exp")) +
+    let pltView = ggcreate(ggplot(df, aes("x", "exp"), backend = bkCairo) +
       geom_line() +
       scale_y_log10())
     let plt = pltView.view
@@ -356,7 +356,7 @@ suite "GgPlot":
     let df = seqsToDf({"x" : x, "exp" : y})
     const xMargin = 0.5
     const yMargin = 1.7
-    let pltView = ggcreate(ggplot(df, aes("x", "exp")) +
+    let pltView = ggcreate(ggplot(df, aes("x", "exp"), backend = bkCairo) +
       geom_line() +
       xlab("Custom label", margin = xMargin) +
       ylab("More custom!", margin = yMargin) +
@@ -405,12 +405,12 @@ suite "Theme":
       check canvasStyle.fillColor == white
 
     block:
-      let plt = ggplot(mpg, aes("hwy", "cty")) +
+      let plt = ggplot(mpg, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         canvasColor(color = white)
       checkPlt(plt)
     block:
-      let plt = ggplot(mpg, aes("hwy", "cty")) +
+      let plt = ggplot(mpg, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         theme_opaque()
       checkPlt(plt)
@@ -419,7 +419,7 @@ suite "Annotations":
   test "Annotation using relative coordinates":
     let df = toDf(readCsv("data/mpg.csv"))
     let annot = "A simple\nAnnotation\nMulti\nLine"
-    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
       geom_line() +
       annotate(annot,
                left = 0.5,
@@ -454,7 +454,7 @@ suite "Annotations":
     let annot = "A simple\nAnnotation\nMulti\nLine"
     let font = font(size = 12.0,
                     family = "monospace")
-    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
       geom_point() +
       annotate(annot,
                x = 10.0,
@@ -490,7 +490,7 @@ suite "Annotations":
     check dfAt44.len == 2
     check dfAt44["cty"].toTensor(float) == toTensor @[33.0, 35.0]
     block:
-      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         ylim(5, 30)) # will cut off two values at hwy = 44, clip them to `30`, since
                       # default is `outsideRange = "clip"` (`orkClip`)
@@ -503,7 +503,7 @@ suite "Annotations":
             check almostEq(gobj.ptPos.y.pos, 30.0, 1e-8)
         else: discard
     block:
-      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         ylim(5, 30, outsideRange = "drop")) # will drop 2 values at `hwy = 44`
       let view = plt.view
@@ -517,7 +517,7 @@ suite "Annotations":
         else: discard
       check count == 0
     block:
-      let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+      let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         ylim(5, 30, outsideRange = "none")) # will leave two values at `hwy = 44` somewhere
                                              # outside the plot
@@ -534,10 +534,10 @@ suite "Annotations":
   test "Set custom plot data margins":
     let df = toDf(readCsv("data/mpg.csv"))
     const marg = 0.05
-    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         xMargin(marg))
-    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point())
     let pltRefXScale = pltRef.view[4].xScale
     let view = plt.view[4]
@@ -550,9 +550,9 @@ suite "Annotations":
   test "Margin plus limit using orkClip clips to range + margin":
     let df = toDf(readCsv("data/mpg.csv"))
     const marg = 0.1
-    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point())
-    let plt = ggcreate(ggplot(df, aes("hwy", "cty")) +
+    let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         xlim(0.0, 30.0) +
         xMargin(marg))
@@ -599,7 +599,7 @@ suite "Annotations":
 
     block:
       let plt = ggcreate(
-        ggplot(df, aes("spikes", "neurons")) +
+        ggplot(df, aes("spikes", "neurons"), backend = bkCairo) +
           geom_linerange(aes(ymin = f{-1.0},
                              ymax = f{1.0})) +
           scale_y_continuous() + # make sure y is considered cont.
@@ -638,7 +638,7 @@ suite "Annotations":
 
     block:
       let plt = ggcreate(
-        ggplot(df, aes("spikes", "neurons")) +
+        ggplot(df, aes("spikes", "neurons"), backend = bkCairo) +
           geom_linerange(aes(ymin = f{-1.0},
                              ymax = f{1.0})) +
           scale_y_continuous() + # make sure y is considered cont.
@@ -681,7 +681,7 @@ suite "Annotations":
       ## TODO: fix the bug!
       expect(ValueError):
         discard ggcreate(
-          ggplot(df, aes("spikes", "neurons")) +
+          ggplot(df, aes("spikes", "neurons"), backend = bkCairo) +
             geom_linerange(aes(ymin = f{-1.0})) +
             scale_y_continuous() + # make sure y is considered cont.
             ylim(-1, 1) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
@@ -698,7 +698,7 @@ suite "Annotations":
                         "Height" : @[1.87, 1.75, 1.78],
                         "Name" : @["Mike", "Laura", "Sue"] })
     let plt = ggcreate(
-      ggplot(df, aes("Name","Height")) +
+      ggplot(df, aes("Name","Height"), backend = bkCairo) +
         geom_bar(stat="identity")
     )
 
@@ -716,7 +716,7 @@ suite "Annotations":
     let df = seqsToDf({ "Trial" : trials,
                         "Value" : values })
     let plt = ggcreate(
-      ggplot(df, aes(x="Trial", y="Value")) +
+      ggplot(df, aes(x="Trial", y="Value"), backend = bkCairo) +
         geom_bar(stat="identity", position="identity")
     )
 
@@ -733,7 +733,7 @@ suite "Annotations":
       # first check that this does indeed result in a classification by
       # guessType that's continuous
       let plt = ggcreate(
-        ggplot(df, aes(x, y, color = class)) +
+        ggplot(df, aes(x, y, color = class), backend = bkCairo) +
           geom_line()
       )
       check plt.filledScales.color.main.isSome
@@ -745,7 +745,7 @@ suite "Annotations":
     block FactorMakesDiscrete:
       # now check factor has desired effect
       let plt = ggcreate(
-        ggplot(df, aes(x, y, color = factor(class))) +
+        ggplot(df, aes(x, y, color = factor(class)), backend = bkCairo) +
           geom_line()
       )
       check plt.filledScales.color.main.isSome
