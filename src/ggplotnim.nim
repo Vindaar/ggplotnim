@@ -237,12 +237,17 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.weight)
 
 proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
-             numXTicks = 10, numYTicks = 10): GgPlot =
+             numXTicks = 10, numYTicks = 10,
+             backend = bkNone): GgPlot =
+  ## Note: The backend argument is required when using `ggcreate` with a
+  ## a `ggplot` argument without `ggsave`. All string related placements
+  ## require knowledge of a backend to compute absolute positions.
   # create new DF object (underlying data same) so that we don't mess up
   # the table of the user
   result = GgPlot(data: data.shallowCopy,
                   numXticks: numXTicks,
-                  numYticks: numYTicks)
+                  numYticks: numYTicks,
+                  backend: backend)
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
   # TODO: fill others with defaults
   # add default theme
