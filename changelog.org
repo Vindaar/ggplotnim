@@ -1,5 +1,13 @@
 * v0.4.10
-- improve text placement of x labels (in particular of relevance for TikZ)
+- update ginger dependency to =v0.3.10=
+- improve text placement of x labels (in particular of relevance for
+  TikZ)
+- the =ggplot= procedure now takes an optional =backend= argument for
+  use cases when not using =ggsave= (e.g. for testing or when creating
+  multiple plots in a single viewport). Due to making =ginger= less
+  backend dependent
+- adds a =generateAll= nimble task to generate all data required for
+  tests & CI  
 * v0.4.9
 - add support for more shapes when using =geom_point= (9 shapes in
   total now)
