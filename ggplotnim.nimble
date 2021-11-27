@@ -99,7 +99,7 @@ task recipesJson, "Generate and run all recipes with JSON output":
     exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
     exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim"
 
-task generateJson, "Generate the JSON results for all recipes":
+task generateJson, "Generate all `_json.nim` recipe files that output JSON instead of a plot":
   exec "nim c -r recipes/runRecipes.nim --json"
 
 task recipesPlots, "Generate the PNGs from all recipes":
