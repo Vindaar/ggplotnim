@@ -2436,13 +2436,17 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   view.addObj titleObj
 
 proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
-  ## applies all calculations to the `GgPlot` object required to draw
-  ## the plot with cairo and returns a `PlotView`. The `PlotView` contains
-  ## the final `Scales` built from the `GgPlot` object and all its geoms
-  ## plus the ginal ginger.Viewport which only has to be drawn to produce the
+  ## Applies all calculations to the `GgPlot` object required to draw
+  ## the plot with the selected backend (either determined via filetype in `ggsave`,
+  ## handed manually to `ggplot`) and returns a `PlotView`.
+  ##
+  ## The `PlotView` contains the final `Scales` built from the `GgPlot` object and all its geoms
+  ## plus the final `ginger.Viewport` which only has to be drawn to produce the
   ## plot.
-  ## This proc is useful to investigate the final Scales or the Viewport
-  ## that will actually be drawn.
+  ##
+  ## This proc is useful to investigate the data structure that results before
+  ## actually producing an output file or to combine multiple plots into a combined
+  ## viewport.
   var filledScales: FilledScales
   if p.ridges.isSome:
     # update all aesthetics to include the `yRidges` scale
@@ -2739,11 +2743,12 @@ proc `%`*(t: tuple): json.JsonNode =
   for k, v in t.fieldPairs:
     json.`[]=`(result, k, %v)
 
-proc ggjson*(fname: string, width = 640.0, height = 480.0): JsonDummyDraw =
+proc ggjson*(fname: string, width = 640.0, height = 480.0, backend = bkCairo): JsonDummyDraw =
   let (_, _, fext) = fname.splitFile
   JsonDummyDraw(fname: fname.replace(fext, ".json"),
                 width: some(width),
-                height: some(height))
+                height: some(height),
+                backend: backend)
 
 proc `%`(fn: proc(): seq[uint32] {.closure.}): json.JsonNode =
   result = % fn()
@@ -2753,6 +2758,8 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   ## extension by `.json` and converting the `Viewport` to JSON after
   ## calling `ggcreate`. Used for CI.
   doAssert jsDraw.width.isSome and jsDraw.height.isSome
+  var p = p
+  p.backend = jsDraw.backend
   let plt = p.ggcreate(width = jsDraw.width.get,
                        height = jsDraw.height.get)
   writeFile(jsDraw.fname, json.`$`(% plt.view))
