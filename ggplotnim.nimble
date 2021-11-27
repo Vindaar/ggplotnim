@@ -46,6 +46,18 @@ task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
     exec "nim c -r tests/test_issue2.nim"
     exec "nim c -r tests/tCompareRecipes.nim"
 
+# Run the following command to generate everything required to possibly make CI pass, i.e.
+# to update all files
+task generateAll, "Generate all output files (requires lualatex, inkscape)":
+  #exec "ntangle recipes.org" # generate recipes
+  #exec "nim c -r recipes/recipeFiles.nim" # to generate the `_json.nim` files
+  #exec "nim c -r -d:nimLegacyRandomInitRand recipes/allRecipesJson.nim" # generate `.json` output files
+  exec "nim c -r recipes/rTikZLandau.nim" # generate `.tex` file for Landau
+  exec "lualatex --shell-escape media/recipes/rTikZLandau.tex"
+  exec "convert rTikZLandau.pdf rTikZLandau.png"
+  exec "inkscape --export-type=png --pdf-poppler rTikZLandau.pdf"
+  exec "mv rTikZLandau.png media/recipes/"
+  exec "rm rTikZLandau.pdf rTikZLandau.aux rTikZLandau.log"
 
 import os, strutils, strformat
 const
