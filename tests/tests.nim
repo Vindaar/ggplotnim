@@ -326,12 +326,12 @@ suite "GgPlot":
       check lab.kind == goLabel
       check lab.txtText == text
       check lab.txtAlign == taCenter
-      check lab.txtPos.y.toRelative.pos.almostEq(posTup.y.toRelative.pos)
       when not defined(noCairo) and defined(linux):
         ## This check only works if we compile with the cairo backend. That is because the
         ## placement of the text in y position depends explicitly on the extent of the
         ## text, which is determined using cairo's TTextExtents object. The dummy backend
         ## provides only zeroes for these numbers.
+        check lab.txtPos.y.toRelative.pos.almostEq(posTup.y.toRelative.pos)
         check lab.txtPos.x.toRelative.pos.almostEq(posTup.x.toRelative.pos)
 
       check lab.rotate == rot
