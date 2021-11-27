@@ -1,6 +1,6 @@
 import ggplotnim, math, sequtils, latexdsl, strutils, ginger
 proc landauApprox(x: float): float =
-  result = 1.0 / sqrt(2 * PI) * exp(- (x + exp(-x)) / 2 )
+  result = 1.0 / sqrt(2 * math.PI) * exp(- (x + exp(-x)) / 2 )
 
 proc annotateText(): string =
   # pure math in raw string due to too many invalid nim constructs for `latex` 

@@ -9,7 +9,8 @@ test "Issue2":
 
   let plt = ggplot(seqsToDf({ "x" : xdata,
                               "y" : ydata }),
-                   aes("x", "y")) +
+                   aes("x", "y"),
+                   backend = bkCairo) +
     geom_line()
 
   let plotView = plt.ggcreate()
