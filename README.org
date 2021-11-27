@@ -1,9 +1,6 @@
 * ggplotnim - ggplot2 in Nim
 [[https://github.com/Vindaar/ggplotnim/workflows/ggplotnim%20CI/badge.svg]]
-#+ATTR_HTML: title="Join the chat on Matrix #nim-science"
-[[https://matrix.to/#/#nim-science:envs.net][https://matrix.to/img/matrix-badge.svg]]
-#+ATTR_HTML: title="Join the chat on Discord #nim-science"
-[[https://discord.gg/f5hA9UK3dY][https://img.shields.io/discord/371759389889003530?color=blue&label=nim-science&logo=discord&logoColor=gold&style=flat-square]]
+[[https://matrix.to/#/#nim-science:envs.net][https://matrix.to/img/matrix-badge.svg]] [[https://discord.gg/f5hA9UK3dY][file:https://img.shields.io/discord/371759389889003530?color=blue&label=nim-science&logo=discord&logoColor=gold&style=flat-square]]
 
 This package, as the name suggests, will become a "sort of" port of
 [[https://ggplot2.tidyverse.org/][ggplot2]] for Nim. 
