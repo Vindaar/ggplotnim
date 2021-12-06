@@ -328,6 +328,7 @@ type
     yMarginRange*: ginger.Scale # final range taking into account margin
     xOutsideRange*: Option[OutsideRangeKind]
     yOutsideRange*: Option[OutsideRangeKind]
+    fillDataScale*: Option[ginger.Scale]
     # plot window
     plotMarginLeft*: Option[Quantity]
     plotMarginRight*: Option[Quantity]

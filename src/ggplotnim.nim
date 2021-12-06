@@ -2170,6 +2170,9 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
       else:
         # base on filled geom's scale instead
         theme.yMarginRange = calculateMarginRange(theme, fg.yScale, akY)
+    if facet.sfKind == sfFree and fg.geomKind in {gkTile, gkRaster}:
+      let fillScale = calcScale(labDf, fg.fillCol)
+      theme.fillDataScale = some(fillScale)
 
 proc generateFacetPlots(view: Viewport, p: GgPlot,
                         filledScales: FilledScales,
@@ -2217,6 +2220,9 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     var viewLabel = view[idx]
     ## perform steps only required `once` for each label
     # create the layout for a facet + header
+    ## XXX: in case we need separate fill scale legends, need a different layout,
+    ## i.e. use regular plot layout and fit legend? Problem is legend is too large
+    ## currently to fit
     viewLabel.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
                      margin = quant(0.01, ukRelative))
     var headerView = viewLabel[0]
@@ -2283,10 +2289,15 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
                                               style = some(theme.getGridLineColor()))
         plotView.addObj grdLines
         setGridAndTicks = true
+      theme.calcScalesForLabel(facet, fg, label)
+
 
       # create a child viewport to which we add the data to be able to stack multiple geom layers
       var pChild = plotView.addViewport(name = "data")
-      pChild.createGobjFromGeom(fg, theme, labelVal = some(label))
+      var mfg = fg
+      if theme.fillDataScale.isSome:
+        mfg.fillDataScale = theme.fillDataScale.get
+      pChild.createGobjFromGeom(mfg, theme, labelVal = some(label))
       # add the data viewport to the view
       plotView.children.add pChild
 

@@ -53,6 +53,7 @@ proc getColName*(s: Scale): string =
   ## existing column. This is because otherwise we modify the DF (we call
   ## `mutateInplace`) and will apply the transformations multiple times
   ## if several geoms are plotted!
+  if s.isNil: return ""
   case s.scKind
   of scTransformedData:
     ## TODO: determine name of `trans` based on transformation proc!
@@ -229,3 +230,19 @@ func hasSecondary*(filledScales: FilledScales, axKind: AxisKind): bool =
     let yScale = filledScales.getYScale()
     if yScale.secondaryAxis.isSome:
       result = true
+
+## NOTE: the following should ideally never be required. To generalize having different legends
+## for e.g. continuous colors for points in a facet wrap, we simply need to extend the "collection"
+## phase in such a way as facets are treated a level above, i.e. as global mappings. Then it should
+## fall out naturally, due to grouping by it?
+#proc anyContinuousScale*(filledScales: FilledScales, g: Geom): bool =
+#  ## Checks if the given `Geom` contains any continuous scales in the aesthetics
+#  for s in enumerateScales(filledScales, g):
+#    if s.dcKind == dcContinuous and s.scKind notin {scLinearData, scTransformedData}:
+#      return true
+
+proc needsSeparateLegend*(fg: FilledGeom): bool =
+  ## Returns a boolean indicating whether the given `FilledGeom` needs its own label
+  ## in a facet plot. This is the case if the scales are set to free and it contains a
+  ## continuous color scale.
+  result = fg.geomKind in {gkTile, gkRaster} and fg.

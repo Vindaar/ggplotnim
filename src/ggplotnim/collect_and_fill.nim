@@ -574,4 +574,17 @@ proc collectScales*(p: GgPlot): FilledScales =
   if p.facet.isSome:
     result.addFacets(p)
 
+  ## XXX: IDEA: can't we just treat the facet as:
+  ## - group the `p.data` frame by the facet column
+  ## - call all `callFillScale` on the grouped data
+  ## - for each of these post process, making sure to only *add* filled scales?
+  ##   i.e. have a "local" `result` that we "stack" after each? So that we get multiple
+  ##   `FilledGeom` for a facet wrap
+  ## NOTE: this should only be done if the scales are treated as `free` for the facet
+  ##
+  ## THEN: can remove the logic in the main that takes care of recalculating the scales
+  ## of a facet wrap
+  ##
+  ## QUESTION: How the merging of multiple `FilledScales` is supposed to work
+  ## is totally unclear. But I think the idea has merit.
   postProcessScales(result, p)
