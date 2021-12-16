@@ -24,7 +24,7 @@ proc getNimRootDir(): string =
   import "$nim/testament/lib/stdtest/specialpaths.nim"
   nimRootDir
   ]#
-  fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+  getCurrentCompilerExe().parentDir.parentDir
 
 const
   DirSep = when defined(windows): '\\' else: '/'
