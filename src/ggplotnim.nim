@@ -237,7 +237,6 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.weight)
 
 proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
-             numXTicks = 10, numYTicks = 10,
              backend = bkNone): GgPlot =
   ## Note: The backend argument is required when using `ggcreate` with a
   ## a `ggplot` argument without `ggsave`. All string related placements
@@ -245,8 +244,6 @@ proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
   # create new DF object (underlying data same) so that we don't mess up
   # the table of the user
   result = GgPlot(data: data.shallowCopy,
-                  numXticks: numXTicks,
-                  numYticks: numYTicks,
                   backend: backend)
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
   # TODO: fill others with defaults
@@ -2122,10 +2119,10 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       yticks: seq[GraphObject]
     if not hideTicks:
       xticks = view.handleTicks(filledScales, p, akX,
-                                numTicksOpt = some(p.numXTicks),
+                                numTicksOpt = some(filledScales.getXTicks()),
                                 theme = theme)
       yticks = view.handleTicks(filledScales, p, akY,
-                                numTicksOpt = some(p.numYTicks),
+                                numTicksOpt = some(filledScales.getYTicks()),
                                 theme = theme)
 
     # after creating all GraphObjects and determining tick positions based on
@@ -2330,7 +2327,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
                         theme.xMarginRange.high < 1e5:
                        5
                      else:
-                       p.numXTicks
+                       filledScales.getXTicks()
         xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
                                       numTicksOpt = some(xTickNum),
                                       hideTickLabels = hideXLabels)

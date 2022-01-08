@@ -117,6 +117,7 @@ type
     ids*: set[uint16]
     vKind*: ValueKind # the value kind of the data of `col`
     hasDiscreteness*: bool # TODO: set default dcKind, make option whatever instead of this
+    numTicks*: Option[int] # the desired number of ticks for this scale (may be ignored)
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
@@ -366,8 +367,6 @@ type
     # GgPlot can only contain a single `aes` by itself. Geoms may contain
     # seperate ones
     aes*: Aesthetics # original `aes` given in `ggplot()` call. Won't be modified
-    numXticks*: int
-    numYticks*: int
     facet*: Option[Facet]
     ridges*: Option[Ridges] # creates a ridgeline plot where `y` scale becomes ridge
     geoms*: seq[Geom]
@@ -620,8 +619,6 @@ proc `$`*(p: GgPlot): string =
   result.add ", title: " & $p.title
   result.add ", subtitle: " & $p.subtitle
   result.add ", aes: " & $p.aes
-  result.add ", numXTicks " & $p.numXTicks
-  result.add ", numYTicks " & $p.numXTicks
   result.add ", facet: " & $p.facet
   result.add ", geoms: "
   for g in p.geoms:
@@ -637,6 +634,7 @@ proc `$`*(s: Scale): string =
     result.add &", ids: {s.ids}"
   result.add &", vKind: {s.vKind}"
   result.add &", scKind: {s.scKind}"
+  result.add &", numTicks: {s.numTicks}"
   case s.scKind
   of scLinearData, scTransformedData:
     result.add &", axKind: {s.axKind}"
