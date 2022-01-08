@@ -1402,6 +1402,34 @@ This gives us:
 
 [[media/recipes/rFormatDecimalsPlot.png]]
 
+*** Custom tick positions & number of ticks
+
+Another sometimes desired feature is changing the number of ticks or
+placing ticks at predefined position. Both can be achieved by using
+the =breaks= argument to the =scale_x/y_*= procedures. A modified
+example of the =rSimpleLine.nim= recipe shows both possibilities:
+
+#+begin_src nim :tangle recipes/rCustomBreaks.nim
+import ggplotnim, sequtils, seqmath
+
+let x = linspace(0.0, 30.0, 1000)
+let y = x.mapIt(pow(sin(it), 2.0))
+let df = seqsToDf(x, y)
+
+ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
+  geom_line() +
+  scale_x_continuous(breaks = @[0.0, 1.0, 2.0, 12.0]) + # set custom ticks along x
+  scale_y_continuous(breaks = 50) + # set a custom number of ticks along y
+  ggsave("media/recipes/rCustomBreaks.png")
+#+end_src
+
+Note in particular that if one uses an integer, the given number is
+only a "desired" number of ticks. Internally we still look for the
+closest number that yields "nice" looking tick labels.
+
+[[media/recipes/rCustomBreaks.png]]
+
+
 *** Histogram with weights for each entry
 
 Since version =v0.3.9= it's finally possible to give the elements
