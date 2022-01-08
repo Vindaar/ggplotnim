@@ -7,13 +7,16 @@ import ggplotnim, sequtils, seqmath, strutils
 ##
 
 var elements = readCsv("data/elements.csv")
+  .mutate(f{Value -> int: "group" ~ (
+    if `group` == "-": -1
+    else: `group`.toInt)})
 echo elements.pretty(5)
 
 # split the lanthanides and actinides from the rest
-var top = elements.filter(f{classify(`group`) != fcNaN})
+var top = elements.filter(f{`group` != -1})
   .rename(f{"x" <- "group"},
           f{"y" <- "period"})
-var bottom = elements.filter(f{classify(`group`) == fcNaN})
+var bottom = elements.filter(f{`group` == -1})
 echo top["x"]
 echo top["y"]
 
