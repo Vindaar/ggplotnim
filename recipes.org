@@ -1732,7 +1732,7 @@ date range on the axis. With 52 weeks this would already always fall
 to the next exact year, as we only keep month + year information in
 the format string.
 
-[[media/recipes/rScaleXData.png]]
+[[media/recipes/rScaleXDate.png]]
 
 In addition to the used arguments there are 2 more arguments of
 interest to the =scale_x/y_date= procedures:
