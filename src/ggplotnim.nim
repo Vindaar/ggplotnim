@@ -265,6 +265,16 @@ template assignBinFields(res: var Geom, stKind, bins,
     res.density = density
   else: discard
 
+func assignBreaks[T: int | seq[SomeNumber]](scale: var Scale, breaks: T) =
+  ## Assings the correct field for the `Scale` related to the number of
+  ## ticks or tick positions.
+  when T is int:
+    scale.numTicks = some(breaks)
+  elif T is seq[float]:
+    scale.breaks = breaks
+  else:
+    scale.breaks = breaks.mapIt(it.float)
+
 func initGgStyle(color = none[Color](),
                  size = none[float](),
                  marker = none[MarkerKind](),
@@ -710,8 +720,15 @@ proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
     else:
       result.columns.add f
 
-proc scale_x_log10*(): Scale =
-  ## sets the X scale of the plot to a log10 scale
+proc scale_x_log10*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale =
+  ## Sets the X scale of the plot to a log10 scale.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   let trans = proc(v: float): float =
     result = log10(v)
   let invTrans = proc(v: float): float =
@@ -723,14 +740,21 @@ proc scale_x_log10*(): Scale =
                  dcKind: dcContinuous,
                  trans: trans,
                  invTrans: invTrans)
+  result.assignBreaks(breaks)
 
-proc scale_y_log10*(): Scale =
-  ## sets the Y scale of the plot to a log10 scale
+proc scale_y_log10*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale =
+  ## Sets the Y scale of the plot to a log10 scale.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   let trans = proc(v: float): float =
     result = log10(v)
   let invTrans = proc(v: float): float =
     result = pow(10, v)
-
 
   result = Scale(col: f{""}, # will be filled when added to GgPlot obj
                  scKind: scTransformedData,
@@ -738,9 +762,17 @@ proc scale_y_log10*(): Scale =
                  dcKind: dcContinuous,
                  trans: trans,
                  invTrans: invTrans)
+  result.assignBreaks(breaks)
 
-proc scale_x_log2*(): Scale =
-  ## sets the X scale of the plot to a log2 scale
+proc scale_x_log2*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale =
+  ## Sets the X scale of the plot to a log2 scale.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   let trans = proc(v: float): float =
     result = log2(v)
   let invTrans = proc(v: float): float =
@@ -752,9 +784,17 @@ proc scale_x_log2*(): Scale =
                  dcKind: dcContinuous,
                  trans: trans,
                  invTrans: invTrans)
+  result.assignBreaks(breaks)
 
-proc scale_y_log2*(): Scale =
-  ## sets the Y scale of the plot to a log2 scale
+proc scale_y_log2*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale =
+  ## Sets the Y scale of the plot to a log2 scale
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   let trans = proc(v: float): float =
     result = log2(v)
   let invTrans = proc(v: float): float =
@@ -766,6 +806,7 @@ proc scale_y_log2*(): Scale =
                  dcKind: dcContinuous,
                  trans: trans,
                  invTrans: invTrans)
+  result.assignBreaks(breaks)
 
 func sec_axis*(trans: FormulaNode = f{""},
                transFn: ScaleTransform = nil,
@@ -831,15 +872,23 @@ proc scale_x_discrete*[T; U](name: string = "",
     result.valueMap[kVal] = ScaleValue(kind: scLinearData, val: %~ labels[kVal])
     result.labelSeq[i] = kVal
 
-proc scale_x_continuous*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis(),
-                         labels: proc(x: float): string = nil,
-                         trans: proc(x: float): float = nil,
-                         invTrans: proc(x: float): float = nil
-                        ): Scale =
-  ## creates a continuous x axis with a possible secondary axis.
+proc scale_x_continuous*[T: int | seq[SomeNumber]](
+    name: string = "",
+    breaks: T = newSeq[float](),
+    secAxis: SecondaryAxis = sec_axis(),
+    labels: proc(x: float): string = nil,
+    trans: proc(x: float): float = nil,
+    invTrans: proc(x: float): float = nil): Scale =
+  ## Creates a continuous x axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the x axis to the tick label that should be shown for it.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
   if secAxis.name.len > 0:
@@ -867,15 +916,21 @@ proc scale_x_continuous*(name: string = "",
                    hasDiscreteness: true,
                    secondaryAxis: secAxisOpt,
                    formatContinuousLabel: labels)
+  result.assignBreaks(breaks)
 
-proc scale_x_date*(name: string = "",
-                   isTimestamp = false, # if true, `x` column is assumed to be a unix timestamp
-                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
-                   formatString: string = "yyyy-MM-dd",
-                   dateSpacing: Duration = initDuration(days = 1)
-                  ): DateScale =
+proc scale_x_date*[T: seq[SomeNumber]](
+    name: string = "",
+    breaks: T = newSeq[float](),
+    isTimestamp = false, # if true, `x` column is assumed to be a unix timestamp
+    parseDate: proc(x: string): DateTime = nil, # else it should be a string
+    formatString: string = "yyyy-MM-dd",
+    dateSpacing: Duration = initDuration(days = 1),
+    dateAlgo: DateTickAlgorithmKind = dtaFilter): DateScale =
   ## Creates a continuous `x` axis that generates labels according to the desired date time
   ## information.
+  ##
+  ## If `breaks` is given as a sequence of unix timestamps, these will be used over those
+  ## computed via `dateSpacing`.
   ##
   ## `isTimestamp` means the corresponding `x` column of the input data is a unix timestamp,
   ## either as an integer or a floating value.
@@ -887,6 +942,20 @@ proc scale_x_date*(name: string = "",
   ## taking into account the given `formatString`. Of all possible ticks allowed by
   ## `formatString` those ticks are used that have the closest distance to `dateSpacing`,
   ## starting with the first tick in the date range that can be represented by `formatString`.
+  ##
+  ## The `dateAlgo` argument is an experimental argument that should not be required. It changes
+  ## the algorithm that is used to determine sensible tick labels based on the given `dateSpacing`.
+  ## In the case of `dtaFilter` (default) we compute the parsed dates for all elements in the
+  ## date time column first and then attempt to filter out all values to leave those that
+  ## match the `dateSpacing`. This works well for densely packed timestamps in a column and
+  ## deals better with rounding of e.g. 52 weeks =~= 1 year like tick labels.
+  ## `dateAlgo` is overwritten if `breaks` is given.
+  ##
+  ## For sparser time data, use the `dtaAddDuration` algoritm, which simply determines the
+  ## first suitable date based on the format string and adds the `dateSpacing` to each of
+  ## these. The next matching date based on the `formatString` is used. This does not handle
+  ## rounding of dates well (4 weeks =~= 1 month will produce mismatches at certain points
+  ## for example), but should be more robust.
   # NOTE: because we add this to every linear scale, we can use this in post processing to
   # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
   if not isTimestamp and parseDate.isNil:
@@ -894,19 +963,26 @@ proc scale_x_date*(name: string = "",
       "or a `parseDate` procedure.")
   result = DateScale(name: name,
                      axKind: akX,
+                     breaks: breaks,
                      isTimestamp: isTimestamp,
                      parseDate: parseDate,
                      formatString: formatString,
-                     dateSpacing: dateSpacing)
+                     dateSpacing: dateSpacing,
+                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks)
 
-proc scale_y_date*(name: string = "",
-                   isTimestamp = false, # if true, `y` column is assumed to be a unix timestamp
-                   parseDate: proc(x: string): DateTime = nil, # else it should be a string
-                   formatString: string = "yyyy-MM-dd",
-                   dateSpacing: Duration = initDuration(days = 1)
-                  ): DateScale =
+proc scale_y_date*[T: seq[SomeNumber]](
+    name: string = "",
+    breaks: T = newSeq[float](),
+    isTimestamp = false, # if true, `y` column is assumed to be a unix timestamp
+    parseDate: proc(x: string): DateTime = nil, # else it should be a string
+    formatString: string = "yyyy-MM-dd",
+    dateSpacing: Duration = initDuration(days = 1),
+    dateAlgo: DateTickAlgorithmKind = dtaFilter): DateScale =
   ## Creates a continuous `y` axis that generates labels according to the desired date time
   ## information.
+  ##
+  ## If `breaks` is given as a sequence of unix timestamps, these will be used over those
+  ## computed via `dateSpacing`.
   ##
   ## `isTimestamp` means the corresponding `y` column of the input data is a unix timestamp,
   ## either as an integer or a floating value.
@@ -918,6 +994,20 @@ proc scale_y_date*(name: string = "",
   ## taking into account the given `formatString`. Of all possible ticks allowed by
   ## `formatString` those ticks are used that have the closest distance to `dateSpacing`,
   ## starting with the first tick in the date range that can be represented by `formatString`.
+  ##
+  ## The `dateAlgo` argument is an experimental argument that should not be required. It changes
+  ## the algorithm that is used to determine sensible tick labels based on the given `dateSpacing`.
+  ## In the case of `dtaFilter` (default) we compute the parsed dates for all elements in the
+  ## date time column first and then attempt to filter out all values to leave those that
+  ## match the `dateSpacing`. This works well for densely packed timestamps in a column and
+  ## deals better with rounding of e.g. 52 weeks =~= 1 year like tick labels.
+  ## `dateAlgo` is overwritten if `breaks` is given.
+  ##
+  ## For sparser time data, use the `dtaAddDuration` algoritm, which simply determines the
+  ## first suitable date based on the format string and adds the `dateSpacing` to each of
+  ## these. The next matching date based on the `formatString` is used. This does not handle
+  ## rounding of dates well (4 weeks =~= 1 month will produce mismatches at certain points
+  ## for example), but should be more robust.
   # NOTE: because we add this to every linear scale, we can use this in post processing to
   # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
   if not isTimestamp and parseDate.isNil:
@@ -925,20 +1015,30 @@ proc scale_y_date*(name: string = "",
       "or a `parseDate` procedure.")
   result = DateScale(name: name,
                      axKind: akY,
+                     breaks: breaks,
                      isTimestamp: isTimestamp,
                      parseDate: parseDate,
                      formatString: formatString,
-                     dateSpacing: dateSpacing)
+                     dateSpacing: dateSpacing,
+                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks)
 
-proc scale_y_continuous*(name: string = "",
-                         secAxis: SecondaryAxis = sec_axis(),
-                         labels: proc(x: float): string = nil,
-                         trans: proc(x: float): float = nil,
-                         invTrans: proc(x: float): float = nil
-                        ): Scale =
-  ## creates a continuous y axis with a possible secondary axis.
+proc scale_y_continuous*[T: int | seq[SomeNumber]](
+    name: string = "",
+    breaks: T = newSeq[float](),
+    secAxis: SecondaryAxis = sec_axis(),
+    labels: proc(x: float): string = nil,
+    trans: proc(x: float): float = nil,
+    invTrans: proc(x: float): float = nil): Scale =
+  ## Creates a continuous y axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the y axis to the tick label that should be shown for it.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
   # Also the possible transformation for the secondary axis is ignored!
   var msecAxis: SecondaryAxis
   var secAxisOpt: Option[SecondaryAxis]
@@ -967,7 +1067,7 @@ proc scale_y_continuous*(name: string = "",
                    hasDiscreteness: true,
                    secondaryAxis: secAxisOpt,
                    formatContinuousLabel: labels)
-
+  result.assignBreaks(breaks)
 
 proc scale_y_discrete*(name: string = "",
                        secAxis: SecondaryAxis = sec_axis(),

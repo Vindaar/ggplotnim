@@ -68,6 +68,7 @@ proc tickPosTransformed(s: ginger.Scale,
                         trans, invTrans: ScaleTransform,
                         numTicks: int, minv, maxv: float,
                         boundScale: ginger.Scale,
+                        breaks: seq[float] = @[],
                         hideTickLabels = false,
                         format: proc(x: float): string): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
@@ -77,31 +78,35 @@ proc tickPosTransformed(s: ginger.Scale,
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
-  var exp = floor(boundScale.low).int
-  let base = invTrans(1.0)
-  while exp.float < boundScale.high:
-    let cur = invTrans(exp.float)
-    let numToAdd = invTrans(1.0).round.int
-    let minors = linspace(cur, invTrans((exp + 1).float) - cur, numToAdd - 1)
-    labPos.add minors.mapIt(trans(it))
-    if (boundScale.high - boundScale.low) > 1.0 or hideTickLabels:
-      if not hideTickLabels:
-        labs.add cur.computeLabel(fmt = format)
+  if breaks.len == 0: # if no breaks given, compute manually
+    var exp = floor(boundScale.low).int
+    let base = invTrans(1.0)
+    while exp.float < boundScale.high:
+      let cur = invTrans(exp.float)
+      let numToAdd = invTrans(1.0).round.int
+      let minors = linspace(cur, invTrans((exp + 1).float) - cur, numToAdd - 1)
+      labPos.add minors.mapIt(trans(it))
+      if (boundScale.high - boundScale.low) > 1.0 or hideTickLabels:
+        if not hideTickLabels:
+          labs.add cur.computeLabel(fmt = format)
+        else:
+          labs.add ""
+        # add one less than minors.len of `""`
+        labs.add(toSeq(0 ..< minors.high).mapIt(""))
       else:
-        labs.add ""
-      # add one less than minors.len of `""`
-      labs.add(toSeq(0 ..< minors.high).mapIt(""))
+        # use all minors as labelledn
+        labs.add minors.mapIt(it.computeLabel(fmt = format))
+      inc exp
+    # add the current exp to the labels (not in loop anymore). In log2 `maxv` is
+    # contained in loop, but real range is larger. In log10, maxv is not contained.
+    if not hideTickLabels:
+      labs.add(computeLabel(invTrans(exp.float), fmt = format))
     else:
-      # use all minors as labelledn
-      labs.add minors.mapIt(it.computeLabel(fmt = format))
-    inc exp
-  # add the current exp to the labels (not in loop anymore). In log2 `maxv` is
-  # contained in loop, but real range is larger. In log10, maxv is not contained.
-  if not hideTickLabels:
-    labs.add(computeLabel(invTrans(exp.float), fmt = format))
-  else:
-    labs.add ""
-  labPos.add(exp.float)
+      labs.add ""
+    labPos.add(exp.float)
+  else: # use user given breaks. Will be given in data space, inverse transform
+    labPos = breaks.mapIt(trans(it))
+    labs = labPos.mapIt(computeLabel(invTrans(it), fmt = format))
   # for simplicity apply removal afterwards
   let filterIdx = toSeq(0 ..< labPos.len).filterIt(
     labPos[it] >= boundScale.low and
@@ -112,10 +117,16 @@ proc tickPosTransformed(s: ginger.Scale,
   labPos = filterIdx.mapIt(labPos[it])
   result = (labs, labPos)
 
-proc tickPosLinear(scale: ginger.Scale, numTicks: int): seq[float] =
-  ## computes the tick position and tick labels for non transformed data
-  let (newScale, _, newNumTicks) = calcTickLocations(scale, numTicks)
-  result = linspace(newScale.low, newScale.high, newNumTicks + 1).mapIt(it)
+proc tickPosLinear(scale: ginger.Scale, numTicks: int,
+                   breaks: seq[float] = @[]): seq[float] =
+  ## Computes the tick position and tick labels for non transformed data
+  ##
+  ## If `breaks` are given, these take precedent over our manual calculations.
+  if breaks.len == 0:
+    let (newScale, _, newNumTicks) = calcTickLocations(scale, numTicks)
+    result = linspace(newScale.low, newScale.high, newNumTicks + 1).mapIt(it)
+  else:
+    result = breaks
 
 proc applyBoundScale(ticks: seq[float], boundScale: ginger.Scale): seq[float] =
   ## filters the given tick positions by the `boundScale` so that now
@@ -152,6 +163,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            dataScale: ginger.Scale,
                            scKind: ScaleKind,
                            numTicks: int, theme: Theme,
+                           breaks: seq[float] = @[], # if given use these tick positions
                            trans, invTrans: ScaleTransform = nil,
                            secAxisTrans: Option[FormulaNode] = none[FormulaNode](),
                            format: ContinuousFormat = nil,
@@ -175,7 +187,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     # if secondary, use transformed scale
     let scale = dataScale.applyScaleTrans(secAxisTrans)
     boundScale = boundScale.applyScaleTrans(secAxisTrans)
-    var ticks = tickPosLinear(scale, numTicks)
+    var ticks = tickPosLinear(scale, numTicks, breaks)
       .applyBoundScale(boundScale)
     let labels = computeLabels(ticks, scale.high - scale.low, format)
     # if we have done a `secAxisTrans` invert that transformation for the ticks. This is so
@@ -197,6 +209,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     let maxVal = invTrans.largestPow(invTrans(dataScale.high))
     let (labs, labelpos) = tickPosTransformed(scale, trans, invTrans,
                                               numTicks, minVal, maxVal, boundScale,
+                                              breaks = breaks,
                                               hideTickLabels = hideTickLabels,
                                               format = format)
     let tickLocs = labelPos.toCoord1D(axKind, dataScale)
@@ -397,6 +410,12 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
     # unique values are now our ticks
     # compute their location
     tickPosUnix = tickLabels.mapIt(it.parse(dateScale.formatString).toTime.toUnixFloat)
+  of dtaCustomBreaks:
+    tickPosUnix = dateScale.breaks
+    tickLabels = tickPosUnix.mapIt(it.fromUnixFloat.utc().format(dateScale.formatString)).deduplicate
+    if tickPosUnix.len == 0:
+      raise newException(ValueError, "`dateAlgo` is dtaCustomBreaks, but no `breaks` are given " &
+        "in the call to `scale_x/y_date`.")
   let tickCoord = tickPosUnix.toCoord1D(axKind, scale.dataScale) # convert to coordinates
   let (tickObjs, labObjs) = view.tickLabels(tickCoord, tickLabels, axKind, isSecondary = false,
                                             rotate = rotate,
@@ -453,6 +472,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         result = view.handleContinuousTicks(p, axKind, dataScale,
                                             scale.scKind,
                                             numTicks,
+                                            breaks = scale.breaks, # might be empty
                                             trans = scale.trans,
                                             invTrans = scale.invTrans,
                                             theme = theme,
@@ -475,6 +495,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         discard view.handleContinuousTicks(p, axKind, dataScale,
                                            secAxis.scKind,
                                            numTicks,
+                                           breaks = scale.breaks, # might be empty
                                            trans = transFn,
                                            invTrans = invTransFn,
                                            secAxisTrans = trans,
