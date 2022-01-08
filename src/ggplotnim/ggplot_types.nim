@@ -317,7 +317,11 @@ type
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot. By default grey92
     # grid lines
+    gridLines*: Option[bool]      # whether to draw grid lines
     gridLineColor*: Option[Color] # color of the grid lines. By default white.
+    gridLineWidth*: Option[float] # width of grid line, default 1pt
+    minorGridLines*: Option[bool] # whether to draw minor grid lines
+    minorGridLineWidth*: Option[float] # width of minor lines, default half width of major lines
     # data range
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
     xRange*: Option[ginger.Scale]
