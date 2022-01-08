@@ -1,3 +1,17 @@
+* v0.4.11
+- add option to draw minor grid lines (thinner lines between major
+  ones that have a tick & tick label associated)
+- add customization options for grid lines, enable / disable, width
+  and color of (minor) gridlines
+- add =scale_fill_discrete= to force a fill scale to be discrete
+- replace =numX/YTicks= logic from =ggplot= procedure by better
+  handling as a field of a =Scale= object
+- add =breaks= arguments to multiple =scale_x/y_*= procedures to
+  specify either the number of desired ticks along the axis or
+  specific tick locations. Supports any continuous scale and date
+  scales.
+- update dependency of datamancer to v0.1.11 due to CSV change
+  relevant for periodic table recipe.
 * v0.4.10
 - update ginger dependency to =v0.3.10=
 - improve text placement of x labels (in particular of relevance for
