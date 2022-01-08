@@ -1673,20 +1673,20 @@ proc `+`*(p: GgPlot, theme: Theme): GgPlot =
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
   ## `aes`
-  template clone(newScale: untyped): untyped =
+  func clone(s: Scale): Scale =
+    ## Clones the given scale
     when defined(gcDestructors):
-      newScale =  new Scale
-      newScale[] = scale[]
+      result = new Scale
+      result[] = scale[]
     else:
-      `newScale` = deepCopy(scale)
+      result = deepCopy(scale)
   template assignCopyScale(field: untyped): untyped =
     if aes.field.isSome:
       var mscale: Scale
-      clone(mscale)
+      mscale = clone(scale)
       mscale.col = aes.field.get.col
       mscale.ids = aes.field.get.ids
       result.field = some(mscale)
-
   result = aes
   case scale.scKind
   of scLinearData, scTransformedData:
