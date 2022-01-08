@@ -113,10 +113,14 @@ type
   DateTickAlgorithmKind* = enum
     dtaFilter,      ## compute the date ticks by filtering to closest matches
     dtaAddDuration  ## compute the date ticks by adding given duration to start time
+    dtaCustomBreaks ## use user given custom breaks (as unix timestamp)
+
   DateScale* = object
     name*: string
     axKind*: AxisKind   ## which axis does it belong to?
     isTimestamp*: bool  ## is it a timestamp?
+    breaks*: seq[float] ## timestamps to use as tick labels. Overrides `dateSpacing`. Forces
+                        ## `dateAlgo` to `dtaCustomBreaks`.
     parseDate*: proc(s: string): DateTime ## possible parser for string columns
     #formatDate*: proc(dt: DateTime): string # formatter for labels, required
     formatString*: string ## the string to format dates with
@@ -136,6 +140,7 @@ type
     vKind*: ValueKind # the value kind of the data of `col`
     hasDiscreteness*: bool # TODO: set default dcKind, make option whatever instead of this
     numTicks*: Option[int] # the desired number of ticks for this scale (may be ignored)
+    breaks*: seq[float]    # optional position for all ticks in data units. Overrides `numTicks` if any
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
@@ -653,6 +658,7 @@ proc `$`*(s: Scale): string =
   result.add &", vKind: {s.vKind}"
   result.add &", scKind: {s.scKind}"
   result.add &", numTicks: {s.numTicks}"
+  result.add &", breaks: {s.breaks}"
   case s.scKind
   of scLinearData, scTransformedData:
     result.add &", axKind: {s.axKind}"
