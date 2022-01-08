@@ -1032,10 +1032,20 @@ proc scale_y_reverse*(name: string = "",
 
 proc scale_fill_continuous*(name: string = "",
                             scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
+  ## Forces the fill scale to be continuous.
+  ##
+  ## If a `scale` is given, the fill scale range will be drawn in the given range.
   result = Scale(name: name,
                  scKind: scFillColor,
                  dcKind: dcContinuous,
                  dataScale: scale,
+                 hasDiscreteness: true)
+
+proc scale_fill_discrete*(name: string = ""): Scale =
+  ## Forces the fill scale to be discrete.
+  result = Scale(name: name,
+                 scKind: scFillColor,
+                 dcKind: dcDiscrete,
                  hasDiscreteness: true)
 
 proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
