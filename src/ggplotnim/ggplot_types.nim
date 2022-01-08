@@ -96,14 +96,32 @@ type
   DiscreteFormat* = proc(x: Value): string
   ContinuousFormat* = proc(x: float): string
 
+  ## The `DateTickAlgorithmKind` is an experimental enum that allows a choice between two
+  ## different algorithms for the determination of date based tick labels using the
+  ## given `dateSpacing`.
+  ##
+  ## In the case of `dtaFilter` (default) we compute the parsed dates for all elements in the
+  ## date time column first and then attempt to filter out all values to leave those that
+  ## match the `dateSpacing`. This works well for densely packed timestamps in a column and
+  ## deals better with rounding of e.g. 52 weeks =~= 1 year like tick labels.
+  ##
+  ## For sparser time data, use the `dtaAddDuration` algoritm, which simply determines the
+  ## first suitable date based on the format string and adds the `dateSpacing` to each of
+  ## these. The next matching date based on the `formatString` is used. This does not handle
+  ## rounding of dates well (4 weeks =~= 1 month will produce mismatches at certain points
+  ## for example), but should be more robust.
+  DateTickAlgorithmKind* = enum
+    dtaFilter,      ## compute the date ticks by filtering to closest matches
+    dtaAddDuration  ## compute the date ticks by adding given duration to start time
   DateScale* = object
     name*: string
-    axKind*: AxisKind  ## which axis does it belong to?
-    isTimestamp*: bool ## is it a timestamp?
+    axKind*: AxisKind   ## which axis does it belong to?
+    isTimestamp*: bool  ## is it a timestamp?
     parseDate*: proc(s: string): DateTime ## possible parser for string columns
     #formatDate*: proc(dt: DateTime): string # formatter for labels, required
     formatString*: string ## the string to format dates with
     dateSpacing*: Duration ## required duration between two ticks
+    dateAlgo*: DateTickAlgorithmKind ## See enum description above
 
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
