@@ -1,6 +1,7 @@
 import sequtils, algorithm, tables
 
 import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
+from ggplot_ticks import getXTicks, getYTicks
 import datamancer
 import ginger except Scale
 
@@ -910,8 +911,8 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       yScale = filledGeom.yScale
     filledScales.geoms.add filledGeom
 
-  let (finalXScale, _, _) = calcTickLocations(xScale, p.numXTicks)
-  let (finalYScale, _, _) = calcTickLocations(yScale, p.numYTicks)
+  let (finalXScale, _, _) = calcTickLocations(xScale, filledScales.getXTicks())
+  let (finalYScale, _, _) = calcTickLocations(yScale, filledScales.getYTicks())
 
   filledScales.xScale = finalXScale
   filledScales.yScale = finalYScale

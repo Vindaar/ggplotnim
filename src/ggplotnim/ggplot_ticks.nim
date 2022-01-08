@@ -4,7 +4,22 @@ import datamancer
 import ginger except Scale
 
 import seqmath
-import math, sequtils, times, sets
+import std / [math, sequtils, times, sets, algorithm]
+
+proc getTicks*(s: Scale): int =
+  ## Returns a valid number of ticks based on the given `Scale`. This will either be
+  ## the `numTicks` field if it is some, else it will be a default (10).
+  result = s.numTicks.get(otherwise = 10)
+
+proc getXTicks*(fs: FilledScales): int =
+  ## Returns a valid number of ticks for X. Either returns the number of ticks given to
+  ## the X scale (e.g. via `scale_x_continuous` or friends) or returns a default of 10 ticks.
+  result = fs.getXScale().getTicks()
+
+proc getYTicks*(fs: FilledScales): int =
+  ## Returns a valid number of ticks for Y. Either returns the number of ticks given to
+  ## the Y scale (e.g. via `scale_y_continuous` or friends) or returns a default of 10 ticks.
+  result = fs.getYScale().getTicks()
 
 proc smallestPow(invTrans: ScaleTransform, x: float): float =
   doAssert x > 0.0
@@ -371,12 +386,12 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
   case axKind
   of akX:
     scale = filledScales.getXScale()
-    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numXTicks
+    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: scale.getTicks()
     if theme.xTickLabelMargin.isSome:
       marginOpt = some(view.getTickLabelMargin(theme, axKind))
   of akY:
     scale = filledScales.getYScale()
-    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: p.numYTicks
+    numTicks = if numTicksOpt.isSome: numTicksOpt.unsafeGet else: scale.getTicks()
     if theme.yTickLabelMargin.isSome:
       marginOpt = some(view.getTickLabelMargin(theme, axKind))
   let hasScale = scale.col.name.len > 0
