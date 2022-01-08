@@ -1706,6 +1706,17 @@ the format string.
 
 [[media/recipes/rScaleXData.png]]
 
+In addition to the used arguments there are 2 more arguments of
+interest to the =scale_x/y_date= procedures:
+- =dateAlgo=: allows the selection of an alternative algorithm for the
+  determination of the tick positions. The default =dtaFilter= behaves
+  as described in the note above. =dtaAddDuration= simply adds the
+  given =dateSpacing= onto the first valid tick and re-formats the
+  result with =formatString= for a correct placement and text. The
+  latter is useful for sparse input data along the time column.
+- =breaks=: allows to hand custom timestamps (unix) at which to place
+  ticks. Uses =formatString= to format the timestamps. Ignores the
+  =dateAlgo= and =dateSpacing=.
   
 *** Using =geom_smooth= to perform a linear fit
 
