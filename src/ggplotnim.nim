@@ -1326,11 +1326,34 @@ func theme_void*(color: Color = white): Theme =
                  hideTickLabels: some(true),
                  hideLabels: some(true))
 
+func gridLines*(enable = true, width = Inf,
+                color: Color = white): Theme =
+  ## Adds major grid lines to a plot
+  ##
+  ## If width `!= Inf` will use the value, else default of 1pt.
+  ##
+  ## The `color` may also be changed with this proc if multiple changes are to be
+  ## made.
+  result = Theme(gridLines: some(enable),
+                 gridLineColor: some(color))
+  if classify(width) == fcNormal:
+    result.gridLineWidth = some(width)
+
+func minorGridLines*(enable = true, width = Inf): Theme =
+  ## Adds minor grid lines to a plot (i.e. between the major grid lines of half width)
+  ##
+  ## If width is `!= Inf` will use the given width. Else will compute to half the width of
+  ## the major lines.
+  result = Theme(minorGridLines: some(enable))
+  if classify(width) == fcNormal:
+    result.minorGridLineWidth = some(width)
+
 func backgroundColor*(color: Color = grey92): Theme =
   ## Sets the background color of the plotting area to `color`.
   result = Theme(plotBackgroundColor: some(color))
 
-func gridLineColor*(color: Color = white): Theme =
+func gridLineColor*(color: Color = white): Theme {.deprecated: "Use the `gridLines` procedure to set " &
+  "the grid line color among other things.".} =
   ## Sets the color of the grid lines.
   result = Theme(gridLineColor: some(color))
 
@@ -1610,7 +1633,11 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(subTitle)
   ifSome(plotBackgroundColor)
   ifSome(canvasColor)
+  ifSome(gridLines)
+  ifSome(gridLineWidth)
   ifSome(gridLineColor)
+  ifSome(minorGridLines)
+  ifSome(minorGridLineWidth)
   ifSome(xRange)
   ifSome(yRange)
   ifSome(xMargin)
@@ -1851,6 +1878,24 @@ proc generateLegendMarkers(plt: Viewport,
       raise newException(Exception, "Continuous legend unsupported for scale kind " &
         $scale.scKind)
 
+proc handleGridLines(view: Viewport,
+                     xticks, yticks: seq[GraphObject],
+                     theme: Theme): seq[GraphObject] =
+  ## Handles the addition of grid lines. Applies the `theme` given the `xticks` / `yticks`
+  ## and adds potential minor grid lines
+  # get the grid lines style from the given theme
+  let gridLineStyle = theme.getGridLineStyle()
+  if theme.gridLines.isNone or not theme.gridLines.get:
+    result = @[view.initGridLines(some(xticks), some(yticks),
+                                  style = some(gridLineStyle))]
+  if theme.minorGridLines.isSome and theme.minorGridLines.get:
+    # want minor grid lines
+    # minor lines are half width
+    let minorGridLineStyle = gridLineStyle.getMinorGridLineStyle(theme)
+    result.add view.initGridLines(some(xticks), some(yticks),
+                                  major = false,
+                                  style = some(minorGridLineStyle))
+
 template argMaxIt(s, arg: untyped): untyped =
   ## `s` has to have a `pairs` iterator
   # TODO: move elsehere
@@ -2022,9 +2067,8 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
     var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
                                           theme = theme, centerTicks = false,
                                           format = format)
-    let grdLines = view.initGridLines(some(xticks), some(yticks),
-                                      style = some(theme.getGridLineColor()))
-    view.addObj @[grdLines]
+    let grdLines = view.handleGridLines(xticks, yticks, theme)
+    view.addObj grdLines
   if not hideLabels:
     view.handleLabels(theme)
   view.xScale = theme.xMarginRange
@@ -2067,8 +2111,12 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       xticks: seq[GraphObject]
       yticks: seq[GraphObject]
     if not hideTicks:
-      xticks = view.handleTicks(filledScales, p, akX, theme = theme)
-      yticks = view.handleTicks(filledScales, p, akY, theme = theme)
+      xticks = view.handleTicks(filledScales, p, akX,
+                                numTicksOpt = some(p.numXTicks),
+                                theme = theme)
+      yticks = view.handleTicks(filledScales, p, akY,
+                                numTicksOpt = some(p.numYTicks),
+                                theme = theme)
 
     # after creating all GraphObjects and determining tick positions based on
     # (possibly) user defined plot range, set the final range of the plot to
@@ -2087,8 +2135,8 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       view.updateDataScale(xticks)
       view.updateDataScale(yticks)
 
-    let grdLines = view.initGridLines(some(xticks), some(yticks),
-                                      style = some(theme.getGridLineColor()))
+    # get the user desired grid lines
+    let grdLines = view.handleGridLines(xticks, yticks, theme)
 
     # given the just created plot and tick labels, have to check
     # whether we should enlarge the column / row for the y / x label and
@@ -2097,7 +2145,7 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       # TODO: why do we add labels to child 4 and not directly into the viewport we
       # use to provide space for it, i.e. 3?
       view.handleLabels(theme)
-    view.addObj @[grdLines]
+    view.addObj grdLines
 
 proc determineExistingCombinations(fs: FilledScales,
                                    facet: Facet): OrderedSet[Value] =
@@ -2279,8 +2327,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
         yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
                                       hideTickLabels = hideYLabels)
 
-        let grdLines = plotView.initGridLines(some(xticks), some(yticks),
-                                              style = some(theme.getGridLineColor()))
+        let grdLines = plotView.handleGridLines(xticks, yticks, theme)
         plotView.addObj grdLines
         setGridAndTicks = true
 

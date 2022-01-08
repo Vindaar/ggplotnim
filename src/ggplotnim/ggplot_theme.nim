@@ -23,13 +23,25 @@ proc getCanvasBackground*(theme: Theme): Style =
     # default background: white
     result.fillColor = white
 
-proc getGridLineColor*(theme: Theme): Style =
-  ## returns a suitable style (or applies default) for the color of the grid lines
+proc getGridLineStyle*(theme: Theme): Style =
+  ## Extracts the fields of `theme` that are set for grid lines and applies
+  ## defaults else.
   result = Style(lineWidth: 1.0,
                  color: white,
                  lineType: ltSolid)
   if theme.gridLineColor.isSome:
     result.color = theme.gridLineColor.unsafeGet
+  if theme.gridLineWidth.isSome:
+    result.lineWidth = theme.gridLineWidth.unsafeGet
+
+proc getMinorGridLineStyle*(majorStyle: Style, theme: Theme): Style =
+  ## Extracts the fields of `theme` that are set for minor grid lines and applies
+  ## defaults else.
+  result = Style(lineWidth: majorStyle.lineWidth / 2.0,
+                 color: majorStyle.color,
+                 lineType: ltSolid)
+  if theme.minorGridLineWidth.isSome:
+    result.lineWidth = theme.minorGridLineWidth.unsafeGet
 
 proc calculateMarginRange*(theme: Theme, scale: ginger.Scale, axKind: AxisKind): ginger.Scale =
   var margin: float
