@@ -117,7 +117,7 @@ proc discreteAndType(data: Column,
   ## threshold of unique values in the column.
   ##
   ## The associated `Scale` is only used for better error messages.
-  let vKind = toValueKind(data.kind)
+  let vKind = toValueKind(data)
   # auto determine discreteness iff not set manually by user
   let isDiscrete = block:
     if dcKind.isSome:
@@ -126,7 +126,7 @@ proc discreteAndType(data: Column,
     else:
       isDiscreteData(data, s, drawSamples = true)
   result = (isDiscrete: isDiscrete,
-            vKind: toValueKind(data.kind))
+            vKind: toValueKind(data))
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value],
