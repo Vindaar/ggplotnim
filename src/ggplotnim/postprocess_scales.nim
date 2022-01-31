@@ -6,8 +6,12 @@ import datamancer
 import ginger except Scale
 
 from seqmath import histogram, linspace, round
-from scinim / signals import savitzkyGolayFilter
-from polynumeric import polyFit, eval, initPoly
+
+when not defined(nolapack):
+  ## If `nolapack` is defined, smoothing functionality is disabled to not depend on
+  ## LAPACK
+  from scinim / signals import savitzkyGolayFilter
+  from polynumeric import polyFit, eval, initPoly
 
 func getScales(gid: uint16, filledScales: FilledScales,
                yIsNone = false): (Scale, Scale, seq[Scale]) =
@@ -521,15 +525,21 @@ proc callSmoother(fg: FilledGeom,
     if windowSize < 1 or windowSize > df.len:
       raise newException(ValueError, "The given `span` value of " & $geom.span & " results in a " &
         "Savitzky-Golay filter window of " & $windowSize & " for input data with length " & $df.len & ".")
-    result = savitzkyGolayFilter(data,
-                                 windowSize, geom.polyOrder)
+    when defined(nolapack):
+      raise newException(Exception, "You compiled the binary with `-d:nolapack`. `geom_smooth` is not available!")
+    else:
+      result = savitzkyGolayFilter(data,
+                                   windowSize, geom.polyOrder)
   of smPoly:
     # for a polynomial least squares fit we also need the x values
     let xData = df[fg.xcol, float]
-    let polyCoeff = polyFit(xData, data, geom.polyOrder)
-    # `initPoly` takes the coefficients in reversed order (highest order first)
-    let p = initPoly(polyCoeff.toRawSeq.reversed)
-    result = xData.map_inline(p.eval(x))
+    when  defined(nolapack):
+      raise newException(Exception, "You compiled the binary with `-d:nolapack`. `geom_smooth` is not available!")
+    else:
+      let polyCoeff = polyFit(xData, data, geom.polyOrder)
+      # `initPoly` takes the coefficients in reversed order (highest order first)
+      let p = initPoly(polyCoeff.toRawSeq.reversed)
+      result = xData.map_inline(p.eval(x))
   of smLM:
     raise newException(Exception, "Levenberg-Marquardt fitting is not implemented yet.")
 
