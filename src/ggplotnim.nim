@@ -1542,6 +1542,14 @@ proc theme_latex*(): Theme =
   result = Theme(titleFont: some(font(10.0)),
                  labelFont: some(font(10.0)))
 
+proc prefer_columns*(): Theme =
+  ## Sets the preference in a facet to be num(cols) > num(rows)
+  result = Theme(preferRowsOverColumns: some(true))
+
+proc prefer_rows*(): Theme =
+  ## Sets the preference in a facet to be num(rows) > num(cols)
+  result = Theme(preferRowsOverColumns: some(false))
+
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
   of "none": result = none[TextAlignKind]()
@@ -1831,6 +1839,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(plotMarginTop)
   ifSome(plotMarginBottom)
   ifSome(facetMargin)
+  ifSome(preferRowsOverColumns)
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
@@ -2423,9 +2432,19 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   theme.xTicksTextAlign = p.theme.xTicksTextAlign
   theme.yTicksTextAlign = p.theme.yTicksTextAlign
 
+
   var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
-  let (rows, cols) = calcRowsColumns(0, 0, numExist)
+  var
+    rows: int
+    cols: int
+  template getOrFalse(t): untyped = t.isSome and t.get
+  if getOrFalse(theme.preferRowsOverColumns):
+    # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
+    (rows, cols) = calcRowsColumns(0, 0, numExist)
+  else:
+    # default
+    (cols, rows) = calcRowsColumns(0, 0, numExist)
   let viewMap = calcFacetViewMap(existComb)
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
@@ -2773,6 +2792,8 @@ proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
   )
 
 proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
+              widths: seq[int] = @[],
+              heights: seq[int] = @[],
               useTeX = false,
               onlyTikZ = false,
               standalone = false,
@@ -2781,9 +2802,21 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
               label = "",
               placement = "htbp"
              ) =
-  ## Creates a simple multi plot in a grid. Currently no smart layouting
+  ## Creates a simple multi plot in a grid. Currently no smart layouting.
+  ## If `widths` and `heights` is given, expects a sequence of numbers of the length
+  ## of given plots. It will use the width/height of the same index for the corresponding
+  ## plot.
   ##
   ## For an explanaiton of the TeX arguments, see the `ggsave` docstring.
+  let width = if widths.len == 1: widths[0] else: width
+  let height = if heights.len == 1: heights[0] else: height
+  template raiseIfNotMatching(arg: untyped): untyped =
+    if arg.len > 1 and arg.len != plts.len:
+      raise newException(ValueError, "Incorrect number of " & $astToStr(arg) & " in call to " &
+        "`ggmulti`. Has " & $arg.len & ", but needs: " & $plts.len)
+  raiseIfNotMatching(widths)
+  raiseIfNotMatching(heights)
+
   # determine file type (neeeded fro backend in `ggcreate`) and create tex options
   let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
                                 caption, label, placement)
@@ -2793,14 +2826,31 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   var pltViews = newSeq[PlotView](plts.len)
   # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
   # why the args are inverted! (it returns (rows, cols))
-  let (cols, rows) = calcRowsColumns(0, 0, plts.len)
-  var img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float,
-                         backend = backend)
-  img.layout(cols = cols, rows = rows)
+  var img: Viewport
+  if widths.len > 0 or heights.len > 0:
+    # use it & number of elemnts as sizes for the columns
+    let wVal = if widths.len == 0: width else: widths.sum
+    let hVal = if heights.len == 0: height else: heights.sum
+    img = initViewport(wImg = wVal.float, hImg = hVal.float, backend = backend)
+    let widthsQ = widths.mapIt(quant(it.float, ukPoint))
+    let heightsQ = heights.mapIt(quant(it.float, ukPoint))
+    img.layout(cols = max(widths.len, 1), rows = max(heights.len, 1),
+               colWidths = widthsQ, rowHeights = heightsQ)
+  else:
+    # compute number of required columns
+    let (cols, rows) = calcRowsColumns(0, 0, plts.len)
+    img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float,
+                       backend = backend)
+    img.layout(cols = cols, rows = rows)
 
   for i, plt in plts:
-    let pp =  ggcreate(plt, width = width.float,
-                       height = height.float)
+    # assign backend (required for things like `strWidth`
+    var pltB = plt
+    pltB.backend = backend
+    # get correct width / height.
+    let wVal = if i < widths.len: widths[i] else: width
+    let hVal = if i < heights.len: heights[i] else: height
+    let pp =  ggcreate(pltB, width = wVal, height = hVal)
     # embed the finished plots into the the new viewport
     img.embedAt(i, pp.view)
 
