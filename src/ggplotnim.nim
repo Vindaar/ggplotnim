@@ -33,7 +33,8 @@ import ggplotnim / [
 export ggplot_types
 export ggplot_utils
 
-import ggplotnim / colormaps / viridisRaw
+import ggplotnim / colormaps / colormaps
+export viridis, magma, inferno, plasma
 
 import chroma
 export chroma
