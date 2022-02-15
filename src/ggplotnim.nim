@@ -1179,6 +1179,76 @@ proc scale_color_manual*[T](values: Table[T, Color]): Scale =
     result.valueMap[kVal] = ScaleValue(kind: scColor, color: values[k])
     result.labelSeq[i] = kVal
 
+proc scale_color_gradient*(scale: ColorScale | seq[uint32],
+                           name: string = "custom"): Scale =
+  ## Allows to customize the color gradient used for the `color` aesthetic.
+  ##
+  ## Either call one of:
+  ## - `viridis()`, `magma()`, `plasma()`, `inferno()`
+  ## as an argument to the `scale` argument or hand your own custom
+  ## color scale (as `uint32` colors).
+  ##
+  ## Construction of `uint32` colors can be done "by hand":
+  ## Assuming `alpha`, `r`, `g`, `b` are `uint8` values:
+  ##
+  ## `let c = alpha shl 24 or r shl 16 or g shl 8 or b`
+  ##
+  ## or by constructing it as a hex color directly:
+  ##
+  ## `let c = 0xaa_ff_00_ff'u32` # hex color "#FF00FF" with `AA` alpha
+  ##
+  ## or finally by converting from a `chroma` or a `stdlib/colors` color.
+  ##
+  ## Note: `chroma` does not have a type that stores `uint32` colors, so the
+  ## conversion must be done by hand. The `stdlib / colors` module uses `int64`
+  ## values for whatever reason. For those you can just convert them to `uint32`.
+  ## Both of these options provide your typical "named CSS-like" colors.
+  ##
+  ## The `name` argumnet is only used in case a `seq[uint32]` is given and
+  ## is not particularly important.
+  result = Scale(scKind: scColor,
+                 dcKind: dcContinuous,
+                 hasDiscreteness: true)
+  when scale is ColorScale:
+    result.colorScale = some(scale)
+  else:
+    result.colorScale = some(ColorScale(name: name, colors: scale))
+
+proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
+                          name: string = "custom"): Scale =
+  ## Allows to customize the color gradient used for the `color` aesthetic.
+  ##
+  ## Either call one of:
+  ## - `viridis()`, `magma()`, `plasma()`, `inferno()`
+  ## as an argument to the `scale` argument or hand your own custom
+  ## color scale (as `uint32` colors).
+  ##
+  ## Construction of `uint32` colors can be done "by hand":
+  ## Assuming `alpha`, `r`, `g`, `b` are `uint8` values:
+  ##
+  ## `let c = alpha shl 24 or r shl 16 or g shl 8 or b`
+  ##
+  ## or by constructing it as a hex color directly:
+  ##
+  ## `let c = 0xaa_ff_00_ff'u32` # hex color "#FF00FF" with `AA` alpha
+  ##
+  ## or finally by converting from a `chroma` or a `stdlib/colors` color.
+  ##
+  ## Note: `chroma` does not have a type that stores `uint32` colors, so the
+  ## conversion must be done by hand. The `stdlib / colors` module uses `int64`
+  ## values for whatever reason. For those you can just convert them to `uint32`.
+  ## Both of these options provide your typical "named CSS-like" colors.
+  ##
+  ## The `name` argumnet is only used in case a `seq[uint32]` is given and
+  ## is not particularly important.
+  result = Scale(scKind: scFillColor,
+                 dcKind: dcContinuous,
+                 hasDiscreteness: true)
+  when scale is ColorScale:
+    result.colorScale = some(scale)
+  else:
+    result.colorScale = some(ColorScale(name: name, colors: scale))
+
 proc scale_size_manual*[T](values: Table[T, float]): Scale =
   ## allows to set custom sizes, by handing a table mapping the
   ## keys found in the size column to sizes.
@@ -1313,8 +1383,9 @@ proc genContinuousLegend(view: var Viewport,
     # add markers
     let markers = legGrad.generateLegendMarkers(cat, accessIdx)
     legGrad.addObj markers
-    let viridis = ViridisRaw.mapIt(color(it[0], it[1], it[2]))
-    let cc = some(Gradient(colors: viridis))
+    let cmap = if cat.colorScale.isNone: viridis() else: cat.colorScale.get
+    let colors = cmap.colors.mapIt(it.toColor)
+    let cc = some(Gradient(colors: colors))
     let gradRect = legGrad.initRect(c(0.0, 0.0),
                                     quant(1.0, ukRelative),
                                     quant(1.0, ukRelative),
