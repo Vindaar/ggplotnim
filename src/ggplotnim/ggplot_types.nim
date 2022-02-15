@@ -370,6 +370,7 @@ type
     plotMarginBottom*: Option[Quantity]
     # Facet related options
     facetMargin*: Option[Quantity]
+    preferRowsOverColumns*: Option[bool]
 
   ThemeMarginLayout* = object
     left*: Quantity
