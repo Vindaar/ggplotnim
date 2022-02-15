@@ -2,7 +2,7 @@ import tables, algorithm, sequtils, random, sets, math, macros, options
 
 import ggplot_types, ggplot_utils
 from ggplot_scales import scaleFromData
-import ggplotnim / colormaps / viridisRaw
+import ggplotnim / colormaps / colormaps
 import postprocess_scales
 import datamancer
 
@@ -218,11 +218,16 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
                               col: FormulaNode,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
-                              df: DataFrame): Scale =
+                              colorScale: Option[ColorScale]
+                              ): Scale =
   ## devise colormap mapping
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
-  # for now just take viridis as default
+  let cMap = if colorScale.isNone:
+               viridis()
+             else:
+               colorScale.get
+  result.colorScale = some(cMap)
   # map all values to values between 0-255 and get the correct idx of viridis map
   result.mapData = (
     proc(df: DataFrame): seq[ScaleValue] =
@@ -233,19 +238,18 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
         var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
                                  (dataScale.high - dataScale.low))).round.int
         colorIdx = max(0, min(255, colorIdx))
-        let cVal = ViridisRaw[colorIdx]
-        var scVal = if scKind == scColor:
+        let cVal = cMap.colors[colorIdx]
+        var scVal = when scKind == scColor:
                       ScaleValue(kind: scColor)
                     else:
                       ScaleValue(kind: scFillColor)
-        scVal.color = color(cVal[0], cVal[1], cVal[2])
+        scVal.color = cVal.toColor()
         result[idx] = scVal
   )
 
-
 proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
-                             dataScale: ginger.Scale,
-                             df: DataFrame): Scale =
+                             dataScale: ginger.Scale
+                            ): Scale =
   const minSize = 2.0
   const maxSize = 7.0
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcContinuous,
@@ -266,14 +270,16 @@ proc fillScaleImpl(
   vKind: ValueKind,
   isDiscrete: bool,
   col: FormulaNode,
-  df: DataFrame,
+  #df: DataFrame,
   scKind: static ScaleKind,
   labelSeqOpt = none[seq[Value]](), # for discrete data
   valueMapOpt = none[OrderedTable[Value, ScaleValue]](), # for discrete data
   dataScaleOpt = none[ginger.Scale](), # for cont data
   axKindOpt = none[AxisKind](),
   trans = none[ScaleTransform](),
-  invTrans = none[ScaleTransform]()): Scale =
+  invTrans = none[ScaleTransform](),
+  colorScale = none[ColorScale]()
+     ): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
   ## NOTE: The given `col` arg is not necessarily exactly a DF key anymore, since
@@ -325,11 +331,11 @@ proc fillScaleImpl(
                                               trans.get, invTrans.get,
                                               dataScale)
     of scColor:
-      result = fillContinuousColorScale(scColor, col, vKind, dataScale, df)
+      result = fillContinuousColorScale(scColor, col, vKind, dataScale, colorScale)
     of scFillColor:
-      result = fillContinuousColorScale(scFillColor, col, vKind, dataScale, df)
+      result = fillContinuousColorScale(scFillColor, col, vKind, dataScale, colorScale)
     of scSize:
-      result = fillContinuousSizeScale(col, vKind, dataScale, df)
+      result = fillContinuousSizeScale(col, vKind, dataScale)
     of scShape:
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
@@ -365,6 +371,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   var labelSeqOpt: Option[seq[Value]]
   var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
+  var colorScaleOpt: Option[ColorScale]
   for s in scales:
     # check if scale predefined discreteness
     if s.hasDiscreteness:
@@ -377,6 +384,9 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       # ## we use the last transformation we find!
       transOpt = some(s.trans)
       invTransOpt = some(s.invTrans)
+    of scColor, scFillColor:
+      if s.colorScale.isSome:
+        colorScaleOpt = s.colorScale
     else: discard
 
     # now determine labels, data scale from `data`
@@ -405,9 +415,10 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
                        some(scaleFromData(data, s))
 
     # now have to call `fillScaleImpl` with this information
-    var filled = fillScaleImpl(vKind, isDiscrete, s.col, df, scKind,
+    var filled = fillScaleImpl(vKind, isDiscrete, s.col, scKind,
                                labelSeqOpt, valueMapOpt, dataScaleOpt,
-                               axKindOpt, transOpt, invTransOpt)
+                               axKindOpt, transOpt, invTransOpt,
+                               colorScaleOpt)
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
       # assign the `dateScale` if any

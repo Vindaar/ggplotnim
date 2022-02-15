@@ -127,6 +127,10 @@ type
     dateSpacing*: Duration ## required duration between two ticks
     dateAlgo*: DateTickAlgorithmKind ## See enum description above
 
+  ColorScale* = object
+    name*: string # name of the used color scale
+    colors*: seq[uint32] # the used color scale as colors encoded in uint32
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -154,6 +158,9 @@ type
       invTrans*: ScaleTransform
       secondaryAxis*: Option[SecondaryAxis] # a possible secondary x, y axis
       dateScale*: Option[DateScale] # an optional date scale associated to this axis
+    of scColor, scFillColor:
+      # color scale to use if continuous (overrides `viridis` default)
+      colorScale*: Option[ColorScale]
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
@@ -270,8 +277,8 @@ type
     userStyle*: GgStyle # if set, apply this style instead of parent's
     position*: PositionKind
     aes*: Aesthetics # a geom can have its own aesthetics. Needs to be part of
-                    # the `Geom`, because if we add it to `GgPlot` we lose track
-                    # of which geom it corresponds to
+                     # the `Geom`, because if we add it to `GgPlot` we lose track
+                     # of which geom it corresponds to
     binPosition*: BinPositionKind
     case kind*: GeomKind
     of gkHistogram:
@@ -448,6 +455,7 @@ type
       fillDataScale*: ginger.Scale
       width*: Option[string]
       height*: Option[string]
+      colorScale*: ColorScale # the color scale used to plot this
     of gkText:
       # required if text is used
       text*: string

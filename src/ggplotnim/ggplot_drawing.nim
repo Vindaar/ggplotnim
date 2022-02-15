@@ -1,6 +1,6 @@
 import sequtils, tables, sets
 import ggplot_types, ggplot_styles, ggplot_scales
-import colormaps / viridisRaw
+import colormaps / colormaps
 import datamancer
 import ginger
 
@@ -330,6 +330,7 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
   let
     numX = (width / wv).round.int
     numY = (height / hv).round.int
+    cMap = fg.colorScale
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
     let xT = df[fg.xCol].toTensor(float)
@@ -342,12 +343,8 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
       var colorIdx = (255.0 * ((zT[idx] - zScale.low) /
                       (zScale.high - zScale.low))).round.int
       colorIdx = max(0, min(255, colorIdx))
-      let cVal = ViridisRaw[colorIdx]
-      template to256(x: float): int = (x * 256.0).int
-      result[((numY - y - 1) * numX) + x] = (255 shl 24 or
-                                             to256(cVal[0]) shl 16 or
-                                             to256(cVal[1]) shl 8 or
-                                             to256(cVal[2])).uint32
+      let cVal = cMap.colors[colorIdx]
+      result[((numY - y - 1) * numX) + x] = cVal
 
   template dataC1(at: float, ax: AxisKind): untyped =
     Coord1D(pos: at, kind: ukData, axis: ax,
