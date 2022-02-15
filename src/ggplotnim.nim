@@ -2680,7 +2680,7 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
                                         fontOpt = some(font))
   view.addObj titleObj
 
-proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
+proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): PlotView =
   ## Applies all calculations to the `GgPlot` object required to draw
   ## the plot with the selected backend (either determined via filetype in `ggsave`,
   ## handed manually to `ggplot`) and returns a `PlotView`.
@@ -2692,6 +2692,8 @@ proc ggcreate*(p: GgPlot, width = 640.0, height = 480.0): PlotView =
   ## This proc is useful to investigate the data structure that results before
   ## actually producing an output file or to combine multiple plots into a combined
   ## viewport.
+  let width = width.float
+  let height = height.float
   var filledScales: FilledScales
   if p.ridges.isSome:
     # update all aesthetics to include the `yRidges` scale
