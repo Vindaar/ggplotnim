@@ -1,3 +1,17 @@
+* v0.4.12
+- add support for custom (and customized) colormaps
+- add additional =inferno=, =magma=, =plasma= colormap
+- add =scale_fill/color_gradient= function to assign such color maps
+  to a plot
+-
+- allow to customize layout in =ggmulti= plot (subplots of fully
+  separate plots):
+  - allow so set custom widths and heights for the rows / columns
+  - allow to prefer columns over rows and vice versa for the layouting
+    (by adding a =prefer_columns()= or =prefer_rows()= call to the
+    plotting chain)
+- =ggplot= call now allows widths and heights not only as =float=
+  value, but any number    
 * v0.4.11
 - add option to draw minor grid lines (thinner lines between major
   ones that have a tick & tick label associated)

@@ -109,7 +109,7 @@ proc encodeType(encoding: JsonNode, scKind: ScaleKind,
   of scColor, scFillColor:
     if "scale" notin encoding[key]:
       encoding[key]["scale"] = newJObject()
-    encoding[key]["scale"]["scheme"] = % "viridis"
+    encoding[key]["scale"]["scheme"] = % "viridis" ## XXX:
   of scText:
     encoding[key]["format"] = % ".2f"
   else:

@@ -80,6 +80,14 @@ proc orNoneScale*[T: string | SomeNumber | FormulaNode](
     of scTransformedData:
       result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind,
                           hasDiscreteness: hasDiscreteness))
+    of scSize:
+      result = some(Scale(scKind: scSize, col: fs,
+                          sizeRange: DefaultSizeRange,
+                          hasDiscreteness: hasDiscreteness))
+    of scAlpha:
+      result = some(Scale(scKind: scAlpha, col: fs,
+                          alphaRange: DefaultAlphaRange,
+                          hasDiscreteness: hasDiscreteness))
     of scColor:
       result = some(Scale(scKind: scColor, col: fs,
                           colorScale: DefaultColorScale,
@@ -284,40 +292,26 @@ func assignBreaks[T: int | seq[SomeNumber]](scale: var Scale, breaks: T) =
   else:
     scale.breaks = breaks.mapIt(it.float)
 
-func initGgStyle(color = none[Color](),
-                 size = none[float](),
-                 marker = none[MarkerKind](),
-                 lineType = none[LineType](),
-                 lineWidth = none[float](),
-                 fillColor = none[Color](),
-                 errorBarKind = none[ErrorBarKind](),
-                 alpha = none[float](),
-                 font = none[Font]()): GgStyle =
-  result = GgStyle(color: color,
-                   size: size,
-                   marker: marker,
-                   lineType: lineType,
-                   lineWidth: lineWidth,
-                   fillColor: fillColor,
-                   errorBarKind: errorBarKind,
-                   alpha: alpha,
-                   font: font)
-
-proc geom_point*(aes: Aesthetics = aes(),
-                 data = DataFrame(),
-                 color = none[Color](),
-                 size = none[float](),
-                 marker = none[MarkerKind](),
-                 stat = "identity",
-                 bins = -1,
-                 binWidth = 0.0,
-                 breaks: seq[float] = @[],
-                 binPosition = "none",
-                 position = "identity", # the position kind, "identity", "stack" etc.
-                 binBy = "full",
-                 density = false,
-                 alpha = none[float](),
-                ): Geom =
+proc geom_point*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  M: PossibleMarker;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    size: S = missing(),
+    marker: M = missing(),
+    stat = "identity",
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false,
+    alpha: A = missing()
+               ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
@@ -326,7 +320,11 @@ proc geom_point*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, size = size, marker = marker, alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pSize = size, pMarker = marker, pAlpha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -338,31 +336,46 @@ proc geom_point*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_errorbar*(aes: Aesthetics = aes(),
-                    data = DataFrame(),
-                    color = none[Color](),
-                    size = none[float](),
-                    lineType = none[LineType](),
-                    errorBarKind = ebLinesT,
-                    stat = "identity",
-                    bins = -1,
-                    binWidth = 0.0,
-                    breaks: seq[float] = @[],
-                    binPosition = "none",
-                    position = "identity", # the position kind, "identity", "stack" etc.
-                    binBy = "full",
-                    density = false
+proc geom_errorbar*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    size: S = missing(),
+    lineType: LT = missing(),
+    errorBarKind = ebLinesT,
+    stat = "identity",
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false
                    ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
+  ##
+  ## Possible `LineTypes` are:
+  ##
+  ## `ltNone, ltSolid, ltDashed, ltDotted, ltDotDash, ltLongDash, ltTwoDash`
+  ##
+  ## Possible `ErrorBarKind` are:
+  ##
+  ## `ebLines`, `ebLinesT`
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, size = size, lineType = lineType,
-                          errorBarKind = some(errorBarKind))
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pSize = size, pLineType = lineType, pErrorBarKind = errorBarKind
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -374,20 +387,24 @@ proc geom_errorbar*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_linerange*(aes: Aesthetics = aes(),
-                     data = DataFrame(),
-                     color = none[Color](),
-                     size = none[float](),
-                     lineType = none[LineType](),
-                     stat = "identity",
-                     bins = -1,
-                     binWidth = 0.0,
-                     breaks: seq[float] = @[],
-                     binPosition = "none",
-                     position = "identity", # the position kind, "identity", "stack" etc.
-                     binBy = "full",
-                     density = false
-                   ): Geom =
+proc geom_linerange*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    size: S = missing(),
+    lineType: LT = missing(),
+    stat = "identity",
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false
+                      ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
@@ -396,8 +413,11 @@ proc geom_linerange*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, size = size, lineType = lineType,
-                          errorBarKind = some(ebLines))
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pSize = size, pLineType = lineType
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -409,23 +429,26 @@ proc geom_linerange*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-
-proc geom_bar*(aes: Aesthetics = aes(),
-               data = DataFrame(),
-               color = none[Color](), # color of the bars
-               alpha = none[float](),
-               position = "stack",
-               stat = "count",
-              ): Geom =
+proc geom_bar*[
+  C: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(), # color of the bars
+    alpha: A = missing(),
+    position = "stack",
+    stat = "count",
+                  ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
-  let style = initGgStyle(lineType = some(ltSolid),
-                          lineWidth = some(1.0), # draw 1 pt wide black line to avoid white pixels
-                                                 # between bins at size of exactly 1.0 bin width
-                          color = color,
-                          fillColor = color,
-                          alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = color, pAlpha = alpha, pLineType = ltSolid,
+    pLineWidth = 1.0 # draw 1 pt wide black line to avoid white pixels
+                      # between bins at size of exactly 1.0 bin width
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -436,28 +459,37 @@ proc geom_bar*(aes: Aesthetics = aes(),
                 binPosition: bpNone,
                 statKind: stKind)
 
-proc geom_line*(aes: Aesthetics = aes(),
-                data = DataFrame(),
-                color = none[Color](), # color of the line
-                size = none[float](), # width of the line
-                lineType = none[LineType](), # type of line
-                fillColor = none[Color](),
-                alpha = none[float](),
-                stat = "identity",
-                bins = -1,
-                binWidth = 0.0,
-                breaks: seq[float] = @[],
-                binPosition = "none",
-                position = "identity",
-                binBy = "full",
-                density = false
-               ): Geom =
+proc geom_line*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(), # color of the line
+    size: S = missing(), # width of the line
+    lineType: LT = missing(), # type of line
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    stat = "identity",
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity",
+    binBy = "full",
+    density = false
+                  ): Geom =
   let dfOpt = if data.len > 0: some(data) else: none[DataFrame]()
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
-                          fillColor = fillColor, alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType, pAlpha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -468,23 +500,29 @@ proc geom_line*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_smooth*(aes: Aesthetics = aes(),
-                  data = DataFrame(),
-                  color = none[Color](), # color of the line
-                  size = none[float](), # width of the line
-                  lineType = none[LineType](), # type of line
-                  fillColor = none[Color](),
-                  alpha = none[float](),
-                  span = 0.7,
-                  smoother = "svg", ## the smoothing method to use `svg`, `lm`, `poly`
-                  polyOrder = 5,    ## polynomial order to use (no effect for `lm`)
-                  bins = -1,
-                  binWidth = 0.0,
-                  breaks: seq[float] = @[],
-                  binPosition = "none",
-                  position = "identity",
-                  binBy = "full",
-                  density = false
+proc geom_smooth*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(), # color of the line
+    size: S = missing(), # width of the line
+    lineType: LT = missing(), # type of line
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    span = 0.7,
+    smoother = "svg", ## the smoothing method to use `svg`, `lm`, `poly`
+    polyOrder = 5,    ## polynomial order to use (no effect for `lm`)
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity",
+    binBy = "full",
+    density = false
                  ): Geom =
   ## Draws a smooth line that is a filtered version of the `x` and `y` data given as
   ## the `aes` of the plot (or to this geom).
@@ -496,8 +534,12 @@ proc geom_smooth*(aes: Aesthetics = aes(),
   let smKind = parseEnum[SmoothMethodKind](smoother)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, lineWidth = size, lineType = lineType,
-                          fillColor = fillColor, alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType,
+    pAlpha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -512,34 +554,44 @@ proc geom_smooth*(aes: Aesthetics = aes(),
 
   assignBinFields(result, stSmooth, bins, binWidth, breaks, bbKind, density)
 
-proc geom_histogram*(aes: Aesthetics = aes(),
-                     data = DataFrame(),
-                     binWidth = 0.0, bins = 30,
-                     breaks: seq[float] = @[],
-                     color = none[Color](), # color of the bar outlines
-                     fillColor = none[Color](), # color of the bars inners
-                     alpha = none[float](),
-                     position = "stack", # default is `stack`
-                     stat = "bin",
-                     binPosition = "left",
-                     binBy = "full",
-                     density = false,
-                     lineWidth = some(0.2),
-                     lineType = some(ltSolid),
-                     hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo. Outline
-                                                             # does not allow `position = "stack"`.
-                    ): Geom =
+proc geom_histogram*[
+  C: PossibleColor;
+  FC: PossibleColor;
+  S: PossibleFloat;
+  LW: PossibleFloat;
+  LT: PossibleLineType;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    binWidth = 0.0, bins = 30,
+    breaks: seq[float] = @[],
+    color: C = missing(), # color of the bar outlines
+    fillColor: FC = missing(), # color of the bars inners
+    alpha: A = missing(),
+    position = "stack", # default is `stack`
+    stat = "bin",
+    binPosition = "left",
+    binBy = "full",
+    density = false,
+    lineWidth: LW = some(0.2),
+    lineType: LT = some(ltSolid),
+    hdKind: HistogramDrawingStyle = hdBars, # the drawing style of histo. Outline
+                                            # does not allow `position = "stack"`.
+                  ): Geom =
   let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(lineType = lineType,
-                          lineWidth = lineWidth, # draw 0.2 pt wide black line to avoid white pixels
-                                                 # between bins at size of exactly 1.0 bin width
-                          color = color, # default color
-                          fillColor = fillColor,
-                          alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor,
+    pLineWidth = lineWidth, # draw 0.2 pt wide black line to avoid white pixels
+                            # between bins at size of exactly 1.0 bin width
+    pLineType = lineType,
+    pAlpha = alpha
+  )
   let gid = incId()
 
   result = Geom(gid: gid,
@@ -553,32 +605,39 @@ proc geom_histogram*(aes: Aesthetics = aes(),
                 hdKind: hdKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_freqpoly*(aes: Aesthetics = aes(),
-                    data = DataFrame(),
-                    color = none[Color](), # color of the line
-                    size = none[float](), # line width of the line
-                    lineType = none[LineType](),
-                    fillColor = none[Color](),
-                    alpha = none[float](),
-                    bins = 30,
-                    binWidth = 0.0,
-                    breaks: seq[float] = @[],
-                    position = "identity",
-                    stat = "bin",
-                    binPosition = "center",
-                    binBy = "full",
-                    density = false
-                   ): Geom =
+proc geom_freqpoly*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(), # color of the line
+    size: S = missing(), # line width of the line
+    lineType: LT = missing(),
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    bins = 30,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    position = "identity",
+    stat = "bin",
+    binPosition = "center",
+    binBy = "full",
+    density = false
+                  ): Geom =
   let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
   let pkKind = parseEnum[PositionKind](position)
   let stKind = parseEnum[StatKind](stat)
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(lineType = lineType,
-                          lineWidth = size,
-                          color = color,
-                          fillColor = fillColor,
-                          alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType,
+    pAlpha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -590,20 +649,25 @@ proc geom_freqpoly*(aes: Aesthetics = aes(),
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_tile*(aes: Aesthetics = aes(),
-                data = DataFrame(),
-                color = none[Color](),
-                fillColor = none[Color](),
-                alpha = none[float](),
-                size = none[float](),
-                stat = "identity",
-                bins = 30,
-                binWidth = 0.0,
-                breaks: seq[float] = @[],
-                binPosition = "none",
-                position = "identity", # the position kind, "identity", "stack" etc.
-                binBy = "full",
-                density = false
+proc geom_tile*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    size: S = missing(),
+    stat = "identity",
+    bins = 30,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false
                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -613,8 +677,11 @@ proc geom_tile*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, fillColor = fillColor, size = size,
-                          alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pSize = size, pAplha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -626,20 +693,25 @@ proc geom_tile*(aes: Aesthetics = aes(),
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-proc geom_raster*(aes: Aesthetics = aes(),
-                  data = DataFrame(),
-                  color = none[Color](),
-                  fillColor = none[Color](),
-                  alpha = none[float](),
-                  size = none[float](),
-                  stat = "identity",
-                  bins = 30,
-                  binWidth = 0.0,
-                  breaks: seq[float] = @[],
-                  binPosition = "none",
-                  position = "identity", # the position kind, "identity", "stack" etc.
-                  binBy = "full",
-                  density = false
+proc geom_raster*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    size: S = missing(),
+    stat = "identity",
+    bins = 30,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false
                   ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
@@ -649,8 +721,11 @@ proc geom_raster*(aes: Aesthetics = aes(),
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let style = initGgStyle(color = color, fillColor = fillColor, size = size,
-                          alpha = alpha)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pSize = size, pAplha = alpha
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -663,22 +738,29 @@ proc geom_raster*(aes: Aesthetics = aes(),
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
 
-proc geom_text*(aes: Aesthetics = aes(),
-                data = DataFrame(),
-                color = none[Color](),
-                size = none[float](),
-                marker = none[MarkerKind](),
-                font = none[Font](),
-                alignKind = taCenter,
-                stat = "identity",
-                bins = -1,
-                binWidth = 0.0,
-                breaks: seq[float] = @[],
-                binPosition = "none",
-                position = "identity", # the position kind, "identity", "stack" etc.
-                binBy = "full",
-                density = false
-                ): Geom =
+proc geom_text*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  M: PossibleMarker;
+  A: PossibleFloat;
+  F: PossibleFont](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(),
+    size: S = missing(),
+    marker: M = missing(),
+    alpha: A = missing(),
+    font: F = missing(),
+    alignKind = taCenter,
+    stat = "identity",
+    bins = -1,
+    binWidth = 0.0,
+    breaks: seq[float] = @[],
+    binPosition = "none",
+    position = "identity", # the position kind, "identity", "stack" etc.
+    binBy = "full",
+    density = false
+                 ): Geom =
   ## NOTE: When using a different position than `identity`, be careful reading the plot!
   ## If N classes are stacked and an intermediate class has no entries, it will be drawn
   ## on top of the previous value!
@@ -689,8 +771,11 @@ proc geom_text*(aes: Aesthetics = aes(),
   let bbKind = parseEnum[BinByKind](binBy)
   let fontOpt = if font.isSome: font
                 else: some(font(12.0, alignKind = alignKind))
-  let style = initGgStyle(color = color, size = size,
-                          marker = marker, font = fontOpt)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pSize = size, pAplha = alpha, pMarker = marker, pFont = font
+  )
   let gid = incId()
   result = Geom(gid: gid,
                 data: dfOpt,
@@ -1223,6 +1308,46 @@ proc scale_color_gradient*(scale: ColorScale | seq[uint32],
   else:
     result.colorScale = ColorScale(name: name, colors: scale)
 
+proc scale_color_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the color scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scColor,
+                 dataKind: dkSetting)
+
+proc scale_fill_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the fill color scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scFillColor,
+                 dataKind: dkSetting)
+
+proc scale_size_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the size scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scSize,
+                 dataKind: dkSetting)
+
+proc scale_alpha_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the alpha scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scAlpha,
+                 dataKind: dkSetting)
+
 proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
                           name: string = "custom"): Scale =
   ## Allows to customize the color gradient used for the `color` aesthetic.
@@ -1266,10 +1391,49 @@ proc scale_size_manual*[T](values: Table[T, float]): Scale =
                  dcKind: dcDiscrete)
   result.labelSeq = newSeq[Value](values.len)
   let keys = toSeq(keys(values)).sorted
+  var min: float
+  var max: float
   for i, k in keys:
     let kVal = %~ k
-    result.valueMap[kVal] = ScaleValue(kind: scSize, size: values[k])
+    let val = values[k]
+    result.valueMap[kVal] = ScaleValue(kind: scSize, size: val)
     result.labelSeq[i] = kVal
+    min = min(val, min)
+    max = max(val, max)
+  # set the size range, not really needed, but good for sanity
+  result.sizeRange = (low: min, high: max)
+
+proc scale_size_discrete*(sizeRange = DefaultSizeRange): Scale =
+  ## Allows set the `size` scale to discrete values & optionally set the
+  ## range of allowed values in `sizeRange`.
+  result = Scale(scKind: scSize,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete,
+                 sizeRange: sizeRange)
+
+proc scale_size_continuous*(sizeRange = DefaultSizeRange): Scale =
+  ## Allows set the `size` scale to continuous values & optionally set the
+  ## range of allowed values in `sizeRange`.
+  result = Scale(scKind: scSize,
+                 hasDiscreteness: true,
+                 dcKind: dcContinuous,
+                 sizeRange: sizeRange)
+
+proc scale_alpha_discrete*(alphaRange = DefaultAlphaRange): Scale =
+  ## Allows set the `alpha` scale to discrete values & optionally set the
+  ## range of allowed values in `alphaRange`.
+  result = Scale(scKind: scAlpha,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete,
+                 alphaRange: alphaRange)
+
+proc scale_alpha_continuous*(alphaRange = DefaultAlphaRange): Scale =
+  ## Allows set the `alpha` scale to continuous values & optionally set the
+  ## range of allowed values in `alphaRange`.
+  result = Scale(scKind: scAlpha,
+                 hasDiscreteness: true,
+                 dcKind: dcContinuous,
+                 alphaRange: alphaRange)
 
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =
@@ -1785,6 +1949,8 @@ proc `+`*(p: GgPlot, geom: Geom): GgPlot =
   ## adds the given geometry to the GgPlot object
   result = p
   result.geoms.add geom
+  ## XXX: check if `geom` has a DF column referencing style attribute
+  ## If so, also add a `scale_color/fill_identity` to the `result`
 
 proc `+`*(p: GgPlot, facet: Facet): GgPlot =
   ## adds the given facet to the GgPlot object
@@ -1895,6 +2061,8 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
     assignCopyScale(color)
   of scFillColor:
     assignCopyScale(fill)
+  of scAlpha:
+    assignCopyScale(alpha)
   of scSize:
     assignCopyScale(size)
   of scShape:
@@ -2700,6 +2868,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   ## This proc is useful to investigate the data structure that results before
   ## actually producing an output file or to combine multiple plots into a combined
   ## viewport.
+  if p.geoms.len == 0:
+    raise newException(ValueError, "Please use at least one `geom`!")
   let width = width.float
   let height = height.float
   var filledScales: FilledScales

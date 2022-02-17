@@ -1,4 +1,5 @@
 import ggplot_types, ggplot_scales, ggplot_utils
+import colormaps / colormaps
 import ginger except Scale
 import datamancer
 #[
@@ -9,6 +10,8 @@ different geoms.
 ## The default styles we use for each geom in case neither the user provides
 ## a setting nor a mapping
 from chroma import parseHex
+const GreyAlpha = color(0.20, 0.20, 0.20, 0.5)
+
 const StatSmoothColor = parseHex("3366FF") # color used by ggplot2 for smoothed lines
 const PointDefaultStyle = Style(size: 3.0,
                                 marker: mkCircle,
@@ -32,6 +35,10 @@ const HistoDefaultStyle = Style(lineWidth: 0.2,
                                 lineType: ltSolid,
                                 color: grey20,
                                 fillColor: grey20)
+const HistoIdentityDefaultStyle = Style(lineWidth: 0.2,
+                                        lineType: ltSolid,
+                                        color: GreyAlpha,
+                                        fillColor: GreyAlpha)
 const TileDefaultStyle = Style(lineWidth: 0.05,
                                lineType: ltSolid,
                                color: grey20,
@@ -40,8 +47,11 @@ const TextDefaultStyle = Style(font: font(12.0),
                                size: 12.0,
                                color: black)
 
-func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
+const DefaultSizeRange* = (low: 2.0, high: 7.0)
+const DefaultAlphaRange* = (low: 0.1, high: 1.0)
 const DefaultColorScale* = viridis()
+
+func defaultStyle(geomKind: GeomKind, statKind: StatKind, positionKind: PositionKind): Style =
   case geomKind
   of gkPoint:
     result = PointDefaultStyle
@@ -52,7 +62,12 @@ const DefaultColorScale* = viridis()
   of gkBar:
     result = BarDefaultStyle
   of gkHistogram:
-    result = HistoDefaultStyle
+    if positionKind == pkIdentity:
+      result = HistoIdentityDefaultStyle
+      result.color.a = 0.5
+      result.fillcolor.a = 0.5
+    else:
+      result = HistoDefaultStyle
   of gkTile:
     result = TileDefaultStyle
   of gkText:
@@ -70,6 +85,7 @@ func mergeUserStyle*(s: GgStyle, fg: FilledGeom): Style =
   let uStyle = fg.geom.userStyle
   let geomKind = fg.geomKind
   let statKind = fg.geom.statKind # for "smooth" use different style
+  let posKind = fg.geom.position # for "smooth" use different style
 
   template fillField(field: untyped): untyped =
     if uStyle.field.isSome:
@@ -77,7 +93,7 @@ func mergeUserStyle*(s: GgStyle, fg: FilledGeom): Style =
     elif s.field.isSome:
       result.field = s.field.unsafeGet
     else:
-      result.field = defaultStyle(geomKind, statKind).field
+      result.field = defaultStyle(geomKind, statKind, posKind).field
   fillField(color)
   fillField(size)
   fillField(lineType)
@@ -103,7 +119,7 @@ func mergeUserStyle*(s: GgStyle, fg: FilledGeom): Style =
   ## TODO: This will overwrite a user style!!
   if result.color != result.fillColor:
     result.font.color = result.color
-  let defSize = defaultStyle(geomKind, statKind).size
+  let defSize = defaultStyle(geomKind, statKind, posKind).size
   if result.size != defSize:
     result.font.size = result.size * 2.5
 
@@ -118,6 +134,8 @@ proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
     # same value
     result.color = some(scVal.color)
     result.fillColor = some(scVal.color)
+  of scAlpha: # change alpha of both fill and color
+    result.alpha = some(scVal.alpha)
   of scSize:
     result.size = some(scVal.size)
   of scShape:
@@ -145,7 +163,9 @@ proc applyStyle*[T: string | FormulaNode](style: var GgStyle, df: DataFrame, sca
           styleVal = s.getValue(evaluate(s.col))
         elif $col == $s.col:
           # else only get value if this `col` is the scales column!
-          styleVal = if val.kind == VNull: s.getValue(%~ $col) else: s.getValue(val)
+          styleVal = if val.kind == VNull and (%~ $col) in s.valueMap: s.getValue(%~ $col)
+                     elif val in s.valueMap: s.getValue(val)
+                     else: continue
         else: continue
         style = changeStyle(style, styleVal)
       else:

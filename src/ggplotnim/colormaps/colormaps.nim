@@ -1045,7 +1045,7 @@ const PlasmaRaw* = [
 #      template to256(x: float): int = (x * 256.0).int
 #
 from math import round
-from chroma import ColorRGBA, Color, color, rgba
+from chroma import ColorRGBA, Color, color, rgba, parseHtmlColor, InvalidColor
 template toVal(x: float): uint32 = max(0, min((x * 255.0).round.int, 255)).uint32
 template toColorScale(cName, arg: untyped): untyped =
   proc `cName`*(): ColorScale =
@@ -1078,3 +1078,31 @@ when false:
 
 proc toColor*(c: uint32): Color =
   result = color(c.toRGBA)
+
+import datamancer / value
+proc toColor*(c: Value): Color =
+  ## Tries to determine a color from the given `Value`. May fail if
+  ## - ValueKind not string / int
+  ## - string cannot be parsed as valid color
+  case c.kind
+  of VInt:
+    # force `uint32` conversion and return
+    result = c.toInt.uint32.toColor()
+  of VString:
+    try:
+      result = c.toStr.parseHtmlColor()
+    except InvalidColor:
+      raise newException(ValueError, "Invalid color: " & $c & ". " &
+        "If you are referring to a column name, does this column exist?")
+  else:
+    raise newException(ValueError, "Value of kind: " & $c.kind & " cannot represent a " &
+      "valid color. Value is: " & $c)
+
+proc toColor*[T: int | string](c: T): Color =
+  ## Tries to determine a color from the given type. May fail if
+  ## - string cannot be parsed as valid color
+  when T is int:
+    # force `uint32` conversion and return
+    result = c.uint32.toColor()
+  else:
+    result = c.parseHtmlColor()

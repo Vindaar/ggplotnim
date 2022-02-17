@@ -1,6 +1,7 @@
 import tables, algorithm, sequtils, random, sets, math, macros, options
 
 import ggplot_types, ggplot_utils
+from ggplot_styles import DefaultColorScale, DefaultSizeRange, DefaultAlphaRange
 from ggplot_scales import scaleFromData
 import ggplotnim / colormaps / colormaps
 import postprocess_scales
@@ -129,6 +130,7 @@ proc discreteAndType(data: Column,
             vKind: toValueKind(data))
 
 proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: FormulaNode,
+                            dataKind: DataKind,
                             labelSeq: seq[Value],
                             valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
@@ -137,34 +139,77 @@ proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: For
   if valueMapOpt.isSome:
     result.valueMap = valueMapOpt.get
   else:
+    # given colors must be strings
     result.valueMap = initOrderedTable[Value, ScaleValue]()
     let colorCs = ggColorHue(labelSeq.len)
     for i, k in result.labelSeq:
       # NOTE: workaround, since we cannot do `kind: sckind` atm
+      var color: Color
+      case dataKind
+      of dkMapping: color = colorCs[i]
+      of dkSetting: color = toColor(k)
       result.valueMap[k] = if scKind == scColor:
-                             ScaleValue(kind: scColor, color: colorCs[i])
+                             ScaleValue(kind: scColor, color: color)
                            else:
-                             ScaleValue(kind: scFillColor, color: colorCs[i])
+                             ScaleValue(kind: scFillColor, color: color)
+
 
 proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
+                           dataKind: DataKind,
                            labelSeq: seq[Value],
-                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
+                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]],
+                           sizeRange: tuple[low, high: float]): Scale =
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcDiscrete)
+  doAssert sizeRange.low != sizeRange.high, "Size range must be defined in this context!"
   result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
   if valueMapOpt.isSome:
     result.valueMap = valueMapOpt.get
   else:
     let numSizes = min(labelSeq.len, 5)
-    const minSize = 2.0
-    const maxSize = 7.0
+    let minSize = sizeRange.low
+    let maxSize = sizeRange.high
     let stepSize = (maxSize - minSize) / numSizes.float
     for i, k in labelSeq:
-      result.valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
+      var size: float
+      case dataKind
+      of dkMapping: size = minSize + i.float * stepSize
+      of dkSetting:
+        doAssert k.kind in {VInt, VFloat}, "Value used to set size must be Int or Float!"
+        size = k.toFloat
+      result.valueMap[k] = ScaleValue(kind: scSize, size: size)
+
+proc fillDiscreteAlphaScale(vKind: ValueKind, col: FormulaNode,
+                            dataKind: DataKind,
+                            labelSeq: seq[Value],
+                            valueMapOpt: Option[OrderedTable[Value, ScaleValue]],
+                            alphaRange: tuple[low, high: float]): Scale =
+  ## Note: discrete alpha settings are probably not particularly useful. But they
+  ## are treated the same way as continuous alphas. Just a scale from (almost) transparent
+  ## to opaque.
+  result = Scale(scKind: scAlpha, vKind: vKind, col: col, dcKind: dcDiscrete)
+  doAssert alphaRange.low != alphaRange.high, "Alpha range must be defined in this context!"
+  result.labelSeq = labelSeq
+  result.valueMap = initOrderedTable[Value, ScaleValue]()
+  if valueMapOpt.isSome:
+    result.valueMap = valueMapOpt.get
+  else:
+    let numAlphas = labelSeq.len
+    let minAlpha = alphaRange.low
+    let maxAlpha = alphaRange.high
+    let stepAlpha = (maxAlpha - minAlpha) / numAlphas.float
+    for i, k in labelSeq:
+      var alpha: float
+      case dataKind
+      of dkMapping: alpha = minAlpha + i.float * stepAlpha
+      of dkSetting:
+        doAssert k.kind in {VInt, VFloat}, "Value used to set alpha must be Int or Float!"
+        alpha = k.toFloat
+      result.valueMap[k] = ScaleValue(kind: scAlpha, alpha: alpha)
 
 proc fillDiscreteShapeScale(vKind: ValueKind, col: FormulaNode,
-                           labelSeq: seq[Value],
-                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
+                            labelSeq: seq[Value],
+                            valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
   result = Scale(scKind: scShape, vKind: vKind, col: col, dcKind: dcDiscrete)
   result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
@@ -216,6 +261,7 @@ proc fillContinuousTransformedScale(col: FormulaNode,
 
 proc fillContinuousColorScale(scKind: static ScaleKind,
                               col: FormulaNode,
+                              dataKind: DataKind,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
                               colorScale: ColorScale
@@ -228,38 +274,91 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
   result.mapData = (
     proc(df: DataFrame): seq[ScaleValue] =
       result = newSeq[ScaleValue](df.len)
-      let t = col.evaluate(df).toTensor(float)
-      assert t.size == df.len, "Resulting tensor size does not match df len!"
-      for idx in 0 ..< t.size:
-        var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
-                                 (dataScale.high - dataScale.low))).round.int
-        colorIdx = max(0, min(255, colorIdx))
-        let cVal = cMap.colors[colorIdx]
-        var scVal = when scKind == scColor:
-                      ScaleValue(kind: scColor)
-                    else:
-                      ScaleValue(kind: scFillColor)
-        scVal.color = cVal.toColor()
-        result[idx] = scVal
+      let tCol = col.evaluate(df)
+      var scVal = when scKind == scColor:
+                    ScaleValue(kind: scColor)
+                  else:
+                    ScaleValue(kind: scFillColor)
+      case dataKind
+      of dkMapping:
+        let t = tCol.toTensor(float)
+        assert t.size == df.len, "Resulting tensor size does not match df len!"
+        for idx in 0 ..< t.size:
+          var colorIdx = (255.0 * ((t[idx] - dataScale.low) /
+                                   (dataScale.high - dataScale.low))).round.int
+          colorIdx = max(0, min(255, colorIdx))
+          let cVal = colorScale.colors[colorIdx]
+          scVal.color = cVal.toColor()
+          result[idx] = scVal
+      of dkSetting:
+        withNativeDtype(tCol):
+          let t = tCol.toTensor(dtype)
+          when dtype is int or dtype is string:
+            assert t.size == df.len, "Resulting tensor size does not match df len!"
+            for idx in 0 ..< t.size:
+              scVal.color = t[idx].toColor()
+              result[idx] = scVal
+          else:
+            raise newException(ValueError, "Invalid column type " & $dtype & " of column " & $col & " to set a color!")
   )
 
-proc fillContinuousSizeScale(col: FormulaNode, vKind: ValueKind,
-                             dataScale: ginger.Scale
+proc fillContinuousSizeScale(col: FormulaNode,
+                             dataKind: DataKind,
+                             vKind: ValueKind,
+                             dataScale: ginger.Scale,
+                             sizeRange: tuple[low, high: float]
                             ): Scale =
-  const minSize = 2.0
-  const maxSize = 7.0
+  doAssert sizeRange.low != sizeRange.high, "Size range must be defined in this context!"
+  let minSize = sizeRange.low
+  let maxSize = sizeRange.high
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
   result.mapData = (
     proc(df: DataFrame): seq[ScaleValue] =
+      result = newSeq[ScaleValue](df.len)
+      ## Note: even if `DataKind` is `dkSetting`, the column still must be float like
+      let t = col.evaluate(df).toTensor(float)
+      assert t.size == df.len, "Resulting tensor size does not match df len!"
+      var size: float
+      for idx in 0 ..< t.size:
+        case dataKind
+        of dkMapping:
+          size = (t[idx] - minSize) /
+                  (maxSize - minSize)
+        of dkSetting:
+          size = t[idx]
+        result[idx] = ScaleValue(kind: scSize,
+                                 size: size)
+  )
+
+proc fillContinuousAlphaScale(col: FormulaNode,
+                              dataKind: DataKind,
+                              vKind: ValueKind,
+                              dataScale: ginger.Scale,
+                              alphaRange: tuple[low, high: float]
+                            ): Scale =
+  doAssert alphaRange.low != alphaRange.high, "Alpha range must be defined in this context!"
+  let minAlpha = alphaRange.low
+  let maxAlpha = alphaRange.high
+
+  result = Scale(scKind: scAlpha, vKind: vKind, col: col, dcKind: dcContinuous,
+                 dataScale: dataScale)
+  result.mapData = (
+    proc(df: DataFrame): seq[ScaleValue] =
+      ## Note: even if the DataKind is `dkSetting`, data still must be float like
       let t = col.evaluate(df).toTensor(float)
       result = newSeq[ScaleValue](df.len)
       assert t.size == df.len, "Resulting tensor size does not match df len!"
+      var alpha: float
       for idx in 0 ..< t.size:
-        let size = (t[idx] - minSize) /
-                   (maxSize - minSize)
-        result[idx] = ScaleValue(kind: scSize,
-                               size: size)
+        case dataKind
+        of dkMapping:
+          alpha = (t[idx] - minAlpha) /
+                  (maxAlpha - minAlpha)
+        of dkSetting:
+          alpha = t[idx]
+        result[idx] = ScaleValue(kind: scAlpha,
+                                 alpha: alpha)
   )
 
 proc fillScaleImpl(
@@ -268,13 +367,18 @@ proc fillScaleImpl(
   col: FormulaNode,
   #df: DataFrame,
   scKind: static ScaleKind,
+  dataKind: DataKind,
   labelSeqOpt = none[seq[Value]](), # for discrete data
   valueMapOpt = none[OrderedTable[Value, ScaleValue]](), # for discrete data
   dataScaleOpt = none[ginger.Scale](), # for cont data
   axKindOpt = none[AxisKind](),
   trans = none[ScaleTransform](),
   invTrans = none[ScaleTransform](),
+  # The default values assigned here are never actually used *if* the given scale
+  # is of the corresponding type
   colorScale = DefaultColorScale,
+  sizeRange = DefaultSizeRange,
+  alphaRange = DefaultAlphaRange
      ): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
@@ -288,11 +392,13 @@ proc fillScaleImpl(
     let labelSeq = labelSeqOpt.unwrap()
     case scKind
     of scColor:
-      result = fillDiscreteColorScale(scColor, vKind, col, labelSeq, valueMapOpt)
+      result = fillDiscreteColorScale(scColor, vKind, col, dataKind, labelSeq, valueMapOpt)
     of scFillColor:
-      result = fillDiscreteColorScale(scFillColor, vKind, col, labelSeq, valueMapOpt)
+      result = fillDiscreteColorScale(scFillColor, vKind, col, dataKind, labelSeq, valueMapOpt)
     of scSize:
-      result = fillDiscreteSizeScale(vKind, col, labelSeq, valueMapOpt)
+      result = fillDiscreteSizeScale(vKind, col, dataKind, labelSeq, valueMapOpt, sizeRange)
+    of scAlpha:
+      result = fillDiscreteAlphaScale(vKind, col, dataKind, labelSeq, valueMapOpt, alphaRange)
     of scLinearData:
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
@@ -327,11 +433,14 @@ proc fillScaleImpl(
                                               trans.get, invTrans.get,
                                               dataScale)
     of scColor:
-      result = fillContinuousColorScale(scColor, col, vKind, dataScale, colorScale)
+      result = fillContinuousColorScale(scColor, col, dataKind, vKind, dataScale, colorScale)
     of scFillColor:
-      result = fillContinuousColorScale(scFillColor, col, vKind, dataScale, colorScale)
+      result = fillContinuousColorScale(scFillColor, col, dataKind, vKind, dataScale, colorScale)
     of scSize:
-      result = fillContinuousSizeScale(col, vKind, dataScale)
+      result = fillContinuousSizeScale(col, dataKind, vKind, dataScale, sizeRange)
+    of scAlpha:
+      result = fillContinuousAlphaScale(col, dataKind, vKind, dataScale, alphaRange)
+
     of scShape:
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
@@ -363,13 +472,20 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # using the combined dataset of all. This way we automatically get the correct
   # data range / correct number of labels while retaining a single scale per
   # geom.
+  ## XXX: go back to an approach in which we hand the full scale to `fillScaleImpl`!
+  ## Too many arguments are extracted here only to satisfiy (our initially good) idea to
+  ## not hand full scales on. Now it's become ugly
   var dataScaleOpt: Option[ginger.Scale]
   var labelSeqOpt: Option[seq[Value]]
   var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
   var colorScale: ColorScale
+  var sizeRange: tuple[low, high: float]
+  var alphaRange: tuple[low, high: float]
+  var dataKind: DataKind
   for s in scales:
     # check if scale predefined discreteness
+    dataKind = s.dataKind
     if s.hasDiscreteness:
       dcKindOpt = some(s.dcKind)
     case scKind
@@ -382,6 +498,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       invTransOpt = some(s.invTrans)
     of scColor, scFillColor:
       colorScale = s.colorScale
+    of scSize: sizeRange = s.sizeRange
+    of scAlpha: alphaRange = s.alphaRange
     else: discard
 
     # now determine labels, data scale from `data`
@@ -411,9 +529,11 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
 
     # now have to call `fillScaleImpl` with this information
     var filled = fillScaleImpl(vKind, isDiscrete, s.col, scKind,
+                               dataKind,
                                labelSeqOpt, valueMapOpt, dataScaleOpt,
                                axKindOpt, transOpt, invTransOpt,
-                               colorScaleOpt)
+                               colorScale, sizeRange, alphaRange)
+
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
       # assign the `dateScale` if any
@@ -552,6 +672,10 @@ proc collectScales*(p: GgPlot): FilledScales =
   let fills = collect(p, fill)
   let fillFilled = callFillScale(p.data, fills, scFillColor)
   fillField(fill, fillFilled)
+
+  let alphas = collect(p, alpha)
+  let alphaFilled = callFillScale(p.data, alphas, scAlpha)
+  fillField(alpha, alphaFilled)
 
   let sizes = collect(p, size)
   let sizeFilled = callFillScale(p.data, sizes, scSize)
