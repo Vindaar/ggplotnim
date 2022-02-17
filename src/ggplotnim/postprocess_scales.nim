@@ -314,7 +314,7 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     fg.fillCol = getColName(fs)
     if fillScale.get.dcKind == dcContinuous:
       fg.fillDataScale = fs.dataScale
-      fg.colorScale = fs.colorScale.get
+      fg.colorScale = fs.colorScale
   of gkRaster:
     let
       hS = getHeightScale(fs, fg.geom)
@@ -369,7 +369,7 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     let fs = fillScale.get
     fg.fillCol = getColName(fs)
     fg.fillDataScale = fs.dataScale
-    fg.colorScale = fs.colorScale.get
+    fg.colorScale = fs.colorScale
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
   of gkHistogram:

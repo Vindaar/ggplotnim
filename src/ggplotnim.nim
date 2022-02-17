@@ -17,7 +17,7 @@ import datamancer
 export datamancer
 
 import ggplotnim / [
-  ggplot_utils, ggplot_types, ggplot_theme, ggplot_ticks,
+  ggplot_utils, ggplot_types, ggplot_theme, ggplot_ticks, ggplot_styles,
   # utils dealing with scales
   ggplot_scales,
   # first stage of drawing: collect and fill `Scales`:
@@ -79,6 +79,14 @@ proc orNoneScale*[T: string | SomeNumber | FormulaNode](
                           hasDiscreteness: hasDiscreteness))
     of scTransformedData:
       result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind,
+                          hasDiscreteness: hasDiscreteness))
+    of scColor:
+      result = some(Scale(scKind: scColor, col: fs,
+                          colorScale: DefaultColorScale,
+                          hasDiscreteness: hasDiscreteness))
+    of scFillColor:
+      result = some(Scale(scKind: scFillColor, col: fs,
+                          colorScale: DefaultColorScale,
                           hasDiscreteness: hasDiscreteness))
     else:
       result = some(Scale(scKind: scKind, col: fs,
@@ -1211,9 +1219,9 @@ proc scale_color_gradient*(scale: ColorScale | seq[uint32],
                  dcKind: dcContinuous,
                  hasDiscreteness: true)
   when scale is ColorScale:
-    result.colorScale = some(scale)
+    result.colorScale = scale
   else:
-    result.colorScale = some(ColorScale(name: name, colors: scale))
+    result.colorScale = ColorScale(name: name, colors: scale)
 
 proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
                           name: string = "custom"): Scale =
@@ -1246,9 +1254,9 @@ proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
                  dcKind: dcContinuous,
                  hasDiscreteness: true)
   when scale is ColorScale:
-    result.colorScale = some(scale)
+    result.colorScale = scale
   else:
-    result.colorScale = some(ColorScale(name: name, colors: scale))
+    result.colorScale = ColorScale(name: name, colors: scale)
 
 proc scale_size_manual*[T](values: Table[T, float]): Scale =
   ## allows to set custom sizes, by handing a table mapping the
@@ -1384,7 +1392,7 @@ proc genContinuousLegend(view: var Viewport,
     # add markers
     let markers = legGrad.generateLegendMarkers(cat, accessIdx)
     legGrad.addObj markers
-    let cmap = if cat.colorScale.isNone: viridis() else: cat.colorScale.get
+    let cmap = cat.colorScale
     let colors = cmap.colors.mapIt(it.toColor)
     let cc = some(Gradient(colors: colors))
     let gradRect = legGrad.initRect(c(0.0, 0.0),
