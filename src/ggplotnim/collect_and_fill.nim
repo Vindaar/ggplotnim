@@ -218,16 +218,12 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
                               col: FormulaNode,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
-                              colorScale: Option[ColorScale]
+                              colorScale: ColorScale
                               ): Scale =
   ## devise colormap mapping
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
-  let cMap = if colorScale.isNone:
-               viridis()
-             else:
-               colorScale.get
-  result.colorScale = some(cMap)
+  result.colorScale = colorScale
   # map all values to values between 0-255 and get the correct idx of viridis map
   result.mapData = (
     proc(df: DataFrame): seq[ScaleValue] =
@@ -278,7 +274,7 @@ proc fillScaleImpl(
   axKindOpt = none[AxisKind](),
   trans = none[ScaleTransform](),
   invTrans = none[ScaleTransform](),
-  colorScale = none[ColorScale]()
+  colorScale = DefaultColorScale,
      ): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
@@ -371,7 +367,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   var labelSeqOpt: Option[seq[Value]]
   var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
-  var colorScaleOpt: Option[ColorScale]
+  var colorScale: ColorScale
   for s in scales:
     # check if scale predefined discreteness
     if s.hasDiscreteness:
@@ -385,8 +381,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       transOpt = some(s.trans)
       invTransOpt = some(s.invTrans)
     of scColor, scFillColor:
-      if s.colorScale.isSome:
-        colorScaleOpt = s.colorScale
+      colorScale = s.colorScale
     else: discard
 
     # now determine labels, data scale from `data`

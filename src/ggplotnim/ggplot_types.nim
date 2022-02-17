@@ -160,7 +160,7 @@ type
       dateScale*: Option[DateScale] # an optional date scale associated to this axis
     of scColor, scFillColor:
       # color scale to use if continuous (overrides `viridis` default)
-      colorScale*: Option[ColorScale]
+      colorScale*: ColorScale
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
