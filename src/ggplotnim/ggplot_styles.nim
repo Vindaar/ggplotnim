@@ -1,4 +1,5 @@
 import ggplot_types, ggplot_scales, ggplot_utils
+import colormaps / colormaps
 import ginger except Scale
 import datamancer
 #[
@@ -120,6 +121,8 @@ proc changeStyle*(s: GgStyle, scVal: ScaleValue): GgStyle =
     # same value
     result.color = some(scVal.color)
     result.fillColor = some(scVal.color)
+  of scAlpha: # change alpha of both fill and color
+    result.alpha = some(scVal.alpha)
   of scSize:
     result.size = some(scVal.size)
   of scShape:
