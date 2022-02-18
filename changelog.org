@@ -1,3 +1,44 @@
+* v0.5.0
+- add support for custom (and customized) colormaps
+- add additional =inferno=, =magma=, =plasma= colormap
+- add =scale_fill/color_gradient= function to assign such color maps
+  to a plot
+- allow to customize layout in =ggmulti= plot (subplots of fully
+  separate plots):
+  - allow so set custom widths and heights for the rows / columns
+  - allow to prefer columns over rows and vice versa for the layouting
+    (by adding a =prefer_columns()= or =prefer_rows()= call to the
+    plotting chain)
+- =ggplot= call now allows widths and heights not only as =float=
+  value, but any number
+- add =alpha= as a valid =Scale= (allows setting & mapping alpha)
+- add the following scale functions:
+  - =scale_size/alpha_discrete/continuous=: force given size / alpha
+    scales to be discrete / continuous
+  - =scale_color/fill/size/alpha_identity=: force the given
+    corresponding =aes= scale to be treated as containing values to
+    *set* the scale, i.e.:
+    #+begin_src nim
+import ggplotnim
+
+let df = toDf({ "x" : @[1, 2, 3, 4], "y" : @[1, 2, 3, 4],
+                "colors" : @["red", "green", "blue", "#FF00FF"]})
+ggplot(df, aes("x", "y")) +
+  geom_point(aes = aes(color = "colors"), size = 12.3) +
+  scale_color_identity() +
+  ggsave("/tmp/colors_manual.pdf")
+    #+end_src
+    i.e.: =aes= the =color= scale, then say that given =color= is
+    actually a scale to *set* values based on the column directly,
+    instead of performing automatic *mapping* based on the number of
+    distinct labels.
+- major change in how =geom_*= procedures deal with setting scales:
+  see the description of PR #<insert number> for what this
+  implies. Short version: one can now hand arguments for e.g. =size=,
+  =alpha=, =color=, ... as *non* =Option[T]= values (e.g. see the
+  =size= argument in the code snippet above). Also explicit
+  =string/int= values are now supported for colors.
+  
 * v0.4.11
 - add option to draw minor grid lines (thinner lines between major
   ones that have a tick & tick label associated)
