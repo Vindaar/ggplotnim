@@ -38,7 +38,8 @@ ggplot(df, aes("x", "y")) +
   =alpha=, =color=, ... as *non* =Option[T]= values (e.g. see the
   =size= argument in the code snippet above). Also explicit
   =string/int= values are now supported for colors.
-  
+- add =-d:nolapack= compilation option to remove LAPACK
+  dependency. This disables support for =geom_smooth=  
 * v0.4.11
 - add option to draw minor grid lines (thinner lines between major
   ones that have a tick & tick label associated)
