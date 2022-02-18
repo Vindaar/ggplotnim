@@ -84,6 +84,10 @@ proc orNoneScale*[T: string | SomeNumber | FormulaNode](
       result = some(Scale(scKind: scSize, col: fs,
                           sizeRange: DefaultSizeRange,
                           hasDiscreteness: hasDiscreteness))
+    of scAlpha:
+      result = some(Scale(scKind: scAlpha, col: fs,
+                          alphaRange: DefaultAlphaRange,
+                          hasDiscreteness: hasDiscreteness))
     of scColor:
       result = some(Scale(scKind: scColor, col: fs,
                           colorScale: DefaultColorScale,
@@ -1257,6 +1261,16 @@ proc scale_size_identity*(col = ""): Scale =
                  scKind: scSize,
                  dataKind: dkSetting)
 
+proc scale_alpha_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the alpha scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scAlpha,
+                 dataKind: dkSetting)
+
 proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
                           name: string = "custom"): Scale =
   ## Allows to customize the color gradient used for the `color` aesthetic.
@@ -1328,6 +1342,21 @@ proc scale_size_continuous*(sizeRange = DefaultSizeRange): Scale =
                  dcKind: dcContinuous,
                  sizeRange: sizeRange)
 
+proc scale_alpha_discrete*(alphaRange = DefaultAlphaRange): Scale =
+  ## Allows set the `alpha` scale to discrete values & optionally set the
+  ## range of allowed values in `alphaRange`.
+  result = Scale(scKind: scAlpha,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete,
+                 alphaRange: alphaRange)
+
+proc scale_alpha_continuous*(alphaRange = DefaultAlphaRange): Scale =
+  ## Allows set the `alpha` scale to continuous values & optionally set the
+  ## range of allowed values in `alphaRange`.
+  result = Scale(scKind: scAlpha,
+                 hasDiscreteness: true,
+                 dcKind: dcContinuous,
+                 alphaRange: alphaRange)
 
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =
@@ -1953,6 +1982,8 @@ proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
     assignCopyScale(color)
   of scFillColor:
     assignCopyScale(fill)
+  of scAlpha:
+    assignCopyScale(alpha)
   of scSize:
     assignCopyScale(size)
   of scShape:

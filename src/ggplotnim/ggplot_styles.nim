@@ -41,6 +41,8 @@ const TextDefaultStyle = Style(font: font(12.0),
                                color: black)
 
 func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
+const DefaultSizeRange* = (low: 2.0, high: 7.0)
+const DefaultAlphaRange* = (low: 0.1, high: 1.0)
 const DefaultColorScale* = viridis()
   case geomKind
   of gkPoint:
