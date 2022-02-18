@@ -131,6 +131,13 @@ type
     name*: string # name of the used color scale
     colors*: seq[uint32] # the used color scale as colors encoded in uint32
 
+  DataKind* = enum
+    dkSetting = "setting" ## default for scLinear / scTransformed. Treat data
+                          ## in referenced column literally. x/y: data position,
+                          ## size/color: literal size/color using column value
+    dkMapping = "mapping" ## default for size / color: compute mapping based on
+                          ## data *values* stored in the column
+
   # TODO: should not one scale belong to only one axis?
   # But if we do that, how do we find the correct scale in the seq[Scale]?
   # Replace seq[Scale] by e.g. Table[string, Scale] where string is some
@@ -145,6 +152,7 @@ type
     hasDiscreteness*: bool # TODO: set default dcKind, make option whatever instead of this
     numTicks*: Option[int] # the desired number of ticks for this scale (may be ignored)
     breaks*: seq[float]    # optional position for all ticks in data units. Overrides `numTicks` if any
+    dataKind*: DataKind
     case scKind*: ScaleKind
     of scLinearData, scTransformedData:
       # which axis does it belong to?
