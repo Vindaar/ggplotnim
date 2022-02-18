@@ -1227,6 +1227,36 @@ proc scale_color_gradient*(scale: ColorScale | seq[uint32],
   else:
     result.colorScale = ColorScale(name: name, colors: scale)
 
+proc scale_color_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the color scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scColor,
+                 dataKind: dkSetting)
+
+proc scale_fill_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the fill color scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scFillColor,
+                 dataKind: dkSetting)
+
+proc scale_size_identity*(col = ""): Scale =
+  ## Given a column `col`, will treat the values inside the column as
+  ## 'identity values'. I.e. the values will be used for the values
+  ## of the associated aesthetic, even if it's a size or color scale.
+  ## (in this case the size scale).
+  result = Scale(name: col,
+                 col: f{ col },
+                 scKind: scSize,
+                 dataKind: dkSetting)
+
 proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
                           name: string = "custom"): Scale =
   ## Allows to customize the color gradient used for the `color` aesthetic.
