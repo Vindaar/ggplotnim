@@ -2700,6 +2700,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   ## This proc is useful to investigate the data structure that results before
   ## actually producing an output file or to combine multiple plots into a combined
   ## viewport.
+  if p.geoms.len == 0:
+    raise newException(ValueError, "Please use at least one `geom`!")
   let width = width.float
   let height = height.float
   var filledScales: FilledScales
