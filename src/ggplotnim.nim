@@ -80,6 +80,10 @@ proc orNoneScale*[T: string | SomeNumber | FormulaNode](
     of scTransformedData:
       result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind,
                           hasDiscreteness: hasDiscreteness))
+    of scSize:
+      result = some(Scale(scKind: scSize, col: fs,
+                          sizeRange: DefaultSizeRange,
+                          hasDiscreteness: hasDiscreteness))
     of scColor:
       result = some(Scale(scKind: scColor, col: fs,
                           colorScale: DefaultColorScale,
@@ -1266,10 +1270,34 @@ proc scale_size_manual*[T](values: Table[T, float]): Scale =
                  dcKind: dcDiscrete)
   result.labelSeq = newSeq[Value](values.len)
   let keys = toSeq(keys(values)).sorted
+  var min: float
+  var max: float
   for i, k in keys:
     let kVal = %~ k
-    result.valueMap[kVal] = ScaleValue(kind: scSize, size: values[k])
+    let val = values[k]
+    result.valueMap[kVal] = ScaleValue(kind: scSize, size: val)
     result.labelSeq[i] = kVal
+    min = min(val, min)
+    max = max(val, max)
+  # set the size range, not really needed, but good for sanity
+  result.sizeRange = (low: min, high: max)
+
+proc scale_size_discrete*(sizeRange = DefaultSizeRange): Scale =
+  ## Allows set the `size` scale to discrete values & optionally set the
+  ## range of allowed values in `sizeRange`.
+  result = Scale(scKind: scSize,
+                 hasDiscreteness: true,
+                 dcKind: dcDiscrete,
+                 sizeRange: sizeRange)
+
+proc scale_size_continuous*(sizeRange = DefaultSizeRange): Scale =
+  ## Allows set the `size` scale to continuous values & optionally set the
+  ## range of allowed values in `sizeRange`.
+  result = Scale(scKind: scSize,
+                 hasDiscreteness: true,
+                 dcKind: dcContinuous,
+                 sizeRange: sizeRange)
+
 
 proc ggtitle*(title: string, subtitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =

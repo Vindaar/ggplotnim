@@ -161,6 +161,8 @@ type
     of scColor, scFillColor:
       # color scale to use if continuous (overrides `viridis` default)
       colorScale*: ColorScale
+    of scSize:
+      sizeRange*: tuple[low, high: float] # range of sizes to use (default: 2.0 - 7.0)
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
