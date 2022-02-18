@@ -148,16 +148,18 @@ proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: For
 
 proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
                            labelSeq: seq[Value],
-                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]]): Scale =
+                           valueMapOpt: Option[OrderedTable[Value, ScaleValue]],
+                           sizeRange: tuple[low, high: float]): Scale =
   result = Scale(scKind: scSize, vKind: vKind, col: col, dcKind: dcDiscrete)
+  doAssert sizeRange.low != sizeRange.high, "Size range must be defined in this context!"
   result.labelSeq = labelSeq
   result.valueMap = initOrderedTable[Value, ScaleValue]()
   if valueMapOpt.isSome:
     result.valueMap = valueMapOpt.get
   else:
     let numSizes = min(labelSeq.len, 5)
-    const minSize = 2.0
-    const maxSize = 7.0
+    let minSize = sizeRange.low
+    let maxSize = sizeRange.high
     let stepSize = (maxSize - minSize) / numSizes.float
     for i, k in labelSeq:
       result.valueMap[k] = ScaleValue(kind: scSize, size: minSize + i.float * stepSize)
@@ -368,6 +370,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
   var colorScale: ColorScale
+  var sizeRange: tuple[low, high: float]
   for s in scales:
     # check if scale predefined discreteness
     if s.hasDiscreteness:
@@ -382,6 +385,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       invTransOpt = some(s.invTrans)
     of scColor, scFillColor:
       colorScale = s.colorScale
+    of scSize: sizeRange = s.sizeRange
     else: discard
 
     # now determine labels, data scale from `data`
