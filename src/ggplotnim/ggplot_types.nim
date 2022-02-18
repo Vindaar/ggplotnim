@@ -30,6 +30,7 @@ type
     # type that stores its kind `kind: scColor` and `key: string`.
     fill*: Option[Scale] # classify by fill color
     color*: Option[Scale] # classify by color
+    alpha*: Option[Scale] # classify by alpha
     size*: Option[Scale] # classify by size
     shape*: Option[Scale] # classify by shape
     width*: Option[Scale] # width of tile / rect / raster
@@ -39,7 +40,7 @@ type
     weight*: Option[Scale]
 
   ScaleKind* = enum
-    scLinearData, scTransformedData, scColor, scFillColor, scShape, scSize, scText
+    scLinearData, scTransformedData, scColor, scFillColor, scAlpha, scShape, scSize, scText
 
   PositionKind* = enum
     pkIdentity = "identity"
@@ -69,6 +70,8 @@ type
     of scFillColor, scColor:
       # stores a color
       color*: Color
+    of scAlpha:
+      alpha*: float # a value between 0 and 1
     of scShape:
       # a marker kind
       marker*: MarkerKind
@@ -171,6 +174,8 @@ type
       colorScale*: ColorScale
     of scSize:
       sizeRange*: tuple[low, high: float] # range of sizes to use (default: 2.0 - 7.0)
+    of scAlpha:
+      alphaRange*: tuple[low, high: float] # range of sizes to use (default: 0.1 - 1.0)
     else: discard
     case dcKind*: DiscreteKind
     of dcDiscrete:
@@ -487,6 +492,7 @@ type
     y*: MainAddScales
     color*: MainAddScales
     fill*: MainAddScales
+    alpha*: MainAddScales
     size*: MainAddScales
     shape*: MainAddScales
     xMin*: MainAddScales
@@ -575,6 +581,8 @@ proc hash*(x: ScaleValue): Hash =
     result = result !& hash(-fc.r)
     result = result !& hash(-fc.g)
     result = result !& hash(-fc.b)
+  of scAlpha:
+    result = result !& hash(x.alpha)
   of scShape:
     result = result !& hash(x.marker)
   of scSize:

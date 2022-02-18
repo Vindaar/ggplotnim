@@ -179,6 +179,33 @@ proc fillDiscreteSizeScale(vKind: ValueKind, col: FormulaNode,
         size = k.toFloat
       result.valueMap[k] = ScaleValue(kind: scSize, size: size)
 
+proc fillDiscreteAlphaScale(vKind: ValueKind, col: FormulaNode,
+                            dataKind: DataKind,
+                            labelSeq: seq[Value],
+                            valueMapOpt: Option[OrderedTable[Value, ScaleValue]],
+                            alphaRange: tuple[low, high: float]): Scale =
+  ## Note: discrete alpha settings are probably not particularly useful. But they
+  ## are treated the same way as continuous alphas. Just a scale from (almost) transparent
+  ## to opaque.
+  result = Scale(scKind: scAlpha, vKind: vKind, col: col, dcKind: dcDiscrete)
+  doAssert alphaRange.low != alphaRange.high, "Alpha range must be defined in this context!"
+  result.labelSeq = labelSeq
+  result.valueMap = initOrderedTable[Value, ScaleValue]()
+  if valueMapOpt.isSome:
+    result.valueMap = valueMapOpt.get
+  else:
+    let numAlphas = labelSeq.len
+    let minAlpha = alphaRange.low
+    let maxAlpha = alphaRange.high
+    let stepAlpha = (maxAlpha - minAlpha) / numAlphas.float
+    for i, k in labelSeq:
+      var alpha: float
+      case dataKind
+      of dkMapping: alpha = minAlpha + i.float * stepAlpha
+      of dkSetting:
+        doAssert k.kind in {VInt, VFloat}, "Value used to set alpha must be Int or Float!"
+        alpha = k.toFloat
+      result.valueMap[k] = ScaleValue(kind: scAlpha, alpha: alpha)
 
 proc fillDiscreteShapeScale(vKind: ValueKind, col: FormulaNode,
                             labelSeq: seq[Value],
@@ -351,6 +378,7 @@ proc fillScaleImpl(
   # is of the corresponding type
   colorScale = DefaultColorScale,
   sizeRange = DefaultSizeRange,
+  alphaRange = DefaultAlphaRange
      ): Scale =
   ## fills the `Scale` of `scKind` kind of the `aes`
   ## TODO: make aware of Geom.data optional field!
@@ -369,6 +397,8 @@ proc fillScaleImpl(
       result = fillDiscreteColorScale(scFillColor, vKind, col, dataKind, labelSeq, valueMapOpt)
     of scSize:
       result = fillDiscreteSizeScale(vKind, col, dataKind, labelSeq, valueMapOpt, sizeRange)
+    of scAlpha:
+      result = fillDiscreteAlphaScale(vKind, col, dataKind, labelSeq, valueMapOpt, alphaRange)
     of scLinearData:
       doAssert axKindOpt.isSome, "Linear data scales need an axis!"
       let axKind = axKindOpt.get
@@ -408,6 +438,9 @@ proc fillScaleImpl(
       result = fillContinuousColorScale(scFillColor, col, dataKind, vKind, dataScale, colorScale)
     of scSize:
       result = fillContinuousSizeScale(col, dataKind, vKind, dataScale, sizeRange)
+    of scAlpha:
+      result = fillContinuousAlphaScale(col, dataKind, vKind, dataScale, alphaRange)
+
     of scShape:
       raise newException(ValueError, "Shape not supported for continuous " &
         "variables!")
@@ -439,12 +472,16 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
   # using the combined dataset of all. This way we automatically get the correct
   # data range / correct number of labels while retaining a single scale per
   # geom.
+  ## XXX: go back to an approach in which we hand the full scale to `fillScaleImpl`!
+  ## Too many arguments are extracted here only to satisfiy (our initially good) idea to
+  ## not hand full scales on. Now it's become ugly
   var dataScaleOpt: Option[ginger.Scale]
   var labelSeqOpt: Option[seq[Value]]
   var valueMapOpt: Option[OrderedTable[Value, ScaleValue]]
   var dcKindOpt: Option[DiscreteKind]
   var colorScale: ColorScale
   var sizeRange: tuple[low, high: float]
+  var alphaRange: tuple[low, high: float]
   var dataKind: DataKind
   for s in scales:
     # check if scale predefined discreteness
@@ -462,6 +499,7 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
     of scColor, scFillColor:
       colorScale = s.colorScale
     of scSize: sizeRange = s.sizeRange
+    of scAlpha: alphaRange = s.alphaRange
     else: discard
 
     # now determine labels, data scale from `data`
@@ -494,7 +532,8 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
                                dataKind,
                                labelSeqOpt, valueMapOpt, dataScaleOpt,
                                axKindOpt, transOpt, invTransOpt,
-                               colorScaleOpt)
+                               colorScale, sizeRange, alphaRange)
+
     if scKind in {scLinearData, scTransformedData}:
       filled.secondaryAxis = s.secondaryAxis
       # assign the `dateScale` if any
@@ -633,6 +672,10 @@ proc collectScales*(p: GgPlot): FilledScales =
   let fills = collect(p, fill)
   let fillFilled = callFillScale(p.data, fills, scFillColor)
   fillField(fill, fillFilled)
+
+  let alphas = collect(p, alpha)
+  let alphaFilled = callFillScale(p.data, alphas, scAlpha)
+  fillField(alpha, alphaFilled)
 
   let sizes = collect(p, size)
   let sizeFilled = callFillScale(p.data, sizes, scSize)
