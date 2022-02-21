@@ -846,6 +846,7 @@ proc `$`*(s: Scale): string =
   result.add &", scKind: {s.scKind}"
   result.add &", numTicks: {s.numTicks}"
   result.add &", breaks: {s.breaks}"
+  result.add &", dataKind: {s.dataKind}"
   case s.scKind
   of scLinearData, scTransformedData:
     result.add &", axKind: {s.axKind}"
