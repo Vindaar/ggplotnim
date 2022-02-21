@@ -11,7 +11,6 @@ let dfMin = dfSorted.tail(1)
 ggplot(df, aes("in_s", "V", color = "Channel")) +
   geom_line() + # the actual data
   # add additional geom with `data =` arg and set styles. 
-  # NOTE: Style arguments use `Option[T]`!
   geom_point(data = dfMax,
              color = "#FF0000", # named colors (e.g. "red") are also possible!
              size = 5.0,
