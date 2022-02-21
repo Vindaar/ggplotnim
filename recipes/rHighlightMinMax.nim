@@ -13,10 +13,10 @@ ggplot(df, aes("in_s", "V", color = "Channel")) +
   # add additional geom with `data =` arg and set styles. 
   # NOTE: Style arguments use `Option[T]`!
   geom_point(data = dfMax,
-             color = some(parseHex("FF0000")),
-             size = some(5.0),
-             marker = some(mkCross)) +
+             color = "#FF0000", # named colors (e.g. "red") are also possible!
+             size = 5.0,
+             marker = mkCross) +
   geom_point(data = dfMin,
-             color = some(parseHex("0000FF")),
-             size = some(5.0)) +
+             color = "#0000FF",
+             size = 5.0) +
   ggsave("media/recipes/rHighlightMinMax.png")

@@ -57,6 +57,6 @@ let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
 
 # TODO: results in vertical line at start of polygon
 ggplot(df, aes(x, y)) +
-  geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
+  geom_line(aes = aes(fill = "Num"), fillColor = "#ebba34") +
   geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
   ggsave("./media/recipes/rPointInPolygons.png")

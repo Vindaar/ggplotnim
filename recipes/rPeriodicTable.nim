@@ -62,29 +62,29 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
                 text = "atomic number"),
-            font = some(font(6.0))) +
+            font = font(6.0)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.4},
                 text = "symbol"),
-            font = some(font(9.0))) +
+            font = font(9.0)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.6},
                 text = "name"),
-            font = some(font(4.5))) +
+            font = font(4.5)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.8},
                 text = "atomic mass"),
-            font = some(font(4.5))) +
+            font = font(4.5)) +
   geom_text(data = groupdf,
             aes = aes(x = f{`group` + 0.5},
                       y = f{`y` - 0.2},
                       text = "group"),
-            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+            font = font(9.0, color = color(0.5, 0.5, 0.5))) +
   geom_text(data = periodDf,
             aes = aes(x = f{`x` + 0.3},
                       y = f{`period` + 0.5},
                       text = "period"),
-            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+            font = font(9.0, color = color(0.5, 0.5, 0.5))) +
   legendPosition(0.82, 0.1) +
   theme_void() +
   scale_y_reverse() +

@@ -6,6 +6,6 @@ ggplot(df, aes("days", "count")) +
                   # order 5 and a window `span` of 70%
   geom_smooth(smoother = "poly", # add a polynomial smoother using the full range
               polyOrder = 7,     # of order 7
-              color = some(parseHex("FF0000")), # and red line
-              size = some(1.0)) + # that is not as thick
+              color = "#FF0000", # and red line (named colors e.g. "red" also allowed)
+              size = 1.0) + # that is not as thick
   ggsave("media/recipes/rGeomSmooth.png")
