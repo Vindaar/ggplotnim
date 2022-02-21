@@ -128,8 +128,8 @@ suite "Compare recipe output":
       if not toContinue:
         quit("Could not run recipes for JSON successfully, quitting recipe comparison")
 
-      const FilesToSkip = @["rMultiSubplots"] # cannot autogenerate JSON, because it does not
-                                              # use a `ggsave` call
+      const FilesToSkip = @["rMultiSubplots", "rColormaps"] # cannot autogenerate JSON, because it does not
+                                                            # use a `ggsave` call
       for f in RecipeFiles:
         if f in FilesToSkip: continue
         # compare generated json with expected json
