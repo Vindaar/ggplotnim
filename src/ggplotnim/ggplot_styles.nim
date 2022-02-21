@@ -65,6 +65,21 @@ func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
     # raster doesn't have default style atm (what would that imply?)
     discard
 
+proc useOrDefault*(c: ColorScale): ColorScale =
+  ## Either uses the given `ColorScale` (if it defines any colors) or falls back
+  ## to our default
+  ##
+  ## This exists to make sure that a `FilledGeom` receives a `colorScale` field
+  ## with certainty. Otherwise we can end up in the situation that the user makes use
+  ## of a function like `scale_fill_continuous()` (which doesn't set a color scale)
+  ## and we suddenly don't have one.
+  ##
+  ## We could make sure to assign a color scale for every procedure returning a color
+  ## related `Scale`, but given that we don't have an `Option[T]` field, it's more sane
+  ## to handle it like this (in case new procs are added for example).
+  result = if c.colors.len == 0: DefaultColorScale
+           else: c
+
 func mergeUserStyle*(s: GgStyle, fg: FilledGeom): Style =
   ## merges the given `Style` with the desired `userStyle`.
   # Have to differentiate between 3 cases of priority:
