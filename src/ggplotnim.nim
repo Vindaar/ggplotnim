@@ -1716,11 +1716,11 @@ proc theme_latex*(): Theme =
 
 proc prefer_columns*(): Theme =
   ## Sets the preference in a facet to be num(cols) > num(rows)
-  result = Theme(preferRowsOverColumns: some(true))
+  result = Theme(preferRowsOverColumns: some(false))
 
 proc prefer_rows*(): Theme =
   ## Sets the preference in a facet to be num(rows) > num(cols)
-  result = Theme(preferRowsOverColumns: some(false))
+  result = Theme(preferRowsOverColumns: some(true))
 
 proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   case alignTo.normalize
@@ -2615,10 +2615,10 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   template getOrFalse(t): untyped = t.isSome and t.get
   if getOrFalse(theme.preferRowsOverColumns):
     # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
-    (rows, cols) = calcRowsColumns(0, 0, numExist)
+    (cols, rows) = calcRowsColumns(0, 0, numExist)
   else:
     # default
-    (cols, rows) = calcRowsColumns(0, 0, numExist)
+    (rows, cols) = calcRowsColumns(0, 0, numExist)
   let viewMap = calcFacetViewMap(existComb)
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
