@@ -1,6 +1,10 @@
 * v0.5.0
 - add support for custom (and customized) colormaps
 - add additional =inferno=, =magma=, =plasma= colormap
+- add two recipes about colormaps:
+  - =rColormaps.nim=: a comparison about the available colormaps
+  - =rCustomColormap.nim=: a recipe showing how to modify an existing
+    colormap / provide a custom one
 - add =scale_fill/color_gradient= function to assign such color maps
   to a plot
 - allow to customize layout in =ggmulti= plot (subplots of fully
