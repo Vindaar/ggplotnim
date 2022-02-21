@@ -1,3 +1,10 @@
+* v0.5.1
+(as is usual, a hotfix is always coming quickly....)
+- fixes a regression for continuous color scales, where if
+  =scale_color/fill_continuous= was used, we ended up without a color
+  scale in =drawCb=
+- makes sure the indexing of the color scale for raster plots actually
+  uses the number of available colors instead of 256 values  
 * v0.5.0
 - add support for custom (and customized) colormaps
 - add additional =inferno=, =magma=, =plasma= colormap
