@@ -952,6 +952,121 @@ ggplot(df, aes("xs", "ys", fill = "vals")) +
 
 [[./media/recipes/rFacetRaster.png]]
 
+*** Different colormaps and custom colormaps
+
+Since version =v0.5.0= we provide 4 default colormaps to choose from:
+- Viridis
+- Magma
+- Inferno
+- Plasma
+(these are the colormaps introduced in matplotlib in version 2. They
+are more or less perceptually homogeneous in color, which is a nice
+property to avoid being biased due to a perceptual large shift in
+color representing a small change in actual values)
+
+In addition to those predefined scales you can either modify any of
+the existing colormaps or simply hand your own.
+
+First let's look at the existing colormaps by drawing gradients of the
+scales:
+#+begin_src nim :tangle recipes/rColormaps.nim
+import ggplotnim, sequtils
+
+# 1000 points to use
+let xs = linspace(0.0, 1.0, 1000)
+var plts: seq[GgPlot]
+# generate data to show a gradient for (currently a single element in one
+# axis isn't supported for `geom_raster`, as it's essentially discrete).
+var df = newDataFrame()
+for i in 0 ..< 5:
+  df.add toDf({"x" : xs, "y" : i })
+  
+for scale in [viridis(), magma(), plasma(), inferno()]:
+  plts.add ggplot(df, aes("x", "y", fill = "x")) +
+    scale_fill_gradient(scale) + # assign the correct scale
+    geom_raster() +
+    ylim(0, 5) +   # due to our weird data (height deduced as 1, set correct limits)
+    theme_void() + # no scales
+    hideLegend() + # no legend
+    margin(bottom = 0.3, right = 0.3) + # set small margin left / bottom 
+    ggtitle("Colorscale: " & $scale.name) 
+# now create a multi plot of all of them
+ggmulti(plts, "media/recipes/rColormaps.png", widths = @[600], heights = @[150, 150, 150, 150],
+        width = 600, height = 600)
+#+end_src
+
+This gives us the following color comparison:
+
+[[./media/recipes/rColormaps.png]]
+
+Any of the functions =viridis(), magma(), plasma()= and =inferno()=
+return a =ColorScale= object:
+#+begin_src nim
+type
+  ColorScale* = object
+    name*: string # name of the used color scale
+    colors*: seq[uint32] # the used color scale as colors encoded in uint32
+#+end_src
+The =name= is optional and can simply be used as we do in the example
+above to give the name in the title of each subplot.
+
+The =colors= are stored as =uint32= colors, which means:
+#+begin_src nim
+let color = 0xAA_BB_CC_DD
+#             ^  ^  ^  ^--- blue value as hex byte
+#             |  |  |--- green value as hex byte
+#             |  |--- red value as hex byte 
+#             |--- alpha value of the color as hex byte
+#+end_src
+This is mainly done, as the most performance sensitive use of
+colorscales is for a =geom_raster=, in which case we have to use
+=uint32= colors to color each pixel (e.g. in Cairo). As such it's good
+idea to already use =uint32= to avoid the need to convert the
+colorscale from some arbitrary color type to =uint32=.
+
+As such, one can either create a custom colorscale by just taking such
+a =ColorScale= object and assigning a sequence of =uint32= colors (any
+number of colors. =ggplotnim= will squeeze all input data into the
+corresponding number of colors) or directly hand a =seq[uint32]= to
+the =scale_fill_gradient= (or related =scale_color_gradient=)
+procedure.
+
+Let's look at an example of modifying a color scale to assign a
+transparent color to exact 0 values. We'll plot a 2D gaussian:
+#+begin_src nim :tangle recipes/rCustomColormap.nim
+import ggplotnim
+import seqmath # for gauss
+
+# generate some gaussian 2D data
+var
+  xs = newSeq[float]()
+  ys = newSeq[float]()
+  zs = newSeq[float]()
+let coords = linspace(-1.0, 1.0, 200)
+for y in coords:
+  for x in coords:
+    xs.add x
+    ys.add y
+    zs.add gauss(sqrt(x*x + y*y), mean = 0.0, sigma = 0.2) # small sigma to cover multiple σ
+
+# get the Inferno colormap    
+var customInferno = inferno()
+customInferno.name = "InfernoWithTransparent"
+# and assign the 0th element to exact transparent
+customInferno.colors[0] = 0 # transparent
+
+ggplot(toDf(xs, ys, zs), aes("xs", "ys", fill = "zs")) +
+  geom_raster() +
+  xlim(-1, 1) + ylim(-1, 1) +
+  scale_fill_gradient(customInferno) +
+  ggtitle("Modified Inferno colormap with 0 set to transparent") + 
+  ggsave("media/recipes/rCustomColormap.png")
+#+end_src
+*Note*: we can see some substructure due to the small number of points
+we actually sample (200×200 points for 256 color values).
+
+[[./media/recipes/rCustomColormap.png]]
+
 *** Simple =geom_text= example
 
 =geom_text= can be used to represent an additional scale on the plot
