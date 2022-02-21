@@ -416,7 +416,7 @@ proc geom_linerange*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pSize = size, pLineType = lineType
+    pColor = color, pLineWidth = size, pLineType = lineType
   )
   let gid = incId()
   result = Geom(gid: gid,
@@ -488,7 +488,7 @@ proc geom_line*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType, pAlpha = alpha
+    pColor = color, pFillColor = fillColor, pLineWidth = size, pLineType = lineType, pAlpha = alpha
   )
   let gid = incId()
   result = Geom(gid: gid,
@@ -537,7 +537,7 @@ proc geom_smooth*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType,
+    pColor = color, pFillColor = fillColor, pLineWidth = size, pLineType = lineType,
     pAlpha = alpha
   )
   let gid = incId()
@@ -557,7 +557,6 @@ proc geom_smooth*[
 proc geom_histogram*[
   C: PossibleColor;
   FC: PossibleColor;
-  S: PossibleFloat;
   LW: PossibleFloat;
   LT: PossibleLineType;
   A: PossibleFloat](
@@ -635,7 +634,7 @@ proc geom_freqpoly*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pFillColor = fillColor, pSize = size, pLineType = lineType,
+    pColor = color, pFillColor = fillColor, pLineWidth = size, pLineType = lineType,
     pAlpha = alpha
   )
   let gid = incId()
@@ -680,7 +679,7 @@ proc geom_tile*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pFillColor = fillColor, pSize = size, pAplha = alpha
+    pColor = color, pFillColor = fillColor, pSize = size, pAlpha = alpha
   )
   let gid = incId()
   result = Geom(gid: gid,
@@ -724,7 +723,7 @@ proc geom_raster*[
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pFillColor = fillColor, pSize = size, pAplha = alpha
+    pColor = color, pFillColor = fillColor, pSize = size, pAlpha = alpha
   )
   let gid = incId()
   result = Geom(gid: gid,
@@ -769,12 +768,12 @@ proc geom_text*[
   let bpKind = parseEnum[BinPositionKind](binPosition)
   let pKind = parseEnum[PositionKind](position)
   let bbKind = parseEnum[BinByKind](binBy)
-  let fontOpt = if font.isSome: font
-                else: some(font(12.0, alignKind = alignKind))
+  let fontOpt = when F is Missing: font(12.0, alignKind = alignKind)
+                else: font
   # modify `Aesthetics` for all identity scales (column references) & generate style
   var aes = aes
   let style = aes.assignIdentityScalesGetStyle(
-    pColor = color, pSize = size, pAplha = alpha, pMarker = marker, pFont = font
+    pColor = color, pSize = size, pAlpha = alpha, pMarker = marker, pFont = fontOpt
   )
   let gid = incId()
   result = Geom(gid: gid,
@@ -1664,15 +1663,16 @@ func theme_transparent*(): Theme =
   ## version `v0.4.0`.
   result = Theme(canvasColor: some(transparent))
 
-func theme_void*(color: Color = white): Theme =
+func theme_void*[C: PossibleColor](color: C = white): Theme =
   ## returns the "void" theme. This means:
   ## - white background
   ## - no grid lines
   ## - no ticks
   ## - no tick labels
   ## - no labels
-  result = Theme(canvasColor: some(color),
-                 plotBackgroundColor: some(color),
+  let colorOpt = toOptColor(color)
+  result = Theme(canvasColor: colorOpt,
+                 plotBackgroundColor: colorOpt,
                  hideTicks: some(true),
                  hideTickLabels: some(true),
                  hideLabels: some(true))
