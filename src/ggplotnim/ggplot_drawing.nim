@@ -340,9 +340,10 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     for idx in 0 ..< df.len:
       let (x, y) = (((xT[idx] - minXCol) / wv).round.int,
                     ((yT[idx] - minYCol) / hv).round.int)
-      var colorIdx = (255.0 * ((zT[idx] - zScale.low) /
+      let colorsHigh = cMap.colors.len - 1
+      var colorIdx = (colorsHigh.float * ((zT[idx] - zScale.low) /
                       (zScale.high - zScale.low))).round.int
-      colorIdx = max(0, min(255, colorIdx))
+      colorIdx = max(0, min(colorsHigh, colorIdx))
       let cVal = cMap.colors[colorIdx]
       result[((numY - y - 1) * numX) + x] = cVal
 
