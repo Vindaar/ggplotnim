@@ -130,7 +130,7 @@ pretty:
 import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", fill = "class")) + 
-  geom_freqpoly(alpha = some(0.3)) + 
+  geom_freqpoly(alpha = 0.3) + 
   ggsave("media/recipes/rFreqPolyWithAlpha.png")
 #+END_SRC
 Notice how if a fill color is set, the lines are always drawn down to
@@ -229,7 +229,7 @@ import ggplotnim
 let df = readCsv("data/mpg.csv")
 let breaks = @[0'f64, 10, 15, 19, 23, 25, 40]
 ggplot(df, aes("displ", "cty")) +
-  geom_point(color = some(parseHex("F92672"))) +
+  geom_point(color = "#F92672") +
   ggsave("media/recipes/rMpgCustomColorPoint.png")
 #+END_SRC
 Gives:
@@ -737,14 +737,13 @@ let dfMin = dfSorted.tail(1)
 ggplot(df, aes("in_s", "V", color = "Channel")) +
   geom_line() + # the actual data
   # add additional geom with `data =` arg and set styles. 
-  # NOTE: Style arguments use `Option[T]`!
   geom_point(data = dfMax,
-             color = some(parseHex("FF0000")),
-             size = some(5.0),
-             marker = some(mkCross)) +
+             color = "#FF0000", # named colors (e.g. "red") are also possible!
+             size = 5.0,
+             marker = mkCross) +
   geom_point(data = dfMin,
-             color = some(parseHex("0000FF")),
-             size = some(5.0)) +
+             color = "#0000FF",
+             size = 5.0) +
   ggsave("media/recipes/rHighlightMinMax.png")
 #+END_SRC
 
@@ -962,8 +961,7 @@ plot, overlay numbers onto points etc.
 Take note that by default the text will be centered on the position
 given by the =x= and =y= scales. You can change the alignment using
 the =alignKind= argument to =geom_text= or by providing the optional
-(in the sense of =Option[Font]=) =font= argument, which has an
-=alignKind= field.
+=font= argument, which has an =alignKind= field.
 
 There are many ways it can be useful. However, =geom_text= is a
 completely valid =geom=, which means we can replace e.g. a
@@ -1014,7 +1012,7 @@ ggplot(df, aes("hwy", "displ")) +
   geom_text(aes(x = f{c"hwy" + 0.3}, 
             text = "manufacturer"),
             alignKind = taLeft, 
-            # font = some(font(10.0, ...)) <- you can also change the font
+            # font = font(10.0, ...) <- you can also change the font
             ) + 
   ggsave("media/recipes/rAnnotateUsingGeomText.png")
 #+END_SRC
@@ -1219,7 +1217,7 @@ for nr in 0 ..< numy:
                                  y = nr,
                                  ymin = nr.float - lineSizes[nr] / 2.0,
                                  ymax = nr.float + lineSizes[nr] / 2.0),
-                             color = some(colorCodes[nr]))
+                             color = colorCodes[nr])
 # finally add scales, title and plot
 plt + scale_y_continuous() + # make sure y is considered cont.
   ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
@@ -1497,7 +1495,7 @@ let
 
 ggplot(df, aes("pos", "name")) +
   geom_tile(aes(fill = "n")) +
-  geom_text(aes(text = "n"), size = some(25.0)) +
+  geom_text(aes(text = "n"), size = 25.0) +
   scale_x_discrete() +
   scale_y_discrete() +
   scale_fill_manual({ 0 : color(1.0, 0.0, 0.0),
@@ -1536,7 +1534,7 @@ let
 
 ggplot(df, aes("pos", "name")) +
   geom_tile(aes(fill = "n")) +
-  geom_text(aes(text = "n"), size = some(25.0)) +
+  geom_text(aes(text = "n"), size = 25.0) +
   scale_x_discrete() +
   scale_y_discrete() +
   margin(left = 6.0) +
@@ -1602,8 +1600,8 @@ outlined histograms.
 import ggplotnim
 let df = readCsv("data/mpg.csv")
 ggplot(df, aes("cty", color = "class")) + 
-  geom_histogram(lineWidth = some(2.0), 
-                 alpha = some(0.0), # make transparent (only fill)
+  geom_histogram(lineWidth = 2.0, 
+                 alpha = 0.0, # make transparent (only fill)
                  hdKind = hdOutline) + # draw as outline
   ggsave("media/recipes/rHistogramOutline.png")
 #+end_src
@@ -1645,8 +1643,8 @@ ggplot(df, aes("days", "count")) +
                   # order 5 and a window `span` of 70%
   geom_smooth(smoother = "poly", # add a polynomial smoother using the full range
               polyOrder = 7,     # of order 7
-              color = some(parseHex("FF0000")), # and red line
-              size = some(1.0)) + # that is not as thick
+              color = "#FF0000", # and red line (named colors e.g. "red" also allowed)
+              size = 1.0) + # that is not as thick
   ggsave("media/recipes/rGeomSmooth.png")
 #+end_src
 
@@ -1910,21 +1908,19 @@ let df = readCsv("data/gaussSigma_runs.csv")
 echo df
 let mean = getMean(df["bins", float], df["counts", float])
 let ymax = df["counts", float].max
-let white = color(1.0, 1.0, 1.0)
-let black = color(0.0, 0.0, 0.0)
 ggplot(df, aes("bins", "counts", fill = "Run")) +
   ggridges("Run", overlap = 3.0) + # use a large overlap
   geom_freqpoly(stat = "identity", # do not perform binning
-                color = some(white), # white outline
-                size = some(1.5)) + # make the lines a bit thicker
+                color = "white", # white outline
+                size = 1.5) + # make the lines a bit thicker
   geom_linerange(aes = aes(yMin = 0, # draw black line of common mean
                            yMax = ymax, 
                            x = mean), 
-                 color = some(black)) +
+                 color = "black") +
   geom_linerange(aes = aes(
     fill = "Run", yMin = 0, yMax = ymax, # draw red line for each mean 
     x = f{float -> float: getMean(`bins`, `counts`)}), # compute the mean of the current Run
-    color = some(parseHex("FF0000"))) + # color the line red
+    color = "#FF0000") + # color the line red
   margin(top = 2) + # increase top margin due to large overlap
   xlab("gaussSigma") + ylab("Counts") +
   ggsave("media/recipes/rRidgeLineGauss.png", width = 1200, height = 1200)
@@ -1943,11 +1939,11 @@ import ggplotnim
 let df = readCsv("data/gaussSigma_runs.csv")
 ggplot(df, aes("bins", "counts", fill = "Run")) +
   ggridges("Run", overlap = 3.0) +
-  geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
-                size = some(3.0)) +
+  geom_freqpoly(stat = "identity", color = "white",
+                size = 3.0) +
   xlab("gaussSigma") + ylab("Counts") +
   margin(top = 3, right = 2.5) +
-  theme_void(parseHex("000000")) + hideLegend() +
+  theme_void("black") + hideLegend() +
   ggsave("media/recipes/rRidgeLineGaussBlack.png", width = 1200, height = 1200)
 #+end_src
 
@@ -1962,10 +1958,10 @@ import ggplotnim
 let df = readCsv("data/gaussSigma_runs.csv")
 ggplot(df, aes("bins", "counts")) +
   ggridges("Run", overlap = 3.0) +
-  geom_freqpoly(stat = "identity", color = some(parseHex("FFFFFF")),
-                size = some(2.0)) +
+  geom_freqpoly(stat = "identity", color = "white",
+                size = 2.0) +
   margin(top = 3, right = 2.5) +
-  theme_void(parseHex("000000")) + hideLegend() +
+  theme_void("black") + hideLegend() +
   ggsave("media/recipes/rJoyplot.png", width = 1200, height = 1200)
 #+end_src
 
@@ -2105,29 +2101,29 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
   geom_text(aes(x = f{`x` + 0.15},
                 y = f{`y` + 0.15},
                 text = "atomic number"),
-            font = some(font(6.0))) +
+            font = font(6.0)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.4},
                 text = "symbol"),
-            font = some(font(9.0))) +
+            font = font(9.0)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.6},
                 text = "name"),
-            font = some(font(4.5))) +
+            font = font(4.5)) +
   geom_text(aes(x = f{`x` + 0.5},
                 y = f{`y` + 0.8},
                 text = "atomic mass"),
-            font = some(font(4.5))) +
+            font = font(4.5)) +
   geom_text(data = groupdf,
             aes = aes(x = f{`group` + 0.5},
                       y = f{`y` - 0.2},
                       text = "group"),
-            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+            font = font(9.0, color = color(0.5, 0.5, 0.5))) +
   geom_text(data = periodDf,
             aes = aes(x = f{`x` + 0.3},
                       y = f{`period` + 0.5},
                       text = "period"),
-            font = some(font(9.0, color = color(0.5, 0.5, 0.5)))) +
+            font = font(9.0, color = color(0.5, 0.5, 0.5))) +
   legendPosition(0.82, 0.1) +
   theme_void() +
   scale_y_reverse() +
@@ -2271,7 +2267,7 @@ classification via the =InPoly= column.
 #+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
 # TODO: results in vertical line at start of polygon
 ggplot(df, aes(x, y)) +
-  geom_line(aes = aes(fill = "Num"), fillColor = some(parseHex("ebba34"))) +
+  geom_line(aes = aes(fill = "Num"), fillColor = "#ebba34") +
   geom_point(data = dfPoints, aes = aes(color = "InPoly")) +
   ggsave("./media/recipes/rPointInPolygons.png")
 #+END_SRC

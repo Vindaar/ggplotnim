@@ -8,7 +8,7 @@ let
 
 ggplot(df, aes("pos", "name")) +
   geom_tile(aes(fill = "n")) +
-  geom_text(aes(text = "n"), size = some(25.0)) +
+  geom_text(aes(text = "n"), size = 25.0) +
   scale_x_discrete() +
   scale_y_discrete() +
   margin(left = 6.0) +

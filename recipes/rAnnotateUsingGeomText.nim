@@ -5,6 +5,6 @@ ggplot(df, aes("hwy", "displ")) +
   geom_text(aes(x = f{c"hwy" + 0.3}, 
             text = "manufacturer"),
             alignKind = taLeft, 
-            # font = some(font(10.0, ...)) <- you can also change the font
+            # font = font(10.0, ...) <- you can also change the font
             ) + 
   ggsave("media/recipes/rAnnotateUsingGeomText.png")

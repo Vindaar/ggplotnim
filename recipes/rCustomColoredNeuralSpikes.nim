@@ -21,7 +21,7 @@ for nr in 0 ..< numy:
                                  y = nr,
                                  ymin = nr.float - lineSizes[nr] / 2.0,
                                  ymax = nr.float + lineSizes[nr] / 2.0),
-                             color = some(colorCodes[nr]))
+                             color = colorCodes[nr])
 # finally add scales, title and plot
 plt + scale_y_continuous() + # make sure y is considered cont.
   ylim(-1, 8) + # at the moment ymin, ymax are not considered for the plot range (that's a bug)
