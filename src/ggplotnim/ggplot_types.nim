@@ -540,7 +540,7 @@ proc missing*(): Missing =
   ## Helper to get a `Missing` instance.
   Missing()
 
-proc toOptColor[T: PossibleColor](x: T): Option[Color] =
+proc toOptColor*[T: PossibleColor](x: T): Option[Color] =
   when T is Missing: result = none[Color]()
   elif T is Color: result = some(x)
   elif T is uint32: result = some(x.toColor())
