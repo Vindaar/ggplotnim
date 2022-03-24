@@ -868,7 +868,8 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
   var xScale: ginger.Scale
   var yScale: ginger.Scale
   for g in p.geoms:
-    var df = if g.data.isSome: g.data.get else: p.data
+    var df = if g.data.isSome: g.data.get
+             else: p.data.shallowCopy # copy to avoid modifying for next geom!
     var filledGeom: FilledGeom
     case g.kind
     of gkPoint, gkLine, gkErrorBar, gkTile, gkText, gkRaster:
