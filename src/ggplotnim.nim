@@ -1229,6 +1229,7 @@ proc scale_fill_continuous*(name: string = "",
                  scKind: scFillColor,
                  dcKind: dcContinuous,
                  dataScale: scale,
+                 colorScale: DefaultColorScale,
                  hasDiscreteness: true)
 
 proc scale_fill_discrete*(name: string = ""): Scale =
@@ -1257,6 +1258,7 @@ proc scale_color_continuous*(name: string = "",
                  scKind: scColor,
                  dcKind: dcContinuous,
                  dataScale: scale,
+                 colorScale: DefaultColorScale,
                  hasDiscreteness: true)
 
 proc scale_color_manual*[T](values: Table[T, Color]): Scale =
