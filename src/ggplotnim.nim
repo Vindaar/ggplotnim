@@ -1732,12 +1732,16 @@ proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
   of "center": result = some(taCenter)
   else: result = none[TextAlignKind]()
 
-proc xlab*(label = "", margin = NaN, rotate = NaN,
-           alignTo = "none", font = font(), tickFont = font()): Theme =
+proc xlab*(
+  label = "", margin = NaN, rotate = NaN,
+  alignTo = "none", font = font(), tickFont = font(),
+  tickMargin = NaN): Theme =
   if label.len > 0:
     result.xlabel = some(label)
   if classify(margin) != fcNaN:
     result.xlabelMargin = some(margin)
+  if classify(tickMargin) != fcNaN:
+    result.xTickLabelMargin = some(tickMargin)
   if classify(rotate) != fcNaN:
     result.xTicksRotate = some(rotate)
   if font != font():
@@ -1746,12 +1750,16 @@ proc xlab*(label = "", margin = NaN, rotate = NaN,
     result.tickLabelFont = some(tickFont)
   result.xTicksTextAlign = parseTextAlignString(alignTo)
 
-proc ylab*(label = "", margin = NaN, rotate = NaN,
-           alignTo = "none", font = font(), tickFont = font()): Theme =
+proc ylab*(
+  label = "", margin = NaN, rotate = NaN,
+  alignTo = "none", font = font(), tickFont = font(),
+  tickMargin = NaN): Theme =
   if label.len > 0:
     result.ylabel = some(label)
   if classify(margin) != fcNaN:
     result.ylabelMargin = some(margin)
+  if classify(tickMargin) != fcNaN:
+    result.yTickLabelMargin = some(tickMargin)
   if classify(rotate) != fcNaN:
     result.yTicksRotate = some(rotate)
   if font != font():
@@ -1976,6 +1984,8 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   # TODO: about time we make this a macro...
   ifSome(xlabelMargin)
   ifSome(ylabelMargin)
+  ifSome(xTickLabelMargin)
+  ifSome(yTickLabelMargin)
   ifSome(xLabel)
   ifSome(yLabel)
   ifSome(xTicksTextAlign)
@@ -2601,8 +2611,10 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   var theme = buildTheme(filledScales, p)
   # create a theme, which ignores points outside the scale (which happens
   # due to overlap!)
-  theme.xTickLabelMargin = some(1.75)
-  theme.yTickLabelMargin = some(-1.25)
+  theme.xTickLabelMargin = if theme.xTickLabelMargin.isSome: theme.xTickLabelMargin
+                           else: some(1.75)
+  theme.yTickLabelMargin = if theme.yTickLabelMargin.isSome: theme.yTickLabelMargin
+                           else: some(-1.25)
   theme.xTicksRotate = p.theme.xTicksRotate
   theme.yTicksRotate = p.theme.yTicksRotate
   theme.xTicksTextAlign = p.theme.xTicksTextAlign
@@ -2723,8 +2735,10 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   if not hidelabels:
     # set the theme margins to defaults since `view` does not have any tick label texts
     # which can be used to determine the margin
-    theme.xLabelMargin = some(1.0)
-    theme.yLabelMargin = some(1.5)
+    theme.xLabelMargin = if theme.xlabelMargin.isSome: theme.xLabelMargin
+                         else: some(1.0)
+    theme.yLabelMargin = if theme.ylabelMargin.isSome: theme.yLabelMargin
+                         else: some(1.5)
     view.handleLabels(theme)
 
 proc customPosition(t: Theme): bool =
