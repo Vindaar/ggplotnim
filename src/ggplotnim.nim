@@ -2702,7 +2702,7 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
 
         # change number of ticks from default 10 if numbers too large (i.e. we
         # print between 100 and 9000); get's too crowded along x axis
-        let xTickNum = if theme.xMarginRange.high > 100.0 and
+        let xTickNum = if theme.xMarginRange.high > 1000.0 and
                         theme.xMarginRange.high < 1e5:
                        5
                      else:
