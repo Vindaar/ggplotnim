@@ -1,3 +1,11 @@
+* v0.5.2
+- allows to customize the margin between tick labels and their ticks
+  via the =tickMargin= argument to =x/ylab=
+- further fixes for missing color scales when using
+  =scale_fill/color_continuous=
+- fixes an issue with reference semantics messing up plots in certain
+  cases when user given formulas modified the input DF in a certain
+  way between different geoms
 * v0.5.1
 (as is usual, a hotfix is always coming quickly....)
 - fixes a regression for continuous color scales, where if
