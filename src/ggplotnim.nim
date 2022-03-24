@@ -2316,6 +2316,8 @@ proc handleLabels(view: Viewport, theme: Theme) =
                             backend: view.backend,
                             text: labNames[labLens], font: font) +
                     Coord1D(pos: 0.3, kind: ukCentimeter)
+    else:
+      marginVar = Coord1D(pos: themeField.get, kind: ukCentimeter)
 
   template createLabel(label, labproc, labTxt, themeField, marginVal: untyped,
                        isSecond = false, rot = none[float]()): untyped =
