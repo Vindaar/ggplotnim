@@ -1,6 +1,6 @@
 import sequtils, algorithm, tables
 
-import ggplot_types, ggplot_styles, ggplot_utils, ggplot_scales
+import ggplot_types, ggplot_styles, ggplot_scales
 from ggplot_ticks import getXTicks, getYTicks
 import datamancer
 import ginger except Scale
@@ -239,8 +239,8 @@ proc addZeroKeys(df: var DataFrame, keys: Column, xCol, countCol: string) =
   ## yield empty subgroups, yet we need those for the plot.
   let existKeys = df[xCol].unique
   var dfZero = colsToDf(keys).filter(f{string: `keys` notin existKeys})
-  dfZero.transmuteInplace(f{int: countCol ~ 0},
-                          f{xCol <- "keys"})
+    .rename(f{xCol <- "keys"})
+  dfZero[countCol] = 0
   df.add dfZero
 
 proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
@@ -253,9 +253,6 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
   template assignIfAny(fg, scale, arg: untyped): untyped =
     if scale.isSome:
       fg.arg = some(getColName(scale.get))
-  template assignTileRaster(scale, body: untyped): untyped =
-    if scale.isNone:
-      body
   # TODO: use fg. gid?
   case fg.geomKind
   of gkErrorBar:
@@ -425,8 +422,8 @@ proc maybeFilterUnique(df: var DataFrame, fg: FilledGeom) =
     addIt(xMax, true)
     addIt(yMin, false)
     addIt(yMax, false)
-    if hasX: collectCols.add fg.ycol # add y if we have ranges in x
-    if hasY: collectCols.add fg.xcol # add x if we have ranges in y
+    if hasX: collectCols.add fg.yCol # add y if we have ranges in x
+    if hasY: collectCols.add fg.xCol # add x if we have ranges in y
     when false:
       ## It would be ideal if we could trust that constant columns actually remain
       ## constant. But in the processing before this procedure, there are too many
@@ -450,8 +447,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
 
   result = FilledGeom(geom: g,
-                      xcol: getColName(x),
-                      ycol: getColName(y),
+                      xCol: getColName(x),
+                      yCol: getColName(y),
                       dcKindX: x.dcKind,
                       dcKindY: y.dcKind,
                       geomKind: g.kind)
@@ -477,11 +474,11 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
         yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
                               else: col.clone
       # possibly modify `col` if stacking
-      col.addCountsByPosition(subDf[result.ycol], g.position)
+      col.addCountsByPosition(subDf[result.yCol], g.position)
       if g.position == pkStack and
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # assign stacked column as new y
-        yieldDf[result.ycol] = col
+        yieldDf[result.yCol] = col
 
       yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
@@ -536,13 +533,13 @@ proc callSmoother(fg: FilledGeom,
                                    windowSize, geom.polyOrder)
   of smPoly:
     # for a polynomial least squares fit we also need the x values
-    let xData = df[fg.xcol, float]
+    let xData = df[fg.xCol, float]
     when  defined(nolapack):
       raise newException(Exception, "You compiled the binary with `-d:nolapack`. `geom_smooth` is not available!")
     else:
       let polyCoeff = polyFit(xData, data, geom.polyOrder)
       # `initPoly` takes the coefficients in reversed order (highest order first)
-      let p = initPoly(polyCoeff.toRawSeq.reversed)
+      let p = initPoly(polyCoeff.toSeq1D.reversed)
       result = xData.map_inline(p.eval(x))
   of smLM:
     raise newException(Exception, "Levenberg-Marquardt fitting is not implemented yet.")
@@ -563,8 +560,8 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
   if y.dcKind == dcDiscrete: raise newException(ValueError, getExceptionMessageDiscrete("y", $y.col))
 
   result = FilledGeom(geom: g,
-                      xcol: getColName(x),
-                      ycol: SmoothValsCol,
+                      xCol: getColName(x),
+                      yCol: SmoothValsCol,
                       dcKindX: dcContinuous, # smoothed data ``must`` be continuous!
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
@@ -593,11 +590,11 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
         yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
                               else: col.clone
       # possibly modify `col` if stacking
-      col.addCountsByPosition(yieldDf[result.ycol], g.position)
+      col.addCountsByPosition(yieldDf[result.yCol], g.position)
       if g.position == pkStack and
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # assign stacked column as new y
-        yieldDf[result.ycol] = col
+        yieldDf[result.yCol] = col
 
       yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style, g.kind,
@@ -643,7 +640,7 @@ proc callHistogram(geom: Geom,
   template readTmpl(sc: untyped): untyped =
     ## TODO: investigate! why is `data` here only a view of the full tensor?
     ## Shouldn't `filter` + `groups` iterator return a new tensor?
-    sc.col.evaluate(df).toTensor(float).clone.toRawSeq
+    sc.col.evaluate(df).toTensor(float).clone.toSeq1D
   let data = readTmpl(scale)
   var
     hist: seq[float]
@@ -686,8 +683,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
     raise newException(ValueError, "For discrete data columns use `geom_bar` instead!")
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
-                      xcol: getColName(x),
-                      ycol: countCol,
+                      xCol: getColName(x),
+                      yCol: countCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
@@ -718,8 +715,8 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                             range = x.dataScale)
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
-      var yieldDf = seqsToDf({ getColName(x) : bins,
-                               countCol: hist })
+      var yieldDf = toDf({ getColName(x) : bins,
+                           countCol: hist })
       if g.position == pkStack: # only needed for gkHistogram (hdBars) + gkBar
         yieldDf[PrevValsCol] = if col.len == 0: constantColumn(0.0, yieldDf.len)
                               else: col.clone
@@ -728,7 +725,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       if g.position == pkStack:
         if not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
           # use sum to reassign y column
-          yieldDf[result.ycol] = col
+          yieldDf[result.yCol] = col
       yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,
@@ -747,9 +744,9 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       weightScale = filledScales.getWeightScale(g),
       range = x.dataScale
     )
-    var yieldDf = seqsToDf({ getColName(x) : bins,
-                             countCol: hist,
-                             widthCol: binWidths})
+    var yieldDf = toDf({ getColName(x) : bins,
+                         countCol: hist,
+                         widthCol: binWidths})
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     yieldDf.maybeFilterUnique(result)
     let key = ("", Value(kind: VNull))
@@ -798,8 +795,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   let xCol = getColName(x)
   result = FilledGeom(geom: g,
-                      xcol: xCol,
-                      ycol: CountCol,
+                      xCol: xCol,
+                      yCol: CountCol,
                       dcKindX: x.dcKind,
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
@@ -836,7 +833,7 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
       if g.position == pkStack and
          not ((g.kind == gkHistogram and g.hdKind == hdBars) or (g.kind == gkBar)):
         # use new col to modify `y` column
-        yieldDf[result.ycol] = col
+        yieldDf[result.yCol] = col
       yieldDf.maybeFilterUnique(result)
       result.yieldData[toObject(keys)] = applyContScaleIfAny(yieldDf, cont, style,
                                                              g.kind,

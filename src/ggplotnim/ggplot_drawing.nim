@@ -1,6 +1,5 @@
 import sequtils, tables, sets
-import ggplot_types, ggplot_styles, ggplot_scales
-import colormaps / colormaps
+import ggplot_types, ggplot_styles
 import datamancer
 import ginger
 
@@ -138,13 +137,13 @@ proc prepareViews(view: var Viewport, fg: FilledGeom, theme: Theme) =
     widths: seq[Quantity]
     heights: seq[Quantity]
   if cols > 1:
-    let indWidths = toSeq(0 ..< cols).mapIt(quant(0.0, ukRelative))
+    let indWidths = newSeqWith(cols, quant(0.0, ukRelative))
     cols += 2
     widths = concat(@[discrMargin],
                     indWidths,
                     @[discrMargin])
   if rows > 1:
-    let indHeights = toSeq(0 ..< rows).mapIt(quant(0.0, ukRelative))
+    let indHeights = newSeqWith(rows, quant(0.0, ukRelative))
     rows += 2
     heights = concat(@[discrMargin],
                      indHeights,
@@ -369,7 +368,7 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
   of gkPoint: view.addObj view.initPoint(pos, style)
   of gkErrorBar: view.addObj view.drawErrorBar(fg, pos, df, idx, style)
   of gkHistogram, gkBar:
-    let binWidth = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+    let binWidth = readOrCalcBinWidth(df, idx, fg.xCol, dcKind = fg.dcKindX)
     doAssert binWidth == binWidths.x
     view.addObj view.initRect(pos,
                               quant(binWidth, ukData),
@@ -396,9 +395,9 @@ proc calcBinWidths(df: DataFrame, idx: int, fg: FilledGeom): tuple[x, y: float] 
   case fg.geomKind
   of gkHistogram, gkBar, gkPoint, gkLine, gkFreqPoly, gkErrorBar, gkText:
     when not CoordFlipped:
-      result.x = readOrCalcBinWidth(df, idx, fg.xcol, dcKind = fg.dcKindX)
+      result.x = readOrCalcBinWidth(df, idx, fg.xCol, dcKind = fg.dcKindX)
     else:
-      result.y = readOrCalcBinWidth(df, idx, fg.ycol, dcKind = fg.dcKindY)
+      result.y = readOrCalcBinWidth(df, idx, fg.yCol, dcKind = fg.dcKindY)
   of gkTile, gkRaster:
     (result.x, result.y) = readWidthHeight(df, idx, fg)
 
@@ -438,14 +437,14 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
     lStart.y.pos = 0.0
     var binWidth: float
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
-      binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+      binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
       lStart.x.pos = lStart.x.pos - binWidth
     # insert at beginning
     linePoints.insert(lStart, 0)
     # now get last bin  width and extend to right
     lEnd.y.pos = 0.0
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
-      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.xcol, dcKind = fg.dcKindX)
+      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.xCol, dcKind = fg.dcKindX)
       lEnd.x.pos = lEnd.x.pos + binWidth
     # add at the end
     linePoints.add(lEnd)
@@ -455,14 +454,14 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
     var binWidth: float
     lStart.x.pos = 0.0
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
-      binWidth = readOrCalcBinWidth(df, 0, fg.ycol, dcKind = fg.dcKindY)
+      binWidth = readOrCalcBinWidth(df, 0, fg.yCol, dcKind = fg.dcKindY)
       lStart.y.pos = lStart.y.pos - binWidth
     # insert at beginning
     linePoints.insert(lStart, 0)
     # now to bottom
     lEnd.x.pos = 0.0
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
-      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.ycol, dcKind = fg.dcKindY)
+      binWidth = readOrCalcBinWidth(df, df.high - 1, fg.yCol, dcKind = fg.dcKindY)
       lEnd.y.pos = lEnd.y.pos + binWidth
     # add at the end
     linePoints.add(lEnd)
@@ -485,7 +484,7 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
     curP: Coord
     curX: float = p.x.pos
     curY: float = 0.0
-  var binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+  var binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
   p.x.pos = curX
   p.y.pos = curY
   result.add p
@@ -496,7 +495,7 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
   p.x.pos = curX
   result.add p
   for idx in 1 ..< linePoints.len:
-    binWidth = readOrCalcBinWidth(df, 0, fg.xcol, dcKind = fg.dcKindX)
+    binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
     curP = linePoints[idx]
     curY = curP.y.pos
     p.y.pos = curY
@@ -528,8 +527,8 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
   var linePoints: seq[Coord]
   if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
-    var xT = df[$fg.xcol].toTensor(Value)
-    var yT = df[$fg.ycol].toTensor(Value)
+    var xT = df[$fg.xCol].toTensor(Value)
+    var yT = df[$fg.yCol].toTensor(Value)
     # determine last position to draw. If `binPosition` is `bpNone` we're not interpreting data as
     # bins, use last. Else last is right bin edge, drop it
     let lastElement = if fg.geom.binPosition == bpNone: df.high
@@ -573,8 +572,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
   # return ``early`` if histogram, cause bar histogram already drawn
   if fg.geomKind == gkHistogram and fg.hdKind == hdBars: return
   elif fg.geomKind == gkHistogram:
-    linepoints = df.convertPointsToHistogram(fg, linepoints)
-
+    linePoints = df.convertPointsToHistogram(fg, linePoints)
 
   # for `gkLine`, `gkFreqPoly` now draw the lines
   case fg.geomKind
@@ -613,7 +611,6 @@ proc createGobjFromGeom*(view: var Viewport,
   view.prepareViews(fg, theme)
   # if discretes, calculate mapping from labels to viewport
   var viewMap = calcViewMap(fg)
-  let anyDiscrete = if viewMap.len == 0: false else: true
   for (lab, baseStyle, styles, subDf) in enumerateData(fg):
     if labelVal.isSome:
       if labelVal.unsafeGet notin lab:

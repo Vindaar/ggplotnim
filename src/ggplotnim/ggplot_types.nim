@@ -363,11 +363,11 @@ type
     title*: Option[string]
     subTitle*: Option[string]
     # labels
-    xlabel*: Option[string]
-    xlabelMargin*: Option[float]
+    xLabel*: Option[string]
+    xLabelMargin*: Option[float]
     xLabelSecondary*: Option[string]
-    ylabel*: Option[string]
-    ylabelMargin*: Option[float]
+    yLabel*: Option[string]
+    yLabelMargin*: Option[float]
     yLabelSecondary*: Option[string]
     # ticks
     xTicksRotate*: Option[float]
@@ -430,7 +430,7 @@ type
   GgPlot* = object
     data*: DataFrame
     title*: string
-    subtitle*: string
+    subTitle*: string
     # GgPlot can only contain a single `aes` by itself. Geoms may contain
     # seperate ones
     aes*: Aesthetics # original `aes` given in `ggplot()` call. Won't be modified
@@ -452,8 +452,8 @@ type
     # NOTE: these are strings, because they are the stringification of the
     # `FormulaNode` given to `aes`! Potential calculations have already been
     # done to the data
-    xcol*: string
-    ycol*: string
+    xCol*: string
+    yCol*: string
     # each geom will fill its own data scales. The filledScale will then
     # select the correct scale for the whole plot
     xScale*: ginger.Scale
@@ -819,15 +819,10 @@ proc `$`*(g: Geom): string =
   else: discard
   result.add ")"
 
-macro typeName(x: typed): untyped =
-  let str = x.getTypeInst.repr
-  result = quote do:
-    `str`
-
 proc `$`*(p: GgPlot): string =
   result = "(data:\n" & $p.data & "\n"
   result.add ", title: " & $p.title
-  result.add ", subtitle: " & $p.subtitle
+  result.add ", subtitle: " & $p.subTitle
   result.add ", aes: " & $p.aes
   result.add ", facet: " & $p.facet
   result.add ", geoms: "
