@@ -18,7 +18,7 @@ proc annotateText(): string =
      
 let x = linspace(-5.0, 15.0, 1000)
 let y = x.mapIt(landauApprox(it))
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +                             # draw our Landau data as a line
   annotate(annotateText(),                  # add our text annotation

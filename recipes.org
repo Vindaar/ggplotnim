@@ -44,7 +44,7 @@ let y = x.mapIt(pow(sin(it), 2.0))
 #+END_SRC
 Build a dataframe from it:
 #+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 #+END_SRC
 and create the plot:
 #+BEGIN_SRC nim :tangle recipes/rSimpleLinePlot.nim
@@ -68,7 +68,7 @@ const
   height = 480
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +
   ggsave("media/recipes/rLinePlotSize.png", width = width, height = height)
@@ -247,7 +247,7 @@ the histogram argument:
 import ggplotnim
 let bins = @[0, 2, 5, 9, 15]
 let counts = @[0.1, 0.8, 0.3, 0.05, 0.0] # <- last element is dummy
-let df = seqsToDf({"bin_edges" : bins, "counts" : counts})
+let df = toDf({"bin_edges" : bins, "counts" : counts})
 ggplot(df, aes("bin_edges", "counts")) + 
   geom_histogram(stat = "identity") +
   ggsave("media/recipes/rPrebinnedHisto.png")
@@ -465,7 +465,7 @@ proc createDataFrame(): DataFrame =
       pathNames[idx] = "path" & $(j + 1)
       pathVals[idx] = (pathVals[idx - 1] * exp(-0.5 * sigma * sigma + sigma * gaussian(rnd)))
       tenors[idx] = i
-  result = seqsToDf({ "tenors" : tenors,
+  result = toDf({ "tenors" : tenors,
                       "pathNames" : pathNames,
                       "pathValues" : pathVals })
 
@@ -572,7 +572,7 @@ import ggplotnim
 let trials = @["A", "B", "C", "D", "E"]
 let values = @[1.0, 0.5, 0, -0.5, -1.0]
 
-let df = seqsToDf({ "Trial" : trials,
+let df = toDf({ "Trial" : trials,
                     "Value" : values })
 
 ggplot(df, aes(x="Trial", y="Value")) +
@@ -811,7 +811,7 @@ import ggplotnim, seqmath, sequtils
 # create some polynomial data 
 let x = linspace(0, 1.0, 10)
 let y = x.mapIt(0.5 * it - 1.2 * it * it + 1.1 * it * it * it)
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 # let's assume we have asymmetric errors, 0.03 down and 0.05 up
 ggplot(df, aes("x", "y")) +
   geom_point() +
@@ -874,7 +874,7 @@ for x in 0 ..< 28:
     xs.add x.float
     ys.add y.float
     zs.add rnd.rand(1.0)
-let df = seqsToDf(xs, ys, zs)
+let df = toDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_tile() +
   #scale_x_discrete() +
@@ -916,7 +916,7 @@ for x in countup(-256, 254, 2):
     xs.add x.float
     ys.add y.float
     zs.add rnd.rand(1.0)
-let df = seqsToDf(xs, ys, zs)
+let df = toDf(xs, ys, zs)
 ggplot(df, aes("xs", "ys", fill = "zs")) +
   geom_raster() +
   ggsave("media/recipes/rSimpleRaster.png")
@@ -941,7 +941,7 @@ for x in 0 ..< 256:
     ys.add y.float
     zs1.add rnd.rand(1.0)
     zs2.add rnd.rand(1.0)
-let df = seqsToDf(xs, ys, zs1, zs2)
+let df = toDf(xs, ys, zs1, zs2)
   .gather(["zs1", "zs2"], key = "Map", value = "vals")
 ggplot(df, aes("xs", "ys", fill = "vals")) +
   facet_wrap("Map") +
@@ -1215,7 +1215,7 @@ import ggplotnim, seqmath, math, sequtils, complex, ginger
 let t = linspace(-0.02, 0.05, 1000)
 let y1 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).re)
 let y2 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).im)
-let df = seqsToDf({ "t" : t,
+let df = toDf({ "t" : t,
                     "Re x(t)" : y1,
                     "Im x(t)" : y2 })
 let plt1 = ggcreate(
@@ -1471,7 +1471,7 @@ import ggplotnim, strutils, sequtils, seqmath, times
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
 
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 
 # helper template to get a reproducible `DateTime` for CI!
 template nowTmpl(): untyped = initDateTime(15, mMay, 2020, 00, 00, 00, 00, utc())
@@ -1501,7 +1501,7 @@ import ggplotnim, strutils, sequtils, seqmath
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
 
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 
 ggplot(df, aes("x", "y")) + 
   geom_line() +
@@ -1527,7 +1527,7 @@ import ggplotnim, sequtils, seqmath
 
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 
 ggplot(df, aes("x", "y")) + # x and y are the identifiers given above as strings
   geom_line() +
@@ -1606,7 +1606,7 @@ let
   pos = [1, 2, 3, 1, 2, 3]
   name = ["a", "a", "a", "b", "b", "b"]
   n = [0, 1, 4, 4, 2, 3]
-  df = seqsToDf(pos, name, n)
+  df = toDf(pos, name, n)
 
 ggplot(df, aes("pos", "name")) +
   geom_tile(aes(fill = "n")) +
@@ -1645,7 +1645,7 @@ let
   pos = [1, 2, 3, 1, 2, 3]
   name = ["a very long long label", "a very long long label", "a very long long label", "b", "b", "b"]
   n = [0, 1, 4, 4, 2, 3]
-  df = seqsToDf(pos, name, n)
+  df = toDf(pos, name, n)
 
 ggplot(df, aes("pos", "name")) +
   geom_tile(aes(fill = "n")) +
@@ -1675,7 +1675,7 @@ import ggplotnim, sequtils, seqmath
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
 
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 
 ggplot(df, aes("x", "y")) +
   geom_line() +
@@ -1959,7 +1959,7 @@ proc annotateText(): string =
      
 let x = linspace(-5.0, 15.0, 1000)
 let y = x.mapIt(landauApprox(it))
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 ggplot(df, aes("x", "y")) +
   geom_line() +                             # draw our Landau data as a line
   annotate(annotateText(),                  # add our text annotation
@@ -2185,7 +2185,7 @@ const tile_height = 0.95
 # replace `elements` by stacked top and bottom
 elements = bind_rows([top, bottom])
 
-let splitDf = seqsToDf({
+let splitDf = toDf({
   "y": @[6, 7],
   "metal": @["lanthanoid", "actinoid"]
 })
@@ -2198,10 +2198,10 @@ func cycle[T](s: openArray[T]; nums: seq[int]): seq[T] =
       result[idx] = s[i]
       inc idx
 # finally define rows and cols
-let groupdf = seqsToDf({
+let groupdf = toDf({
     "group": arange(1, 19),
     "y": cycle(@[1, 2, 4, 2, 1], @[1, 1, 10, 5, 1])})
-let periodDf = seqsToDf({
+let periodDf = toDf({
     "period": arange(1, 8),
     "x": cycle(@[0.5], @[7])})
 
@@ -2345,9 +2345,9 @@ where =Num= is the number of the polygon is part of. This layout
 allows us to use =ggplotnims= built-in functionality to draw them as
 separate polygons.
 #+BEGIN_SRC nim :tangle recipes/rPointInPolygons.nim
-let df1 = seqsToDf({ "x" : p1.flatten[0],
+let df1 = toDf({ "x" : p1.flatten[0],
                     "y" : p1.flatten[1] })
-let df2 = seqsToDf({ "x" : p2.flatten[0],
+let df2 = toDf({ "x" : p2.flatten[0],
                     "y" : p2.flatten[1] })
 let df = bind_rows(("Polygon 1", df1), ("Polygon 2", df2), "Num")
 #+END_SRC
@@ -2364,7 +2364,7 @@ let points = collect(newSeq):
     Point(x: rnd.rand(10.0), y: rnd.rand(10.0))
 let inPoly = points.mapIt(it.inAnyPolygon(@[p1, p2]))
   
-let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
+let dfPoints = toDf({ "x" : points.mapIt(it.x),
                           "y" : points.mapIt(it.y),
                           "InPoly" : inPoly })
 #+END_SRC
@@ -2440,7 +2440,7 @@ let a = radii.mapIt(newtonAcceleration(it))
 This gives us two =seq[float]=, but we need a =DataFrame=. So we
 combine the two:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
-var df = seqsToDf({ "r / m" : radii,
+var df = toDf({ "r / m" : radii,
                     "g(r) / m s¯²" : a})
 #+END_SRC
 which gives us a data frame with two columns. The names are, as one can
@@ -2556,7 +2556,7 @@ proc makePlot(pstart, pstop: float, fname: string) =
   let pressures = logspace(pstart, pstop, 1000) # 1000 values from 1e-5 mbar to 500 mbar
   let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
   # convert both seqs to a dataframe
-  let df = seqsToDf({"P / mbar" : pressures, "m_a / eV" : masses})
+  let df = toDf({"P / mbar" : pressures, "m_a / eV" : masses})
   ggplot(df, aes("P / mbar", "m_a / eV")) +
     geom_line() +
     scale_x_log10() +
@@ -2601,7 +2601,7 @@ var dfMuRhoTab = readCsv(massAttenuationFile, header = "#",
   .mutate(f{"Energy" ~ c"Energy" * 1000.0})
   .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})
 # create df of interpolated values
-let dfMuRhoInterp = seqsToDf({ "E / keV" : energies,
+let dfMuRhoInterp = toDf({ "E / keV" : energies,
                                "mu/rho" : muOverRho })
 # rename the columns of the tabulated values df and create a log column
 dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" <- "Energy"})
@@ -2695,12 +2695,12 @@ proc m_a_vs_density(pstart, pstop: float) =
   let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
   # convert both seqs to a dataframe
   let ref1Bar = density(1000, 293.15)
-  let df1bar = seqsToDf({"ρ / g/cm^3" : @[ref1Bar, ref1Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let df1bar = toDf({"ρ / g/cm^3" : @[ref1Bar, ref1Bar], "m_a / eV" : @[1e-2, 1.0]})
   let ref3Bar = density(3000, 293.15)
-  let df3bar = seqsToDf({"ρ / g/cm^3" : @[ref3Bar, ref3Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let df3bar = toDf({"ρ / g/cm^3" : @[ref3Bar, ref3Bar], "m_a / eV" : @[1e-2, 1.0]})
   let refVacLimit = density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit))
-  let dfVacLimit = seqsToDf({"ρ / g/cm^3" : @[refVacLimit, refVacLimit], "m_a / eV" : @[1e-2, 1.0]})
-  let df = seqsToDf({"ρ / g/cm^3" : densities, "m_a / eV" : masses})
+  let dfVacLimit = toDf({"ρ / g/cm^3" : @[refVacLimit, refVacLimit], "m_a / eV" : @[1e-2, 1.0]})
+  let df = toDf({"ρ / g/cm^3" : densities, "m_a / eV" : masses})
   let dfComb = bind_rows([("ma vs ρ", df),
                           ("1 bar @ 293 K", df1bar),
                           ("3 bar @ 293 K", df3bar),

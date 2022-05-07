@@ -43,7 +43,7 @@ proc makePlot(pstart, pstop: float, fname: string) =
   let pressures = logspace(pstart, pstop, 1000) # 1000 values from 1e-5 mbar to 500 mbar
   let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
   # convert both seqs to a dataframe
-  let df = seqsToDf({"P / mbar" : pressures, "m_a / eV" : masses})
+  let df = toDf({"P / mbar" : pressures, "m_a / eV" : masses})
   ggplot(df, aes("P / mbar", "m_a / eV")) +
     geom_line() +
     scale_x_log10() +

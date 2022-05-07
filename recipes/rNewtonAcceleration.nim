@@ -18,7 +18,7 @@ let radii = linspace(0.0, 35_000_000, 1000) # up to geostationary orbit
 # and the corresponding accelerations
 let a = radii.mapIt(newtonAcceleration(it))
 
-var df = seqsToDf({ "r / m" : radii,
+var df = toDf({ "r / m" : radii,
                     "g(r) / m s¯²" : a})
 
 df = df.transmute(f{"r / km" ~ c"r / m" / 1000.0}, f{"g(r) / m s¯²"})

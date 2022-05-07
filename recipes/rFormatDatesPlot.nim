@@ -3,7 +3,7 @@ import ggplotnim, strutils, sequtils, seqmath, times
 let x = linspace(0.0, 30.0, 1000)
 let y = x.mapIt(pow(sin(it), 2.0))
 
-let df = seqsToDf(x, y)
+let df = toDf(x, y)
 
 # helper template to get a reproducible `DateTime` for CI!
 template nowTmpl(): untyped = initDateTime(15, mMay, 2020, 00, 00, 00, 00, utc())

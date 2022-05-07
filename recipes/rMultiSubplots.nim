@@ -2,7 +2,7 @@ import ggplotnim, seqmath, math, sequtils, complex, ginger
 let t = linspace(-0.02, 0.05, 1000)
 let y1 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).re)
 let y2 = t.mapIt(exp(im(2'f64) * Pi * 50 * it).im)
-let df = seqsToDf({ "t" : t,
+let df = toDf({ "t" : t,
                     "Re x(t)" : y1,
                     "Im x(t)" : y2 })
 let plt1 = ggcreate(
