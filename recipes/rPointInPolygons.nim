@@ -38,9 +38,9 @@ proc inAnyPolygon(p: Point, polys: seq[Polygon]): bool =
 let p1 = initPolygon((0, 1), (6, 0), (5, 2), (4, 1), (2, 4))
 let p2 = initPolygon((5, 4), (8, 10), (10, 2), (7, 4))
 
-let df1 = seqsToDf({ "x" : p1.flatten[0],
+let df1 = toDf({ "x" : p1.flatten[0],
                     "y" : p1.flatten[1] })
-let df2 = seqsToDf({ "x" : p2.flatten[0],
+let df2 = toDf({ "x" : p2.flatten[0],
                     "y" : p2.flatten[1] })
 let df = bind_rows(("Polygon 1", df1), ("Polygon 2", df2), "Num")
 
@@ -51,7 +51,7 @@ let points = collect(newSeq):
     Point(x: rnd.rand(10.0), y: rnd.rand(10.0))
 let inPoly = points.mapIt(it.inAnyPolygon(@[p1, p2]))
   
-let dfPoints = seqsToDf({ "x" : points.mapIt(it.x),
+let dfPoints = toDf({ "x" : points.mapIt(it.x),
                           "y" : points.mapIt(it.y),
                           "InPoly" : inPoly })
 

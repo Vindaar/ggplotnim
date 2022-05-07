@@ -32,7 +32,7 @@ proc createDataFrame(): DataFrame =
       pathNames[idx] = "path" & $(j + 1)
       pathVals[idx] = (pathVals[idx - 1] * exp(-0.5 * sigma * sigma + sigma * gaussian(rnd)))
       tenors[idx] = i
-  result = seqsToDf({ "tenors" : tenors,
+  result = toDf({ "tenors" : tenors,
                       "pathNames" : pathNames,
                       "pathValues" : pathVals })
 

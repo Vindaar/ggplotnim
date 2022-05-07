@@ -11,7 +11,7 @@ for x in 0 ..< 256:
     ys.add y.float
     zs1.add rnd.rand(1.0)
     zs2.add rnd.rand(1.0)
-let df = seqsToDf(xs, ys, zs1, zs2)
+let df = toDf(xs, ys, zs1, zs2)
   .gather(["zs1", "zs2"], key = "Map", value = "vals")
 ggplot(df, aes("xs", "ys", fill = "vals")) +
   facet_wrap("Map") +

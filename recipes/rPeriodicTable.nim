@@ -31,7 +31,7 @@ const tile_height = 0.95
 # replace `elements` by stacked top and bottom
 elements = bind_rows([top, bottom])
 
-let splitDf = seqsToDf({
+let splitDf = toDf({
   "y": @[6, 7],
   "metal": @["lanthanoid", "actinoid"]
 })
@@ -44,10 +44,10 @@ func cycle[T](s: openArray[T]; nums: seq[int]): seq[T] =
       result[idx] = s[i]
       inc idx
 # finally define rows and cols
-let groupdf = seqsToDf({
+let groupdf = toDf({
     "group": arange(1, 19),
     "y": cycle(@[1, 2, 4, 2, 1], @[1, 1, 10, 5, 1])})
-let periodDf = seqsToDf({
+let periodDf = toDf({
     "period": arange(1, 8),
     "x": cycle(@[0.5], @[7])})
 

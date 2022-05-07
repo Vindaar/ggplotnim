@@ -18,7 +18,7 @@ var dfMuRhoTab = readCsv(massAttenuationFile, header = "#",
   .mutate(f{"Energy" ~ c"Energy" * 1000.0})
   .filter(f{float: c"Energy" >= energies.min and c"Energy" <= energies.max})
 # create df of interpolated values
-let dfMuRhoInterp = seqsToDf({ "E / keV" : energies,
+let dfMuRhoInterp = toDf({ "E / keV" : energies,
                                "mu/rho" : muOverRho })
 # rename the columns of the tabulated values df and create a log column
 dfMuRhoTab = dfMuRhoTab.rename(f{"E / keV" <- "Energy"})

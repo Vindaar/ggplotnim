@@ -65,12 +65,12 @@ proc m_a_vs_density(pstart, pstop: float) =
   let masses = pressures.mapIt(babyIaxoEffMass(it)) # corresponding masses
   # convert both seqs to a dataframe
   let ref1Bar = density(1000, 293.15)
-  let df1bar = seqsToDf({"ρ / g/cm^3" : @[ref1Bar, ref1Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let df1bar = toDf({"ρ / g/cm^3" : @[ref1Bar, ref1Bar], "m_a / eV" : @[1e-2, 1.0]})
   let ref3Bar = density(3000, 293.15)
-  let df3bar = seqsToDf({"ρ / g/cm^3" : @[ref3Bar, ref3Bar], "m_a / eV" : @[1e-2, 1.0]})
+  let df3bar = toDf({"ρ / g/cm^3" : @[ref3Bar, ref3Bar], "m_a / eV" : @[1e-2, 1.0]})
   let refVacLimit = density(pressureGivenEffPhotonMass(babyIaxoVacuumMassLimit))
-  let dfVacLimit = seqsToDf({"ρ / g/cm^3" : @[refVacLimit, refVacLimit], "m_a / eV" : @[1e-2, 1.0]})
-  let df = seqsToDf({"ρ / g/cm^3" : densities, "m_a / eV" : masses})
+  let dfVacLimit = toDf({"ρ / g/cm^3" : @[refVacLimit, refVacLimit], "m_a / eV" : @[1e-2, 1.0]})
+  let df = toDf({"ρ / g/cm^3" : densities, "m_a / eV" : masses})
   let dfComb = bind_rows([("ma vs ρ", df),
                           ("1 bar @ 293 K", df1bar),
                           ("3 bar @ 293 K", df3bar),
