@@ -2,11 +2,8 @@ import unittest
 # we include ggplotnim so that we can test non exported procs
 include ../src/ggplotnim
 
-import tables, sets, options
-import sequtils, seqmath
-import math
-
-import random
+import seqmath
+import std / [random, math]
 randomize(42)
 
 proc almostEq(a, b: float, epsilon = 1e-8): bool =
@@ -29,7 +26,7 @@ suite "Formula":
     var f3 = f{float: col ~ s.trans( df[col][idx] )}
     check f3.name == "(~ col (s.trans df[col][idx]))"
     # test function on DF
-    let df = seqsToDf( { "testCol" : @[1.0, 2.0, 3.0] })
+    let df = toDf( { "testCol" : @[1.0, 2.0, 3.0] })
     check f3.evaluate(df).toTensor(Value) == toTensor(%~ @[2.0, 4.0, 6.0])
 
 suite "Geom":
@@ -156,20 +153,20 @@ suite "Aesthetics":
 
 suite "GgPlot":
   test "Histogram with discrete scale fails":
-    let mpg = toDf(readCsv("data/mpg.csv"))
+    let mpg = readCsv("data/mpg.csv")
     expect(ValueError):
       ggplot(mpg, aes("class")) + geom_histogram() + ggsave("fails.pdf")
 
   test "Bar with continuous scale fails":
-    let mpg = toDf(readCsv("data/mpg.csv"))
+    let mpg = readCsv("data/mpg.csv")
     expect(ValueError):
       ggplot(mpg, aes("cty")) + geom_bar() + ggsave("fails.pdf")
 
   test "Bar plot with string based scale":
-    let mpg = toDf(readCsv("data/mpg.csv"))
+    let mpg = readCsv("data/mpg.csv")
     let plt = ggcreate(ggplot(mpg, aes("class"), backend = bkCairo) + geom_bar())
-    let plotview = plt.view[4]
-    check plotview.name == "plot"
+    let plotView = plt.view[4]
+    check plotView.name == "plot"
     proc calcPos(classes: seq[string]): seq[float] =
       ## given the possible classes, calculates the positions the
       ## labels have to be placed at
@@ -187,12 +184,12 @@ suite "GgPlot":
       for i in 0 ..< nclass:
         let pos = discrMargin + i.float * barViewWidth + centerPos
         result.add pos
-    let classes = mpg["class"].unique.toTensor(string).toRawSeq.sorted
+    let classes = mpg["class"].unique.toTensor(string).toSeq1D.sorted
     let checkPos = calcPos(classes)
     var
       idxTk = 0
       idxLab = 0
-    for obj in plotview.objects:
+    for obj in plotView.objects:
       case obj.kind
       of goTick:
         # verify tick position
@@ -210,7 +207,7 @@ suite "GgPlot":
 
 
   test "Plot with continuous color scale":
-    let mpg = toDf(readCsv("data/mpg.csv"))
+    let mpg = readCsv("data/mpg.csv")
     ggplot(mpg, aes("displ", "hwy", color = "cty")) +
       geom_point() +
       ggsave("cont_color.pdf")
@@ -224,7 +221,7 @@ suite "GgPlot":
     let x = toSeq(0 .. 10).mapIt(it.float)
     let y1 = x.mapIt(cos(it))
     let y2 = x.mapIt(sin(it))
-    let df = seqsToDf({"x" : x, "cos" : y1, "sin" : y2})
+    let df = toDf({"x" : x, "cos" : y1, "sin" : y2})
 
     let gplt = ggplot(df, aes("x", "cos")) + #aes(x ~ cos)) +
       geom_line() + # line for cos
@@ -258,7 +255,7 @@ suite "GgPlot":
     let x = linspace(1.0, 10.0, 500)
     let y1 = x.mapIt(pow(it, 2))
     let y2 = x.mapIt(pow(it, 4))
-    let df = seqsToDf({"x" : x, "xSquare" : y1, "x4" : y2})
+    let df = toDf({"x" : x, "xSquare" : y1, "x4" : y2})
     block:
       let plt = ggplot(df, aes("x", "xSquare")) +
         geom_line() +
@@ -313,7 +310,7 @@ suite "GgPlot":
   test "Automatic margin setting for labels":
     let x = logspace(-6, 1.0, 100)
     let y = x.mapIt(exp(-it))
-    let df = seqsToDf({"x" : x, "exp" : y})
+    let df = toDf({"x" : x, "exp" : y})
     let pltView = ggcreate(ggplot(df, aes("x", "exp"), backend = bkCairo) +
       geom_line() +
       scale_y_log10())
@@ -353,7 +350,7 @@ suite "GgPlot":
   test "Set manual margin and text for labels":
     let x = logspace(-6, 1.0, 100)
     let y = x.mapIt(exp(-it))
-    let df = seqsToDf({"x" : x, "exp" : y})
+    let df = toDf({"x" : x, "exp" : y})
     const xMargin = 0.5
     const yMargin = 1.7
     let pltView = ggcreate(ggplot(df, aes("x", "exp"), backend = bkCairo) +
@@ -390,7 +387,7 @@ suite "GgPlot":
 
 suite "Theme":
   test "Canvas background color":
-    let mpg = toDf(readCsv("data/mpg.csv"))
+    let mpg = readCsv("data/mpg.csv")
     let white = color(1.0, 1.0, 1.0)
     proc checkPlt(plt: GgPlot) =
       check plt.theme.canvasColor.isSome
@@ -417,7 +414,7 @@ suite "Theme":
 
 suite "Annotations":
   test "Annotation using relative coordinates":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     let annot = "A simple\nAnnotation\nMulti\nLine"
     let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
       geom_line() +
@@ -450,7 +447,7 @@ suite "Annotations":
     check count == annot.strip.splitLines.len
 
   test "Annotation using data coordinates":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     let annot = "A simple\nAnnotation\nMulti\nLine"
     let font = font(size = 12.0,
                     family = "monospace")
@@ -485,7 +482,7 @@ suite "Annotations":
     check count == annot.strip.splitLines.len
 
   test "Manually set x and y limits":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     let dfAt44 = df.filter(f{c"hwy" == 44})
     check dfAt44.len == 2
     check dfAt44["cty"].toTensor(float) == toTensor @[33.0, 35.0]
@@ -532,7 +529,7 @@ suite "Annotations":
         else: discard
 
   test "Set custom plot data margins":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     const marg = 0.05
     let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
@@ -548,10 +545,10 @@ suite "Annotations":
                           high: pltRefXScale.high + marg * (pltRefXScale.high - pltRefXScale.low))
 
   test "Margin plus limit using orkClip clips to range + margin":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     const marg = 0.1
-    let pltRef = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
-        geom_point())
+    #let pltRef = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
+    #    geom_point())
     let plt = ggcreate(ggplot(df, aes("hwy", "cty"), backend = bkCairo) +
         geom_point() +
         xlim(0.0, 30.0) +
@@ -571,7 +568,7 @@ suite "Annotations":
       else: discard
 
   test "Negative margins raise ValueError":
-    let df = toDf(readCsv("data/mpg.csv"))
+    let df = readCsv("data/mpg.csv")
     expect(ValueError):
       ggplot(df, aes("hwy", "cty")) +
         geom_point() +
@@ -592,9 +589,9 @@ suite "Annotations":
     ## 71983ef6e5a41c4a65ba165799bfb2297dd35bb6
     ## This test is just using the previously broken example as a test.
     var spikes = @[0]
-    var neurons = toSeq(0 ..< 27).mapIt(0)
-    spikes.add toSeq(0 ..< 26).mapIt(502)
-    let df = seqsToDf(spikes, neurons)
+    var neurons = newSeqWith(27, 0)
+    spikes.add newSeqWith(26, 502)
+    let df = toDf(spikes, neurons)
 
 
     block:
@@ -694,9 +691,9 @@ suite "Annotations":
     ## to 0. This meant the automatically determined data scale (even minimum y)
     ## was used, resulting in a botched plot
 
-    let df = seqsToDf({ "Age" : @[22, 54, 34],
-                        "Height" : @[1.87, 1.75, 1.78],
-                        "Name" : @["Mike", "Laura", "Sue"] })
+    let df = toDf({ "Age" : @[22, 54, 34],
+                    "Height" : @[1.87, 1.75, 1.78],
+                    "Name" : @["Mike", "Laura", "Sue"] })
     let plt = ggcreate(
       ggplot(df, aes("Name","Height"), backend = bkCairo) +
         geom_bar(stat="identity")
@@ -713,8 +710,8 @@ suite "Annotations":
     ## current y scale, to allow negative values
     let trials = @["A", "B", "C", "D", "E"]
     let values = @[1.0, 0.5, 0, -0.5, -1.0]
-    let df = seqsToDf({ "Trial" : trials,
-                        "Value" : values })
+    let df = toDf({ "Trial" : trials,
+                    "Value" : values })
     let plt = ggcreate(
       ggplot(df, aes(x="Trial", y="Value"), backend = bkCairo) +
         geom_bar(stat="identity", position="identity")
@@ -727,8 +724,8 @@ suite "Annotations":
   test "application of `factor` on aes has desired effect":
     let xs = arange(0, 30)
     let ys = xs.mapIt(it * it)
-    let cs = xs.mapIt(rand(8))
-    let df = seqsToDf({ "x" : xs, "y" : ys, "class" : cs })
+    let cs = newSeqWith(xs.len, rand(8))
+    let df = toDf({ "x" : xs, "y" : ys, "class" : cs })
     block ClassIndeedContinuous:
       # first check that this does indeed result in a classification by
       # guessType that's continuous

@@ -1,7 +1,6 @@
 ## .. include:: ./docs/ggplotnim_autogen.rst
 
-import sequtils, tables, sets, algorithm, strutils, macros
-import parsecsv, streams, hashes, sugar, math, times
+import std / [sequtils, tables, sets, algorithm, strutils, macros, hashes, math, times]
 from os import createDir, splitFile
 
 when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
@@ -52,14 +51,9 @@ template incId(): uint16 =
   inc IdCounter
   old
 
-proc orNone(s: string): Option[string] =
-  ## returns either a `some(s)` if s.len > 0 or none[string]()
-  if s.len == 0: none[string]()
-  else: some(s)
-
 proc orNone(f: float): Option[float] =
   ## returns either a `some(f)` if `classify(f) != NaN` or none[float]()
-  if classify(f) != fcNaN: some(f)
+  if classify(f) != fcNan: some(f)
   else: none[float]()
 
 proc orNoneScale*[T: string | SomeNumber | FormulaNode](
@@ -200,7 +194,7 @@ macro aes*(args: varargs[untyped]): untyped =
                         "xmax", "ymin", "ymax", "width", "height", "text",
                         "yridges", "weight" ]
   # first check if all `args` are allowed
-  expectKind(args, nnkArglist)
+  expectKind(args, nnkArgList)
   # given valid arguments, parse as required and create the `Aesthetic` object
   var aesArgs = nnkObjConstr.newTree(ident"Aesthetics")
   # now walk args again and create the output fields; things to note:
@@ -903,7 +897,7 @@ proc scale_y_log2*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale
 
 func sec_axis*(trans: FormulaNode = f{""},
                transFn: ScaleTransform = nil,
-               invTransFn: ScaleTransForm = nil,
+               invTransFn: ScaleTransform = nil,
                name: string = ""): SecondaryAxis =
   ## convenience proc to create a `SecondaryAxis`
   var fn: Option[FormulaNode]
@@ -1436,10 +1430,10 @@ proc scale_alpha_continuous*(alphaRange = DefaultAlphaRange): Scale =
                  dcKind: dcContinuous,
                  alphaRange: alphaRange)
 
-proc ggtitle*(title: string, subtitle = "",
+proc ggtitle*(title: string, subTitle = "",
               titleFont = font(), subTitleFont = font(8.0)): Theme =
   result = Theme(title: some(title))
-  if subtitle.len > 0:
+  if subTitle.len > 0:
     result.subTitle = some(subTitle)
   if titleFont != font():
     result.titleFont = some(titleFont)
@@ -1467,13 +1461,12 @@ proc genDiscreteLegend(view: var Viewport,
                             quant(0.0, ukRelative)], # for legend. incl header
               rowHeights = @[quant(1.0, ukCentimeter), # for header
                              quant(1.05 * numElems.float, ukCentimeter)]) # for act. legend
-  var i = 0
   # now set the `height` according to the real legend height. This important
   # to get proper alignment of the scale / multiple scales in `finalizeLegend`!
   view.height = quant(1.0 + 1.05 * numElems.float, ukCentimeter)
   var leg = view[3]
 
-  let rH = toSeq(0 ..< numElems).mapIt(quant(1.05, ukCentimeter))
+  let rH = newSeqWith(numElems, quant(1.05, ukCentimeter))
 
   leg.layout(3, rows = numElems,
              colWidths = @[quant(1.0, ukCentimeter),
@@ -1737,12 +1730,12 @@ proc xlab*(
   alignTo = "none", font = font(), tickFont = font(),
   tickMargin = NaN): Theme =
   if label.len > 0:
-    result.xlabel = some(label)
-  if classify(margin) != fcNaN:
-    result.xlabelMargin = some(margin)
-  if classify(tickMargin) != fcNaN:
+    result.xLabel = some(label)
+  if classify(margin) != fcNan:
+    result.xLabelMargin = some(margin)
+  if classify(tickMargin) != fcNan:
     result.xTickLabelMargin = some(tickMargin)
-  if classify(rotate) != fcNaN:
+  if classify(rotate) != fcNan:
     result.xTicksRotate = some(rotate)
   if font != font():
     result.labelFont = some(font)
@@ -1755,12 +1748,12 @@ proc ylab*(
   alignTo = "none", font = font(), tickFont = font(),
   tickMargin = NaN): Theme =
   if label.len > 0:
-    result.ylabel = some(label)
-  if classify(margin) != fcNaN:
-    result.ylabelMargin = some(margin)
-  if classify(tickMargin) != fcNaN:
+    result.yLabel = some(label)
+  if classify(margin) != fcNan:
+    result.yLabelMargin = some(margin)
+  if classify(tickMargin) != fcNan:
     result.yTickLabelMargin = some(tickMargin)
-  if classify(rotate) != fcNaN:
+  if classify(rotate) != fcNan:
     result.yTicksRotate = some(rotate)
   if font != font():
     result.labelFont = some(font)
@@ -1982,8 +1975,8 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
     if theme.it.isSome:
       pltTheme.it = theme.it
   # TODO: about time we make this a macro...
-  ifSome(xlabelMargin)
-  ifSome(ylabelMargin)
+  ifSome(xLabelMargin)
+  ifSome(yLabelMargin)
   ifSome(xTickLabelMargin)
   ifSome(yTickLabelMargin)
   ifSome(xLabel)
@@ -2187,7 +2180,6 @@ proc plotLayout(view: var Viewport,
 proc createLayout(view: var Viewport,
                   filledScales: FilledScales, theme: Theme) =
   let hideTicks = theme.hideTicks.get(false)
-  let hideTickLabels = theme.hideTickLabels.get(false)
   let hideLabels = theme.hideLabels.get(false)
   let tightLayout = hideLabels and hideTicks
   let layout = initThemeMarginLayout(theme, tightLayout,
@@ -2235,7 +2227,7 @@ proc generateLegendMarkers(plt: Viewport,
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
   of dcContinuous:
-    case scale.sckind
+    case scale.scKind
     of scColor, scFillColor:
       # replace yScale by scale of `scale`
       var mplt = plt
@@ -2294,8 +2286,8 @@ proc handleLabels(view: Viewport, theme: Theme) =
     xMargin: Coord1D
     yMargin: Coord1D
   let
-    xlabTxt = theme.xLabel.unwrap()
-    ylabTxt = theme.yLabel.unwrap()
+    xLabTxt = theme.xLabel.unwrap()
+    yLabTxt = theme.yLabel.unwrap()
   template getMargin(marginVar, themeField, nameVal, axKind: untyped): untyped =
     ## looks at all *tick labels* to determine the longest (string length) label to
     ## place x / y label such that it avoids overlap
@@ -2335,8 +2327,8 @@ proc handleLabels(view: Viewport, theme: Theme) =
                       margin = marginVal,
                       isSecondary = isSecond,
                       font = fnt)
-  getMargin(xMargin, theme.xlabelMargin, "xtickLabel", akX)
-  getMargin(yMargin, theme.ylabelMargin, "ytickLabel", akY)
+  getMargin(xMargin, theme.xLabelMargin, "xtickLabel", akX)
+  getMargin(yMargin, theme.yLabelMargin, "ytickLabel", akY)
   createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
   createLabel(xLabObj, xlabel, xLabTxt, theme.xLabelMargin, xMargin)
   view.addObj @[xLabObj, yLabObj]
@@ -2344,13 +2336,13 @@ proc handleLabels(view: Viewport, theme: Theme) =
   if theme.hasSecondary(akX):
     let secAxisLabel = theme.xLabelSecondary.unwrap()
     var labSec: GraphObject
-    getMargin(xMargin, theme.xlabelMargin, "xtickLabelSecondary", akX)
+    getMargin(xMargin, theme.xLabelMargin, "xtickLabelSecondary", akX)
     createLabel(labSec, xlabel, secAxisLabel, theme.yLabelMargin, xMargin,
                 true)
     view.addObj @[labSec]
   if theme.hasSecondary(akY):
     let secAxisLabel = theme.yLabelSecondary.unwrap()
-    getMargin(yMargin, theme.ylabelMargin, "ytickLabelSecondary", akY)
+    getMargin(yMargin, theme.yLabelMargin, "ytickLabelSecondary", akY)
     var labSec: GraphObject
     createLabel(labSec, ylabel, secAxisLabel, theme.yLabelMargin, yMargin,
                 true)
@@ -2393,7 +2385,7 @@ proc createRidgeLayout(view: Viewport, theme: Theme, numLabels: int) =
   var discrMargin = quant(0.0, ukRelative)
   if discrMarginOpt.isSome:
     discrMargin = discrMarginOpt.unsafeGet
-  var indHeights = toSeq(0 ..< numLabels).mapIt(quant(0.0, ukRelative))
+  var indHeights = newSeqWith(numLabels, quant(0.0, ukRelative))
   view.layout(cols = 1, rows = numLabels + 2,
                      rowHeights = concat(@[discrMargin],
                                          indHeights,
@@ -2427,10 +2419,10 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
       # add the data viewport to the view
       viewLabel.children.add pChild
     if ridge.showTicks:
-      ## TODO: fix the hack using `1e-5`!
-      let ytickView = viewLabel.handleTicks(filledScales, p, akY, theme = theme,
-                                            numTicksOpt = some(5),
-                                            boundScaleOpt = some(
+      ## TODO: fix the hack using `1e-5`!. Needed for the side effect of adding to viewport!
+      discard viewLabel.handleTicks(filledScales, p, akY, theme = theme,
+                                    numTicksOpt = some(5),
+                                    boundScaleOpt = some(
                                               (low: yScale.low + 1e-5,
                                                high: yScale.high - 1e-5)))
 
@@ -2579,7 +2571,7 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
     # find the correct DF in the `yieldData` table for this label
     let labDf = fg.find(label)
     if facet.sfKind in {sfFreeX, sfFree}:
-      let xScale = calcScale(labDf, fg.xcol)
+      let xScale = calcScale(labDf, fg.xCol)
       # only change the scale, if it's not high == low
       if xScale.low != xScale.high:
         theme.xMarginRange = calculateMarginRange(theme, xScale, akX)
@@ -2587,7 +2579,7 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
         # base on filled geom's scale instead
         theme.xMarginRange = calculateMarginRange(theme, fg.xScale, akX)
     if facet.sfKind in {sfFreeY, sfFree}:
-      let yScale = calcScale(labDf, fg.ycol)
+      let yScale = calcScale(labDf, fg.yCol)
       # only change the scale, if it's not high == low
       if yScale.low != yScale.high:
         theme.yMarginRange = calculateMarginRange(theme, yScale, akY)
@@ -2622,8 +2614,6 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   theme.xTicksTextAlign = p.theme.xTicksTextAlign
   theme.yTicksTextAlign = p.theme.yTicksTextAlign
 
-
-  var pltSeq = newSeq[Viewport](numExist)
   # calculate number of rows and columns based on numGroups
   var
     rows: int
@@ -2734,12 +2724,12 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     if not filledScales.discreteY and filledScales.reversedY:
       viewLabel.yScale = (low: view.yScale.high, high: view.yScale.low)
 
-  if not hidelabels:
+  if not hideLabels:
     # set the theme margins to defaults since `view` does not have any tick label texts
     # which can be used to determine the margin
-    theme.xLabelMargin = if theme.xlabelMargin.isSome: theme.xLabelMargin
+    theme.xLabelMargin = if theme.xLabelMargin.isSome: theme.xLabelMargin
                          else: some(1.0)
-    theme.yLabelMargin = if theme.ylabelMargin.isSome: theme.yLabelMargin
+    theme.yLabelMargin = if theme.yLabelMargin.isSome: theme.yLabelMargin
                          else: some(1.5)
     view.handleLabels(theme)
 
@@ -2897,8 +2887,6 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   let theme = buildTheme(filledScales, p)
   let hideTicks = if theme.hideTicks.isSome: theme.hideTicks.unsafeGet
                    else: false
-  let hideTickLabels = if theme.hideTickLabels.isSome: theme.hideTickLabels.unsafeGet
-                       else: false
   let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
                    else: false
 
@@ -2976,7 +2964,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
 
 proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
                   caption, label, placement: string): TeXOptions =
-  result = TexOptions(
+  result = TeXOptions(
       texTemplate: if texTemplate.len > 0: some(texTemplate)
                    else: none(string),
       standalone: standalone,
@@ -3019,7 +3007,6 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   let fType = parseFilename(fname)
   let backend = fType.toBackend(texOptions)
 
-  var pltViews = newSeq[PlotView](plts.len)
   # calcRowsCols prefers columns over rows. For this we prefer rows over cols. That's
   # why the args are inverted! (it returns (rows, cols))
   var img: Viewport
@@ -3054,27 +3041,27 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   img.draw(fname, texOptions)
 
 proc ggdraw*(view: Viewport, fname: string,
-             texOptions: TexOptions = TexOptions()) =
+             texOptions: TeXOptions = TeXOptions()) =
   ## draws the given viewport and stores it in `fname`.
   ## It assumes that the `view` was created as the field of
   ## a `PlotView` object from a `GgPlot` object with `ggcreate`
   view.draw(fname, texOptions)
 
 proc ggdraw*(plt: PlotView, fname: string,
-             texOptions: TeXOptions = TexOptions()) =
+             texOptions: TeXOptions = TeXOptions()) =
   ## draws the viewport of the given `PlotView` and stores it in `fname`.
   ## It assumes that the `plt`` was created from a `GgPlot` object with
   ## `ggcreate`
   plt.view.draw(fname, texOptions)
 
-proc assignBackend(p: GgPlot, fname: string, texOptions: TexOptions): GgPlot =
+proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions): GgPlot =
   ## assigns the correct backend based on filename `fname` and `texOptions`
   result = p
   let fType = parseFilename(fname)
   result.backend = fType.toBackend(texOptions)
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
-             texOptions: TexOptions) =
+             texOptions: TeXOptions) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##

@@ -66,7 +66,7 @@ proc computeLabels(ticks: seq[float], tickScale = 0.0, fmt: ContinuousFormat = n
 
 proc tickPosTransformed(s: ginger.Scale,
                         trans, invTrans: ScaleTransform,
-                        numTicks: int, minv, maxv: float,
+                        minv, maxv: float,
                         boundScale: ginger.Scale,
                         breaks: seq[float] = @[],
                         hideTickLabels = false,
@@ -74,13 +74,11 @@ proc tickPosTransformed(s: ginger.Scale,
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
-  let numTicks = (trans(maxv) - trans(minv)).round.int + 1
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
   if breaks.len == 0: # if no breaks given, compute manually
     var exp = floor(boundScale.low).int
-    let base = invTrans(1.0)
     while exp.float < boundScale.high:
       let cur = invTrans(exp.float)
       let numToAdd = invTrans(1.0).round.int
@@ -92,7 +90,7 @@ proc tickPosTransformed(s: ginger.Scale,
         else:
           labs.add ""
         # add one less than minors.len of `""`
-        labs.add(toSeq(0 ..< minors.high).mapIt(""))
+        labs.add(newSeqWith(minors.len, ""))
       else:
         # use all minors as labelledn
         labs.add minors.mapIt(it.computeLabel(fmt = format))
@@ -207,8 +205,8 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     let scale = dataScale.applyScaleTrans(secAxisTrans)
     let minVal = invTrans.smallestPow(invTrans(dataScale.low))
     let maxVal = invTrans.largestPow(invTrans(dataScale.high))
-    let (labs, labelpos) = tickPosTransformed(scale, trans, invTrans,
-                                              numTicks, minVal, maxVal, boundScale,
+    let (labs, labelPos) = tickPosTransformed(scale, trans, invTrans,
+                                              minVal, maxVal, boundScale,
                                               breaks = breaks,
                                               hideTickLabels = hideTickLabels,
                                               format = format)
@@ -265,7 +263,6 @@ proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
     # in case of a discrete scale we have categories, which are evenly spaced.
     # taking into account the margin of the plot, calculate center of all categories
     let pos = discrMargin + i.float * barViewWidth + centerPos
-    let scale = (low: 0.0, high: 1.0)
     tickLocs.add Coord1D(pos: pos,
                          kind: ukRelative)
   var rotate: Option[float]
@@ -356,7 +353,6 @@ proc computeTickPosByDateSpacing(firstTick, lastTick: DateTime,
     result.add t
 
 proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: Scale,
-                           dataScale: ginger.Scale,
                            theme: Theme,
                            hideTickLabels = false,
                            margin = none[Coord1D]()): seq[GraphObject] =
@@ -381,9 +377,9 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
   of dtaFilter:
     var data: seq[DateTime]
     if dateScale.isTimestamp:
-      data = p.data[getColName(scale), int].map_inline(x.fromUnix().utc()).toRawSeq
+      data = p.data[getColName(scale), int].map_inline(x.fromUnix().utc()).toSeq1D
     else:
-      data = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toRawSeq
+      data = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D
     # using date time data, compute the ticks using `formatString`
     tickLabels = data.mapIt(it.format(dateScale.formatString)).deduplicate
     # unique values are now our ticks
@@ -399,8 +395,8 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
       firstTick = p.data[getColName(scale), int].min.fromUnix().utc()
       lastTick  = p.data[getColName(scale), int].max.fromUnix().utc()
     else:
-      # apply `parseDate` and sort the dates. `toRawSeq` required due to tensor `sorted` regression
-      let dates = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toRawSeq.sorted
+      # apply `parseDate` and sort the dates. `toSeq1D` required due to tensor `sorted` regression
+      let dates = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D.sorted
       firstTick = dates.min
       lastTick  = dates.max
     let tickPos = computeTickPosByDateSpacing(firstTick, lastTick,
@@ -460,7 +456,6 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                         margin = marginOpt,
                                         format = format)
       if hasSecondary(filledScales, axKind):
-        let secAxis = filledScales.getSecondaryAxis(axKind)
         result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
                                             hideTickLabels = hideTickLabels,
@@ -480,7 +475,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             margin = marginOpt,
                                             format = scale.formatContinuousLabel)
       else:
-        result = view.handleDateScaleTicks(p, axKind, scale, dataScale, theme,
+        result = view.handleDateScaleTicks(p, axKind, scale, theme,
                                            hideTickLabels, marginOpt)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)

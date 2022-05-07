@@ -22,7 +22,9 @@ proc drawSampleIdx(sHigh: int, num = 100, seed = 42): seq[int] =
   ## draws `num` random sample indices with the seed `42` from the given `s`
   var r = initRand(seed) # for now just set a local state
   let idxNum = min(num - 1, sHigh)
-  result = toSeq(0 .. idxNum).mapIt(r.rand(sHigh))
+  result = newSeq[int](idxNum + 1)
+  for i in 0 .. idxNum:
+    result[i] = r.rand(sHigh)
 
 proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
                     discreteThreshold = 0.125): bool =
@@ -118,7 +120,6 @@ proc discreteAndType(data: Column,
   ## threshold of unique values in the column.
   ##
   ## The associated `Scale` is only used for better error messages.
-  let vKind = toValueKind(data)
   # auto determine discreteness iff not set manually by user
   let isDiscrete = block:
     if dcKind.isSome:
@@ -292,8 +293,8 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
           result[idx] = scVal
       of dkSetting:
         withNativeDtype(tCol):
-          let t = tCol.toTensor(dtype)
           when dtype is int or dtype is string:
+            let t = tCol.toTensor(dtype)
             assert t.size == df.len, "Resulting tensor size does not match df len!"
             for idx in 0 ..< t.size:
               scVal.color = t[idx].toColor()
@@ -512,10 +513,10 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       if s.labelSeq.len == 0 and
         (s.scKind in {scLinearData, scTransformedData} and not s.reversed or
          s.scKind notin {scLinearData, scTransformedData}):
-        labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted)
+        labelSeqOpt = some(data.unique.toTensor(Value).toSeq1D.sorted)
       elif s.labelSeq.len == 0 and
         (s.scKind in {scLinearData, scTransformedData} and s.reversed):
-        labelSeqOpt = some(data.unique.toTensor(Value).toRawSeq.sorted.reversed)
+        labelSeqOpt = some(data.unique.toTensor(Value).toSeq1D.sorted.reversed)
       else:
         labelSeqOpt = some(s.labelSeq)
       if s.valueMap.len > 0:
@@ -588,7 +589,6 @@ proc addFacets(fs: var FilledScales, p: GgPlot) =
   ## fills and adds the scales used as facets to the FilledScales object
   doAssert p.facet.isSome
   let facet = p.facet.unsafeGet
-  var facetCols = newSeq[ScaleData]()
   for fc in facet.columns:
     let sc = (
       dataFrame: none[DataFrame](),

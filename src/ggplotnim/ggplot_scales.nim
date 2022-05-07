@@ -1,4 +1,4 @@
-import tables, sets, algorithm, macros, strutils
+import tables, sets, macros, strutils
 import datamancer
 
 import ggplot_types, ggplot_utils
