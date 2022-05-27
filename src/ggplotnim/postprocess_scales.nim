@@ -365,8 +365,9 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       raise newException(AestheticError, "`geom_raster` requires a `fill` aesthetic scale!")
     let fs = fillScale.get
     fg.fillCol = getColName(fs)
-    fg.fillDataScale = fs.dataScale
-    fg.colorScale = useOrDefault(fs.colorScale)
+    if fillScale.get.dcKind == dcContinuous:
+      fg.fillDataScale = fs.dataScale
+      fg.colorScale = useOrDefault(fs.colorScale)
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
   of gkHistogram:
