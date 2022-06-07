@@ -2788,7 +2788,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       unit = ukRelative)
     # find longest line of annotation to base background on
     let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
-    let maxLine = annot.text.strip.splitLines.sortedByIt(
+    let maxLine = annot.text.splitLines.sortedByIt(
       getStrWidth(backend, it, font).val
     )[^1]
     let maxWidth = getStrWidth(backend, maxLine, annot.font)
@@ -2796,7 +2796,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     # 2 * margin
     let rectWidth = quant(
       toRelative(maxWidth, length = some(pointWidth(view))).val +
-      marginW.pos * 2.0,
+        marginW.pos * 2.0,
       unit = ukRelative
     )
     # left and bottom positions, shifted each by one margin
