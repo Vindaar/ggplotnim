@@ -90,7 +90,7 @@ proc tickPosTransformed(s: ginger.Scale,
         else:
           labs.add ""
         # add one less than minors.len of `""`
-        labs.add(newSeqWith(minors.len, ""))
+        labs.add(newSeqWith(minors.high, ""))
       else:
         # use all minors as labelledn
         labs.add minors.mapIt(it.computeLabel(fmt = format))
