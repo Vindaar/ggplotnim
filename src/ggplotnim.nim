@@ -730,7 +730,6 @@ proc geom_raster*[
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
 
-
 proc geom_text*[
   C: PossibleColor;
   S: PossibleFloat;
@@ -779,7 +778,6 @@ proc geom_text*[
                 statKind: stKind,
                 position: pKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
-
 
 proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
                                         showTicks = false,

@@ -1,4 +1,4 @@
-import sequtils, algorithm, tables
+import std / [sequtils, algorithm, tables]
 
 import ggplot_types, ggplot_styles, ggplot_scales
 from ggplot_ticks import getXTicks, getYTicks
