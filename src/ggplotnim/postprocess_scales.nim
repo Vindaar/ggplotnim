@@ -93,7 +93,7 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
         let colStr = getColName(s)
         # make a copy of `s` which we hand to the closure
         let ms = s
-        let fn = f{float: colStr ~ ms.trans( df[col.toStr][idx] ) }
+        let fn = f{float: colStr ~ ms.trans( idx(col.toStr) ) }
         fns.add fn
     else:
       # `s.col` may be pointing to scale which sets constant value or involves
@@ -275,8 +275,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       let minName = getColName(yMinS.get)
       let maxName = getColName(yMaxS.get)
       let yColName = getColName(getYScale(fs, fg.geom))
-      df = df.mutate(f{float -> float: "height" ~ df[maxName][idx] - df[minName][idx]},
-                     f{float -> float: yColName ~ df[minName][idx]})
+      df = df.mutate(f{float -> float: "height" ~ idx(maxName) - idx(minName)},
+                     f{float -> float: yColName ~ idx(minName)})
       fg.height = some("height")
     elif yMinS.isSome or yMaxS.isSome:
       raise newException(AestheticError, "Invalid combination of aesthetics! If no height " &
@@ -293,8 +293,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       let minName = getColName(xMinS.get)
       let maxName = getColName(xMaxS.get)
       let xColName = getColName(getXScale(fs, fg.geom))
-      df = df.mutate(f{float -> float: "width" ~ df[maxName][idx] - df[minName][idx]},
-                     f{float -> float: xColName ~ df[minName][idx]})
+      df = df.mutate(f{float -> float: "width" ~ idx(maxName) - idx(minName)},
+                     f{float -> float: xColName ~ idx(minName)})
       fg.width = some("width")
     elif xMinS.isSome or xMaxS.isSome:
       raise newException(AestheticError, "Invalid combination of aesthetics! If no width " &
@@ -327,8 +327,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       let minName = getColName(yMinS.get)
       let maxName = getColName(yMaxS.get)
       let yColName = getColName(getYScale(fs, fg.geom))
-      df = df.mutate(f{float -> float: "height" ~ df[maxName][idx] - df[minName][idx]},
-                     f{float -> float: yColName ~ df[minName][idx]})
+      df = df.mutate(f{float -> float: "height" ~ idx(maxName) - idx(minName)},
+                     f{float -> float: yColName ~ idx(minName)})
       fg.height = some("height")
     elif yMinS.isSome or yMaxS.isSome:
       raise newException(AestheticError, "Invalid combination of aesthetics! If no height " &
@@ -347,8 +347,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
       let minName = getColName(xMinS.get)
       let maxName = getColName(xMaxS.get)
       let xColName = getColName(getXScale(fs, fg.geom))
-      df = df.mutate(f{float -> float: "width" ~ df[maxName][idx] - df[minName][idx]},
-                     f{float -> float: xColName ~ df[minName][idx]})
+      df = df.mutate(f{float -> float: "width" ~ idx(maxName) - idx(minName)},
+                     f{float -> float: xColName ~ idx(minName)})
       fg.width = some("width")
     elif xMinS.isSome or xMaxS.isSome:
       raise newException(AestheticError, "Invalid combination of aesthetics! If no width " &
