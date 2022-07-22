@@ -1,4 +1,4 @@
-import tables, algorithm, sequtils, random, sets, math, macros, options
+import std / [tables, algorithm, sequtils, random, sets, math, macros, options]
 
 import ggplot_types, ggplot_utils
 from ggplot_styles import DefaultColorScale, DefaultSizeRange, DefaultAlphaRange
