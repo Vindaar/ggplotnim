@@ -1670,16 +1670,23 @@ func theme_void*[C: PossibleColor](color: C = white): Theme =
                  hideTickLabels: some(true),
                  hideLabels: some(true))
 
-func gridLines*(enable = true, width = Inf,
-                color: Color = white): Theme =
+func gridLines*[C: PossibleColor](enable = true, width = Inf,
+                                  color: C = white,
+                                  onlyAxes = false
+                                 ): Theme =
   ## Adds major grid lines to a plot
   ##
   ## If width `!= Inf` will use the value, else default of 1pt.
   ##
   ## The `color` may also be changed with this proc if multiple changes are to be
   ## made.
+  ##
+  ## If `onlyAxes` is true and `enable` is `false`, we will *only* draw the actual
+  ## axes and no grid lines.
+  let colorOpt = toOptColor(color)
   result = Theme(gridLines: some(enable),
-                 gridLineColor: some(color))
+                 gridLineColor: colorOpt,
+                 onlyAxes: some(onlyAxes))
   if classify(width) == fcNormal:
     result.gridLineWidth = some(width)
 
@@ -2002,6 +2009,7 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   ifSome(gridLineColor)
   ifSome(minorGridLines)
   ifSome(minorGridLineWidth)
+  ifSome(onlyAxes)
   ifSome(xRange)
   ifSome(yRange)
   ifSome(xMargin)
@@ -2251,9 +2259,13 @@ proc handleGridLines(view: Viewport,
   ## and adds potential minor grid lines
   # get the grid lines style from the given theme
   let gridLineStyle = theme.getGridLineStyle()
-  if theme.gridLines.isNone or not theme.gridLines.get:
+  if theme.gridLines.isNone or theme.gridLines.get:
     result = @[view.initGridLines(some(xticks), some(yticks),
                                   style = some(gridLineStyle))]
+  elif theme.onlyAxes.isSome and theme.onlyAxes.get:
+    # only draw axes with grid line style
+    result = @[view.xaxis(gridLineStyle.lineWidth, gridLineStyle.color),
+               view.yaxis(gridLineStyle.lineWidth, gridLineStyle.color)]
   if theme.minorGridLines.isSome and theme.minorGridLines.get:
     # want minor grid lines
     # minor lines are half width

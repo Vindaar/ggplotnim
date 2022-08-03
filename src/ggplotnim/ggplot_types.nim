@@ -390,6 +390,7 @@ type
     gridLineWidth*: Option[float] # width of grid line, default 1pt
     minorGridLines*: Option[bool] # whether to draw minor grid lines
     minorGridLineWidth*: Option[float] # width of minor lines, default half width of major lines
+    onlyAxes*: Option[bool] # whether to *only* draw axes and no grid lines
     # data range
     discreteScaleMargin*: Option[Quantity] # margin applied to scale of discrete kindn default 0.2 `cm`
     xRange*: Option[ginger.Scale]
