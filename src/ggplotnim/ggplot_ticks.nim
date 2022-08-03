@@ -451,10 +451,14 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
       let format =
         if scale.formatDiscreteLabel != nil: scale.formatDiscreteLabel
         else: (proc(x: Value): string = $x)
-      result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
-                                        hideTickLabels = hideTickLabels,
-                                        margin = marginOpt,
-                                        format = format)
+      if scale.dateScale.isNone:
+        result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
+                                          hideTickLabels = hideTickLabels,
+                                          margin = marginOpt,
+                                          format = format)
+      else:
+        result = view.handleDateScaleTicks(p, axKind, scale, theme,
+                                           hideTickLabels, marginOpt)
       if hasSecondary(filledScales, axKind):
         result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
