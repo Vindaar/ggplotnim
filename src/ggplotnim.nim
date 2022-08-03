@@ -1640,9 +1640,10 @@ proc hideLegend*(): Theme =
   ## hides the legend, even if it would otherwise be required
   result = Theme(hideLegend: some(true))
 
-proc canvasColor*(color: Color): Theme =
+proc canvasColor*[C: PossibleColor](color: C): Theme =
   ## sets the canvas color of the plot to the given color
-  result = Theme(canvasColor: some(color))
+  let colorOpt = toOptColor(color)
+  result = Theme(canvasColor: colorOpt)
 
 func theme_opaque*(): Theme =
   ## returns the "opaque" theme. For the time being this only means the
@@ -1691,14 +1692,16 @@ func minorGridLines*(enable = true, width = Inf): Theme =
   if classify(width) == fcNormal:
     result.minorGridLineWidth = some(width)
 
-func backgroundColor*(color: Color = grey92): Theme =
+func backgroundColor*[C: PossibleColor](color: C = grey92): Theme =
   ## Sets the background color of the plotting area to `color`.
-  result = Theme(plotBackgroundColor: some(color))
+  let colorOpt = toOptColor(color)
+  result = Theme(plotBackgroundColor: colorOpt)
 
-func gridLineColor*(color: Color = white): Theme {.deprecated: "Use the `gridLines` procedure to set " &
+func gridLineColor*[C: PossibleColor](color: C = white): Theme {.deprecated: "Use the `gridLines` procedure to set " &
   "the grid line color among other things.".} =
   ## Sets the color of the grid lines.
-  result = Theme(gridLineColor: some(color))
+  let colorOpt = toOptColor(color)
+  result = Theme(gridLineColor: colorOpt)
 
 proc theme_latex*(): Theme =
   ## Returns a theme that is designed to produce figures that look nice in a LaTeX document
