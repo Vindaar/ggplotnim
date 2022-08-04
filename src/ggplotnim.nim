@@ -586,7 +586,6 @@ proc geom_histogram*[
     pAlpha = alpha
   )
   let gid = incId()
-
   result = Geom(gid: gid,
                 data: dfOpt,
                 kind: gkHistogram,
@@ -3052,19 +3051,25 @@ proc ggdraw*(plt: PlotView, fname: string,
   ## `ggcreate`
   plt.view.draw(fname, texOptions)
 
-proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions): GgPlot =
+proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions,
+                   backend: BackendKind): GgPlot =
   ## assigns the correct backend based on filename `fname` and `texOptions`
   result = p
-  let fType = parseFilename(fname)
-  result.backend = fType.toBackend(texOptions)
+  case backend
+  of bkNone: # no user given backend
+    let fType = parseFilename(fname)
+    result.backend = fType.toBackend(texOptions)
+  else:
+    result.backend = backend
 
-proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
-             texOptions: TeXOptions) =
+proc ggsave*(
+  p: GgPlot, fname: string, width = 640.0, height = 480.0,
+  texOptions: TeXOptions, backend: BackendKind = bkNone) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
-  ##See the docstring there.
-  let p = p.assignBackend(fname, texOptions) # local copy w/ correct backend
+  ## See the docstring there.
+  let p = p.assignBackend(fname, texOptions, backend) # local copy w/ correct backend
   let plt = p.ggcreate(width = width, height = height)
   # make sure the target directory exists, create if not
   createDir(fname.splitFile().dir)
@@ -3094,7 +3099,8 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
              texTemplate = "",
              caption = "",
              label = "",
-             placement = "htbp"
+             placement = "htbp",
+             backend = bkNone
             ): Draw =
   ## Generates the plot and saves it as `fname` with the given
   ## `width` and `height`.
@@ -3104,6 +3110,18 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   ## - `svg`
   ## - `pdf`
   ## - `tex`
+  ##
+  ##
+  ## The `backend` argument can be used to overwrite the logic that is normally used to
+  ## determine the backend used to save the figures. Note that different backends only
+  ## support different file types. Currently there are no safeguards for mismatching
+  ## backends and file types!
+  ## Available backends:
+  ##
+  ## - `bkCairo`: default backend, supports `png`, `pdf`, `svg`, `jpg`
+  ## - `bkTikZ`: TikZ backend to generate native LaTeX files or PDFs from TeX
+  ## - `bkPixie`: pure Nim backend supporting `png`
+  ## - `bkVega:`: Vega-Lite backend for interactive graphs in the browser
   ##
   ## If the output file is to be stored as a `pdf`, `useTeX` decides whether to
   ## create the file using Cairo or a local LaTeX installation (by default system
@@ -3159,16 +3177,19 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   Draw(fname: fname,
        width: some(width),
        height: some(height),
-       texOptions: texOptions)
+       texOptions: texOptions,
+       backend: backend)
 
 proc `+`*(p: GgPlot, d: Draw) =
   if d.width.isSome and d.height.isSome:
     p.ggsave(d.fname,
              width = d.width.get,
              height = d.height.get,
-             texOptions = d.texOptions)
+             texOptions = d.texOptions,
+             backend = d.backend)
   else:
-    p.ggsave(d.fname, texOptions = d.texOptions)
+    p.ggsave(d.fname, texOptions = d.texOptions,
+             backend = d.backend)
 
 from json import `%`
 proc ggvega*(fname = "", width = 640.0, height = 480.0,
