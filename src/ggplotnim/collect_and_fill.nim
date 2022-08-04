@@ -110,6 +110,9 @@ proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
   of colNone:
     raise newException(ValueError, "Input column " & $s.col & " is empty. Such a column " &
       "cannot be plotted.")
+  of colGeneric:
+    raise newException(ValueError, "Input column " & $s.col & " is generic. Generic columns " &
+      "are not supported yet.")
 
 proc discreteAndType(data: Column,
                      s: Scale,
