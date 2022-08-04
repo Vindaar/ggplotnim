@@ -9,6 +9,10 @@
 - add =backend= argument to =ggsave= to allow choice of backend,
   e.g. to use pixie backend
 - replace usages of =seqsToDf= by =toDf=
+- let =backgroundColor=, =canvasColor=, =gridLineColor= take a
+  =PossibleColor= to support string based colors
+- add =onlyAxes= argument to =gridLines= & =Theme= object to allow to
+  only draw axes instead of the full grid (needs ginger =v0.3.13=)
 * v0.5.1
 (as is usual, a hotfix is always coming quickly....)
 - fixes a regression for continuous color scales, where if
