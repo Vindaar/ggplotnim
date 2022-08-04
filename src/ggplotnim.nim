@@ -915,7 +915,7 @@ func sec_axis*(trans: FormulaNode = f{""},
 proc scale_x_discrete*[
   P: PossibleSecondaryAxis](
     name: string = "",
-    secAxis: PossibleSecondaryAxis = missing(),
+    secAxis: P = missing(),
     labels: proc(x: Value): string = nil
                           ): Scale =
   ## creates a discrete x axis with a possible secondary axis.
@@ -935,7 +935,7 @@ proc scale_x_discrete*[
   U](
     name: string = "",
     labels: OrderedTable[T, U],
-    secAxis: PossibleSecondaryAxis = missing(),
+    secAxis: P = missing(),
                           ): Scale =
   ## creates a discrete x axis with a possible secondary axis.
   result = Scale(name: name,
@@ -1165,7 +1165,7 @@ proc scale_y_discrete*[
   U](
     name: string = "",
     labels: OrderedTable[T, U],
-    secAxis: PossibleSecondaryAxis = missing(),
+    secAxis: P = missing(),
                           ): Scale =
   ## creates a discrete x axis with a possible secondary axis.
   result = Scale(name: name,
