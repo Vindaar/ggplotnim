@@ -241,6 +241,7 @@ type
     width*: Option[float]
     height*: Option[float]
     texOptions*: TeXOptions
+    backend*: BackendKind # allows to overwrite backend selection
 
   ## helper to generate a json file from a ggplot call by creating a `JsonNode`
   ## of the final plot `Viewport`. This is mainly used for the CI.
