@@ -912,42 +912,38 @@ func sec_axis*(trans: FormulaNode = f{""},
                            trans: fn,
                            name: name)
 
-proc scale_x_discrete*(name: string = "",
-                       secAxis: SecondaryAxis = sec_axis(),
-                       labels: proc(x: Value): string = nil): Scale =
+proc scale_x_discrete*[
+  P: PossibleSecondaryAxis](
+    name: string = "",
+    secAxis: PossibleSecondaryAxis = missing(),
+    labels: proc(x: Value): string = nil
+                          ): Scale =
   ## creates a discrete x axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the x axis to the tick label that should be shown for it.
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akX
-    secAxisOpt = some(msecAxis)
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
                  dcKind: dcDiscrete,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt,
+                 secondaryAxis: secAxis.toOptSecAxis(akX),
                  formatDiscreteLabel: labels)
 
-proc scale_x_discrete*[T; U](name: string = "",
-                             labels: OrderedTable[T, U],
-                             secAxis: SecondaryAxis = sec_axis()): Scale =
+proc scale_x_discrete*[
+  P: PossibleSecondaryAxis;
+  T;
+  U](
+    name: string = "",
+    labels: OrderedTable[T, U],
+    secAxis: PossibleSecondaryAxis = missing(),
+                          ): Scale =
   ## creates a discrete x axis with a possible secondary axis.
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akX
-    secAxisOpt = some(msecAxis)
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
                  dcKind: dcDiscrete,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt,
+                 secondaryAxis: secAxis.toOptSecAxis(akX),
                  formatDiscreteLabel: labels)
   result.labelSeq = newSeq[Value](labels.len)
   let keys = toSeq(keys(labels))
@@ -956,13 +952,16 @@ proc scale_x_discrete*[T; U](name: string = "",
     result.valueMap[kVal] = ScaleValue(kind: scLinearData, val: %~ labels[kVal])
     result.labelSeq[i] = kVal
 
-proc scale_x_continuous*[T: int | seq[SomeNumber]](
+proc scale_x_continuous*[
+  P: PossibleSecondaryAxis,
+  T: int | seq[SomeNumber]](
+    secAxis: P = missing(),
     name: string = "",
     breaks: T = newSeq[float](),
-    secAxis: SecondaryAxis = sec_axis(),
     labels: proc(x: float): string = nil,
     trans: proc(x: float): float = nil,
-    invTrans: proc(x: float): float = nil): Scale =
+    invTrans: proc(x: float): float = nil
+                          ): Scale =
   ## Creates a continuous x axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the x axis to the tick label that should be shown for it.
@@ -973,19 +972,13 @@ proc scale_x_continuous*[T: int | seq[SomeNumber]](
   ##
   ## Note that the exact number of desired ticks is usually not respected,
   ## rather a close number that yields "nice" tick labels is chosen.
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akX
-    secAxisOpt = some(msecAxis)
   if not trans.isNil and not invTrans.isNil:
     result = Scale(name: name,
                    scKind: scTransformedData,
                    axKind: akX,
                    dcKind: dcContinuous,
                    hasDiscreteness: true,
-                   secondaryAxis: secAxisOpt,
+                   secondaryAxis: secAxis.toOptSecAxis(akX),
                    formatContinuousLabel: labels,
                    trans: trans,
                    invTrans: invTrans)
@@ -998,7 +991,7 @@ proc scale_x_continuous*[T: int | seq[SomeNumber]](
                    axKind: akX,
                    dcKind: dcContinuous,
                    hasDiscreteness: true,
-                   secondaryAxis: secAxisOpt,
+                   secondaryAxis: secAxis.toOptSecAxis(akX),
                    formatContinuousLabel: labels)
   result.assignBreaks(breaks)
 
@@ -1106,10 +1099,12 @@ proc scale_y_date*[T: seq[SomeNumber]](
                      dateSpacing: dateSpacing,
                      dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks)
 
-proc scale_y_continuous*[T: int | seq[SomeNumber]](
+proc scale_y_continuous*[
+  P: PossibleSecondaryAxis,
+  T: int | seq[SomeNumber]](
     name: string = "",
     breaks: T = newSeq[float](),
-    secAxis: SecondaryAxis = sec_axis(),
+    secAxis: P = missing(),
     labels: proc(x: float): string = nil,
     trans: proc(x: float): float = nil,
     invTrans: proc(x: float): float = nil): Scale =
@@ -1124,19 +1119,13 @@ proc scale_y_continuous*[T: int | seq[SomeNumber]](
   ## Note that the exact number of desired ticks is usually not respected,
   ## rather a close number that yields "nice" tick labels is chosen.
   # Also the possible transformation for the secondary axis is ignored!
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akY
-    secAxisOpt = some(msecAxis)
   if not trans.isNil and not invTrans.isNil:
     result = Scale(name: name,
                    scKind: scTransformedData,
                    axKind: akY,
                    dcKind: dcContinuous,
                    hasDiscreteness: true,
-                   secondaryAxis: secAxisOpt,
+                   secondaryAxis: secAxis.toOptSecAxis(akX),
                    formatContinuousLabel: labels,
                    trans: trans,
                    invTrans: invTrans)
@@ -1149,67 +1138,81 @@ proc scale_y_continuous*[T: int | seq[SomeNumber]](
                    axKind: akY,
                    dcKind: dcContinuous,
                    hasDiscreteness: true,
-                   secondaryAxis: secAxisOpt,
+                   secondaryAxis: secAxis.toOptSecAxis(akY),
                    formatContinuousLabel: labels)
   result.assignBreaks(breaks)
 
-proc scale_y_discrete*(name: string = "",
-                       secAxis: SecondaryAxis = sec_axis(),
-                       labels: proc(x: Value): string = nil): Scale =
+proc scale_y_discrete*[
+  P: PossibleSecondaryAxis](
+    name: string = "",
+    secAxis: P = missing(),
+    labels: proc(x: Value): string = nil
+                          ): Scale =
   ## creates a discrete y axis with a possible secondary axis.
   ## `labels` allows to hand a procedure, which maps the values
   ## found on the x axis to the tick label that should be shown for it.
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akY
-    secAxisOpt = some(msecAxis)
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akY,
                  dcKind: dcDiscrete,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt,
+                 secondaryAxis: secAxis.toOptSecAxis(akY),
                  formatDiscreteLabel: labels)
 
-proc scale_x_reverse*(name: string = "",
-                      secAxis: SecondaryAxis = sec_axis(),
-                      dcKind: DiscreteKind = dcContinuous): Scale =
+proc scale_y_discrete*[
+  P: PossibleSecondaryAxis;
+  T;
+  U](
+    name: string = "",
+    labels: OrderedTable[T, U],
+    secAxis: PossibleSecondaryAxis = missing(),
+                          ): Scale =
+  ## creates a discrete x axis with a possible secondary axis.
+  result = Scale(name: name,
+                 scKind: scLinearData,
+                 axKind: akY,
+                 dcKind: dcDiscrete,
+                 hasDiscreteness: true,
+                 secondaryAxis: secAxis.toOptSecAxis(akY),
+                 formatDiscreteLabel: labels)
+  result.labelSeq = newSeq[Value](labels.len)
+  let keys = toSeq(keys(labels))
+  for i, k in keys:
+    let kVal = %~ k
+    result.valueMap[kVal] = ScaleValue(kind: scLinearData, val: %~ labels[kVal])
+    result.labelSeq[i] = kVal
+
+proc scale_x_reverse*[
+  P: PossibleSecondaryAxis](
+    name: string = "",
+    secAxis: P = missing(),
+    dcKind: DiscreteKind = dcContinuous
+                          ): Scale =
   ## creates a continuous x axis with a possible secondary axis, which
   ## is reversed
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akX
-    secAxisOpt = some(msecAxis)
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akX,
                  dcKind: dcKind,
                  reversed: true,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt)
+                 secondaryAxis: secAxis.toOptSecAxis(akX))
 
-proc scale_y_reverse*(name: string = "",
-                      secAxis: SecondaryAxis = sec_axis(),
-                      dcKind: DiscreteKind = dcContinuous): Scale =
+proc scale_y_reverse*[
+  P: PossibleSecondaryAxis](
+    name: string = "",
+    secAxis: P = missing(),
+    dcKind: DiscreteKind = dcContinuous
+                          ): Scale =
   ## creates a continuous y axis with a possible secondary axis, which
   ## is reversed
-  var msecAxis: SecondaryAxis
-  var secAxisOpt: Option[SecondaryAxis]
-  if secAxis.name.len > 0:
-    msecAxis = secAxis
-    msecAxis.axKind = akY
-    secAxisOpt = some(msecAxis)
   result = Scale(name: name,
                  scKind: scLinearData,
                  axKind: akY,
                  dcKind: dcKind,
                  reversed: true,
                  hasDiscreteness: true,
-                 secondaryAxis: secAxisOpt)
+                 secondaryAxis: secAxis.toOptSecAxis(akY))
 
 proc scale_fill_continuous*(name: string = "",
                             scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =

@@ -150,6 +150,7 @@ type
   PossibleLineType* = Missing  | LineType | Option[LineType]
   PossibleErrorBar* = Missing | ErrorBarKind | Option[ErrorBarKind]
   PossibleFont* = Missing | Font | Option[Font]
+  PossibleSecondaryAxis* = Missing | SecondaryAxis
 
   ColorScale* = object
     name*: string # name of the used color scale
@@ -584,6 +585,18 @@ proc toOptFont[T: PossibleFont](x: T): Option[Font] =
   when T is Missing: result = none[Font]()
   elif T is Font: result = some(x)
   elif T is Option[Font]: result = x
+  else: {.error: "Invalid branch!".}
+
+proc toOptSecAxis*[T: PossibleSecondaryAxis](x: T, axis: AxisKind): Option[SecondaryAxis] =
+  when T is Missing: result = none[SecondaryAxis]()
+  elif T is SecondaryAxis:
+    var sa = x
+    sa.axKind = axis
+    result = some(sa)
+  elif T is Option[SecondaryAxis]:
+    var sa = x.get
+    sa.axKind = axis
+    result = some(sa)
   else: {.error: "Invalid branch!".}
 
 proc colorOrStyle[T: PossibleColor](aes: var Aesthetics, x: T): Option[Color] =
