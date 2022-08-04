@@ -1,3 +1,10 @@
+* v0.5.3
+- update to Datamancer =v0.3.0=, which adds experimental support for
+  "generic" types. This only makes =ggplotnim= compatible with it, but
+  does not allow generic types in =ggplotnim= yet!
+- cleans up =SecondaryAxis= logic as a side effect by introducing
+  =PossibleSecondaryAxis=
+- add missing =scale_y_discrete= that takes explicit labels  
 * v0.5.2
 - allows to customize the margin between tick labels and their ticks
   via the =tickMargin= argument to =x/ylab=
