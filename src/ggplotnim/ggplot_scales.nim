@@ -44,6 +44,9 @@ proc scaleFromData*(c: Column, s: Scale, ignoreInf: static bool = true): ginger.
   of colBool, colString, colNone:
     raise newException(ValueError, "The input column `" & $s.col & "` is of kind " & $c.kind &
       " and thus discrete. `scaleFromData` should never be called.")
+  of colGeneric:
+    raise newException(ValueError, "The input column `" & $s.col & "` is of kind " & $c.kind &
+      ". Generic columns are not supported yet.")
 
 proc getColName*(s: Scale): string =
   ## returns the name of the referred column of the given Scale `s`.
