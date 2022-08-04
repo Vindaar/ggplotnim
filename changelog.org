@@ -6,6 +6,9 @@
 - fixes an issue with reference semantics messing up plots in certain
   cases when user given formulas modified the input DF in a certain
   way between different geoms
+- add =backend= argument to =ggsave= to allow choice of backend,
+  e.g. to use pixie backend
+- replace usages of =seqsToDf= by =toDf=
 * v0.5.1
 (as is usual, a hotfix is always coming quickly....)
 - fixes a regression for continuous color scales, where if
