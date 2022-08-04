@@ -9,7 +9,7 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 1.0.0"
-requires "https://github.com/Vindaar/seqmath >= 0.1.11"
+requires "https://github.com/Vindaar/seqmath >= 0.1.15"
 requires "ginger == 0.3.13"
 requires "datamancer >= 0.2.0"
 requires "arraymancer >= 0.7.5"
