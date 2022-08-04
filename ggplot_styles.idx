@@ -1,0 +1,7 @@
+DefaultSizeRange	ggplot_styles.html#DefaultSizeRange	ggplot_styles: DefaultSizeRange	
+DefaultAlphaRange	ggplot_styles.html#DefaultAlphaRange	ggplot_styles: DefaultAlphaRange	
+DefaultColorScale	ggplot_styles.html#DefaultColorScale	ggplot_styles: DefaultColorScale	
+useOrDefault	ggplot_styles.html#useOrDefault,ColorScale	ggplot_styles: useOrDefault(c: ColorScale): ColorScale	
+mergeUserStyle	ggplot_styles.html#mergeUserStyle,GgStyle,FilledGeom	ggplot_styles: mergeUserStyle(s: GgStyle; fg: FilledGeom): Style	
+changeStyle	ggplot_styles.html#changeStyle,GgStyle,ScaleValue	ggplot_styles: changeStyle(s: GgStyle; scVal: ScaleValue): GgStyle	
+applyStyle	ggplot_styles.html#applyStyle,GgStyle,DataFrame,seq[Scale],seq[]	ggplot_styles: applyStyle[T: string | FormulaNode](style: var GgStyle; df: DataFrame;\n                                    scales: seq[Scale]; keys: seq[(T, Value)])	

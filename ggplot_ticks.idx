@@ -1,0 +1,6 @@
+getTicks	ggplot_ticks.html#getTicks,Scale	ggplot_ticks: getTicks(s: Scale): int	
+getXTicks	ggplot_ticks.html#getXTicks,FilledScales	ggplot_ticks: getXTicks(fs: FilledScales): int	
+getYTicks	ggplot_ticks.html#getYTicks,FilledScales	ggplot_ticks: getYTicks(fs: FilledScales): int	
+handleDiscreteTicks	ggplot_ticks.html#handleDiscreteTicks,Viewport,GgPlot,AxisKind,seq[Value],Theme,proc(Value)	ggplot_ticks: handleDiscreteTicks(view: Viewport; p: GgPlot; axKind: AxisKind;\n                    labelSeq: seq[Value]; theme: Theme; isSecondary = false;\n                    hideTickLabels = false; centerTicks = true;\n                    margin = none[Coord1D](); format: proc (x: Value): string): seq[\n    GraphObject]	
+handleDateScaleTicks	ggplot_ticks.html#handleDateScaleTicks,Viewport,GgPlot,AxisKind,Scale,Theme	ggplot_ticks: handleDateScaleTicks(view: Viewport; p: GgPlot; axKind: AxisKind; scale: Scale;\n                     theme: Theme; hideTickLabels = false;\n                     margin = none[Coord1D]()): seq[GraphObject]	
+handleTicks	ggplot_ticks.html#handleTicks,Viewport,FilledScales,GgPlot,AxisKind,Theme	ggplot_ticks: handleTicks(view: Viewport; filledScales: FilledScales; p: GgPlot;\n            axKind: AxisKind; theme: Theme; hideTickLabels = false;\n            numTicksOpt = none[int](); boundScaleOpt = none[Scale]()): seq[\n    GraphObject]	

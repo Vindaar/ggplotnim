@@ -1,0 +1,12 @@
+ViridisRaw	colormaps.html#ViridisRaw	colormaps: ViridisRaw	
+MagmaRaw	colormaps.html#MagmaRaw	colormaps: MagmaRaw	
+InfernoRaw	colormaps.html#InfernoRaw	colormaps: InfernoRaw	
+PlasmaRaw	colormaps.html#PlasmaRaw	colormaps: PlasmaRaw	
+viridis	colormaps.html#viridis	colormaps: viridis(): ColorScale	
+magma	colormaps.html#magma	colormaps: magma(): ColorScale	
+inferno	colormaps.html#inferno	colormaps: inferno(): ColorScale	
+plasma	colormaps.html#plasma	colormaps: plasma(): ColorScale	
+toRGBA	colormaps.html#toRGBA,uint32	colormaps: toRGBA(c: uint32): ColorRGBA	
+toColor	colormaps.html#toColor,uint32	colormaps: toColor(c: uint32): Color	
+toColor	colormaps.html#toColor,Value	colormaps: toColor(c: Value): Color	
+toColor	colormaps.html#toColor,T	colormaps: toColor[T: int | string](c: T): Color	

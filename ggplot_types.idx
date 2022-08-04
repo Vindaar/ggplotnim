@@ -1,0 +1,116 @@
+ScaleTransform	ggplot_types.html#ScaleTransform	ggplot_types: ScaleTransform	
+CountCol	ggplot_types.html#CountCol	ggplot_types: CountCol	
+PrevValsCol	ggplot_types.html#PrevValsCol	ggplot_types: PrevValsCol	
+SmoothValsCol	ggplot_types.html#SmoothValsCol	ggplot_types: SmoothValsCol	
+AestheticError	ggplot_types.html#AestheticError	ggplot_types: AestheticError	
+Aesthetics	ggplot_types.html#Aesthetics	ggplot_types: Aesthetics	
+scLinearData	ggplot_types.html#scLinearData	ScaleKind.scLinearData	
+scTransformedData	ggplot_types.html#scTransformedData	ScaleKind.scTransformedData	
+scColor	ggplot_types.html#scColor	ScaleKind.scColor	
+scFillColor	ggplot_types.html#scFillColor	ScaleKind.scFillColor	
+scAlpha	ggplot_types.html#scAlpha	ScaleKind.scAlpha	
+scShape	ggplot_types.html#scShape	ScaleKind.scShape	
+scSize	ggplot_types.html#scSize	ScaleKind.scSize	
+scText	ggplot_types.html#scText	ScaleKind.scText	
+ScaleKind	ggplot_types.html#ScaleKind	ggplot_types: ScaleKind	
+pkIdentity	ggplot_types.html#pkIdentity	PositionKind.pkIdentity	
+pkStack	ggplot_types.html#pkStack	PositionKind.pkStack	
+pkDodge	ggplot_types.html#pkDodge	PositionKind.pkDodge	
+pkFill	ggplot_types.html#pkFill	PositionKind.pkFill	
+PositionKind	ggplot_types.html#PositionKind	ggplot_types: PositionKind	
+stIdentity	ggplot_types.html#stIdentity	StatKind.stIdentity	
+stCount	ggplot_types.html#stCount	StatKind.stCount	
+stBin	ggplot_types.html#stBin	StatKind.stBin	
+stSmooth	ggplot_types.html#stSmooth	StatKind.stSmooth	
+StatKind	ggplot_types.html#StatKind	ggplot_types: StatKind	
+dcDiscrete	ggplot_types.html#dcDiscrete	DiscreteKind.dcDiscrete	
+dcContinuous	ggplot_types.html#dcContinuous	DiscreteKind.dcContinuous	
+DiscreteKind	ggplot_types.html#DiscreteKind	ggplot_types: DiscreteKind	
+ScaleValue	ggplot_types.html#ScaleValue	ggplot_types: ScaleValue	
+SecondaryAxis	ggplot_types.html#SecondaryAxis	ggplot_types: SecondaryAxis	
+DiscreteFormat	ggplot_types.html#DiscreteFormat	ggplot_types: DiscreteFormat	
+ContinuousFormat	ggplot_types.html#ContinuousFormat	ggplot_types: ContinuousFormat	
+dtaFilter	ggplot_types.html#dtaFilter	DateTickAlgorithmKind.dtaFilter	
+dtaAddDuration	ggplot_types.html#dtaAddDuration	DateTickAlgorithmKind.dtaAddDuration	
+dtaCustomBreaks	ggplot_types.html#dtaCustomBreaks	DateTickAlgorithmKind.dtaCustomBreaks	
+DateTickAlgorithmKind	ggplot_types.html#DateTickAlgorithmKind	ggplot_types: DateTickAlgorithmKind	
+DateScale	ggplot_types.html#DateScale	ggplot_types: DateScale	
+Missing	ggplot_types.html#Missing	ggplot_types: Missing	
+PossibleColor	ggplot_types.html#PossibleColor	ggplot_types: PossibleColor	
+PossibleFloat	ggplot_types.html#PossibleFloat	ggplot_types: PossibleFloat	
+PossibleMarker	ggplot_types.html#PossibleMarker	ggplot_types: PossibleMarker	
+PossibleLineType	ggplot_types.html#PossibleLineType	ggplot_types: PossibleLineType	
+PossibleErrorBar	ggplot_types.html#PossibleErrorBar	ggplot_types: PossibleErrorBar	
+PossibleFont	ggplot_types.html#PossibleFont	ggplot_types: PossibleFont	
+PossibleSecondaryAxis	ggplot_types.html#PossibleSecondaryAxis	ggplot_types: PossibleSecondaryAxis	
+ColorScale	ggplot_types.html#ColorScale	ggplot_types: ColorScale	
+dkMapping	ggplot_types.html#dkMapping	DataKind.dkMapping	
+dkSetting	ggplot_types.html#dkSetting	DataKind.dkSetting	
+DataKind	ggplot_types.html#DataKind	ggplot_types: DataKind	
+Scale	ggplot_types.html#Scale	ggplot_types: Scale	
+sfFixed	ggplot_types.html#sfFixed	ScaleFreeKind.sfFixed	
+sfFreeX	ggplot_types.html#sfFreeX	ScaleFreeKind.sfFreeX	
+sfFreeY	ggplot_types.html#sfFreeY	ScaleFreeKind.sfFreeY	
+sfFree	ggplot_types.html#sfFree	ScaleFreeKind.sfFree	
+ScaleFreeKind	ggplot_types.html#ScaleFreeKind	ggplot_types: ScaleFreeKind	
+Facet	ggplot_types.html#Facet	ggplot_types: Facet	
+Ridges	ggplot_types.html#Ridges	ggplot_types: Ridges	
+Draw	ggplot_types.html#Draw	ggplot_types: Draw	
+JsonDummyDraw	ggplot_types.html#JsonDummyDraw	ggplot_types: JsonDummyDraw	
+VegaDraw	ggplot_types.html#VegaDraw	ggplot_types: VegaDraw	
+VegaTeX	ggplot_types.html#VegaTeX	ggplot_types: VegaTeX	
+bpNone	ggplot_types.html#bpNone	BinPositionKind.bpNone	
+bpCenter	ggplot_types.html#bpCenter	BinPositionKind.bpCenter	
+bpLeft	ggplot_types.html#bpLeft	BinPositionKind.bpLeft	
+bpRight	ggplot_types.html#bpRight	BinPositionKind.bpRight	
+BinPositionKind	ggplot_types.html#BinPositionKind	ggplot_types: BinPositionKind	
+GgStyle	ggplot_types.html#GgStyle	ggplot_types: GgStyle	
+bbFull	ggplot_types.html#bbFull	BinByKind.bbFull	
+bbSubset	ggplot_types.html#bbSubset	BinByKind.bbSubset	
+BinByKind	ggplot_types.html#BinByKind	ggplot_types: BinByKind	
+gkPoint	ggplot_types.html#gkPoint	GeomKind.gkPoint	
+gkBar	ggplot_types.html#gkBar	GeomKind.gkBar	
+gkHistogram	ggplot_types.html#gkHistogram	GeomKind.gkHistogram	
+gkFreqPoly	ggplot_types.html#gkFreqPoly	GeomKind.gkFreqPoly	
+gkTile	ggplot_types.html#gkTile	GeomKind.gkTile	
+gkLine	ggplot_types.html#gkLine	GeomKind.gkLine	
+gkErrorBar	ggplot_types.html#gkErrorBar	GeomKind.gkErrorBar	
+gkText	ggplot_types.html#gkText	GeomKind.gkText	
+gkRaster	ggplot_types.html#gkRaster	GeomKind.gkRaster	
+GeomKind	ggplot_types.html#GeomKind	ggplot_types: GeomKind	
+hdBars	ggplot_types.html#hdBars	HistogramDrawingStyle.hdBars	
+hdOutline	ggplot_types.html#hdOutline	HistogramDrawingStyle.hdOutline	
+HistogramDrawingStyle	ggplot_types.html#HistogramDrawingStyle	ggplot_types: HistogramDrawingStyle	
+smSVG	ggplot_types.html#smSVG	SmoothMethodKind.smSVG	
+smLM	ggplot_types.html#smLM	SmoothMethodKind.smLM	
+smPoly	ggplot_types.html#smPoly	SmoothMethodKind.smPoly	
+SmoothMethodKind	ggplot_types.html#SmoothMethodKind	ggplot_types: SmoothMethodKind	
+Geom	ggplot_types.html#Geom	ggplot_types: Geom	
+orkNone	ggplot_types.html#orkNone	OutsideRangeKind.orkNone	
+orkDrop	ggplot_types.html#orkDrop	OutsideRangeKind.orkDrop	
+orkClip	ggplot_types.html#orkClip	OutsideRangeKind.orkClip	
+OutsideRangeKind	ggplot_types.html#OutsideRangeKind	ggplot_types: OutsideRangeKind	
+Theme	ggplot_types.html#Theme	ggplot_types: Theme	
+ThemeMarginLayout	ggplot_types.html#ThemeMarginLayout	ggplot_types: ThemeMarginLayout	
+Annotation	ggplot_types.html#Annotation	ggplot_types: Annotation	
+GgPlot	ggplot_types.html#GgPlot	ggplot_types: GgPlot	
+StyleLabel	ggplot_types.html#StyleLabel	ggplot_types: StyleLabel	
+FilledGeom	ggplot_types.html#FilledGeom	ggplot_types: FilledGeom	
+MainAddScales	ggplot_types.html#MainAddScales	ggplot_types: MainAddScales	
+FilledScales	ggplot_types.html#FilledScales	ggplot_types: FilledScales	
+PlotView	ggplot_types.html#PlotView	ggplot_types: PlotView	
+missing	ggplot_types.html#missing_2	ggplot_types: missing(): Missing	
+toOptColor	ggplot_types.html#toOptColor,T	ggplot_types: toOptColor[T: PossibleColor](x: T): Option[Color]	
+toOptSecAxis	ggplot_types.html#toOptSecAxis,T,AxisKind	ggplot_types: toOptSecAxis[T: PossibleSecondaryAxis](x: T; axis: AxisKind): Option[\n    SecondaryAxis]	
+assignIdentityScalesGetStyle	ggplot_types.html#assignIdentityScalesGetStyle,Aesthetics,C,S,M,LT,LW,FC,EB,A,F	ggplot_types: assignIdentityScalesGetStyle[C: PossibleColor; S: PossibleFloat;\n                             M: PossibleMarker; LT: PossibleLineType;\n                             LW: PossibleFloat; FC: PossibleColor;\n                             EB: PossibleErrorBar; A: PossibleFloat;\n                             F: PossibleFont](aes: var Aesthetics;\n    pColor: C = missing(); pSize: S = missing(); pMarker: M = missing();\n    pLineType: LT = missing(); pLineWidth: LW = missing();\n    pFillColor: FC = missing(); pErrorBarKind: EB = missing();\n    pAlpha: A = missing(); pFont: F = missing()): GgStyle	
+`==`	ggplot_types.html#==,Scale,Scale	ggplot_types: `==`(s1, s2: Scale): bool	
+hash	ggplot_types.html#hash,GgStyle	ggplot_types: hash(s: GgStyle): Hash	
+hash	ggplot_types.html#hash,Style	ggplot_types: hash(s: Style): Hash	
+hash	ggplot_types.html#hash,ScaleValue	ggplot_types: hash(x: ScaleValue): Hash	
+hash	ggplot_types.html#hash,Scale	ggplot_types: hash(x: Scale): Hash	
+`$`	ggplot_types.html#$,Facet	ggplot_types: `$`(f: Facet): string	
+hash	ggplot_types.html#hash,StyleLabel	ggplot_types: hash(x: StyleLabel): Hash	
+`$`	ggplot_types.html#$,Aesthetics	ggplot_types: `$`(aes: Aesthetics): string	
+`$`	ggplot_types.html#$,Geom	ggplot_types: `$`(g: Geom): string	
+`$`	ggplot_types.html#$,GgPlot	ggplot_types: `$`(p: GgPlot): string	
+`$`	ggplot_types.html#$,Scale	ggplot_types: `$`(s: Scale): string	

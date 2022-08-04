@@ -1,0 +1,28 @@
+scaleFromData	ggplot_scales.html#scaleFromData,Column,Scale,staticbool	ggplot_scales: scaleFromData(c: Column; s: Scale; ignoreInf: static bool = true): ginger.Scale	
+getColName	ggplot_scales.html#getColName,Scale	ggplot_scales: getColName(s: Scale): string	
+getValue	ggplot_scales.html#getValue,Scale,Value	ggplot_scales: getValue(s: Scale; label: Value): ScaleValue	
+getLabelKey	ggplot_scales.html#getLabelKey,Scale,int	ggplot_scales: getLabelKey(s: Scale; at: int): Value	
+enumerateLabels	ggplot_scales.html#enumerateLabels.i,Scale	ggplot_scales: enumerateLabels(s: Scale): Value	
+enumerateLabelPairs	ggplot_scales.html#enumerateLabelPairs.i,Scale	ggplot_scales: enumerateLabelPairs(s: Scale): (int, Value)	
+pairs	ggplot_scales.html#pairs.i,Scale	ggplot_scales: pairs(s: Scale): (Value, ScaleValue)	
+values	ggplot_scales.html#values.i,Scale	ggplot_scales: values(s: Scale): ScaleValue	
+keys	ggplot_scales.html#keys.i,Scale	ggplot_scales: keys(s: Scale): Value	
+enumerateScalesByIds	ggplot_scales.html#enumerateScalesByIds.i,FilledScales	ggplot_scales: enumerateScalesByIds(filledScales: FilledScales): Scale	
+enumerateScalesByIdsVega	ggplot_scales.html#enumerateScalesByIdsVega.i,FilledScales	ggplot_scales: enumerateScalesByIdsVega(filledScales: FilledScales): Scale	
+enumerateScales	ggplot_scales.html#enumerateScales.i,FilledScales,Geom	ggplot_scales: enumerateScales(filledScales: FilledScales; geom: Geom): Scale	
+enumerateScalesVega	ggplot_scales.html#enumerateScalesVega.i,FilledScales,Geom	ggplot_scales: enumerateScalesVega(filledScales: FilledScales; geom: Geom): Scale	
+getXScale	ggplot_scales.html#getXScale,FilledScales	ggplot_scales: getXScale(filledScales`gensym52: FilledScales; geom`gensym52 = Geom(gid: 0)): Scale	
+getYScale	ggplot_scales.html#getYScale,FilledScales	ggplot_scales: getYScale(filledScales`gensym54: FilledScales; geom`gensym54 = Geom(gid: 0)): Scale	
+getFillScale	ggplot_scales.html#getFillScale,FilledScales	ggplot_scales: getFillScale(filledScales`gensym56: FilledScales; geom`gensym56 = Geom(gid: 0)): Option[\n    Scale]	
+getXMinScale	ggplot_scales.html#getXMinScale,FilledScales	ggplot_scales: getXMinScale(filledScales`gensym60: FilledScales; geom`gensym60 = Geom(gid: 0)): Option[\n    Scale]	
+getYMinScale	ggplot_scales.html#getYMinScale,FilledScales	ggplot_scales: getYMinScale(filledScales`gensym62: FilledScales; geom`gensym62 = Geom(gid: 0)): Option[\n    Scale]	
+getXMaxScale	ggplot_scales.html#getXMaxScale,FilledScales	ggplot_scales: getXMaxScale(filledScales`gensym64: FilledScales; geom`gensym64 = Geom(gid: 0)): Option[\n    Scale]	
+getYMaxScale	ggplot_scales.html#getYMaxScale,FilledScales	ggplot_scales: getYMaxScale(filledScales`gensym66: FilledScales; geom`gensym66 = Geom(gid: 0)): Option[\n    Scale]	
+getWidthScale	ggplot_scales.html#getWidthScale,FilledScales	ggplot_scales: getWidthScale(filledScales`gensym68: FilledScales; geom`gensym68 = Geom(gid: 0)): Option[\n    Scale]	
+getHeightScale	ggplot_scales.html#getHeightScale,FilledScales	ggplot_scales: getHeightScale(filledScales`gensym70: FilledScales; geom`gensym70 = Geom(gid: 0)): Option[\n    Scale]	
+getTextScale	ggplot_scales.html#getTextScale,FilledScales	ggplot_scales: getTextScale(filledScales`gensym72: FilledScales; geom`gensym72 = Geom(gid: 0)): Scale	
+getYRidgesScale	ggplot_scales.html#getYRidgesScale,FilledScales	ggplot_scales: getYRidgesScale(filledScales`gensym74: FilledScales;\n                geom`gensym74 = Geom(gid: 0)): Scale	
+getWeightScale	ggplot_scales.html#getWeightScale,FilledScales	ggplot_scales: getWeightScale(filledScales`gensym76: FilledScales; geom`gensym76 = Geom(gid: 0)): Option[\n    Scale]	
+updateAesRidges	ggplot_scales.html#updateAesRidges,GgPlot	ggplot_scales: updateAesRidges(p: GgPlot): GgPlot	
+getSecondaryAxis	ggplot_scales.html#getSecondaryAxis,FilledScales,AxisKind	ggplot_scales: getSecondaryAxis(filledScales: FilledScales; axKind: AxisKind): SecondaryAxis	
+hasSecondary	ggplot_scales.html#hasSecondary,FilledScales,AxisKind	ggplot_scales: hasSecondary(filledScales: FilledScales; axKind: AxisKind): bool	
