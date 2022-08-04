@@ -733,8 +733,15 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                                              toClone = true)
       result.numX = max(result.numX, yieldDf.len)
       # needs to be done for each
-      result.xScale = mergeScales(result.xScale,
-                                  (low: bins.min.float, high: bins.max.float))
+      if g.kind == gkFreqPoly:
+        let binWidth = if bins.len > 1: (bins[1] - bins[0]).float else: 0.0
+        result.xScale = mergeScales(result.xScale,
+                                    (low: bins.min.float - binWidth / 2.0,
+                                     high: bins.max.float + binWidth / 2.0))
+      else:
+        result.xScale = mergeScales(result.xScale,
+                                    (low: bins.min.float, high: bins.max.float))
+
       result.yScale = mergeScales(result.yScale,
                                   (low: 0.0, high: col.toTensor(float).max))
   else:
