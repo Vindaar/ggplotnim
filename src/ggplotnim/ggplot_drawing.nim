@@ -415,7 +415,7 @@ func moveBinPositions(p: var tuple[x, y: Value],
     else:
       p.y.moveBinPosition(fg.geom.binPosition, binWidths.y)
 
-func getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: FilledGeom): int =
+proc getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: FilledGeom): int =
   let px = if fg.dcKindX == dcDiscrete: p.x else: Value(kind: VNull)
   let py = if fg.dcKindY == dcDiscrete: p.y else: Value(kind: VNull)
   result = viewMap[(px, py)]

@@ -13,7 +13,7 @@ when not defined(nolapack):
   from scinim / signals import savitzkyGolayFilter
   from polynumeric import polyFit, eval, initPoly
 
-func getScales(gid: uint16, filledScales: FilledScales,
+proc getScales(gid: uint16, filledScales: FilledScales,
                yIsNone = false): (Scale, Scale, seq[Scale]) =
   ## Returns the x and y scales individually and the other scales as a
   ## sequence
