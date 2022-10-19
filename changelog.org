@@ -1,3 +1,5 @@
+* v0.5.4
+- make =ggplotnim= work with =strictEffects=, PR #151
 * v0.5.3
 - update to Datamancer =v0.3.0=, which adds experimental support for
   "generic" types. This only makes =ggplotnim= compatible with it, but
