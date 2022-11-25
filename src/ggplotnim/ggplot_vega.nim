@@ -242,17 +242,18 @@ const indexHTML = """
   </body>
 </html>
 """
-import os, strformat
-proc showVega*(data: JsonNode, fname: string) =
-  let outname = if fname.len == 0: &"{getTempDir()}/vega_lite_plot.html"
-                else: getCurrentDir() / fname
-  let content = indexHtml % [$data]
-  writeFile(outname, content)
-  var w = newWebView("Vega-Lite plot created by ggplotnim", "file://" & outname)
-  w.run()
-  w.exit()
-  if fname.len == 0:
-    defer: removeFile(outname)
+import std / [os, strformat]
+from std/browsers import openDefaultBrowser
+proc showVega*(fname: string, d: VegaDraw) =
+  case d.backend
+  of vbWebview:
+    var w = newWebView("Vega-Lite plot created by ggplotnim", "file://" & fname)
+    w.run()
+    w.exit()
+  of vbBrowser:
+    openDefaultBrowser(fname)
+  if d.removeFile:
+    defer: removeFile(fname)
 
 from os import splitFile
 proc ggvegaCreate*(p: GgPlot, vegaDraw: VegaDraw): JsonNode =
@@ -265,13 +266,29 @@ proc ggvegaCreate*(p: GgPlot, vegaDraw: VegaDraw): JsonNode =
   let theme = buildTheme(filledScales, p)
   result = p.toVegaLite(filledScales, theme, vegaDraw.width.get, vegaDraw.height.get)
 
+proc writeVegaFile(plt: JsonNode, d: VegaDraw): string =
+  ## Writes the correct file and returns the filename of the generated file.
+  let fname = d.fname
+  result = if fname.len == 0: &"{getTempDir()}/vega_lite_plot.html"
+           elif fname.isAbsolute: fname # keep as is
+           else: getCurrentDir() / fname # is relative, so add current dir
+  createDir(result.splitFile().dir)
+  let (_, _, ext) = splitFile(result)
+  let extN = ext.normalize
+  if extN notin [".html", ".json"]:
+    raise newException(VegaError, "Unsupported output file type " & $extN &
+      ". Supported are `.html` and `.json`.")
+  let jsonStr = if d.asPrettyJson.isSome and d.asPrettyJson.get: pretty(plt)
+                elif d.asPrettyJson.isSome: $plt # pretty given but false
+                elif extN == ".html": $plt # default HTML
+                else: pretty(plt) # default JSON
+  let content = if extN == ".html": indexHtml % [jsonStr]
+                else: jsonStr
+  writeFile(result, content)
+
 proc `+`*(p: GgPlot, d: VegaDraw) =
   let plt = ggvegaCreate(p, d)
-  let (_, fname, ext) = splitFile(d.fname)
-  if ext == ".json":
-    if d.asPrettyJson:
-      writeFile(d.fname, pretty(plt))
-    else:
-      writeFile(d.fname, $plt)
-  else:
-    plt.showVega(d.fname)
+  # write the file
+  let outname = writeVegaFile(plt, d)
+  if d.show:
+    showVega(outname, d)

@@ -146,6 +146,7 @@ type
   ## or `string` values storing color names.
   PossibleColor* = Missing | Color | uint32 | string | Option[Color]
   PossibleFloat* = Missing | SomeNumber | string | Option[float]
+  PossibleBool* = Missing | bool
   PossibleMarker* = Missing | MarkerKind | Option[MarkerKind]
   PossibleLineType* = Missing  | LineType | Option[LineType]
   PossibleErrorBar* = Missing | ErrorBarKind | Option[ErrorBarKind]
@@ -254,11 +255,18 @@ type
 
   # helper object to compose `ggvega` via `+` with `ggplot`
   # Used to show a plot using the Vega-Lite backend
+  VegaBackend* = enum
+    vbWebview = "webview"
+    vbBrowser = "browser"
   VegaDraw* = object
     fname*: string
     width*: Option[float]
     height*: Option[float]
-    asPrettyJson*: bool
+    asPrettyJson*: Option[bool]
+    show*: bool # decides whether to show the vega plot directly
+    backend*: VegaBackend # if we show it, use webview or browser?
+    removeFile*: bool # if set to true, remove the generated file after
+                      # showing it. Only relevant for HTML files
 
   # helper object that refers to 2 plots. A TeX version and a Vega version
   VegaTeX* = object
@@ -539,6 +547,8 @@ type
     filledScales*: FilledScales
     view*: Viewport # the ginger representation of the plot
 
+  VegaError* = object of CatchableError
+
 proc missing*(): Missing =
   ## Helper to get a `Missing` instance.
   Missing()
@@ -561,6 +571,11 @@ proc toOptFloat[T: PossibleFloat](x: T): Option[float] =
   when T is Missing: result = none[float]()
   elif T is SomeNumber: result = some(x.float)
   elif T is Option[float]: result = x
+  else: {.error: "Invalid branch!".}
+
+proc toOptBool*[T: PossibleBool](x: T): Option[bool] =
+  when T is Missing: result = none[bool]()
+  elif T is bool: result = some(x)
   else: {.error: "Invalid branch!".}
 
 proc toOptMarker[T: PossibleMarker](x: T): Option[MarkerKind] =
