@@ -3215,8 +3215,13 @@ proc ggvega*[PB: PossibleBool](
   pretty: PB = missing(),
   show = true,
   backend = "webview",
-  removeFile = true
-                               ): VegaDraw =
+  removeFile = true,
+  divName = "div",
+  vegaCDN = "https://cdn.jsdelivr.net/npm/",
+  vegaVersion = "5",
+  vegaLiteVersion = "4",
+  vegaEmbedVersion = "6"
+                             ): VegaDraw =
   ## If a filename with `.json` ending is given we simply generate a Vega compatible
   ## JSON. In case no filename is given a temporary HTML file in the temp directory
   ## (obtained via `getTempDir`) is created and the plot is shown, unless the
@@ -3239,7 +3244,12 @@ proc ggvega*[PB: PossibleBool](
            height: some(height), asPrettyJson: optPretty,
            show: show,
            backend: backend,
-           removeFile: removeFile)
+           removeFile: removeFile,
+           divName: divName,
+           vegaCDN: vegaCDN,
+           vegaVersion: vegaVersion,
+           vegaLiteVersion: vegaLiteVersion,
+           vegaEmbedVersion: vegaEmbedVersion)
 
 proc ggvegatex*(fname: string, width = 640.0, height = 480.0,
                 caption = "",
