@@ -22,28 +22,34 @@ task testCI, "Run standard tests w/o cairo dependency":
   # cairo. Most tests are independent of cairo anyways
   when defined(windows):
     exec "nim c -d:noCairo -d:lapack=liblapack -r tests/tests.nim"
+    exec "nim c -d:noCairo -d:lapack=liblapack -r tests/tvega.nim"
     exec "nim c -d:noCairo -d:lapack=liblapack -r tests/test_issue2.nim"
   else:
     exec "nim c -d:noCairo -r tests/tests.nim"
+    exec "nim c -d:noCairo -r tests/tvega.nim"
     exec "nim c -d:noCairo -r tests/test_issue2.nim"
 
 
 task test, "Run standard tests":
   when defined(windows):
     exec "nim c -r -d:lapack=liblapack tests/tests.nim"
+    exec "nim c -r -d:lapack=liblapack tests/tvega.nim"
     exec "nim c -r -d:lapack=liblapack tests/test_issue2.nim"
   else:
     exec "nim c -r tests/tests.nim"
+    exec "nim c -r tests/tvega.nim"
     exec "nim c -r tests/test_issue2.nim"
 
 task fulltest, "Run all tests, including recipe comparison (requires ntangle)":
   when defined(windows):
     exec "nim c -r -d:lapack=liblapack tests/tests.nim"
     exec "nim c -r -d:lapack=liblapack tests/test_issue2.nim"
+    exec "nim c -r -d:lapack=liblapack tests/tvega.nim"
     exec "nim c -r -d:lapack=liblapack tests/tCompareRecipes.nim"
   else:
     exec "nim c -r tests/tests.nim"
     exec "nim c -r tests/test_issue2.nim"
+    exec "nim c -r tests/tvega.nim"
     exec "nim c -r tests/tCompareRecipes.nim"
 
 # Run the following command to generate everything required to possibly make CI pass, i.e.

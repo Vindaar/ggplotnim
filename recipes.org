@@ -2105,13 +2105,18 @@ ggplot(mpg, aes(x = "displ", y = "cty", color = "class")) +
   ggvega("media/recipes/rSimpleVegaLite.html") # w/o arg creates a `/tmp/vega_lite_plot.html`
 #+end_src
 
-Note that if you give a filename to =ggvega= we will store the HTML
-file including the JSON data in that file. The filename extension
-does not matter, but should be =.html=.
-If the filename ends on =.json= however, we *only* store the JSON
-description of the Vega-Lite plot in that =.json= file. This is useful
-to simply generate a bunch of Vega-Lite plots without opening a
-webview window.
+The behavior of the ~ggvega~ call can be adjusted with multiple
+arguments. By default without any arguments it will generate an HTML
+file in the temp directory and show it using the webview backend. The
+backend can be switched to using the default browser with the
+~backend~ argument. The temporary file will be removed after, unless
+~removeFile~ is set to false.
+
+If the given filename is a ~.json~ file only such a file will be
+generated and no plot will be shown, which is useful to generate
+multiple Vega-Lite plots in one program. Pure HTML files can also be
+generated without showing the plots if the ~show~ argument is set to false.
+
 
 This recipe gives us the following plot:
 

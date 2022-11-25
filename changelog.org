@@ -1,3 +1,11 @@
+* v0.5.5
+- minor improvements to the Vega-Lite backend:
+  - adds a docstring to `ggvega`
+  - cleans up the write file implementation to be more safe & useful
+  - allows to not show a plot even if an HTML file is generated
+  - allows to specify pretty JSON output even for HTML files
+  - raises an exception if neither HTML or JSON is desired
+  - allows to change the backend to using a browser.  
 * v0.5.4
 - make =ggplotnim= work with =strictEffects=, PR #151
 * v0.5.3
