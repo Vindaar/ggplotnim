@@ -3216,8 +3216,8 @@ proc ggvega*[PB: PossibleBool](
   show = true,
   backend = "webview",
   removeFile = true,
-  divName = "div",
-  vegaCDN = "https://cdn.jsdelivr.net/npm/",
+  divName = "vis",
+  vegaLibsPath = "https://cdn.jsdelivr.net/npm/",
   vegaVersion = "5",
   vegaLiteVersion = "4",
   vegaEmbedVersion = "6"
@@ -3246,7 +3246,7 @@ proc ggvega*[PB: PossibleBool](
            backend: backend,
            removeFile: removeFile,
            divName: divName,
-           vegaCDN: vegaCDN,
+           vegaLibsPath: vegaLibsPath,
            vegaVersion: vegaVersion,
            vegaLiteVersion: vegaLiteVersion,
            vegaEmbedVersion: vegaEmbedVersion)
