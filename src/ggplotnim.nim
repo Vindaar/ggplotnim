@@ -3210,10 +3210,36 @@ proc `+`*(p: GgPlot, d: Draw) =
              backend = d.backend)
 
 from json import `%`
-proc ggvega*(fname = "", width = 640.0, height = 480.0,
-             pretty = true): VegaDraw =
+proc ggvega*[PB: PossibleBool](
+  fname = "", width = 640.0, height = 480.0,
+  pretty: PB = missing(),
+  show = true,
+  backend = "webview",
+  removeFile = true
+                               ): VegaDraw =
+  ## If a filename with `.json` ending is given we simply generate a Vega compatible
+  ## JSON. In case no filename is given a temporary HTML file in the temp directory
+  ## (obtained via `getTempDir`) is created and the plot is shown, unless the
+  ## `show` flag is `false`.
+  ##
+  ## For other given directories, intermediate directories will be created.
+  ##
+  ## If no filename is given and the plot is shown immediately, the temporary file will
+  ## be removed after unless `removeFile` is `false`.
+  ##
+  ## If `pretty` is given, overwrites defaults for pretty printing of JSON. By default
+  ## pretty printing is used when generating a JSON file and no pretty printing is used
+  ## when generating an HTML file.
+  ##
+  ## The backend to show the Vega plot in can be chosen using `backend`. Valid backends
+  ## are `"webview"` and `"browser"`.
+  let backend = parseEnum[VegaBackend](backend)
+  let optPretty = pretty.toOptBool()
   VegaDraw(fname: fname, width: some(width),
-           height: some(height), asPrettyJson: pretty)
+           height: some(height), asPrettyJson: optPretty,
+           show: show,
+           backend: backend,
+           removeFile: removeFile)
 
 proc ggvegatex*(fname: string, width = 640.0, height = 480.0,
                 caption = "",
