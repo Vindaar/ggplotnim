@@ -268,7 +268,7 @@ type
     removeFile*: bool # if set to true, remove the generated file after
                       # showing it. Only relevant for HTML files
     divName*: string # the name of the <div> tag
-    vegaCDN*: string # by default: https://cdn.jsdelivr.net/npm/
+    vegaLibsPath*: string # by default: https://cdn.jsdelivr.net/npm/
     vegaVersion*: string # by default 5
     vegaLiteVersion*: string # by default 4
     vegaEmbedVersion*: string # by default 6

@@ -251,9 +251,9 @@ const headTagTmpl = """
 """
 
 const headTmpl = """
-    <script src="$CDN/vega@$vegaVersion"></script>
-    <script src="$CDN/vega-lite@$vegaLiteVersion"></script>
-    <script src="$CDN/vega-embed@$vegaEmbedVersion"></script>
+    <script src="$vegaLibsPath/vega@$vegaVersion"></script>
+    <script src="$vegaLibsPath/vega-lite@$vegaLiteVersion"></script>
+    <script src="$vegaLibsPath/vega-embed@$vegaEmbedVersion"></script>
 """
 
 const bodyTagTmpl = """
@@ -276,7 +276,7 @@ proc body*(jsonStr: string, d: VegaDraw): string =
 proc tagBody*(s: string): string = bodyTagTmpl % ["body", s]
 
 proc head*(d: VegaDraw): string =
-  result = headTmpl % ["CDN", d.vegaCDN,
+  result = headTmpl % ["vegaLibsPath", d.vegaLibsPath,
                        "vegaVersion", d.vegaVersion,
                        "vegaLiteVersion", d.vegaLiteVersion,
                        "vegaEmbedVersion", d.vegaEmbedVersion]
@@ -348,9 +348,9 @@ proc toVegaHtml*(
   p: GgPlot,
   width = 640.0, height = 480.0,
   pretty = false,
-  divName = "div",
+  divName = "vis",
   onlyBody = false,
-  vegaCDN = "https://cdn.jsdelivr.net/npm/",
+  vegaLibsPath = "https://cdn.jsdelivr.net/npm/",
   vegaVersion = "5",
   vegaLiteVersion = "4",
   vegaEmbedVersion = "6"
@@ -371,7 +371,7 @@ proc toVegaHtml*(
                    height: some(height),
                    asPrettyJson: optPretty,
                    divName: divName,
-                   vegaCDN: vegaCDN,
+                   vegaLibsPath: vegaLibsPath,
                    vegaVersion: vegaVersion,
                    vegaLiteVersion: vegaLiteVersion,
                    vegaEmbedVersion: vegaEmbedVersion)
@@ -384,7 +384,7 @@ proc toVegaHtml*(
     result = html(jsonStr, d)
 
 proc embedVegaBody*(body: string,
-                    vegaCDN = "https://cdn.jsdelivr.net/npm/",
+                    vegaLibsPath = "https://cdn.jsdelivr.net/npm/",
                     vegaVersion = "5",
                     vegaLiteVersion = "4",
                     vegaEmbedVersion = "6"): string =
@@ -392,7 +392,7 @@ proc embedVegaBody*(body: string,
   ## calls (possibly multiple, so multiple <div> tags) in the full HTML required
   ## to open fully embed the Vega plot.
   # only need a partial VegaDraw with the arguments
-  let d = VegaDraw(vegaCDN: vegaCDN,
+  let d = VegaDraw(vegaLibsPath: vegaLibsPath,
                    vegaVersion: vegaVersion,
                    vegaLiteVersion: vegaLiteVersion,
                    vegaEmbedVersion: vegaEmbedVersion)
