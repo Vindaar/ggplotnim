@@ -13,3 +13,12 @@ suite "Vega-Lite backend":
       plt + ggvega("test.foo", show = false)
     except VegaError:
       discard
+
+  test "Generation of only HTML string":
+    ## TODO: turn this into a proper test!
+    doAssert toVegaHtml(plt).len > 0
+    doAssert toVegaHtml(plt, onlyBody = true).len > 0
+    doAssert toVegaHtml(plt, onlyBody = true, pretty = true).len > 0
+    let body = toVegaHtml(plt, onlyBody = true)
+    let html = embedVegaBody(body)
+    doAssert html.len > body.len
