@@ -40,7 +40,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
       returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
     when defined(linux):
-      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 1e-4)
+      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 1e-3)
     else:
       ## TODO: due to some cairo issue related to different platforms we get different
       ## positions on mac/windows. For now we just use a much larger epsilon. Need to
