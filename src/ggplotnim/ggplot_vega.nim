@@ -1,5 +1,5 @@
 import json, tables, options, strutils, chroma, webview, sequtils
-import ggplot_types, ggplot_styles, ggplot_theme, ggplot_scales, collect_and_fill
+import ggplot_types, ggplot_styles, ggplot_theme, ggplot_scales, collect_and_fill, ggplot_utils
 import datamancer
 import ginger except Scale
 
@@ -203,29 +203,33 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
     var colors: seq[string]
     var mark: JsonNode
     let scales = collectScales(filledScales, fg.geom)
+
     for (lab, baseStyle, styles, subDf) in enumerateData(fg):
       let style = mergeUserStyle(styles[0], fg)
       ## TODO: only add style if there is only one label (i.e. no discrete classification)
       mark = genMark(fg, style)
-
       encoding.encodeGeomSpecifics(fg.geom, subDf)
+      var locDf = subDf
       for sc in scales:
+        let scCol = sc.getValidColName()
+        if scCol notin locDf:
+          locDf[scCol] = lab[scCol].toStr
         if styles.len == 1: # discrete
           for key, val in lab:
             if key.len > 0:
+              ## NOTE: currently the ordering of colors is different than on the regular backend
               colors.add ("#" & style.color.toHex)
             if sc.scKind notin {scLinearData, scTransformedData}:
-              encoding.encodeType(sc.scKind, akX, dcDiscrete, sc.getValidColName())
+              encoding.encodeType(sc.scKind, akX, dcDiscrete, scCol)
+              # add this label
         else:
           if sc.scKind notin {scLinearData, scTransformedData}:
-            encoding.encodeType(sc.scKind, akX, dcContinuous, sc.getValidColName())
-      case fg.geomKind
-      of gkHistogram:
-        let locDf = subDf.head(subDf.len - 1)
+            encoding.encodeType(sc.scKind, akX, dcContinuous, scCol)
+      if fg.geomKind == gkHistogram:
+        locDf = subDf.head(subDf.len - 1)
           .mutate(fn {"binEnd" ~ `displ` + `binWidths`})
-        df.add locDf
-      else:
-        df.add subDf
+      df.add locDf
+
     values.append df.dataAsJson
     if colors.len > 0 and "color" in encoding:
       encoding["color"]["scale"] = %* {"range" : colors.deduplicate}
