@@ -116,6 +116,13 @@ proc encodeType(encoding: JsonNode, scKind: ScaleKind,
     echo "WARN: losing information in `encodeType`"
     discard
 
+proc assignLabel(encoding: JsonNode, axis: AxisKind, label: string) =
+  case axis
+  of akX:
+    encoding["x"]["axis"] = %* { "title" : label }
+  of akY:
+    encoding["y"]["axis"] = %* { "title" : label }
+
 proc encodeGeomSpecifics(encoding: JsonNode, geom: Geom, df: DataFrame) =
   case geom.kind
   of gkHistogram:
@@ -178,6 +185,8 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
   var layers = newJArray()
   let xScale = theme.xMarginRange
   let yScale = theme.yMarginRange
+  let yLab = theme.yLabel.unwrap()
+  let xLab = theme.xLabel.unwrap()
   var df = newDataFrame()
   ## `values` will store the dataframe. However, there will be duplicates in the current
   ## impl depending on multiple geoms with the same data!
@@ -189,6 +198,8 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
     let y = $fg.ycol.vegaSanitize
     encoding.encodeType(scLinearData, akX, fg.dcKindX, x, xScale)
     encoding.encodeType(scLinearData, akY, fg.dcKindY, y, yScale)
+    encoding.assignLabel(akX, xLab)
+    encoding.assignLabel(akY, yLab)
     var colors: seq[string]
     var mark: JsonNode
     let scales = collectScales(filledScales, fg.geom)
