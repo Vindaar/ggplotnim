@@ -1,3 +1,8 @@
+* v0.5.6
+- fixes discrete stacked plots on the Vega-Lite backend
+- avoids showing the internal naming scheme of DF columns in Vega-Lite
+  plots & makes sure any user defined axis label via ~xlab~ / ~ylab~
+  are used
 * v0.5.5
 - minor improvements to the Vega-Lite backend:
   - adds a docstring to ~ggvega~
