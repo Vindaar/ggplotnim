@@ -385,6 +385,26 @@ suite "GgPlot":
                       epsilon = 1e-6)
     plt.ggdraw("exp2.pdf")
 
+  test "Plot requiring `y` scale throws if none given":
+    let mpg = readCsv("data/mpg.csv")
+    try:
+      ggplot(mpg, aes("year")) +
+        geom_point() +
+        ggsave("never_produced.png")
+      check false
+    except AestheticError:
+      check true
+
+  test "Plot not needing `y` scale throws if given":
+    let mpg = readCsv("data/mpg.csv")
+    try:
+      ggplot(mpg, aes(x = "class", y = "cyl")) +
+        geom_bar() +
+        ggsave("never_produced.png")
+      check false
+    except AestheticError:
+      check true
+
 suite "Theme":
   test "Canvas background color":
     let mpg = readCsv("data/mpg.csv")
