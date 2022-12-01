@@ -309,8 +309,15 @@ type
     bbSubset = "subset"
 
   GeomKind* = enum
-    gkPoint, gkBar, gkHistogram, gkFreqPoly, gkTile, gkLine, gkErrorBar, gkText,
-    gkRaster
+    gkPoint     = "geom_point"
+    gkBar       = "geom_bar"
+    gkHistogram = "geom_histogram"
+    gkFreqPoly  = "geom_freqpoly"
+    gkTile      = "geom_tile"
+    gkLine      = "geom_line"
+    gkErrorBar  = "geom_errorbar"
+    gkText      = "geom_text"
+    gkRaster    = "geom_raster"
 
   HistogramDrawingStyle* = enum
     hdBars = "bars" ## draws historams by drawing individual bars right next to
