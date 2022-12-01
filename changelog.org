@@ -1,3 +1,10 @@
+* v0.5.7
+- give all ~GeomKind~ fields a name representing the ~geom_*~
+  procedure used to create them (lossy though, not all ~geom_*~
+  procedures have ~GeomKinds~
+- throw exception if no ~y~ scale given when needed and when given if
+  not needed
+- fix issue with Vega backend where we tried to look up internal scale    
 * v0.5.6
 - fixes discrete stacked plots on the Vega-Lite backend
 - avoids showing the internal naming scheme of DF columns in Vega-Lite
