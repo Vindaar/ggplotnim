@@ -803,6 +803,15 @@ proc maybeRaise(xCol: string, cont: seq[Scale]) =
     errMsg.add "] in a `count` statistics on column `" & xCol & "`."
     raise newException(ValueError, errMsg)
 
+proc count(df: DataFrame, xCol, name: string, weights: Option[Scale]): DataFrame =
+  ## XXX: This should be moved to datamancer next release!
+  if weights.isNone:
+    result = df.count(xCol, name = CountCol)
+  else:
+    let w = weights.get.getColName()
+    result = df.group_by(xCol)
+      .summarize(f{float: name << sum(col(w))})
+
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales,
@@ -837,7 +846,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
     for keys, subDf in groups(df, order = SortOrder.Descending):
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
-      var yieldDf = subDf.count(xCol, name = CountCol)
+      var yieldDf = subDf.count(xCol, name = CountCol,
+                                weights = filledScales.getWeightScale(g))
       # all values, which are zero still have to be accounted for! Add those keys with
       # zero values
       yieldDf.addZeroKeys(allClasses, xCol, CountCol)
@@ -861,7 +871,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
                                   (low: 0.0, high: col.toTensor(int).max.float))
   else:
     maybeRaise(xCol, cont)
-    var yieldDf = df.count(xCol, name = CountCol)
+    var yieldDf = df.count(xCol, name = CountCol,
+                           weights = filledScales.getWeightScale(g))
     yieldDf[PrevValsCol] = constantColumn(0.0, yieldDf.len)
     let key = ("", Value(kind: VNull))
     yieldDf.maybeFilterUnique(result)
