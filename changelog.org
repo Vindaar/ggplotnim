@@ -1,3 +1,5 @@
+* v0.5.8
+- support ~weights~ in ~geom_bar~, previously it was ignored
 * v0.5.7
 - give all ~GeomKind~ fields a name representing the ~geom_*~
   procedure used to create them (lossy though, not all ~geom_*~
