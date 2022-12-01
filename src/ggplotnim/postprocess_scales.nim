@@ -13,10 +13,11 @@ when not defined(nolapack):
   from scinim / signals import savitzkyGolayFilter
   from polynumeric import polyFit, eval, initPoly
 
-proc getScales(gid: uint16, filledScales: FilledScales,
+proc getScales(geom: Geom, filledScales: FilledScales,
                yIsNone = false): (Scale, Scale, seq[Scale]) =
   ## Returns the x and y scales individually and the other scales as a
   ## sequence
+  let gid = geom.gid
   template getScale(field: untyped): untyped =
     let moreScale = field.more.filterIt(gid in it.ids)
     doAssert moreScale.len <= 1, "FOUND " & $moreScale & " for gid " & $gid
@@ -36,8 +37,16 @@ proc getScales(gid: uint16, filledScales: FilledScales,
   doAssert xOpt.isSome
   result[0] = xOpt.get
   if not yIsNone:
-    doAssert yOpt.isSome
+    if yOpt.isNone: # should not happen, but if it does, throw
+      raise newException(AestheticError, "The desired geom `" & $geom.kind & "` requires a " &
+        "`y` scale, but none was given. (Note: The name may differ to the one used in your code " &
+        "as multple `geom_*` procedures are mapped to the same kind)")
     result[1] = yOpt.get
+  elif yIsNone and yOpt.isSome: # the inverse case
+    raise newException(AestheticError, "The desired geom `" & $geom.kind & "` was given a " &
+      "`y` scale, but none was expected. (Note: The name may differ to the one used in your code " &
+      "as multple `geom_*` procedures are mapped to the same kind)")
+
   addIfAny(result[2], getScale(filledScales.color))
   addIfAny(result[2], getScale(filledScales.fill))
   addIfAny(result[2], getScale(filledScales.size))
@@ -113,12 +122,12 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   df.mutateInplace(fns)
 
 proc separateScalesApplyTrafos(
-  df: var DataFrame, gid: uint16,
+  df: var DataFrame, geom: Geom,
   filledScales: FilledScales, yIsNone = false):
     tuple[x: Scale, y: Scale, discretes: seq[Scale], cont: seq[Scale]] =
   # NOTE: if `yIsNone = true` the `y` in the next line will be an empty scale,
   # caller has to be aware of that!
-  let (x, y, scales) = getScales(gid, filledScales, yIsNone = yIsNone)
+  let (x, y, scales) = getScales(geom, filledScales, yIsNone = yIsNone)
   # split by discrete and continuous
   let discretes = scales.filterIt(it.dcKind == dcDiscrete)
   let cont = scales.filterIt(it.dcKind == dcContinuous)
@@ -443,7 +452,7 @@ proc reversed[A, B](t: OrderedTable[A, B]): OrderedTable[A, B] =
 
 proc filledIdentityGeom(df: var DataFrame, g: Geom,
                         filledScales: FilledScales): FilledGeom =
-  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
 
@@ -553,7 +562,7 @@ func getExceptionMessageDiscrete(ax, col: string): string =
 
 proc filledSmoothGeom(df: var DataFrame, g: Geom,
                       filledScales: FilledScales): FilledGeom =
-  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+  let (x, y, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales)
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
 
@@ -677,11 +686,12 @@ proc callHistogram(geom: Geom,
 proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
   let countCol = if g.density: "density" else: CountCol # do not hardcode!
   const widthCol = "binWidths"
-  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales,
                                                              yIsNone = true)
   if x.dcKind == dcDiscrete:
     raise newException(ValueError, "For discrete data columns use `geom_bar` instead!")
+
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   result = FilledGeom(geom: g,
                       xCol: getColName(x),
@@ -695,7 +705,6 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
   # y scale is not defined yet, only use continuous scales too
   result.yScale = encompassingDataScale(cont, akY)
   result.fillOptFields(filledScales, df)
-
   # w/ all groupings
   var style: GgStyle
   for setVal in setDiscCols:
@@ -795,11 +804,12 @@ proc maybeRaise(xCol: string, cont: seq[Scale]) =
     raise newException(ValueError, errMsg)
 
 proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
-  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g.gid,
+  let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales,
                                                              yIsNone = true)
   if x.dcKind == dcContinuous:
     raise newException(ValueError, "For continuous data columns use `geom_histogram` instead!")
+
   let (setDiscCols, mapDiscCols) = splitDiscreteSetMap(df, discretes)
   let xCol = getColName(x)
   result = FilledGeom(geom: g,
