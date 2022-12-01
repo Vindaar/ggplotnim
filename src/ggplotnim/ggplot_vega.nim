@@ -210,9 +210,9 @@ proc toVegaLite*(p: GgPlot, filledScales: FilledScales, theme: Theme,
       mark = genMark(fg, style)
       encoding.encodeGeomSpecifics(fg.geom, subDf)
       var locDf = subDf
-      for sc in scales:
+      for sc in scales: # NOTE: this _also_ returns scales that were used internally like `weight`!
         let scCol = sc.getValidColName()
-        if scCol notin locDf:
+        if scCol notin locDf and scCol in lab:
           locDf[scCol] = lab[scCol].toStr
         if styles.len == 1: # discrete
           for key, val in lab:
