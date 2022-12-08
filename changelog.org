@@ -1,3 +1,5 @@
+* v0.5.9
+- update ~seqmath~ dependency to ~v0.1.16~, ref issue #163
 * v0.5.8
 - support ~weights~ in ~geom_bar~, previously it was ignored
 * v0.5.7
