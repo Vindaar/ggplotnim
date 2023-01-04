@@ -2571,7 +2571,7 @@ proc determineExistingCombinations(fs: FilledScales,
           result.incl cb
   doAssert result.card <= combinations.len
 
-proc calcFacetViewMap(combLabels: OrderedSet[Value]): Table[Value, int] =
+proc calcFacetViewMap(combLabels: OrderedSet[Value]): OrderedTable[Value, int] =
   var idx = 0
   for cb in combLabels:
     result[cb] = idx
