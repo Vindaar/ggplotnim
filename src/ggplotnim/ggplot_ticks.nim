@@ -313,26 +313,26 @@ proc withoutIdxs[T](s: seq[T], idxs: HashSet[int]): seq[T] =
       result.add x
 
 proc removeTicksWithinSpacing(ticks: var seq[float], tickLabels: var seq[string],
-                              dateSpacing: Duration) =
+                              dateSpacing: Duration, timeZone: TimeZone) =
   ## Remove all ticks that are not `dateSpacing` away from the last tick, so that we have
   ## ticks in a well spaced distance.
   ##
   ## This is the main logic associated to the `dtaFilter` algorithm for determination of
   ## date based tick labels.
   doAssert ticks.len > 0
-  var curDur = ticks[0].int.fromUnix.utc()
+  var curDur = ticks[0].int.fromUnix.inZone(timeZone)
   var lastDist: Duration
   var idxsToDelete = initHashSet[int]()
   # 1. pass over all ticks and compute indices to remove
   for i in 1 ..< ticks.len:         # start at index 1, 0 stored in `curDur`
-    let tpU = ticks[i].int.fromUnix.utc()
+    let tpU = ticks[i].int.fromUnix.inZone(timeZone)
     if abs(tpU - curDur) >= dateSpacing: # cross over point of dateSpacing
       # check whether the last one or this one was closer to `dateSpacing`
       if lastDist < abs((tpU - curDur) - dateSpacing): # keep last one
         idxsToDelete.excl i - 1 # ``exclude`` the last one as it was included last iter!
                                 # else nothing to do, keep current one
         idxsToDelete.incl i     # but remove `i`
-        curDur = ticks[i-1].int.fromUnix.utc() # new start last index
+        curDur = ticks[i-1].int.fromUnix.inZone(timeZone) # new start last index
       else: curDur = tpU        # new start point this index
     else: idxsToDelete.incl i   # else delete index
     lastDist = abs((tpU - curDur) - dateSpacing)
@@ -370,6 +370,7 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
     alignTo = theme.yTicksTextAlign
   # get data for column
   let dateScale = scale.dateScale.get
+  let timeZone = dateScale.timeZone
   var
     tickLabels: seq[string]
     tickPosUnix: seq[float]
@@ -377,41 +378,47 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
   of dtaFilter:
     var data: seq[DateTime]
     if dateScale.isTimestamp:
-      data = p.data[getColName(scale), int].map_inline(x.fromUnix().utc()).toSeq1D
+      data = p.data[getColName(scale), int].map_inline(x.fromUnix().inZone(timeZone)).toSeq1D
     else:
       data = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D
+    let firstTick = data.min
+    let offset = (firstTick - firstTick.format(dateScale.formatString).parse(dateScale.formatString))
     # using date time data, compute the ticks using `formatString`
     tickLabels = data.mapIt(it.format(dateScale.formatString)).deduplicate
     # unique values are now our ticks
     # compute their location
-    tickPosUnix = tickLabels.mapIt(it.parse(dateScale.formatString).toTime.toUnixFloat)
+    tickPosUnix = tickLabels.mapIt((it.parse(dateScale.formatString) + offset).toTime.toUnixFloat)
     # remove those that are too close
-    removeTicksWithinSpacing(tickPosUnix, tickLabels, dateScale.dateSpacing)
+    removeTicksWithinSpacing(tickPosUnix, tickLabels, dateScale.dateSpacing, timeZone)
   of dtaAddDuration:
     var
       firstTick: DateTime
       lastTick: DateTime
     if dateScale.isTimestamp:
-      firstTick = p.data[getColName(scale), int].min.fromUnix().utc()
-      lastTick  = p.data[getColName(scale), int].max.fromUnix().utc()
+      firstTick = p.data[getColName(scale), int].min.fromUnix().inZone(timeZone)
+      lastTick  = p.data[getColName(scale), int].max.fromUnix().inZone(timeZone)
     else:
       # apply `parseDate` and sort the dates. `toSeq1D` required due to tensor `sorted` regression
       let dates = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D.sorted
       firstTick = dates.min
       lastTick  = dates.max
+    let offset = (firstTick - firstTick.format(dateScale.formatString).parse(dateScale.formatString))
     let tickPos = computeTickPosByDateSpacing(firstTick, lastTick,
                                               dateScale.dateSpacing)
+      # make sure we didn't end up with more than we asked for (due to info loss)
+      .filterIt(it >= firstTick and it <= lastTick)
     # using date time data, compute the ticks using `formatString`
     tickLabels = tickPos.mapIt(it.format(dateScale.formatString)).deduplicate
     # unique values are now our ticks
     # compute their location
-    tickPosUnix = tickLabels.mapIt(it.parse(dateScale.formatString).toTime.toUnixFloat)
+    tickPosUnix = tickLabels.mapIt((it.parse(dateScale.formatString) + offset).toTime.toUnixFloat)
   of dtaCustomBreaks:
     tickPosUnix = dateScale.breaks
-    tickLabels = tickPosUnix.mapIt(it.fromUnixFloat.utc().format(dateScale.formatString)).deduplicate
+    tickLabels = tickPosUnix.mapIt(it.fromUnixFloat.inZone(timeZone).format(dateScale.formatString)).deduplicate
     if tickPosUnix.len == 0:
       raise newException(ValueError, "`dateAlgo` is dtaCustomBreaks, but no `breaks` are given " &
         "in the call to `scale_x/y_date`.")
+
   let tickCoord = tickPosUnix.toCoord1D(axKind, scale.dataScale) # convert to coordinates
   let (tickObjs, labObjs) = view.tickLabels(tickCoord, tickLabels, axKind, isSecondary = false,
                                             rotate = rotate,
