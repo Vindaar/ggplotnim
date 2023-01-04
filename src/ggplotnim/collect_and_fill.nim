@@ -9,6 +9,8 @@ import datamancer
 
 import ginger except Scale
 
+const StartHue {.intdefine.} = 15
+
 proc addIdentityData(data: var Column, df: DataFrame, s: Scale) =
   case s.col.kind
   of fkScalar:
@@ -145,7 +147,7 @@ proc fillDiscreteColorScale(scKind: static ScaleKind, vKind: ValueKind, col: For
   else:
     # given colors must be strings
     result.valueMap = initOrderedTable[Value, ScaleValue]()
-    let colorCs = ggColorHue(labelSeq.len)
+    let colorCs = ggColorHue(labelSeq.len, hueStart = StartHue.float)
     for i, k in result.labelSeq:
       # NOTE: workaround, since we cannot do `kind: sckind` atm
       var color: Color
