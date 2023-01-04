@@ -1,3 +1,12 @@
+* v0.5.10
+- add ~timeZone~ option to ~scale_*_date~
+  This adds a ~TimeZone~ field to the date scales and uses it to set the
+  labels for them. Further, it fixes a few small issues with the date
+  algorithms and how they assign the formatting to the correct dates.
+- make legend markers reflect usage of markers beyond
+  ~geom_point~. Also supports lines and tiles now.
+- fixes an issue with facet plots containing a discrete scale causing
+  a runtime error trying to compute margin ranges
 * v0.5.9
 - update ~seqmath~ dependency to ~v0.1.16~, ref issue #163
 * v0.5.8
