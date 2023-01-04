@@ -15,11 +15,11 @@ const PointDefaultStyle = Style(size: 3.0,
                                 marker: mkCircle,
                                 color: black,
                                 fillColor: black)
-const LineDefaultStyle = Style(lineWidth: 1.0,
-                               lineType: ltSolid,
-                               size: 5.0, # used to draw error bar 'T' horizontal
-                               color: grey20,
-                               fillColor: transparent)
+const LineDefaultStyle* = Style(lineWidth: 1.0,
+                                lineType: ltSolid,
+                                size: 5.0, # used to draw error bar 'T' horizontal
+                                color: grey20,
+                                fillColor: transparent)
 const SmoothDefaultStyle = Style(lineWidth: 2.0,
                                  lineType: ltSolid,
                                  size: 5.0, # used to draw error bar 'T' horizontal
@@ -29,7 +29,7 @@ const BarDefaultStyle = Style(lineWidth: 1.0,
                               lineType: ltSolid,
                               color: grey20,
                               fillColor: grey20)
-const HistoDefaultStyle = Style(lineWidth: 0.2,
+const HistoDefaultStyle* = Style(lineWidth: 0.2,
                                 lineType: ltSolid,
                                 color: grey20,
                                 fillColor: grey20)
