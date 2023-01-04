@@ -2715,6 +2715,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     var viewLabel = view[idx]
     ## perform steps only required `once` for each label
     # create the layout for a facet + header
+    ## XXX: make ratio of plot to header adjustable
+    # viewLabel.layout(1, 2, rowHeights = @[quant(0.075, ukRelative), quant(0.925, ukRelative)],
     viewLabel.layout(1, 2, rowHeights = @[quant(0.1, ukRelative), quant(0.9, ukRelative)],
                      margin = quant(0.01, ukRelative))
     var headerView = viewLabel[0]
