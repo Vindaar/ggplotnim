@@ -2640,7 +2640,7 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
     # find the correct DF in the `yieldData` table for this label
     let labDf = fg.find(label)
-    if facet.sfKind in {sfFreeX, sfFree}:
+    if facet.sfKind in {sfFreeX, sfFree} and fg.dcKindX == dcContinuous:
       let xScale = calcScale(labDf, fg.xCol)
       # only change the scale, if it's not high == low
       if xScale.low != xScale.high:
@@ -2648,7 +2648,7 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
       else:
         # base on filled geom's scale instead
         theme.xMarginRange = calculateMarginRange(theme, fg.xScale, akX)
-    if facet.sfKind in {sfFreeY, sfFree}:
+    if facet.sfKind in {sfFreeY, sfFree} and fg.dcKindY == dcContinuous:
       let yScale = calcScale(labDf, fg.yCol)
       # only change the scale, if it's not high == low
       if yScale.low != yScale.high:
