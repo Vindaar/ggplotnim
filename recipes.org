@@ -988,7 +988,7 @@ for scale in [viridis(), magma(), plasma(), inferno()]:
     ylim(0, 5) +   # due to our weird data (height deduced as 1, set correct limits)
     theme_void() + # no scales
     hideLegend() + # no legend
-    margin(bottom = 0.3, right = 0.3) + # set small margin left / bottom 
+    margin(top = 1, bottom = 0.3, right = 0.3) + # set small margin left / bottom 
     ggtitle("Colorscale: " & $scale.name) 
 # now create a multi plot of all of them
 ggmulti(plts, "media/recipes/rColormaps.png", widths = @[600], heights = @[150, 150, 150, 150],
@@ -2057,7 +2057,7 @@ ggplot(df, aes("bins", "counts", fill = "Run")) +
   geom_freqpoly(stat = "identity", color = "white",
                 size = 3.0) +
   xlab("gaussSigma") + ylab("Counts") +
-  margin(top = 3, right = 2.5) +
+  margin(top = 3, right = 2.5, bottom = 2) +
   theme_void("black") + hideLegend() +
   ggsave("media/recipes/rRidgeLineGaussBlack.png", width = 1200, height = 1200)
 #+end_src
@@ -2075,7 +2075,7 @@ ggplot(df, aes("bins", "counts")) +
   ggridges("Run", overlap = 3.0) +
   geom_freqpoly(stat = "identity", color = "white",
                 size = 2.0) +
-  margin(top = 3, right = 2.5) +
+  margin(top = 3, right = 2.5, bottom = 2) +
   theme_void("black") + hideLegend() +
   ggsave("media/recipes/rJoyplot.png", width = 1200, height = 1200)
 #+end_src
