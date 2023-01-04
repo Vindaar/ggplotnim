@@ -1451,10 +1451,12 @@ proc ggtitle*(title: string, subTitle = "",
     result.subTitleFont = some(subTitleFont)
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale,
-                           accessIdx: Option[seq[int]]): seq[GraphObject]
+                           accessIdx: Option[seq[int]],
+                           geomKind: GeomKind): seq[GraphObject]
 proc genDiscreteLegend(view: var Viewport,
                        cat: Scale,
-                       accessIdx: Option[seq[int]]) =
+                       accessIdx: Option[seq[int]],
+                       geomKind: GeomKind) =
   # TODO: add support for legend font in Theme / `let label` near botton!
   # _______________________
   # |   | Headline        |
@@ -1464,7 +1466,7 @@ proc genDiscreteLegend(view: var Viewport,
   # |   |     |cm| leg.   |
   # |   |     |  | labels |
   # -----------------------
-  let markers = view.generateLegendMarkers(cat, accessIdx)
+  let markers = view.generateLegendMarkers(cat, accessIdx, geomKind)
   let numElems = cat.valueMap.len
   view.layout(2, 2,
               colWidths = @[quant(0.5, ukCentimeter), # for space to plot
@@ -1501,13 +1503,6 @@ proc genDiscreteLegend(view: var Viewport,
                                style = some(style),
                                name = "markerRectangle")
     # add marker ontop of rect
-    ## TODO: choose marker type based on geom!
-    let point = legBox.initPoint(Coord(x: c1(0.5),
-                                       y: c1(0.5)),
-                                 marker = markers[j].ptMarker,
-                                 size = markers[j].ptSize,
-                                 color = markers[j].ptColor,
-                                 name = "markerPoint")
     var labelText = ""
     case cat.scKind
     of scColor, scFillColor, scShape, scSize:
@@ -1523,7 +1518,7 @@ proc genDiscreteLegend(view: var Viewport,
       alignKind = taLeft,
       name = "markerText"
     )
-    legBox.addObj [rect, point]
+    legBox.addObj [rect, markers[j]]
     legLabel.addObj label
     leg[i] = legBox
     leg[i + 2] = legLabel
@@ -1532,7 +1527,8 @@ proc genDiscreteLegend(view: var Viewport,
 
 proc genContinuousLegend(view: var Viewport,
                          cat: Scale,
-                         accessIdx: Option[seq[int]]) =
+                         accessIdx: Option[seq[int]],
+                         geomKind: GeomKind) =
   case cat.scKind
   of scSize:
     view.layout(1, rows = 5 + 1)
@@ -1558,7 +1554,7 @@ proc genContinuousLegend(view: var Viewport,
                                        quant(0.0, ukRelative)])
     var legGrad = legView[0]
     # add markers
-    let markers = legGrad.generateLegendMarkers(cat, accessIdx)
+    let markers = legGrad.generateLegendMarkers(cat, accessIdx, geomKind)
     legGrad.addObj markers
     let cmap = cat.colorScale
     let colors = cmap.colors.mapIt(it.toColor)
@@ -1577,16 +1573,17 @@ proc genContinuousLegend(view: var Viewport,
 
 proc createLegend(view: var Viewport,
                   cat: Scale,
-                  accessIdx: Option[seq[int]]) =
+                  accessIdx: Option[seq[int]],
+                  geomKind: GeomKind) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
   case cat.dcKind
   of dcDiscrete:
-    view.genDiscreteLegend(cat, accessIdx)
+    view.genDiscreteLegend(cat, accessIdx, geomKind)
   of dcContinuous:
     # for now 5 sizes...
-    view.genContinuousLegend(cat, accessIdx)
+    view.genContinuousLegend(cat, accessIdx, geomKind)
 
   # get the first viewport for the header
   if startIdx < view.len:
@@ -2212,7 +2209,8 @@ proc createLayout(view: var Viewport,
 
 proc generateLegendMarkers(plt: Viewport,
                            scale: Scale,
-                           accessIdx: Option[seq[int]]): seq[GraphObject] =
+                           accessIdx: Option[seq[int]],
+                           geomKind: GeomKind): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
   ## TODO: add different objects to be shown depending on the scale and geom.
   ## E.g. in case of `fill` fill the whole rectangle with the color. In case
@@ -2228,26 +2226,70 @@ proc generateLegendMarkers(plt: Viewport,
     of scColor, scFillColor:
       for i in idx:
         let color = scale.getValue(scale.getLabelKey(i)).color
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = mkCircle,
-                             color = color,
-                             name = $scale.getLabelKey(i)) # assign same marker as above
-
+        case geomKind
+        of gkLine:
+          var st = LineDefaultStyle
+          st.color = color
+          st.lineWidth = 2.0
+          result.add initLine(plt,
+                              c(0.0, 0.5), c(1.0, 0.5),
+                              style = some(st),
+                              name = $scale.getLabelKey(i)) # assign same marker as above
+        of gkTile:
+          var st = HistoDefaultStyle
+          st.color = color
+          st.fillColor = color
+          result.add initRect(plt,
+                              c(0.0, 0.0), quant(1.0, ukRelative), quant(1.0, ukRelative),
+                              style = some(st),
+                              name = $scale.getLabelKey(i)) # assign same marker as above
+        else: # of gkPoint:
+          result.add initPoint(plt,
+                               c(0.5, 0.5), # dummy coordinates
+                               marker = mkCircle,
+                               color = color,
+                               name = $scale.getLabelKey(i)) # assign same marker as above
     of scShape:
       for i in idx:
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = scale.getValue(scale.getLabelKey(i)).marker,
-                             name = $scale.getLabelKey(i))
+        case geomKind
+        of gkLine:
+          var st = LineDefaultStyle
+          st.lineWidth = 3.0
+          st.lineType = scale.getValue(scale.getLabelKey(i)).lineType
+          result.add initLine(plt,
+                              c(0.0, 0.5), c(1.0, 0.5),
+                              style = some(st),
+                              name = $scale.getLabelKey(i)) # assign same marker as above
+        else: # of gkPoint:
+          result.add initPoint(plt,
+                               c(0.5, 0.5), # dummy coordinates
+                               marker = scale.getValue(scale.getLabelKey(i)).marker,
+                               name = $scale.getLabelKey(i))
     of scSize:
       for i in idx:
         let size = scale.getValue(scale.getLabelKey(i)).size
-        result.add initPoint(plt,
-                             (0.0, 0.0), # dummy coordinates
-                             marker = mkCircle,
-                             size = size,
-                             name = $scale.getLabelKey(i))
+        case geomKind
+        of gkLine:
+          var st = LineDefaultStyle
+          st.lineWidth = size
+          result.add initLine(plt,
+                              c(0.0, 0.5), c(1.0, 0.5),
+                              style = some(st),
+                              name = $scale.getLabelKey(i)) # assign same marker as above
+        ## XXX:  collect all sizes in a loop first & then adjust all sizes in relative.
+        ## starting from center and take % away from left / bottom / width / height
+        #of gkTile:
+        #  var st = HistoDefaultStyle
+        #  result.add initRecangle(plt,
+        #                          c(0.0, 0.0), quant(1.0, ukRelative), quant(1.0, ukRelative),
+        #                          style = some(st))
+        else: # of gkPoint:
+          result.add initPoint(plt,
+                               c(0.5, 0.5), # dummy coordinates
+                               marker = mkCircle,
+                               size = size,
+                               name = $scale.getLabelKey(i))
+
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $scale.scKind)
   of dcContinuous:
@@ -2951,14 +2993,15 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
 
   # draw legends
   # store each type of drawn legend. only one type for each kind
-  var drawnLegends = initHashSet[(DiscreteKind, ScaleKind)]()
+  var drawnLegends = initHashSet[(DiscreteKind, ScaleKind, string)]()
   ## TODO: consider if this is such a stable thing to do. Useful for now.
   var scaleNames = initHashSet[string]()
   var legends: seq[Viewport]
   for scale in enumerateScalesByIds(filledScales):
+    let scaleCol = evaluate(scale.col).toStr
     if theme.hideLegend.isNone and
        scale.scKind notin {scLinearData, scTransformedData} and
-       (scale.dcKind, scale.scKind) notin drawnLegends:
+       (scale.dcKind, scale.scKind, scaleCol) notin drawnLegends:
       # create deep copy of the original legend pane
       var lg: Viewport
       when defined(gcDestructors):
@@ -2966,11 +3009,22 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
         lg[] = img[5][]
       else:
         lg = deepCopy(img[5])
-      lg.createLegend(scale, theme.legendOrder)
-      let scaleCol = evaluate(scale.col).toStr
+
+      ## XXX: need to look up the geom based on the geom ID. Then
+      ## hand the geom kind to create legend
+      let geomKind = block:
+        var kind: GeomKind
+        for g in p.geoms:
+          if g.gid in scale.ids:
+            kind = g.kind
+            break
+        kind
+      ## XXX: not only hand geom kind, but also the used setting, e.g. the marker style if constant
+      ## or a constant color
+      lg.createLegend(scale, theme.legendOrder, geomKind)
       if scaleCol notin scaleNames:
         legends.add lg
-        drawnLegends.incl (scale.dcKind, scale.scKind)
+        drawnLegends.incl (scale.dcKind, scale.scKind, scaleCol)
       scaleNames.incl scaleCol
 
   # now create final legend
