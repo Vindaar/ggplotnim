@@ -2998,15 +2998,25 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
 
   # draw legends
   # store each type of drawn legend. only one type for each kind
-  var drawnLegends = initHashSet[(DiscreteKind, ScaleKind, string)]()
+  var drawnLegends = initHashSet[(DiscreteKind, ScaleKind, GeomKind)]()
   ## TODO: consider if this is such a stable thing to do. Useful for now.
   var scaleNames = initHashSet[string]()
   var legends: seq[Viewport]
   for scale in enumerateScalesByIds(filledScales):
     let scaleCol = evaluate(scale.col).toStr
+    ## XXX: need to look up the geom based on the geom ID. Then
+    ## hand the geom kind to create legend
+    let geomKind = block:
+      var kind: GeomKind
+      for g in p.geoms:
+        if g.gid in scale.ids:
+          kind = g.kind
+          break
+      kind
+
     if theme.hideLegend.isNone and
        scale.scKind notin {scLinearData, scTransformedData} and
-       (scale.dcKind, scale.scKind, scaleCol) notin drawnLegends:
+       (scale.dcKind, scale.scKind, geomKind) notin drawnLegends:
       # create deep copy of the original legend pane
       var lg: Viewport
       when defined(gcDestructors):
@@ -3015,21 +3025,12 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
       else:
         lg = deepCopy(img[5])
 
-      ## XXX: need to look up the geom based on the geom ID. Then
-      ## hand the geom kind to create legend
-      let geomKind = block:
-        var kind: GeomKind
-        for g in p.geoms:
-          if g.gid in scale.ids:
-            kind = g.kind
-            break
-        kind
       ## XXX: not only hand geom kind, but also the used setting, e.g. the marker style if constant
       ## or a constant color
       lg.createLegend(scale, theme.legendOrder, geomKind)
       if scaleCol notin scaleNames:
         legends.add lg
-        drawnLegends.incl (scale.dcKind, scale.scKind, scaleCol)
+        drawnLegends.incl (scale.dcKind, scale.scKind, geomKind)
       scaleNames.incl scaleCol
 
   # now create final legend
