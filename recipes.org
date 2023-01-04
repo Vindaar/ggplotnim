@@ -2246,6 +2246,7 @@ ggplot(elements, aes("x", "y", fill = "metal")) +
             font = font(9.0, color = color(0.5, 0.5, 0.5))) +
   legendPosition(0.82, 0.1) +
   theme_void() +
+  margin(right = 5, bottom = 2) + # adjust margin as `theme_void` implies tight margins
   scale_y_reverse() +
   scale_x_continuous() +
   ggsave("media/recipes/rPeriodicTable.png",
