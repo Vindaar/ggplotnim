@@ -2924,7 +2924,7 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   else:
     # user is manually wrapping and responsible
     discard
-
+  # NOTE: on the TikZ backend `0.7` works better. Make adjustable?
   let titleObj = view.initMultiLineText(c(0.0, 0.9),
                                         title,
                                         textKind = goText,
