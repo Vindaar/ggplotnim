@@ -2161,14 +2161,17 @@ proc initThemeMarginLayout(theme: Theme,
           elif tightLayout: quant(0.2, ukCentimeter)
           else: quant(2.5, ukCentimeter),
     right: if theme.plotMarginRight.isSome: theme.plotMarginRight.get
+           elif tightLayout: quant(0.2, ukCentimeter)
            elif requiresLegend: quant(5.0, ukCentimeter)
            else: quant(1.0, ukCentimeter),
     top: if theme.plotMarginTop.isSome: theme.plotMarginTop.get
          # this is not really a good solution. Legacy. Should depend on whether
          # there is a title instead!
+         elif tightLayout: quant(0.2, ukCentimeter)
          elif requiresLegend: quant(1.25, ukCentimeter)
          else: quant(1.0, ukCentimeter),
     bottom: if theme.plotMarginBottom.isSome: theme.plotMarginBottom.get
+            elif tightLayout: quant(0.2, ukCentimeter)
             else: quant(2.0, ukCentimeter),
     requiresLegend: requiresLegend
   )
