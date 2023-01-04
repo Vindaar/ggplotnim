@@ -1002,7 +1002,8 @@ proc scale_x_date*[T: seq[SomeNumber]](
     parseDate: proc(x: string): DateTime = nil, # else it should be a string
     formatString: string = "yyyy-MM-dd",
     dateSpacing: Duration = initDuration(days = 1),
-    dateAlgo: DateTickAlgorithmKind = dtaFilter): DateScale =
+    dateAlgo: DateTickAlgorithmKind = dtaFilter,
+    timeZone: TimeZone = utc()): DateScale =
   ## Creates a continuous `x` axis that generates labels according to the desired date time
   ## information.
   ##
@@ -1033,6 +1034,9 @@ proc scale_x_date*[T: seq[SomeNumber]](
   ## these. The next matching date based on the `formatString` is used. This does not handle
   ## rounding of dates well (4 weeks =~= 1 month will produce mismatches at certain points
   ## for example), but should be more robust.
+  ##
+  ## The `timeZone` can be given for the case where the input is a timestamp. It will then be used
+  ## to convert the given input timestamps according to the given timezone.
   # NOTE: because we add this to every linear scale, we can use this in post processing to
   # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
   if not isTimestamp and parseDate.isNil:
@@ -1045,7 +1049,8 @@ proc scale_x_date*[T: seq[SomeNumber]](
                      parseDate: parseDate,
                      formatString: formatString,
                      dateSpacing: dateSpacing,
-                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks)
+                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks,
+                     timeZone: timeZone)
 
 proc scale_y_date*[T: seq[SomeNumber]](
     name: string = "",
@@ -1054,7 +1059,8 @@ proc scale_y_date*[T: seq[SomeNumber]](
     parseDate: proc(x: string): DateTime = nil, # else it should be a string
     formatString: string = "yyyy-MM-dd",
     dateSpacing: Duration = initDuration(days = 1),
-    dateAlgo: DateTickAlgorithmKind = dtaFilter): DateScale =
+    dateAlgo: DateTickAlgorithmKind = dtaFilter,
+    timeZone: TimeZone = utc()): DateScale =
   ## Creates a continuous `y` axis that generates labels according to the desired date time
   ## information.
   ##
@@ -1085,6 +1091,9 @@ proc scale_y_date*[T: seq[SomeNumber]](
   ## these. The next matching date based on the `formatString` is used. This does not handle
   ## rounding of dates well (4 weeks =~= 1 month will produce mismatches at certain points
   ## for example), but should be more robust.
+  ##
+  ## The `timeZone` can be given for the case where the input is a timestamp. It will then be used
+  ## to convert the given input timestamps according to the given timezone.
   # NOTE: because we add this to every linear scale, we can use this in post processing to
   # parse string based dates into unix timestamps with a simple check on `scale.dateScale.isSome`
   if not isTimestamp and parseDate.isNil:
@@ -1097,7 +1106,8 @@ proc scale_y_date*[T: seq[SomeNumber]](
                      parseDate: parseDate,
                      formatString: formatString,
                      dateSpacing: dateSpacing,
-                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks)
+                     dateAlgo: if breaks.len == 0: dateAlgo else: dtaCustomBreaks,
+                     timeZone: timeZone)
 
 proc scale_y_continuous*[
   P: PossibleSecondaryAxis,

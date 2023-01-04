@@ -129,6 +129,7 @@ type
     formatString*: string ## the string to format dates with
     dateSpacing*: Duration ## required duration between two ticks
     dateAlgo*: DateTickAlgorithmKind ## See enum description above
+    timeZone*: TimeZone ## relevant if input data is a timestamp.
 
   ## Missing is a helper object to identify "no value was given" to arguments to
   ## `geom_*`. This helps us avoid the need of `some(...)` (using `Option[T]` arguments).
