@@ -16,7 +16,7 @@ for scale in [viridis(), magma(), plasma(), inferno()]:
     ylim(0, 5) +   # due to our weird data (height deduced as 1, set correct limits)
     theme_void() + # no scales
     hideLegend() + # no legend
-    margin(bottom = 0.3, right = 0.3) + # set small margin left / bottom 
+    margin(top = 1, bottom = 0.3, right = 0.3) + # set small margin left / bottom 
     ggtitle("Colorscale: " & $scale.name) 
 # now create a multi plot of all of them
 ggmulti(plts, "media/recipes/rColormaps.png", widths = @[600], heights = @[150, 150, 150, 150],
