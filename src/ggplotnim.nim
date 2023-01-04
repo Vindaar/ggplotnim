@@ -1472,7 +1472,8 @@ proc genDiscreteLegend(view: var Viewport,
               colWidths = @[quant(0.5, ukCentimeter), # for space to plot
                             quant(0.0, ukRelative)], # for legend. incl header
               rowHeights = @[quant(1.0, ukCentimeter), # for header
-                             quant(1.05 * numElems.float, ukCentimeter)]) # for act. legend
+                             quant(1.05 * numElems.float, ukCentimeter)],
+              ignoreOverflow = true) # for act. legend
   # now set the `height` according to the real legend height. This important
   # to get proper alignment of the scale / multiple scales in `finalizeLegend`!
   view.height = quant(1.0 + 1.05 * numElems.float, ukCentimeter)
