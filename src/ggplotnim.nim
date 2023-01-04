@@ -1516,6 +1516,7 @@ proc genDiscreteLegend(view: var Viewport,
       labelText,
       textKind = goText,
       alignKind = taLeft,
+      #font = some(font(10.0)), ## XXX: make `Theme` element!
       name = "markerText"
     )
     legBox.addObj [rect, markers[j]]
@@ -1595,6 +1596,7 @@ proc createLegend(view: var Viewport,
       evaluate(cat.col).toStr,
       textKind = goText,
       alignKind = taLeft,
+      #font = some(font(10.0)), ## XXX: make `Theme` element!
       name = "legendHeader")
     # set to bold
     label.txtFont.bold = true
