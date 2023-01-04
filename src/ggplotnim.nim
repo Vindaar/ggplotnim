@@ -2242,12 +2242,12 @@ proc generateLegendMarkers(plt: Viewport,
           st.color = color
           st.fillColor = color
           result.add initRect(plt,
-                              c(0.0, 0.0), quant(1.0, ukRelative), quant(1.0, ukRelative),
+                              c(0.05, 0.05), quant(0.9, ukRelative), quant(0.9, ukRelative),
                               style = some(st),
                               name = $scale.getLabelKey(i)) # assign same marker as above
         else: # of gkPoint:
           result.add initPoint(plt,
-                               c(0.5, 0.5), # dummy coordinates
+                               c(0.5, 0.5),
                                marker = mkCircle,
                                color = color,
                                name = $scale.getLabelKey(i)) # assign same marker as above
@@ -2264,7 +2264,7 @@ proc generateLegendMarkers(plt: Viewport,
                               name = $scale.getLabelKey(i)) # assign same marker as above
         else: # of gkPoint:
           result.add initPoint(plt,
-                               c(0.5, 0.5), # dummy coordinates
+                               c(0.5, 0.5),
                                marker = scale.getValue(scale.getLabelKey(i)).marker,
                                name = $scale.getLabelKey(i))
     of scSize:
@@ -2278,8 +2278,8 @@ proc generateLegendMarkers(plt: Viewport,
                               c(0.0, 0.5), c(1.0, 0.5),
                               style = some(st),
                               name = $scale.getLabelKey(i)) # assign same marker as above
-        ## XXX:  collect all sizes in a loop first & then adjust all sizes in relative.
-        ## starting from center and take % away from left / bottom / width / height
+        # XXX:  collect all sizes in a loop first & then adjust all sizes in relative.
+        # starting from center and take % away from left / bottom / width / height
         #of gkTile:
         #  var st = HistoDefaultStyle
         #  result.add initRecangle(plt,
@@ -2287,7 +2287,7 @@ proc generateLegendMarkers(plt: Viewport,
         #                          style = some(st))
         else: # of gkPoint:
           result.add initPoint(plt,
-                               c(0.5, 0.5), # dummy coordinates
+                               c(0.5, 0.5),
                                marker = mkCircle,
                                size = size,
                                name = $scale.getLabelKey(i))
