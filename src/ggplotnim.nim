@@ -1003,7 +1003,7 @@ proc scale_x_date*[T: seq[SomeNumber]](
     formatString: string = "yyyy-MM-dd",
     dateSpacing: Duration = initDuration(days = 1),
     dateAlgo: DateTickAlgorithmKind = dtaFilter,
-    timeZone: TimeZone = utc()): DateScale =
+    timeZone: Timezone = utc()): DateScale =
   ## Creates a continuous `x` axis that generates labels according to the desired date time
   ## information.
   ##
@@ -1060,7 +1060,7 @@ proc scale_y_date*[T: seq[SomeNumber]](
     formatString: string = "yyyy-MM-dd",
     dateSpacing: Duration = initDuration(days = 1),
     dateAlgo: DateTickAlgorithmKind = dtaFilter,
-    timeZone: TimeZone = utc()): DateScale =
+    timeZone: Timezone = utc()): DateScale =
   ## Creates a continuous `y` axis that generates labels according to the desired date time
   ## information.
   ##

@@ -313,7 +313,7 @@ proc withoutIdxs[T](s: seq[T], idxs: HashSet[int]): seq[T] =
       result.add x
 
 proc removeTicksWithinSpacing(ticks: var seq[float], tickLabels: var seq[string],
-                              dateSpacing: Duration, timeZone: TimeZone) =
+                              dateSpacing: Duration, timeZone: Timezone) =
   ## Remove all ticks that are not `dateSpacing` away from the last tick, so that we have
   ## ticks in a well spaced distance.
   ##
