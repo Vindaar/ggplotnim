@@ -36,7 +36,6 @@ proc scaleFromData*(c: Column, s: Scale, ignoreInf: static bool = true): ginger.
     # for a constant it can be valid, as long as the value is int / float
     let cVal = c.cCol
     if cVal.kind in {VInt, VFloat}:
-      echo cVal
       result = (low: cVal.toFloat, high: cVal.toFloat)
     else:
       raise newException(ValueError, "The input column `" & $s.col & "` is constant " &
