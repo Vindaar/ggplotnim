@@ -449,6 +449,7 @@ type
     text*: string
     font*: Font
     rotate*: Option[float]
+    alignKind*: TextAlignKind
     backgroundColor*: Color
 
   GgPlot* = object

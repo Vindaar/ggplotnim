@@ -11,7 +11,7 @@ export ginger.types
 
 from seqmath import linspace
 
-## ggplotnim continues to make the dataframe available of course
+# ggplotnim continues to make the dataframe available of course
 import datamancer
 export datamancer
 
@@ -1938,7 +1938,8 @@ proc annotate*(text: string,
                y = NaN,
                font = font(12.0),
                rotate = 0.0,
-               backgroundColor = white): Annotation =
+               backgroundColor = white,
+               alignKind = taLeft): Annotation =
   ## creates an annotation of `text` with a background
   ## `backgroundColor` (by default white) using the given
   ## `font`. Line breaks are supported.
@@ -1962,6 +1963,7 @@ proc annotate*(text: string,
                       text: text,
                       font: font,
                       rotate: some(rotate),
+                      alignKind: alignKind,
                       backgroundColor: backgroundColor)
   if result.x.isNone and result.left.isNone or
      result.y.isNone and result.bottom.isNone:
@@ -2895,7 +2897,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       origin = c(left, bottom),
       text = annot.text,
       textKind = goText,
-      alignKind = taLeft,
+      alignKind = annot.alignKind,
       rotate = annot.rotate,
       fontOpt = some(annot.font))
     if not annotRect.isNil:
