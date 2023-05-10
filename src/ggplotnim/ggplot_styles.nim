@@ -20,6 +20,11 @@ const LineDefaultStyle* = Style(lineWidth: 1.0,
                                 size: 5.0, # used to draw error bar 'T' horizontal
                                 color: grey20,
                                 fillColor: transparent)
+const DensityDefaultStyle* = Style(lineWidth: 1.0,
+                                   lineType: ltSolid,
+                                   size: 5.0, # used to draw error bar 'T' horizontal
+                                   color: grey20,
+                                   fillColor: transparent)
 const SmoothDefaultStyle = Style(lineWidth: 2.0,
                                  lineType: ltSolid,
                                  size: 5.0, # used to draw error bar 'T' horizontal
@@ -53,6 +58,7 @@ func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
   of gkLine, gkFreqPoly, gkErrorBar:
     case statKind
     of stSmooth: result = SmoothDefaultStyle
+    of stDensity: result = DensityDefaultStyle
     else: result = LineDefaultStyle
   of gkBar:
     result = BarDefaultStyle

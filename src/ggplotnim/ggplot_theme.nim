@@ -82,8 +82,9 @@ func labelName(filledScales: FilledScales, p: GgPlot, axKind: AxisKind): string 
     else:
       ## TODO: make this nicer by having a better approach to propagate
       ## the density information from geoms to here!
-      result = if filledScales.geoms.anyIt(it.geom.statKind == stBin and
-                                           it.geom.density):
+      result = if filledScales.geoms.anyIt(it.geom.statKind == stDensity or
+                                           (it.geom.statKind == stBin and
+                                            it.geom.density)):
                  "density"
                else:
                  "count"

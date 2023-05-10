@@ -49,10 +49,11 @@ type
     pkFill = "fill"
 
   StatKind* = enum
-    stIdentity = "identity"
-    stCount = "count"
-    stBin = "bin"
-    stSmooth = "smooth"
+    stIdentity = "identity" # use data as is
+    stCount = "count"       # simple counting of discrete cases
+    stBin = "bin"           # binning into a histogram / freqPoly
+    stSmooth = "smooth"     # smoothing via Savitzky-Golay filter
+    stDensity = "density"   # density estimation via Kernel Density Estimation (TODO: selection of kernel)
     # and more to be added...
 
   DiscreteKind* = enum
@@ -357,6 +358,14 @@ type
       span*: float                  ## The window width we use to compute the smoothed output
       polyOrder*: int               ## Polynomial order to use for SVG filter
       methodKind*: SmoothMethodKind ## The method to use for smoothing (Savitzky-Golay, LM)
+    of stDensity:
+      bandwidth*: float      ## bandwidth to use. By default determined via Silverman's rule of thumb
+      adjust*: float         ## multiplicative adjustment of the auto determined bandwidth
+      kernel*: string        ## kernel to use for the KDE
+      samples*: int          ## number of samples to use (optional, default = 1000)
+      sampleSeq*: seq[float] ## sequence of where to sample the data (optional)
+      range*: tuple[l: float, h: float] ## data range in which to compute the KDE, by default full data range
+      normalize*: bool       ## normalize the resulting KDE or not
     else: discard
 
   ## `OutsideRangeKind` determines what is done to values, which lay outside of the
