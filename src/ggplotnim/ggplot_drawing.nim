@@ -494,8 +494,9 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
   curX = curX + binWidth
   p.x.pos = curX
   result.add p
+  ## XXX: Why don't we reuse the actual positions already in `linePoints`?
   for idx in 1 ..< linePoints.len:
-    binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
+    binWidth = readOrCalcBinWidth(df, idx, fg.xCol, dcKind = fg.dcKindX)
     curP = linePoints[idx]
     curY = curP.y.pos
     p.y.pos = curY
