@@ -43,7 +43,8 @@ const TextDefaultStyle = Style(font: font(12.0),
 
 const DefaultSizeRange* = (low: 2.0, high: 7.0)
 const DefaultAlphaRange* = (low: 0.1, high: 1.0)
-const DefaultColorScale* = viridis()
+## Not a `const`, as that forces us to make color maps const variables too!
+let DefaultColorScale* = viridis()
 
 func defaultStyle(geomKind: GeomKind, statKind: StatKind): Style =
   case geomKind
