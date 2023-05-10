@@ -545,7 +545,6 @@ proc geom_smooth*[
                 methodKind: smKind,
                 span: span,
                 polyOrder: polyOrder)
-
   assignBinFields(result, stSmooth, bins, binWidth, breaks, bbKind, density)
 
 proc geom_histogram*[
@@ -640,6 +639,54 @@ proc geom_freqpoly*[
                 binPosition: bpKind,
                 statKind: stKind)
   assignBinFields(result, stKind, bins, binWidth, breaks, bbKind, density)
+
+proc geom_density*[
+  C: PossibleColor;
+  S: PossibleFloat;
+  LT: PossibleLineType;
+  FC: PossibleColor;
+  A: PossibleFloat](
+    aes: Aesthetics = aes(),
+    data = DataFrame(),
+    color: C = missing(), # color of the line
+    size: S = missing(), # line width of the line
+    lineType: LT = missing(),
+    fillColor: FC = missing(),
+    alpha: A = missing(),
+    kernel = "gauss", ## {"gauss", "box", "triangular", "trigonometric", "epanechnikov"}
+    bandwidth = NaN,
+    adjust = 1.0,
+    samples = 1000,
+    sampleSeq: seq[float] = @[], ## XXX: allow tensor?
+    range = (NegInf, Inf),
+    normalize = false,
+    position = "identity",
+    density = true
+                  ): Geom =
+  let dfOpt = if data.len > 0: some(data.shallowCopy) else: none[DataFrame]()
+  let pkKind = parseEnum[PositionKind](position)
+  # modify `Aesthetics` for all identity scales (column references) & generate style
+  var aes = aes
+  let style = aes.assignIdentityScalesGetStyle(
+    pColor = color, pFillColor = fillColor, pLineWidth = size, pLineType = lineType,
+    pAlpha = alpha
+  )
+  let gid = incId()
+  result = Geom(gid: gid,
+                data: dfOpt,
+                kind: gkLine,
+                aes: aes.fillIds({gid}),
+                userStyle: style,
+                position: pkKind,
+                statKind: stDensity,
+                # density related fields
+                bandwidth: bandwidth,
+                adjust: adjust,
+                normalize: normalize,
+                samples: samples,
+                sampleSeq: sampleSeq,
+                range: range,
+                kernel: kernel)
 
 proc geom_tile*[
   C: PossibleColor;

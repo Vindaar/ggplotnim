@@ -6,6 +6,7 @@ import datamancer
 import ginger except Scale
 
 from seqmath import histogram, linspace, round
+import arraymancer / stats / kde
 
 when not defined(nolapack):
   ## If `nolapack` is defined, smoothing functionality is disabled to not depend on
@@ -635,12 +636,11 @@ proc filledSmoothGeom(df: var DataFrame, g: Geom,
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
-
 proc callHistogram(geom: Geom,
                    df: DataFrame,
                    scale: Scale,
                    weightScale: Option[Scale],
-                   range: ginger.Scale): (seq[float], seq[float], seq[float]) =
+                   range: ginger.Scale): (Tensor[float], Tensor[float], Tensor[float]) =
   ## calls the `histogram` proc taking into account the `geom` fields for
   ## - numBins
   ## - binWidth
@@ -681,10 +681,39 @@ proc callHistogram(geom: Geom,
     binWidths.add binEdges[i+1] - binEdges[i]
   # add one element for `hist` with 0 entries to have hist.len == bin_edges.len
   hist.add 0.0
-  result = (hist, binEdges, binWidths)
+  result = (hist.toTensor, binEdges.toTensor, binWidths.toTensor)
 
-proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
-  let countCol = if g.density: "density" else: CountCol # do not hardcode!
+proc callKde(geom: Geom,
+             df: DataFrame,
+             scale: Scale,
+             weightScale: Option[Scale],
+             range: ginger.Scale): (Tensor[float], Tensor[float]) =
+  ## Calls the `kde` with the appropriate arguments based on the given settings in the `geom`
+  ## from the `geom_density` call.
+  ##
+  ## Returns the KDE'd data and the corresponding sample points.
+  doAssert geom.statKind == stDensity, "Needs to be stat 'density' to perform a KDE."
+  let data = df[getColName(scale), float]
+  var weight = newTensor[float](0)
+  if weightScale.isSome:
+    weight = df[getColName(weightScale.get), float]
+  var sampleSeq = if geom.sampleSeq.len > 0: geom.sampleSeq
+                  elif geom.range != (NegInf, Inf):
+                    linspace(geom.range.l, geom.range.h, geom.samples)
+                  else:
+                    linspace(data.min, data.max, geom.samples)
+  let kdeData = kde(data,
+                    kernel = geom.kernel,
+                    samples = sampleSeq.toTensor,
+                    bw = geom.bandwidth,
+                    adjust = geom.adjust,
+                    normalize = geom.normalize,
+                    weights = weight)
+  result = (kdeData, sampleSeq.toTensor)
+
+proc filledBinDensityGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): FilledGeom =
+  ## Handles binning via `stBin` and density via `stDensity`. Initially only for histograms.
+  let countCol = if g.statKind == stDensity or (g.statKind == stBin and g.density): "density" else: CountCol # do not hardcode!
   const widthCol = "binWidths"
   let (x, _, discretes, cont) = df.separateScalesApplyTrafos(g,
                                                              filledScales,
@@ -719,10 +748,26 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
       # now consider settings
       applyStyle(style, subDf, discretes, keys)
       # before we assign calculate histogram
-      let (hist, bins, _) = g.callHistogram(subDf,
-                                            x,
-                                            weightScale = filledScales.getWeightScale(g),
-                                            range = x.dataScale)
+      var
+        hist: Tensor[float]
+        bins: Tensor[float]
+        binWidth: Tensor[float]
+      case g.statKind
+      of stBin:
+        (hist, bins, binWidth) = g.callHistogram(
+          subDf,
+          x,
+          weightScale = filledScales.getWeightScale(g),
+          range = x.dataScale
+        )
+      of stDensity:
+        (hist, bins) = g.callKde(subDf,
+                                 x,
+                                 weightScale = filledScales.getWeightScale(g),
+                                 range = x.dataScale)
+      else:
+        raise newException(ValueError, "Unexpected stat kind for histograms and density calculations: " & $g.statKind)
+
       ## TODO: Find a nicer solution than this. In this way the `countCol` will always
       ## be a `colObject` column on the arraymancer backend!
       var yieldDf = toDf({ getColName(x) : bins,
@@ -747,7 +792,7 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
         result.xScale = mergeScales(result.xScale,
                                     (low: bins.min.float - binWidth / 2.0,
                                      high: bins.max.float + binWidth / 2.0))
-      else:
+      else: # gkHistogram & gkLine (geom_density)
         result.xScale = mergeScales(result.xScale,
                                     (low: bins.min.float, high: bins.max.float))
 
@@ -755,12 +800,28 @@ proc filledBinGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fill
                                   (low: 0.0, high: col.toTensor(float).max))
   else:
     # before we assign calculate histogram
-    let (hist, bins, binWidths) = g.callHistogram(
-      df,
-      x,
-      weightScale = filledScales.getWeightScale(g),
-      range = x.dataScale
-    )
+    var
+      hist: Tensor[float]
+      bins: Tensor[float]
+      binWidths: Tensor[float]
+    case g.statKind
+    of stBin:
+      (hist, bins, binWidths) = g.callHistogram(
+        df,
+        x,
+        weightScale = filledScales.getWeightScale(g),
+        range = x.dataScale
+      )
+    of stDensity:
+      (hist, bins) = g.callKde(
+        df,
+        x,
+        weightScale = filledScales.getWeightScale(g),
+        range = x.dataScale
+      )
+      binWidths = zeros[float](bins.len)
+    else:
+      raise newException(ValueError, "Unexpected stat kind for histograms and density calculations: " & $g.statKind)
     var yieldDf = toDf({ getColName(x) : bins,
                          countCol: hist,
                          widthCol: binWidths})
@@ -909,7 +970,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
       of stSmooth:
         filledGeom = filledSmoothGeom(df, g, filledScales)
       else:
-        filledGeom = filledBinGeom(df, g, filledScales)
+        filledGeom = filledBinDensityGeom(df, g, filledScales)
     of gkHistogram, gkFreqPoly:
       case g.statKind
       of stIdentity:
@@ -920,7 +981,10 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
                              high: filledGeom.yScale.high)
       of stBin:
         # calculate histogram
-        filledGeom = filledBinGeom(df, g, filledScales)
+        filledGeom = filledBinDensityGeom(df, g, filledScales)
+      of stDensity:
+        # calculate KDE
+        filledGeom = filledBinDensityGeom(df, g, filledScales)
       of stCount:
         raise newException(Exception, "For discrete counts of your data use " &
           "`geom_bar` instead!")
@@ -943,6 +1007,9 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
           "`geom_histogram` instead!")
       of stSmooth:
         raise newException(Exception, "Smoothing statistics not supported for bar plots. Do you want a " &
+          "`density` plot using `geom_density` instead?")
+      of stDensity:
+        raise newException(Exception, "Density statistics not supported for bar plots. Do you want a " &
           "`density` plot using `geom_density` instead?")
     if not xScale.isEmpty:
       xScale = mergeScales(xScale, filledGeom.xScale)
