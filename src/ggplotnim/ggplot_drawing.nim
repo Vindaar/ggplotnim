@@ -330,6 +330,9 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     numX = (width / wv).round.int
     numY = (height / hv).round.int
     cMap = fg.colorScale
+
+  let α = if fg.geom.userstyle.alpha.isSome: fg.geom.userstyle.alpha.get else: 1.0
+  let αU32 = clamp(α * 255.0, 0.0, 255.0).uint32
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
     let xT = df[fg.xCol].toTensor(float)
@@ -343,7 +346,13 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
       var colorIdx = (colorsHigh.float * ((zT[idx] - zScale.low) /
                       (zScale.high - zScale.low))).round.int
       colorIdx = max(0, min(colorsHigh, colorIdx))
-      let cVal = cMap.colors[colorIdx]
+      let mask = 0x00FFFFFF'u32
+      var cVal = cMap.colors[colorIdx]
+      let initial = cVal
+      if cVal > 0'u32: # Only apply possible alpha if any color at all
+        ## Note: Depending on the backend (e.g. for Cairo) we actually have to pre-multiply
+        ## all color channels by the alpha. This is done in each backend in the drawing step.
+        cVal = αU32 shl 24 or (mask and cVal)
       result[((numY - y - 1) * numX) + x] = cVal
 
   template dataC1(at: float, ax: AxisKind): untyped =
