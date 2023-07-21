@@ -156,6 +156,9 @@ proc getArgValue(n: NimNode, arg: string): NimNode =
   of nnkCommand:
     # might be an argument like `fn {someFormula}`
     result = n
+  of nnkPrefix:
+    # might be a string conversion `$foo`
+    result = n
   else:
     error("Invalid value for argument `" & $arg & "`: " & $n.repr & " of node " &
       "kind " & $n.kind)
