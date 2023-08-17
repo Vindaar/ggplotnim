@@ -7,7 +7,10 @@
   ~geom_point~. Also supports lines and tiles now.
 - fixes an issue with facet plots containing a discrete scale causing
   a runtime error trying to compute margin ranges
-- add ~alignKind~ to ~Annotation~, allowing the text to be aligned accordingly
+- add ~alignKind~ to ~Annotation~, allowing the text to be aligned
+  accordingly
+- allow alpha channel in ~geom_raster~
+- allow ~nnkPrefix~ in ~aes~ macro    
 * v0.5.9
 - update ~seqmath~ dependency to ~v0.1.16~, ref issue #163
 * v0.5.8
