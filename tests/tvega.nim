@@ -1,6 +1,6 @@
 import unittest
-import ./ggplotnim
-import ./ggplotnim/ggplot_vega
+import ../src/ggplotnim
+import ../src/ggplotnim/ggplot_vega
 
 suite "Vega-Lite backend":
   let mpg = readCsv("data/mpg.csv")
