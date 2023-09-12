@@ -209,7 +209,7 @@ suite "GgPlot":
 
   test "Plot with continuous color scale":
     let mpg = readCsv("data/mpg.csv")
-    ggplot(mpg, aes("displ", "hwy", color = "cty")) +
+    ggplot(mpg, aes("displ", "hwy", color = "cty"), backend = Backend) +
       geom_point() +
       ggsave("cont_color.pdf")
     # TODO: write an actual test here
@@ -258,7 +258,7 @@ suite "GgPlot":
     let y2 = x.mapIt(pow(it, 4))
     let df = toDf({"x" : x, "xSquare" : y1, "x4" : y2})
     block:
-      let plt = ggplot(df, aes("x", "xSquare")) +
+      let plt = ggplot(df, aes("x", "xSquare"), backend = Backend) +
         geom_line() +
         scale_x_log10()
       check plt.aes.x.isSome
@@ -272,7 +272,7 @@ suite "GgPlot":
 
     # check also applied to another geom added before
     block:
-      let plt = ggplot(df, aes("x", "xSquare")) +
+      let plt = ggplot(df, aes("x", "xSquare"), backend = Backend) +
         geom_line(aes(y = "x4")) +
         geom_point(aes(y = "x4")) +
         scale_y_log10()
@@ -293,7 +293,7 @@ suite "GgPlot":
     # the call to `scale_*` (this is in contrast to `ggplot2` where the
     # order does not matter
     block:
-      let plt = ggplot(df, aes("x", "xSquare")) +
+      let plt = ggplot(df, aes("x", "xSquare"), backend = Backend) +
         scale_x_log10() +
         geom_line(aes(y = "x4"))
       check plt.aes.x.isSome
