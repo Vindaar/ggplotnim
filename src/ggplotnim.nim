@@ -3423,3 +3423,6 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   let plt = p.ggcreate(width = jsDraw.width.get,
                        height = jsDraw.height.get)
   writeFile(jsDraw.fname, json.`$`(% plt.view))
+
+when defined(experimentalSDL2):
+  include ggplotnim/sdl2_backend
