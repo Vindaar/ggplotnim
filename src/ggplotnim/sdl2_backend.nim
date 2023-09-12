@@ -49,6 +49,9 @@ type
     plotHeight: int
     zoomStart: Point
     zoomEnd: Point
+    # sizes of the window, also size of the plot!
+    width: int
+    height: int
 
 proc calcNewScale(orig: float, length: int, startIn, stopIn: float, scale: ginger.Scale): ginger.Scale =
   let start = min(startIn, stopIn).float
@@ -87,7 +90,7 @@ proc renderPlot(ctx: var Context, renderer: RendererPtr, surface: SurfacePtr) =
       ggplt = ggplt + xlim(xScale[0], xScale[1])
     if yScale.high != yScale.low:
       ggplt = ggplt + ylim(yScale[0], yScale[1])
-    let plt = ggcreate(ggplt, 640.0, 480.0)
+    let plt = ggcreate(ggplt, ctx.width, ctx.height)
 
     if not ctx.sizesSet:
       ## 1. get coordinates of the plot viewport by converting `origin` to ukPoint, same width/height
@@ -157,6 +160,10 @@ proc render(ctx: var Context, width, height: int) =
       of WindowEvent:
         freeSurface(window)
         window = sdl2.getsurface(screen)
+        ctx.sizesSet = false # need to re read the sizes!
+        ctx.width = window.w
+        ctx.height = window.h
+        ctx.requireRedraw = true
       of MouseMotion:
         ## for now just take a small fraction of movement as basis
         discard
