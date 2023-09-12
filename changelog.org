@@ -1,4 +1,5 @@
 * v0.5.10
+- add support for ~geom_density~ via arraymancer's KDE implementation  
 - add ~timeZone~ option to ~scale_*_date~
   This adds a ~TimeZone~ field to the date scales and uses it to set the
   labels for them. Further, it fixes a few small issues with the date
@@ -10,7 +11,8 @@
 - add ~alignKind~ to ~Annotation~, allowing the text to be aligned
   accordingly
 - allow alpha channel in ~geom_raster~
-- allow ~nnkPrefix~ in ~aes~ macro    
+- allow ~nnkPrefix~ in ~aes~ macro
+- update ~ginger~ dependence to ~v0.4.3~
 * v0.5.9
 - update ~seqmath~ dependency to ~v0.1.16~, ref issue #163
 * v0.5.8
