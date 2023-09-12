@@ -3199,9 +3199,12 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions,
   ## assigns the correct backend based on filename `fname` and `texOptions`
   result = p
   case backend
-  of bkNone: # no user given backend
-    let fType = parseFilename(fname)
-    result.backend = fType.toBackend(texOptions)
+  of bkNone: # no user given backend?
+    if p.backend != bkNone: # User given to `ggplot()`!
+      result = p.assignBackend(fname, texOptions, p.backend)
+    else: # really no user given
+      let fType = parseFilename(fname)
+      result.backend = fType.toBackend(texOptions)
   else:
     result.backend = backend
 
