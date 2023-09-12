@@ -1,3 +1,17 @@
+* v0.5.11
+This adds a _very experimental and basic_ SDL2 interactive backend.
+
+Simply compile your program with `-d:experimentalSDL2`. It makes
+`ggshow` available (which takes the size of the SDL2 window as
+optional arguments).
+
+It creates an SDL2 window of the plot (and pauses the main
+thread). The only interactivity supported at the moment is zooming
+using the mouse. Click and hold on a rectangle zooms to that rectangle
+and a single click reverts the zoom.
+
+Note: we do not catch exceptions due to invalid data ranges etc at the
+moment. Experiment at your own risk. :)
 * v0.5.10
 - add support for ~geom_density~ via arraymancer's KDE implementation  
 - add ~timeZone~ option to ~scale_*_date~
