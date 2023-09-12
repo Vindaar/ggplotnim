@@ -2,6 +2,7 @@ import ggplotnim, ginger
 import seqmath, sequtils
 import unittest
 
+const Backend = when defined(noCairo): bkDummy else: bkCairo
 
 test "Issue2":
   let xdata = toSeq(0 ..< 2560)
@@ -10,7 +11,7 @@ test "Issue2":
   let plt = ggplot(seqsToDf({ "x" : xdata,
                               "y" : ydata }),
                    aes("x", "y"),
-                   backend = bkCairo) +
+                   backend = Backend) +
     geom_line()
 
   let plotView = plt.ggcreate()

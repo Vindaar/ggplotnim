@@ -29,7 +29,6 @@ task testCI, "Run standard tests w/o cairo dependency":
     exec "nim c -d:noCairo -r tests/tvega.nim"
     exec "nim c -d:noCairo -r tests/test_issue2.nim"
 
-
 task test, "Run standard tests":
   when defined(windows):
     exec "nim c -r -d:lapack=liblapack tests/tests.nim"
