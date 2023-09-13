@@ -192,7 +192,7 @@ proc render(ctx: var Context, width, height: int) =
                                  SDL_WINDOWPOS_UNDEFINED,
                                  SDL_WINDOWPOS_UNDEFINED,
                                  width.cint, height.cint,
-                                 SDL_WINDOW_OPENGL);
+                                 SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE);
   var renderer = sdl2.createRenderer(screen, -1, 1)
   if screen.isNil:
     quit($sdl2.getError())
