@@ -37,23 +37,32 @@ proc draw*(renderer: RendererPtr, sdlSurface: SurfacePtr, view: Viewport, filena
 type
   Context = object
     plt: GgPlot
-    yMax = 0.0
-    xn = 0
-    yn = 0
     sizesSet = false
     requireRedraw = true
+    # the initial scales when the plot is created as is
+    xScaleInit: ginger.Scale
+    yScaleInit: ginger.Scale
+    # the current scales after zooming etc
     xScale: ginger.Scale
     yScale: ginger.Scale
     plotOrigin: Point
     plotWidth: int
     plotHeight: int
-    zoomStart: Point
-    zoomEnd: Point
+    zoomStart: Point # rectangle zoom (right mouse button) from
+    zoomEnd: Point   # rectangle zoom (right mouse button) to
     # sizes of the window, also size of the plot!
     width: int
     height: int
+    # mouse buttons
+    mouseDown = false
+    pan = false # currently panning: left button clicked
+    panTo: Point # panning target
+    mousePos: Point # current mouse position
+    resetZoom = false # reset zoom? -> right button click without movement
+    mouseZoom: int # mouse wheel zoom amount
 
-proc calcNewScale(orig: float, length: int, startIn, stopIn: float, scale: ginger.Scale): ginger.Scale =
+proc zoom(orig: float, length: int, startIn, stopIn: float, scale: ginger.Scale): ginger.Scale =
+  ## Zooms the view.
   let start = min(startIn, stopIn).float
   let stop = max(startIn, stopIn).float
   let length = length.float
@@ -61,56 +70,118 @@ proc calcNewScale(orig: float, length: int, startIn, stopIn: float, scale: ginge
     ## Inside the plot
     let stop = clamp(stop, start, orig + length)
     let rel1 = (start - orig) / length
-    let rel2 = (stop - orig) / length
+    let rel2 = ( stop - orig) / length
     let dif = (scale.high - scale.low)
     result = (low: dif * rel1 + scale.low, high: dif * rel2 + scale.low)
   else:
     result = scale
 
-proc calcNewScale(ctx: Context, axis: AxisKind): ginger.Scale =
-  if ctx.sizesSet and ctx.zoomStart != ctx.zoomEnd:
+proc zoom(ctx: Context, axis: AxisKind): ginger.Scale =
+  case axis
+  of akX: result = zoom(ctx.plotOrigin[0], ctx.plotWidth, ctx.zoomStart[0], ctx.zoomEnd[0], ctx.xScale)
+  of akY:
+    result = zoom(ctx.plotOrigin[1], ctx.plotHeight, ctx.zoomStart[1], ctx.zoomEnd[1], ctx.yScale)
+    # now invert (origin is at top)
+    result = (low: (ctx.yScale.high) - result.high + ctx.yScale.low, high: (ctx.yScale.high) - result.low + ctx.yScale.low)
+
+proc pan(start, stop: float, length: int, scale: ginger.Scale): ginger.Scale =
+  ## Translates the position
+  let scDif = scale.high - scale.low
+  let dif = (start - stop) / length.float * scDif
+  result = (low: scale.low + dif, high: scale.high + dif)
+
+proc pan(ctx: var Context, axis: AxisKind): ginger.Scale =
+  # 1. compute center of current window
+  # 2. compute center of pan target
+  case axis
+  of akX: result = pan(ctx.zoomStart[0], ctx.panTo[0], ctx.plotWidth, ctx.xScale)
+  # invert arguments as we move in opposite direction
+  of akY: result = pan(ctx.panTo[1], ctx.zoomStart[1], ctx.plotHeight, ctx.yScale)
+
+const ZoomFactor {.intdefine.} = 10 # 5 %
+proc mouseZoom(ctx: var Context, axis: AxisKind): ginger.Scale =
+  let zoomFactor = ctx.mouseZoom.float * (ZoomFactor.float / 100.0)
+  # 1. pan to the point where the mouse is
+  let start = (ctx.plotOrigin[0] + ctx.plotWidth.float / 2.0, ctx.plotOrigin[1] + ctx.plotHeight.float / 2.0)
+  ctx.panTo = start
+  ctx.zoomStart = ctx.mousePos
+  case axis
+  of akX:
+    ctx.xScale = ctx.pan(axis) # pan
+    # 2. perform the zoom
+    let scDif = (ctx.xScale.high - ctx.xScale.low)
+    let zoomDif = scDif * (zoomFactor)
+    ctx.xScale = (low: ctx.xScale.low + zoomDif / 2.0, high: ctx.xScale.high - zoomDif / 2.0)
+  of akY:
+    ctx.yScale = ctx.pan(axis) # pan
+    # 2. perform the zoom
+    let scDif = (ctx.yScale.high - ctx.yScale.low)
+    let zoomDif = scDif * (zoomFactor)
+    ctx.yScale = (low: ctx.yScale.low + zoomDif / 2.0, high: ctx.yScale.high - zoomDif / 2.0)
+  # 3. pan back to the original point
+  ctx.panTo = ctx.zoomStart
+  ctx.zoomStart = start
+  result = ctx.pan(axis)
+
+proc calcNewScale(ctx: var Context, axis: AxisKind): ginger.Scale =
+  if ctx.pan: # panning
+    result = ctx.pan(axis)
     case axis
-    of akX: result = calcNewScale(ctx.plotOrigin[0], ctx.plotWidth, ctx.zoomStart[0], ctx.zoomEnd[0], ctx.xScale)
-    of akY:
-      result = calcNewScale(ctx.plotOrigin[1], ctx.plotHeight, ctx.zoomStart[1], ctx.zoomEnd[1], ctx.yScale)
-      # now invert
-      result = (low: ctx.yScale.high - result.high, high: ctx.yScale.high - result.low)
+    of akX: ctx.zoomStart[0] = ctx.panTo[0]
+    of akY: ctx.zoomStart[1] = ctx.panTo[1]
+  elif ctx.mouseZoom != 0: # need to mouse zoom
+    result = mouseZoom(ctx, axis)
+  elif not ctx.pan and ctx.sizesSet and ctx.zoomStart != ctx.zoomEnd:
+    result = ctx.zoom(axis)
+  elif ctx.resetZoom:
+    result = (low: 0.0, high: 0.0)
   else:
     case axis
-    of akX: result = (low: 0.float, high: ctx.xn.float)
-    of akY: result = (low: 0.float, high: ctx.yn.float)
+    of akX: result = ctx.xScale
+    of akY: result = ctx.yScale
 
 proc renderPlot(ctx: var Context, renderer: RendererPtr, surface: SurfacePtr) =
   if ctx.requireRedraw:
-    let xScale = calcNewScale(ctx, akX)
-    let yScale = if ctx.sizesSet: calcNewScale(ctx, akY)
-                 else: (low: 0.float, high: ctx.yn.float)
+    # Compute new scales
+    ctx.xScale = calcNewScale(ctx, akX)
+    ctx.yScale = calcNewScale(ctx, akY)
+                 #else: (low: 0.0, high: 0.0)
     var ggplt = ctx.plt
-    if xScale.high != xScale.low:
-      ggplt = ggplt + xlim(xScale[0], xScale[1])
-    if yScale.high != yScale.low:
-      ggplt = ggplt + ylim(yScale[0], yScale[1])
-    let plt = ggcreate(ggplt, ctx.width, ctx.height)
+    if ctx.xScale.high != ctx.xScale.low:
+      ggplt = ggplt + xlim(ctx.xScale[0], ctx.xScale[1])
+    elif ctx.resetZoom:
+      ctx.xScale = ctx.xScaleInit
+    if ctx.yScale.high != ctx.yScale.low:
+      ggplt = ggplt + ylim(ctx.yScale[0], ctx.yScale[1])
+    elif ctx.resetZoom:
+      ctx.yScale = ctx.yScaleInit
+    var plt: PlotView
+    try:
+      plt = ggcreate(ggplt, ctx.width, ctx.height)
+      if not ctx.sizesSet:
+        ## 1. get coordinates of the plot viewport by converting `origin` to ukPoint, same width/height
+        ## 2. determine if zoom inside/outside
+        ## 3. convert relative zoom in x / y of total scale to ginger.scale using xScale and yScale
+        ## 4. add a `xlim`, `ylim` to call
+        for ch in plt.view:
+          if ch.name == "plot":
+            # echo ch.origin, "  ", ch.width, "  ", ch.height, "  ", ch.wImg, "  ", ch.hImg, "  ", ch.wView, "  ", ch.hView, "  xSc ", ch.xScale, "  ", ch.yScale
+            ctx.xScale = ch.xScale
+            ctx.yScale = ch.yScale
+            if ctx.xScaleInit == (0.0, 0.0): ## Only assign initial scales a single time!
+              ctx.xScaleInit = ctx.xScale
+              ctx.yScaleInit = ctx.yScale
+            let orig = ch.origin.to(ukPoint, absWidth = some(ch.wImg), absHeight = some(ch.hImg))
+            ctx.plotOrigin = (orig.x.pos, orig.y.pos)
+            ctx.plotWidth  = (times(ch.wView, ch.width)).toPoints().val.round.int
+            ctx.plotHeight  = (times(ch.hView, ch.height)).toPoints().val.round.int
+            ctx.sizesSet = true
+            #echo ctx
 
-    if not ctx.sizesSet:
-      ## 1. get coordinates of the plot viewport by converting `origin` to ukPoint, same width/height
-      ## 2. determine if zoom inside/outside
-      ## 3. convert relative zoom in x / y of total scale to ginger.scale using xScale and yScale
-      ## 4. add a `xlim`, `ylim` to call
-      for ch in plt.view:
-        if ch.name == "plot":
-          # echo ch.origin, "  ", ch.width, "  ", ch.height, "  ", ch.wImg, "  ", ch.hImg, "  ", ch.wView, "  ", ch.hView, "  xSc ", ch.xScale, "  ", ch.yScale
-          ctx.xScale = ch.xScale
-          ctx.yScale = ch.yScale
-          let orig = ch.origin.to(ukPoint, absWidth = some(ch.wImg), absHeight = some(ch.hImg))
-          ctx.plotOrigin = (orig.x.pos, orig.y.pos)
-          ctx.plotWidth  = (times(ch.wView, ch.width)).toPoints().val.round.int
-          ctx.plotHeight  = (times(ch.hView, ch.height)).toPoints().val.round.int
-          ctx.sizesSet = true
-          #echo ctx
-
-    renderer.draw(surface, plt.view, "")
-    ctx.requireRedraw = false
+      renderer.draw(surface, plt.view, "")
+      ctx.requireRedraw = false
+    except ValueError: ## `ValueError` will be thrown when the window is too small to hold the plot
+      discard
 
 proc initContext(plt: GgPlot): Context =
   result = Context(plt: plt)
@@ -134,6 +205,7 @@ proc render(ctx: var Context, width, height: int) =
   ## XXX: IMPLEMENT change of vertical field of view using mouse wheel! sort of a zoom
   while not quit:
     var anyEvents = false
+    ctx.mouseZoom = 0 # reset mouse zoom after each iteration
     while pollEvent(event):
       anyEvents = true
       case event.kind
@@ -148,25 +220,52 @@ proc render(ctx: var Context, width, height: int) =
       of MousebuttonDown:
         ## activate relative mouse motion
         let ev = evMouseButton(event)
-        echo "Clicked at: ", (ev.x, ev.y)
-        ctx.zoomStart = (ev.x.float, ev.y.float)
-        ctx.zoomEnd   = (ev.x.float, ev.y.float)
+        echo "Clicked at: ", (ev.x, ev.y), " button: ", ev.button
+        case ev.button
+        of 1, 3: # left click, zoom
+          ctx.zoomStart = (ev.x.float, ev.y.float)
+          ctx.zoomEnd   = (ev.x.float, ev.y.float)
+          ctx.mouseDown = true
+          ctx.pan = ev.button == 1
+        #of 3: # right click, pan
+        else: discard
       of MousebuttonUp:
         ## activate relative mouse motion
         let ev = evMouseButton(event)
-        echo "Liftet at: ", (ev.x, ev.y)
-        ctx.zoomEnd = (ev.x.float, ev.y.float)
+        echo "Lifted at: ", (ev.x, ev.y), " button: ", ev.button
+        case ev.button
+        of 3: # right click, zoom
+          ctx.zoomEnd = (ev.x.float, ev.y.float)
+          ctx.resetZoom = ctx.zoomStart == ctx.zoomEnd
+          ctx.requireRedraw = true
+        of 1: # left click, pan
+          ctx.zoomEnd = ctx.zoomStart
+          ctx.resetZoom = false
+          ctx.mouseDown = false
+          ctx.pan = false
+        else: discard
+        #ctx.sizesSet = false # need to update the sizes
+      of MouseMotion:
+        # pan from `zoomStart` to current position
+        let ev = evMouseMotion(event)
+        ctx.mousePos = (ev.x.float, ev.y.float)
+        if ctx.mouseDown and ctx.pan:
+          ctx.panTo = ctx.mousePos
+          ctx.requireRedraw = true
+          ctx.resetZoom = false
+      of MouseWheel:
+        # Zoom at current mouse position
+        let ev = evMouseWheel(event)
+        ctx.mouseZoom = ev.y
         ctx.requireRedraw = true
       of WindowEvent:
         freeSurface(window)
         window = sdl2.getsurface(screen)
-        ctx.sizesSet = false # need to re read the sizes!
-        ctx.width = window.w
-        ctx.height = window.h
-        ctx.requireRedraw = true
-      of MouseMotion:
-        ## for now just take a small fraction of movement as basis
-        discard
+        if window.w != ctx.width or window.h != ctx.height:
+          ctx.sizesSet = false # need to re read the sizes!
+          ctx.width = window.w
+          ctx.height = window.h
+          ctx.requireRedraw = true
       else: echo event.kind
     #discard lockSurface(window)
 
