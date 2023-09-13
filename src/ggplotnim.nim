@@ -3425,4 +3425,5 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   writeFile(jsDraw.fname, json.`$`(% plt.view))
 
 when defined(experimentalSDL2):
-  include ggplotnim/sdl2_backend
+  import ggplotnim/ggplot_sdl2
+  export ggplot_sdl2
