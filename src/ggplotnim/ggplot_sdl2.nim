@@ -1,9 +1,10 @@
 import std / [math, os]
-
 import sdl2 except Color, Point
 
-import ginger
-import cairo
+import pkg / [ggplotnim, ginger, cairo]
+
+# Zoom mentioned these two libs as options for file dialogs
+# > I forgot which one worked better, https://github.com/Patitotective/tinydialogs or https://github.com/Tormund/os_files last time I checked
 
 proc draw*(renderer: RendererPtr, sdlSurface: SurfacePtr, view: Viewport, filename: string, texOptions: TeXOptions = TeXOptions()) =
   var img = initBImage(CairoBackend,
