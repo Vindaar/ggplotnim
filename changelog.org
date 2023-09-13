@@ -1,3 +1,8 @@
+* v0.5.14
+- make SDL2 backend a full submodule that can be imported using
+  ~import ggplotnim/ggplot_sdl2~
+- ~-d:experimentalSDL2~ is still supported and imports/exports the
+  module for you  
 * v0.5.13
 - do not crash SDL2 viewer when resizing the window too much
 - implement panning (left mouse button), mouse wheel zooming. Zooming
