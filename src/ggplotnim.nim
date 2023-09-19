@@ -3293,8 +3293,31 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
   ## 3. `standalone`: only chosen if above two are `false` / empty
   ##
   ## Further, if a `texTemplate` is given that template is used to embed the `TikZ` code.
-  ## The template ``must`` contain a single `$#` for the location at which the `TikZ` code
-  ## is to be embeded.
+  ## The template ``must`` contain three `$#` for the location at which the `TikZ` code
+  ## is to be embeded. An example (using `latexdsl`) of where these must be:
+  ##
+  ## ```latex
+  ##    \documentclass[a4paper]{article}
+  ##    \usepackage[utf8]{inputenc}
+  ##    \usepackage[margin="2.5cm"]{geometry}
+  ##    \usepackage{unicode-math} # for unicode support in math environments
+  ##    \usepackage{amsmath}
+  ##    \usepackage{siunitx}
+  ##    \usepackage{tikz}
+  ##    "$#"
+  ##    document:
+  ##      "$#"
+  ##      center:
+  ##        tikzpicture:
+  ##          "$#"
+  ##
+  ## ```
+  ##
+  ## The first is an additional header (currently unused). The second is a header for the document body.
+  ## This is where for example the page color is set based on the plot background. Finally the third is
+  ## the actual TikZ code inserted. Generally it is a good idea to start with the above template and
+  ## adjust the type of article, packages to use etc. as needed.
+  ##
   ##
   ## Finally, if a `caption` and / or `label` are given, the output will wrap the `tikzpicture`
   ## in a figure environment, with placement options `placement`.
