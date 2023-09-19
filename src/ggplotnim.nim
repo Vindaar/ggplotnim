@@ -3024,7 +3024,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
                          backend = p.backend)
 
   # set color of canvas background
-  img.background(style = some(getCanvasBackground(theme)))
+  img.background(style = some(getCanvasBackground(theme)), name = "canvasBackground")
 
   img.createLayout(filledScales, theme)
   # get viewport of plot
