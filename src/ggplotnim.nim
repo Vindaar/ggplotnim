@@ -3102,8 +3102,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   result.filledScales = filledScales
   result.view = img
 
-proc toTeXOptions(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
-                  caption, label, placement: string): TeXOptions =
+proc toTeXOptions*(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
+                   caption, label, placement: string): TeXOptions =
   result = TeXOptions(
       texTemplate: if texTemplate.len > 0: some(texTemplate)
                    else: none(string),
