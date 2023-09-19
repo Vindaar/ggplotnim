@@ -193,7 +193,7 @@ func getDiscretePoint(fg: FilledGeom, axKind: AxisKind): Coord1D =
   # discrete points are...
   result = c1(0.5, ukRelative)
 
-func getDiscreteLine(view: Viewport, axKind: AxisKind): Coord1D =
+proc getDiscreteLine(view: Viewport, axKind: AxisKind): Coord1D =
   # discrete points are...
   case axKind
   of akX:
