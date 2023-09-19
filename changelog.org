@@ -2,7 +2,12 @@
 - make SDL2 backend a full submodule that can be imported using
   ~import ggplotnim/ggplot_sdl2~
 - ~-d:experimentalSDL2~ is still supported and imports/exports the
-  module for you  
+  module for you
+- allow to also save a plot at the same time as showing it, by handing
+  a filename argument to ~ggshow~  
+- update ~ginger~ dependency to ~v0.5.0~. This fixes our previously
+  still not quite correct placement of text which relied on string
+  width/height information. Now it is also correct on the TikZ backend
 * v0.5.13
 - do not crash SDL2 viewer when resizing the window too much
 - implement panning (left mouse button), mouse wheel zooming. Zooming
