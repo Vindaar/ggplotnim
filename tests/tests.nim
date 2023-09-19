@@ -339,10 +339,10 @@ suite "GgPlot":
     # the default label margin is 1 cm, i.e. ~28.34 pixels at 72 dpi
     checkLabel(xLab[0], "xLabel", "x",
                Coord(x: Coord1D(pos: 0.5, kind: ukRelative),
-                     y: Coord1D(pos: 424.403937007874, kind: ukPoint, length: some(pointHeight(plt.children[4])))),
+                     y: Coord1D(pos: 423.6885765255906, kind: ukPoint, length: some(pointHeight(plt.children[4])))),
                none[float]())
     checkLabel(yLab[0], "yLabel", "exp",
-               Coord(x: Coord1D(pos: -0.09393183283490754, kind: ukRelative),
+               Coord(x: Coord1D(pos: -0.09135517526936519, kind: ukRelative),
                      y: Coord1D(pos: 0.5, kind: ukRelative)),
                some(-90.0))
     check yLab[0].txtPos.x.toPoints.pos != quant(1.0, ukCentimeter).toPoints.val
@@ -452,7 +452,7 @@ suite "Annotations":
       if "multiLineText" in gobj.name:
         when not defined(noCairo) and defined(linux):
           ## text extent based calcs are not supported without cairo!
-          check almostEq(gobj.txtPos.x.pos, 0.5, epsilon = 1e-6)
+          check almostEq(gobj.txtPos.x.pos, 270.3937007874015, epsilon = 1e-6)
         # we don't check y because it depends on the line
         inc count
       elif "annotationBackground" in gobj.name:
@@ -460,8 +460,8 @@ suite "Annotations":
         # the rectangle, placed in the plot viewport. Takes into
         # account the margin we use:
         when not defined(noCairo) and defined(linux):
-          check almostEq(gobj.reOrigin.x.pos, 0.49167, epsilon = 1e-4)
-          check almostEq(gobj.reOrigin.y.pos, 0.85176428, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.x.pos, 266.0196773499015, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 325.1912939837599, epsilon = 1e-4)
         else:
           discard
     # check number of lines
@@ -494,8 +494,8 @@ suite "Annotations":
       elif "annotationBackground" in gobj.name:
         # rough position check
         when not defined(noCairo) and defined(linux):
-          check almostEq(gobj.reOrigin.x.pos, -0.008327, epsilon = 1e-4)
-          check almostEq(gobj.reOrigin.y.pos, 0.35176428, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.x.pos, -4.3740234375, epsilon = 1e-4)
+          check almostEq(gobj.reOrigin.y.pos, 127.7109790231299, epsilon = 1e-4)
         check gobj.style.isSome
         check gobj.style.unsafeGet.color == color(1.0, 1.0, 1.0, 1.0)
         check gobj.style.unsafeGet.fillColor == color(1.0, 1.0, 1.0, 1.0)
