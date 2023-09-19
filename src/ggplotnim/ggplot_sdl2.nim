@@ -284,12 +284,39 @@ type
   SdlDraw* = object
     width: int
     height: int
+    draw: Draw
 
 proc `+`*(p: GgPlot, sdlDraw: SdlDraw) =
+  # 1. create the output file (if filename given)
+  if sdlDraw.draw.fname.len > 0:
+    p + sdlDraw.draw
+  # 2. render the plot
   var plt = p
   plt.backend = bkCairo
   var ctx = initContext(plt)
   ctx.render(sdlDraw.width, sdlDraw.height)
 
+proc ggshow*(fname: string,
+             width = 640.0, height = 480.0,
+             useTeX = false,
+             onlyTikZ = false,
+             standalone = false,
+             texTemplate = "",
+             caption = "",
+             label = "",
+             placement = "htbp",
+             backend = bkNone): SdlDraw =
+  ## Overload of `ggshow` which also produces a regular plot.
+  let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
+                                caption, label, placement)
+  let draw = Draw(fname: fname,
+                  width: some(width),
+                  height: some(height),
+                  texOptions: texOptions,
+                  backend: backend)
+  result = SdlDraw(width: width.round.int, height: height.round.int, draw: draw)
+
 proc ggshow*(width = 640, height = 480): SdlDraw =
+  ## Creates an SDL2 window in which the plot will be shown. Basic mouse interaction is possible
+  ## to pan and zoom (mouse wheel and right click -> zoom to rectangle).
   result = SdlDraw(width: width, height: height)
