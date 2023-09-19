@@ -2870,73 +2870,77 @@ proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom
   ## using the `x, y: ginger.Scale` of the viewport or directly using
   ## the annotations `(left, bottom)` pair if available
   if annot.left.isSome:
-    result.left = annot.left.unsafeGet
+    result.left = toPoints(quant(annot.left.unsafeGet, ukRelative),
+                           length = some(pointWidth(view))
+    ).val
   else:
     # NOTE: we make sure in during `annotate` that either `left` or
     # `x` is defined!
-    result.left = toRelative(Coord1D(pos: annot.x.unsafeGet,
-                                     kind: ukData,
-                                     axis: akX,
-                                     scale: view.xScale)).pos
+    result.left = toPoints(Coord1D(pos: annot.x.unsafeGet,
+                                   kind: ukData,
+                                   axis: akX,
+                                   scale: view.xScale),
+                           length = some(pointWidth(view))
+    ).pos
   if annot.bottom.isSome:
-    result.bottom = annot.bottom.unsafeGet
+    result.bottom = toPoints(quant(annot.bottom.unsafeGet, ukRelative),
+                             length = some(pointHeight(view))
+    ).val
   else:
     # NOTE: we make sure in during `annotate` that either `bottom` or
     # `y` is defined!
-    result.bottom = toRelative(Coord1D(pos: annot.y.unsafeGet,
-                                       kind: ukData,
-                                       axis: akY,
-                                       scale: view.yScale)).pos
+    result.bottom = toPoints(Coord1D(pos: annot.y.unsafeGet,
+                                     kind: ukData,
+                                     axis: akY,
+                                     scale: view.yScale),
+                             length = some(pointHeight(view))
+    ).pos
 
 
 proc drawAnnotations*(view: var Viewport, p: GgPlot) =
   ## draws all annotations from `p` onto the mutable view `view`.
-  # this is 0.5 times the string height. Margin between text and
+  # this is 0.5 times the string height of `M` character. Margin between text and
   # the background rectangle
   const AnnotRectMargin = 0.5
   let backend = view.backend
+  let fType = view.fType
 
   for annot in p.annotations:
     # style to use for this annotation
     let rectStyle = Style(fillColor: annot.backgroundColor,
                           color: annot.backgroundColor)
     let (left, bottom) = view.getLeftBottom(annot)
-    ## TODO: Fix ginger calculations / figure out if / why cairo text extents
-    # are bad in width direction
-    let marginH = toRelative(strHeight(backend, AnnotRectMargin, annot.font),
-                             length = some(pointHeight(view)))
-    # use same ``amount`` of space correctly converted to relative coords
-    let marginW = toRelative(strHeight(backend, AnnotRectMargin, annot.font),
-                             length = some(pointWidth(view)))
+    # Get a well defined margin based on `M` character at current font
+    let marginH = strHeight(view, AnnotRectMargin, annot.font)
+      .toPoints()
+    # use same amount of space for width (x) margin
+    let marginW = strHeight(view, AnnotRectMargin, annot.font)
+      .toPoints()
+    # Total height of the text + 2 margin
     let totalHeight = quant(
-      toRelative(getStrHeight(backend, annot.text, annot.font),
-                 length = some(pointHeight(view))).val +
-      marginH.pos * 2.0,
-      unit = ukRelative)
+      getStrHeight(view, annot.text, annot.font).val + marginH.pos * 2.0,
+      unit = ukPoint)
     # find longest line of annotation to base background on
     let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
     let maxLine = annot.text.splitLines.sortedByIt(
-      getStrWidth(backend, it, font).val
+      getStrWidth(backend, fType, it, font).val
     )[^1]
-    let maxWidth = getStrWidth(backend, maxLine, annot.font)
-    # calculate required width for background rectangle. string width +
-    # 2 * margin
+    # and get its actual width
+    let maxWidth = getStrWidth(view, maxLine, annot.font)
+    # calculate required width for background rectangle. string width + 2 * margin
     let rectWidth = quant(
-      toRelative(maxWidth, length = some(pointWidth(view))).val +
-        marginW.pos * 2.0,
-      unit = ukRelative
+      maxWidth.val + marginW.pos * 2.0,
+      unit = ukPoint
     )
     # left and bottom positions, shifted each by one margin
     let rectX = left - marginW.pos
-    let rectY = bottom - totalHeight.toRelative(
-      length = some(pointHeight(view))
-    ).val + marginH.pos
+    let rectY = bottom - totalHeight.val + marginH.pos
     # create background rectangle
     var annotRect: GraphObject
     if annot.backgroundColor != transparent:
       annotRect = view.initRect(
-        Coord(x: Coord1D(pos: rectX, kind: ukRelative),
-              y: Coord1D(pos: rectY, kind: ukRelative)),
+        Coord(x: Coord1D(pos: rectX, kind: ukPoint),
+              y: Coord1D(pos: rectY, kind: ukPoint)),
         rectWidth,
         totalHeight,
         style = some(rectStyle),
@@ -2944,7 +2948,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
         name = "annotationBackground")
     # create actual annotation
     let annotText = view.initMultiLineText(
-      origin = c(left, bottom),
+      origin = c(left, bottom, ukPoint),
       text = annot.text,
       textKind = goText,
       alignKind = annot.alignKind,
@@ -2964,13 +2968,13 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
   if "\n" notin title and view.backend != bkTikZ: # for tikZ let LaTeX handle line wrapping
     # user does not do manual wrapping. Check if needs to be wrapped.
-    let strWidth = getStrWidth(view.backend, title, font)
+    let strWidth = getStrWidth(view, title, font)
     if strWidth > width:
       # rebuild and wrap
       var line: string
       var mTitle: string
       for word in title.split(' '):
-        let lineWidth = getStrWidth(view.backend, line & word, font)
+        let lineWidth = getStrWidth(view, line & word, font)
         if lineWidth < width:
           line.add word & " " # we add a space even at the end of line...
         else:
@@ -3021,7 +3025,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   var img = initViewport(name = "root",
                          wImg = width,
                          hImg = height,
-                         backend = p.backend)
+                         backend = p.backend,
+                         fType = p.fType)
 
   # set color of canvas background
   img.background(style = some(getCanvasBackground(theme)), name = "canvasBackground")
@@ -3154,7 +3159,7 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
     # use it & number of elemnts as sizes for the columns
     let wVal = if widths.len == 0: width else: widths.sum
     let hVal = if heights.len == 0: height else: heights.sum
-    img = initViewport(wImg = wVal.float, hImg = hVal.float, backend = backend)
+    img = initViewport(wImg = wVal.float, hImg = hVal.float, backend = backend, fType = fType)
     let widthsQ = widths.mapIt(quant(it.float, ukPoint))
     let heightsQ = heights.mapIt(quant(it.float, ukPoint))
     img.layout(cols = max(widths.len, 1), rows = max(heights.len, 1),
@@ -3163,7 +3168,7 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
     # compute number of required columns
     let (cols, rows) = calcRowsColumns(0, 0, plts.len)
     img = initViewport(wImg = (width * cols).float, hImg = (height * rows).float,
-                       backend = backend)
+                       backend = backend, fType = fType)
     img.layout(cols = cols, rows = rows)
 
   for i, plt in plts:

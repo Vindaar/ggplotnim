@@ -475,6 +475,8 @@ type
     theme*: Theme
     backend*: BackendKind ## the backend to use. Determined automatically from filename and
                           ## possible options given to `ggsave`
+    fType*: FileTypeKind ## The file type we render to. This is needed for accurate information
+                         ## about the height / width of text.
 
   StyleLabel* = object
     style*: GgStyle
