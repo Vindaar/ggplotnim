@@ -1,4 +1,4 @@
-* v0.5.14
+* v0.6.0
 - make SDL2 backend a full submodule that can be imported using
   ~import ggplotnim/ggplot_sdl2~
 - ~-d:experimentalSDL2~ is still supported and imports/exports the
