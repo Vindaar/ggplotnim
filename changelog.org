@@ -1,3 +1,10 @@
+* v0.6.1
+- do not change the top margin of a plot based on a legend being added
+  anymore. That's kind of jarring.
+- add ~scale_fill_log10~ for log10 raster scales
+- ~x/ylim~ now ignore input range values if the values are the
+  same. This is to support code that takes the ranges from a variable
+  to support the case of a default e.g. ~(0, 0)~ argument    
 * v0.6.0
 - make SDL2 backend a full submodule that can be imported using
   ~import ggplotnim/ggplot_sdl2~
