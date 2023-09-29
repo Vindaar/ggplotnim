@@ -1274,6 +1274,43 @@ proc scale_y_reverse*[
                  hasDiscreteness: true,
                  secondaryAxis: secAxis.toOptSecAxis(akY))
 
+proc scale_fill_log10*[S: ColorScale | seq[uint32] | Missing;
+                       T: int | seq[SomeNumber]](
+                         breaks: T = newSeq[float](),
+                         scale: ginger.Scale = (low: 0.0, high: 0.0),
+                         colorScale: S = missing()): Scale =
+  ## Sets the fill scale of the plot to a log10 scale.
+  ##
+  ## `breaks` allows to specify either the number of ticks desired (in case
+  ## an integer is given) or the exact locations of the ticks given in
+  ## units of the data space belonging to this axis.
+  ##
+  ## Note that the exact number of desired ticks is usually not respected,
+  ## rather a close number that yields "nice" tick labels is chosen.
+  ##
+  ## If you wish to customize the color scale of the filling, use the `colorScale`
+  ## argument here instead of applying another `scale_fill_gradient` as they
+  ## will overwrite each other at the moment!
+  let trans = proc(v: float): float =
+    result = log10(v)
+  let invTrans = proc(v: float): float =
+    result = pow(10, v)
+
+  result = Scale(col: f{""}, # will be filled when added to GgPlot obj
+                 scKind: scFillColor,
+                 dcKind: dcContinuous,
+                 dataScale: scale,
+                 transC: trans,
+                 invTransC: invTrans,
+                 colorScale: DefaultColorScale,
+                 hasDiscreteness: true)
+  result.assignBreaks(breaks)
+  when S isnot Missing:
+    when S is ColorScale:
+      result.colorScale = colorScale
+    else:
+      result.colorScale = ColorScale(name: name, colors: colorScale)
+
 proc scale_fill_continuous*(name: string = "",
                             scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
   ## Forces the fill scale to be continuous.
@@ -2355,12 +2392,44 @@ proc generateLegendMarkers(plt: Viewport,
       mplt.yScale = scale.dataScale
       # use 5 ticks by default
       # define as "secondary" because then ticks will be on the RHS
-      let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
-                                 isSecondary = true)
-      let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
-                                     margin = some(plt.c1(0.3, akX, ukCentimeter)),
-                                     format = scale.formatContinuousLabel)
-      result = concat(tickLabs, ticks)
+      if scale.transC == nil: # linear ticks
+        #doAssert scale.numTicks > 0, "Default tick value for color scale is 0!"
+        ## XXX: hand a number of ticks from the scale
+        let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
+                                   isSecondary = true)
+        let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
+                                       margin = some(plt.c1(0.3, akX, ukCentimeter)),
+                                       format = scale.formatContinuousLabel)
+        result = concat(tickLabs, ticks)
+      else:
+        doAssert scale.invTransC != nil, "Inverse transformation must exist if forward exists."
+        let trans = scale.transC
+        let invTrans = scale.invTransC
+        # `scale.dataScale` is not transformed. Hand to `*Pow` as is
+        let minVal = invTrans.smallestPow(scale.dataScale.low)
+        let maxVal = invTrans.largestPow(scale.dataScale.high)
+        # compute transformed scale to assign to viewport
+        let sTrans = (low: trans(scale.dataScale.low), high: trans(scale.dataScale.high))
+        ## XXX: handle format and tick labels !
+        let (labs, labelPos) = tickPosTransformed(sTrans,
+                                                  trans, invTrans,
+                                                  breaks = scale.breaks,
+                                                  format = nil)
+                                                  #hideTickLabels = hideTickLabels,
+                                                  #format = format)
+
+        let tickLocs = labelPos.toCoord1D(akY, sTrans)
+        mplt.yScale = (low: scale.transC(minVal), high: scale.transC(maxVal))
+        let (tickObjs, labObjs) = mplt.tickLabels(tickLocs, labs, akY, isSecondary = true,
+                                                  #rotate = rotate,
+                                                  alignToOverride = some(taLeft))
+                                                  #font = theme.tickLabelFont,
+                                                  #margin = margin)
+        if true: # not hideTickLabels:
+          mplt.addObj concat(tickObjs, labObjs)
+        result = tickObjs
+
+
     else:
       raise newException(Exception, "Continuous legend unsupported for scale kind " &
         $scale.scKind)

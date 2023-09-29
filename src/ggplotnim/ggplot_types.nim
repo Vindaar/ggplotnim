@@ -197,6 +197,8 @@ type
     of scColor, scFillColor:
       # color scale to use if continuous (overrides `viridis` default)
       colorScale*: ColorScale
+      transC*: ScaleTransform # potential transformation of the color scale via log10, ...
+      invTransC*: ScaleTransform # XXX: these should be merged with `scTransformedData`
     of scSize:
       sizeRange*: tuple[low, high: float] # range of sizes to use (default: 2.0 - 7.0)
     of scAlpha:
@@ -529,6 +531,8 @@ type
       width*: Option[string]
       height*: Option[string]
       colorScale*: ColorScale # the color scale used to plot this
+      trans*: ScaleTransform # for log10 of color scale
+      invTrans*: ScaleTransform
     of gkText:
       # required if text is used
       text*: string

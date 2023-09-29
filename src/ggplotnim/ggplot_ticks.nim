@@ -21,7 +21,7 @@ proc getYTicks*(fs: FilledScales): int =
   ## the Y scale (e.g. via `scale_y_continuous` or friends) or returns a default of 10 ticks.
   result = fs.getYScale().getTicks()
 
-proc smallestPow(invTrans: ScaleTransform, x: float): float =
+proc smallestPow*(invTrans: ScaleTransform, x: float): float =
   doAssert x > 0.0
   result = 1.0
   var exp = 0
@@ -35,7 +35,7 @@ proc smallestPow(invTrans: ScaleTransform, x: float): float =
       inc exp
     result = invTrans((exp - 1).float)
 
-proc largestPow(invTrans: ScaleTransform, x: float): float =
+proc largestPow*(invTrans: ScaleTransform, x: float): float =
   doAssert x > 0.0
   result = 1.0
   var exp = 0
@@ -64,16 +64,16 @@ proc computeLabels(ticks: seq[float], tickScale = 0.0, fmt: ContinuousFormat = n
   ## of the labels
   result = ticks.mapIt(it.computeLabel(tickScale, fmt))
 
-proc tickPosTransformed(s: ginger.Scale,
-                        trans, invTrans: ScaleTransform,
-                        minv, maxv: float,
-                        boundScale: ginger.Scale,
-                        breaks: seq[float] = @[],
-                        hideTickLabels = false,
-                        format: proc(x: float): string): (seq[string], seq[float]) =
+proc tickPosTransformed*(boundScale: ginger.Scale,
+                         trans, invTrans: ScaleTransform,
+                         breaks: seq[float] = @[],
+                         hideTickLabels = false,
+                         format: proc(x: float): string): (seq[string], seq[float]) =
   ## Calculates the positions and labels of a log10 data scale given
   ## a min and max value. Takes into account a final bound scale outside
   ## of which no ticks may lie.
+  ##
+  ## The `boundScale` must be already transformed i.e. log10 values for scale_x_log10!
   var
     labs = newSeq[string]()
     labPos = newSeq[float]()
@@ -81,6 +81,7 @@ proc tickPosTransformed(s: ginger.Scale,
     var exp = floor(boundScale.low).int
     while exp.float < boundScale.high:
       let cur = invTrans(exp.float)
+      if cur == Inf: break
       let numToAdd = invTrans(1.0).round.int
       let minors = linspace(cur, invTrans((exp + 1).float) - cur, numToAdd - 1)
       labPos.add minors.mapIt(trans(it))
@@ -138,7 +139,7 @@ proc getCorrectDataScale(view: Viewport, axKind: AxisKind): ginger.Scale =
   of akX: result = view.xScale
   of akY: result = view.yScale
 
-proc applyScaleTrans(scale: ginger.Scale, trans: Option[FormulaNode]): ginger.Scale =
+proc applyScaleTrans*(scale: ginger.Scale, trans: Option[FormulaNode]): ginger.Scale =
   # possibly modify using secondary transformation
   result = scale
   if trans.isSome:
@@ -153,7 +154,7 @@ proc revertScaleTrans(ticks: seq[float], trans: Option[FormulaNode]): seq[float]
     let fn = trans.get
     result = ticks.mapIt(it / fn.evaluate().toFloat)
 
-proc toCoord1D(ticks: seq[float], axKind: AxisKind, scale: ginger.Scale): seq[Coord1D] =
+proc toCoord1D*(ticks: seq[float], axKind: AxisKind, scale: ginger.Scale): seq[Coord1D] =
   ## returns the given ticks as `Coord1D`
   result = ticks.mapIt(Coord1D(pos: it, kind: ukData, scale: scale, axis: axKind))
 
@@ -203,10 +204,13 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     result = tickObjs
   of scTransformedData:
     let scale = dataScale.applyScaleTrans(secAxisTrans)
+    ## `dataScale` is already transformed. Get min and max powers. `invTrans` gets
+    ## back non transformed values, then gets power based on those. `smallest/largestPow`
+    ## returns the *power* only, so inverse transform _those_ to get min/max values
+    ## in non-transformed coordinates.
     let minVal = invTrans.smallestPow(invTrans(dataScale.low))
     let maxVal = invTrans.largestPow(invTrans(dataScale.high))
-    let (labs, labelPos) = tickPosTransformed(scale, trans, invTrans,
-                                              minVal, maxVal, boundScale,
+    let (labs, labelPos) = tickPosTransformed(boundScale, trans, invTrans,
                                               breaks = breaks,
                                               hideTickLabels = hideTickLabels,
                                               format = format)
