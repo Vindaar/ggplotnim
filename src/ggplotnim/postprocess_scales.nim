@@ -378,6 +378,10 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     if fillScale.get.dcKind == dcContinuous:
       fg.fillDataScale = fs.dataScale
       fg.colorScale = useOrDefault(fs.colorScale)
+    ## Assign potential transformation
+    fg.trans = fs.transC
+    fg.invTrans = fs.invTransC
+
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
   of gkHistogram:

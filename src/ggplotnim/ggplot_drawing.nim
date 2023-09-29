@@ -338,12 +338,21 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     let xT = df[fg.xCol].toTensor(float)
     let yT = df[fg.yCol].toTensor(float)
     let zT = df[fg.fillCol].toTensor(float)
-    let zScale = fg.fillDataScale
+    if fg.trans != nil and fg.fillDataScale.low <= 0.0:
+      raise newException(ValueError, "Invalid data scale for a raster plot using `scale_fill_log10`. The " &
+        "lowest value must be positive and finite, but is: " & $fg.fillDataScale & ". Please provide a " &
+        "custom scale range to `scale_fill_log10`.")
+    let zScale = if fg.trans != nil: (low: fg.trans(fg.fillDataScale.low), high: fg.trans(fg.fillDataScale.high))
+                 else: fg.fillDataScale
+    var maxValue = 0.0
     for idx in 0 ..< df.len:
       let (x, y) = (((xT[idx] - minXCol) / wv).round.int,
                     ((yT[idx] - minYCol) / hv).round.int)
       let colorsHigh = cMap.colors.len - 1
-      var colorIdx = (colorsHigh.float * ((zT[idx] - zScale.low) /
+      let val = if fg.trans != nil: fg.trans(zT[idx])
+                else: zT[idx]
+      maxValue = max(val, maxValue)
+      var colorIdx = (colorsHigh.float * ((val - zScale.low) /
                       (zScale.high - zScale.low))).round.int
       colorIdx = max(0, min(colorsHigh, colorIdx))
       let mask = 0x00FFFFFF'u32

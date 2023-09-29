@@ -3,7 +3,7 @@ import std / [tables, algorithm, sequtils, random, sets, math, macros, options]
 import ggplot_types, ggplot_utils
 from ggplot_styles import DefaultColorScale, DefaultSizeRange, DefaultAlphaRange
 from ggplot_scales import scaleFromData
-import ggplotnim / colormaps / colormaps
+import ./colormaps / colormaps
 import postprocess_scales
 import datamancer
 
@@ -270,12 +270,20 @@ proc fillContinuousColorScale(scKind: static ScaleKind,
                               dataKind: DataKind,
                               vKind: ValueKind,
                               dataScale: ginger.Scale,
-                              colorScale: ColorScale
+                              colorScale: ColorScale,
+                              trans: Option[ScaleTransform],
+                              invTrans: Option[ScaleTransform]
                               ): Scale =
   ## devise colormap mapping
   result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcContinuous,
                  dataScale: dataScale)
   result.colorScale = colorScale
+  ## we make sure `trans` is some in the calling scope!
+  if trans.isSome:
+    result.transC = trans.get
+    doAssert invTrans.isSome, "Inverse transformation must exist if forward exists!"
+    result.invTransC = invTrans.get
+
   # map all values to values between 0-255 and get the correct idx of viridis map
   result.mapData = (
     proc(df: DataFrame): seq[ScaleValue] =
@@ -439,9 +447,9 @@ proc fillScaleImpl(
                                               trans.get, invTrans.get,
                                               dataScale)
     of scColor:
-      result = fillContinuousColorScale(scColor, col, dataKind, vKind, dataScale, colorScale)
+      result = fillContinuousColorScale(scColor, col, dataKind, vKind, dataScale, colorScale, trans, invTrans)
     of scFillColor:
-      result = fillContinuousColorScale(scFillColor, col, dataKind, vKind, dataScale, colorScale)
+      result = fillContinuousColorScale(scFillColor, col, dataKind, vKind, dataScale, colorScale, trans, invTrans)
     of scSize:
       result = fillContinuousSizeScale(col, dataKind, vKind, dataScale, sizeRange)
     of scAlpha:
@@ -504,6 +512,9 @@ proc fillScale(df: DataFrame, scales: seq[Scale],
       invTransOpt = some(s.invTrans)
     of scColor, scFillColor:
       colorScale = s.colorScale
+      # ## we use the last transformation we find!
+      transOpt = if s.transC != nil: some(s.transC) else: none(ScaleTransform)
+      invTransOpt = if s.invTransC != nil: some(s.invTransC) else: none(ScaleTransform)
     of scSize: sizeRange = s.sizeRange
     of scAlpha: alphaRange = s.alphaRange
     else: discard
