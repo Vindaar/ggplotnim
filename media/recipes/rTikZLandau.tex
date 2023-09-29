@@ -14,6 +14,10 @@
 
 \begin{tikzpicture}[every node/.style={outer sep=0pt, inner sep=0pt}]
 \path[use as bounding box] (0, 0) rectangle (640.0bp, 480.0bp) ;
+\definecolor{drawColor}{rgb}{0.0, 0.0, 0.0}
+\definecolor{fillColor}{rgb}{1.0, 1.0, 1.0}
+
+\draw [color = drawColor, fill = fillColor, draw opacity = 0.0, fill opacity = 1.0, line width = 0.0bp] (0.0000bp, 480.0000bp) rectangle (640.0000bp, 0.0000bp) ;
 \node [right, font=\fontsize{16.0}{19.2}\selectfont
 , anchor=west] at (70.8661bp, 464.2537bp){Approximation of Landau distribution: $p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$} ;
 \definecolor{drawColor}{rgb}{0.0, 0.0, 0.0}
