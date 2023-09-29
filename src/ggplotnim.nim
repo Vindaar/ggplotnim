@@ -1894,8 +1894,8 @@ func xlim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## it here, but it will probably result in an ugly plot!
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
-  result = Theme(xRange: some((low: low.float, high: high.float)),
-                 xOutsideRange: orOpt)
+  let range = if low != high: some((low: low.float, high: high.float)) else: none(ginger.Scale)
+  result = Theme(xRange: range, xOutsideRange: orOpt)
 
 func ylim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## Sets the limits of the plot range in data scale. This overrides the
@@ -1923,8 +1923,8 @@ func ylim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## it here, but it will probably result in an ugly plot!
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
-  result = Theme(yRange: some((low: low.float, high: high.float)),
-                 yOutsideRange: orOpt)
+  let range = if low != high: some((low: low.float, high: high.float)) else: none(ginger.Scale)
+  result = Theme(yRange: range, yOutsideRange: orOpt)
 
 proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
   ## Sets a margin on the ``plot data scale`` for the X axis relative to the
