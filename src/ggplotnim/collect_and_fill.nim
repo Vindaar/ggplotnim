@@ -244,6 +244,15 @@ proc fillDiscreteLinearTransScale(
     result.trans = trans.get
     result.invTrans = invTrans.get
 
+proc fillDiscreteTextScale(
+  scKind: static ScaleKind,
+  col: FormulaNode,
+  vKind: ValueKind, labelSeq: seq[Value]
+     ): Scale =
+  result = Scale(scKind: scKind, vKind: vKind, col: col, dcKind: dcDiscrete)
+  result.labelSeq = labelSeq
+  result.valueMap = initOrderedTable[Value, ScaleValue]()
+
 proc fillContinuousLinearScale(col: FormulaNode, axKind: AxisKind, vKind: ValueKind,
                                dataScale: ginger.Scale): Scale =
   result = Scale(scKind: scLinearData, vKind: vKind, col: col, dcKind: dcContinuous,
@@ -429,8 +438,8 @@ proc fillScaleImpl(
                                             trans, invTrans)
     of scShape:
       result = fillDiscreteShapeScale(vKind, col, labelSeq, valueMapOpt)
-    of scText: result = Scale(scKind: scText,
-                              col: col) # nothing required but the column
+    of scText:
+      result = fillDiscreteTextScale(scText, col, vKind, labelSeq) # nothing required but the column
   else:
     let dataScale = dataScaleOpt.unwrap()
     case scKind
