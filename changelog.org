@@ -1,3 +1,8 @@
+* v0.6.2
+- handle geom calls with constant values better. Previously we
+  sometimes ended up drawing the same e.g. text multiple times, once
+  for each input DF row. We now deduplicate for cases where ~x~ and
+  ~y~ are constant.
 * v0.6.1
 - do not change the top margin of a plot based on a legend being added
   anymore. That's kind of jarring.
