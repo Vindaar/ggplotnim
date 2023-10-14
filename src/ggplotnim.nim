@@ -1736,6 +1736,18 @@ proc legendOrder*(idx: seq[int]): Theme =
   ## legend is required. For the time being this is better than nothing though.
   result = Theme(legendOrder: some(idx))
 
+proc titlePosition*(x = 0.0, y = 0.0): Theme =
+  ## puts the title at position `(x, y)` in relative coordinates of
+  ## the title viewport in range (0.0 .. 1.0). The title viewport is the
+  ## region above the plot
+  ##
+  ## |   | Title viewport |        |
+  ## |   |----------------|        |
+  ## | y |     Plot       | legend |
+  ## |   |________________|        |
+  ## |   |       x        |        |
+  result = Theme(titlePosition: some(c(x, y)))
+
 proc hideLegend*(): Theme =
   ## hides the legend, even if it would otherwise be required
   result = Theme(hideLegend: some(true))
@@ -3055,7 +3067,8 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
     # user is manually wrapping and responsible
     discard
   # NOTE: on the TikZ backend `0.7` works better. Make adjustable?
-  let titleObj = view.initMultiLineText(c(0.0, 0.9),
+  let titlePos = theme.titlePosition.get(c(0.0, 0.9))
+  let titleObj = view.initMultiLineText(titlePos,
                                         title,
                                         textKind = goText,
                                         alignKind = taLeft,

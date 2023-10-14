@@ -396,6 +396,7 @@ type
     # titles
     title*: Option[string]
     subTitle*: Option[string]
+    titlePosition*: Option[Coord]
     # labels
     xLabel*: Option[string]
     xLabelMargin*: Option[float]
