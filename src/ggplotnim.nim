@@ -2779,13 +2779,14 @@ proc determineExistingCombinations(fs: FilledScales,
     for i, fc in facets:
       comb.add ($fc.col, c[i])
     combLabels.add toObject(comb)
+  combLabels = combLabels.sorted
   # combinations possibly contains non existing combinations too!
   result = initOrderedSet[Value]()
   # now check each geom for each `yieldData` element and see which
   # combination exists in them
   for fg in fs.geoms:
-    for xk in keys(fg.yieldData):
-      for cb in combLabels:
+    for cb in combLabels:
+      for xk in keys(fg.yieldData):
         if cb in xk:
           result.incl cb
   doAssert result.card <= combinations.len
