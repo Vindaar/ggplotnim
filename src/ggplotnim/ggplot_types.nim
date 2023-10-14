@@ -389,6 +389,8 @@ type
     titleFont*: Option[Font]
     subTitleFont*: Option[Font]
     tickLabelFont*: Option[Font]
+    legendFont*: Option[Font]
+    legendTitleFont*: Option[Font]
     # hide parts of plot
     hideTicks*: Option[bool]
     hideTickLabels*: Option[bool]
