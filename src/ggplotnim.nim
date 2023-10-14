@@ -1879,13 +1879,16 @@ proc parseTextAlignString(alignTo: string): Option[TextAlignKind] =
 proc xlab*(
   label = "", margin = NaN, rotate = NaN,
   alignTo = "none", font = font(), tickFont = font(),
-  tickMargin = NaN): Theme =
+  tickMargin = NaN,
+  tickLength = NaN): Theme =
   if label.len > 0:
     result.xLabel = some(label)
   if classify(margin) != fcNan:
     result.xLabelMargin = some(margin)
   if classify(tickMargin) != fcNan:
     result.xTickLabelMargin = some(tickMargin)
+  if classify(tickLength) != fcNan:
+    result.tickLength = some(tickMargin)
   if classify(rotate) != fcNan:
     result.xTicksRotate = some(rotate)
   if font != font():
@@ -1897,13 +1900,16 @@ proc xlab*(
 proc ylab*(
   label = "", margin = NaN, rotate = NaN,
   alignTo = "none", font = font(), tickFont = font(),
-  tickMargin = NaN): Theme =
+  tickMargin = NaN,
+  tickLength = NaN): Theme =
   if label.len > 0:
     result.yLabel = some(label)
   if classify(margin) != fcNan:
     result.yLabelMargin = some(margin)
   if classify(tickMargin) != fcNan:
     result.yTickLabelMargin = some(tickMargin)
+  if classify(tickLength) != fcNan:
+    result.tickLength = some(tickMargin)
   if classify(rotate) != fcNan:
     result.yTicksRotate = some(rotate)
   if font != font():
