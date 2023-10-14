@@ -638,7 +638,7 @@ proc toOptErrorBar[T: PossibleErrorBar](x: T): Option[ErrorBarKind] =
   elif T is Option[ErrorBarKind]: result = x
   else: {.error: "Invalid branch!".}
 
-proc toOptFont[T: PossibleFont](x: T): Option[Font] =
+proc toOptFont*[T: PossibleFont](x: T): Option[Font] =
   when T is Missing: result = none[Font]()
   elif T is Font: result = some(x)
   elif T is Option[Font]: result = x
