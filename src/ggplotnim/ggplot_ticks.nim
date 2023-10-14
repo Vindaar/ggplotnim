@@ -168,7 +168,8 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                            format: ContinuousFormat = nil,
                            isSecondary = false,
                            hideTickLabels = false,
-                           margin = none[Coord1D]()): seq[GraphObject] =
+                           margin = none[Coord1D](),
+                           tStyle = none[Style]()): seq[GraphObject] =
   var boundScale = if isSecondary: dataScale
                    elif axKind == akX: theme.xMarginRange else: theme.yMarginRange
   var rotate: Option[float]
@@ -198,7 +199,9 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                                               rotate = rotate,
                                               alignToOverride = alignTo,
                                               font = theme.tickLabelFont,
-                                              margin = margin)
+                                              tickKind = theme.tickKind.get(tkOneSide),
+                                              margin = margin,
+                                              style = tStyle)
     if not hideTickLabels:
       view.addObj concat(tickObjs, labObjs)
     result = tickObjs
@@ -222,7 +225,9 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
                                               rotate = rotate,
                                               alignToOverride = alignTo,
                                               font = theme.tickLabelFont,
-                                              margin = margin)
+                                              margin = margin,
+                                              tickKind = theme.tickKind.get(tkOneSide),
+                                              style = tStyle)
     if not hideTickLabels:
       view.addObj concat(tickObjs, labObjs)
     result = tickObjs
@@ -235,7 +240,8 @@ proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
                           hideTickLabels = false,
                           centerTicks = true,
                           margin = none[Coord1D](),
-                          format: proc(x: Value): string): seq[GraphObject] =
+                          format: proc(x: Value): string,
+                          tStyle = none[Style]()): seq[GraphObject] =
   # create custom tick labels based on the possible labels
   # and assign tick locations based on ginger.Scale for
   # linear/trafo kinds and evenly spaced based on string?
@@ -281,7 +287,9 @@ proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
   let (tickObjs, labObjs) = view.tickLabels(tickLocs, tickLabels, axKind, rotate = rotate,
                                             alignToOverride = alignTo,
                                             font = theme.tickLabelFont,
-                                            margin = margin)
+                                            margin = margin,
+                                            tickKind = theme.tickKind.get(tkOneSide),
+                                            style = tStyle)
   if not hideTickLabels:
     view.addObj concat(tickObjs, labObjs)
   result = tickObjs
@@ -290,11 +298,11 @@ proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D
   ## takes the given tick label margin if user defined or else defines a suitable
   ## margin based on the font.
   var margin = 0.0
-  case axKind
-  of akX: margin = if theme.xTickLabelMargin.isSome: theme.xTickLabelMargin.get else: 1.75
-  of akY: margin = if theme.yTickLabelMargin.isSome: theme.yTickLabelMargin.get else: -1.25
+  case axKind ## XXX: update this for modern ginger!! But the otherwise branch shouldn't be encountered in theory
+  of akX: margin = theme.xTickLabelMargin.get(1.75)
+  of akY: margin = theme.yTickLabelMargin.get(-1.25)
   # if no default font, use 8pt
-  let font = if theme.tickLabelFont.isSome: theme.tickLabelFont.get else: font(8.0)
+  let font = theme.tickLabelFont.get(font(8.0))
   ## 2.0 times the given string height. Making it string height dependent guarantees it's
   ## going to `appear` to be at the same distant no matter the facetting or size of the
   ## resulting plot
@@ -359,7 +367,8 @@ proc computeTickPosByDateSpacing(firstTick, lastTick: DateTime,
 proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: Scale,
                            theme: Theme,
                            hideTickLabels = false,
-                           margin = none[Coord1D]()): seq[GraphObject] =
+                           margin = none[Coord1D](),
+                           tStyle = none[Style]()): seq[GraphObject] =
   ## Handles generation of ticks that respect the `DateScale` object. Namely parses the data
   ## in the given axis according to `isTimestamp` or `parseDate` and then leaves only those
   ## ticks within `dateSpacing` according to `formatString`.
@@ -428,10 +437,26 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
                                             rotate = rotate,
                                             alignToOverride = alignTo,
                                             font = theme.tickLabelFont,
-                                            margin = margin)
+                                            margin = margin,
+                                            tickKind = theme.tickKind.get(tkOneSide),
+                                            style = tStyle)
   if not hideTickLabels:
     view.addObj concat(tickObjs, labObjs)
   result = tickObjs
+
+proc tickStyle*(theme: Theme, width, height: float): Option[Style] =
+  ## Note: currently we rescale the ticks such that at height 480 they have a length of 5
+  ## and for higher / lower values scaled linearly.
+  ##
+  ## The tick width is 1/5 of the length, unless overwritten.
+  let tickLength = theme.tickLength.get(5.0) #height / 480.0 * 5.0)
+  let tickWidth  = theme.tickWidth.get(tickLength / 5.0)
+  let tickColor  = theme.tickColor.get(color(0.0, 0.0, 0.0))
+  result = some(Style(lineWidth: tickWidth,
+                      color: tickColor,
+                      size: tickLength, # total length of tick
+                      lineType: ltSolid))
+
 
 proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                   axKind: AxisKind, theme: Theme,
@@ -441,6 +466,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
   ## This handles the creation of the tick positions and tick labels.
   ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
   ## `margin` is the tick label margin in centimeter!
+  let tStyle = tickStyle(theme, view.wImg.val, view.hImg.val) # wImg/hImg is in points
   var marginOpt: Option[Coord1D]
   var scale: Scale
   var numTicks: int
@@ -466,7 +492,8 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
                                           hideTickLabels = hideTickLabels,
                                           margin = marginOpt,
-                                          format = format)
+                                          format = format,
+                                          tStyle = tStyle)
       else:
         result = view.handleDateScaleTicks(p, axKind, scale, theme,
                                            hideTickLabels, marginOpt)
@@ -475,7 +502,8 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             isSecondary = true,
                                             hideTickLabels = hideTickLabels,
                                             margin = marginOpt,
-                                            format = format)
+                                            format = format,
+                                            tStyle = tStyle)
     of dcContinuous:
       let dataScale = view.getCorrectDataScale(axKind)
       if scale.dateScale.isNone:
@@ -488,10 +516,12 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             theme = theme,
                                             hideTickLabels = hideTickLabels,
                                             margin = marginOpt,
-                                            format = scale.formatContinuousLabel)
+                                            format = scale.formatContinuousLabel,
+                                            tStyle = tStyle)
       else:
         result = view.handleDateScaleTicks(p, axKind, scale, theme,
-                                           hideTickLabels, marginOpt)
+                                           hideTickLabels, marginOpt,
+                                           tStyle = tStyle)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         # we discard the result, because we only use it to generate the grid lines. Those
@@ -513,7 +543,8 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                            hideTickLabels = hideTickLabels,
                                            isSecondary = true,
                                            margin = marginOpt,
-                                           format = scale.formatContinuousLabel)
+                                           format = scale.formatContinuousLabel,
+                                           tStyle = tStyle)
   else:
     ## TODO: merge this into the other branch
     # this should mean the main geom is histogram like?
@@ -524,7 +555,8 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
       boundScale = boundScaleOpt.unsafeGet
     else:
       boundScale = if axKind == akX: theme.xMarginRange else: theme.yMarginRange
-    let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale))
+    let ticks = view.initTicks(axKind, numTicks, boundScale = some(boundScale), style = tStyle,
+                               tickKind = theme.tickKind.get(tkOneSide))
     var tickLabs: seq[GraphObject]
     tickLabs = view.tickLabels(ticks, font = theme.tickLabelFont,
                                margin = marginOpt)

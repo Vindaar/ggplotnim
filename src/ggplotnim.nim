@@ -1811,6 +1811,26 @@ func minorGridLines*(enable = true, width = Inf): Theme =
   if classify(width) == fcNormal:
     result.minorGridLineWidth = some(width)
 
+func tickLength*(length: float): Theme =
+  ## Sets the tick length to this many points. The default is 5 pixels at
+  ## 640x480. The tick width is 1/5 of the tick length
+  result = Theme(tickLength: some(length))
+
+func tickWidth*(width: float): Theme =
+  ## Sets the tick width to this many points. The default is 1 pixels at
+  ## 640x480 and it is 1/5 of the tick length.
+  result = Theme(tickWidth: some(width))
+
+func tickColor*[C: PossibleColor](color: C = black): Theme =
+  ## Sets the tick color to this many points. The default is 1 pixels at
+  ## 640x480 and it is 1/5 of the tick length.
+  let colorOpt = toOptColor(color)
+  result = Theme(tickColor: colorOpt)
+
+func tickKind*(kind: TickKind): Theme =
+  ## Sets the kind of tick. One sided `tkOneSide` (default) or both sides `tkBothSides`.
+  result = Theme(tickKind: some(kind))
+
 func backgroundColor*[C: PossibleColor](color: C = grey92): Theme =
   ## Sets the background color of the plotting area to `color`.
   let colorOpt = toOptColor(color)
@@ -2400,6 +2420,7 @@ proc generateLegendMarkers(plt: Viewport,
     case scale.scKind
     of scColor, scFillColor:
       # replace yScale by scale of `scale`
+      let tStyle = tickStyle(theme, plt.wImg.val, plt.hImg.val) # w/hImg is in points
       var mplt = plt
       mplt.yScale = scale.dataScale
       # use 5 ticks by default
@@ -2408,10 +2429,12 @@ proc generateLegendMarkers(plt: Viewport,
         #doAssert scale.numTicks > 0, "Default tick value for color scale is 0!"
         ## XXX: hand a number of ticks from the scale
         let ticks = mplt.initTicks(akY, 5, boundScale = some(scale.dataScale),
-                                   isSecondary = true)
+                                   isSecondary = true,
+                                   style = tStyle)
         let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
-                                       margin = some(plt.c1(0.3, akX, ukCentimeter)),
-                                       format = scale.formatContinuousLabel)
+                                       #margin = some(plt.c1(0.3, akX, ukCentimeter)),
+                                       format = scale.formatContinuousLabel,
+                                       font = theme.tickLabelFont)
         result = concat(tickLabs, ticks)
       else:
         doAssert scale.invTransC != nil, "Inverse transformation must exist if forward exists."
@@ -2434,8 +2457,9 @@ proc generateLegendMarkers(plt: Viewport,
         mplt.yScale = (low: scale.transC(minVal), high: scale.transC(maxVal))
         let (tickObjs, labObjs) = mplt.tickLabels(tickLocs, labs, akY, isSecondary = true,
                                                   #rotate = rotate,
-                                                  alignToOverride = some(taLeft))
-                                                  #font = theme.tickLabelFont,
+                                                  style = tStyle,
+                                                  alignToOverride = some(taLeft),
+                                                  font = theme.tickLabelFont)
                                                   #margin = margin)
         if true: # not hideTickLabels:
           mplt.addObj concat(tickObjs, labObjs)
@@ -2502,7 +2526,7 @@ proc handleLabels(view: Viewport, theme: Theme) =
       let labNames = labs.mapIt(it.txtText)
       let labLens = labNames.argMaxIt(len(it))
       # TODO: use custom label font for margin calc?
-      let font = if theme.labelFont.isSome: theme.labelFont.get else: font(8.0)
+      let font = theme.labelFont.get(font(8.0))
       case axKind
       of akX:
         marginVar = Coord1D(pos: 1.0, kind: ukStrHeight,

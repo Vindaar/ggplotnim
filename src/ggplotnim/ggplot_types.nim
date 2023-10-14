@@ -411,6 +411,11 @@ type
     yTicksRotate*: Option[float]
     yTicksTextAlign*: Option[TextAlignKind]
     yTickLabelMargin*: Option[float] # tick label margin in multiples of font height
+    # general ticks
+    tickLength*: Option[float] ## Width is 1/5 of length for now!
+    tickWidth*: Option[float] ## unless set explicitly!
+    tickColor*: Option[Color] ## Width is 1/5 of length for now!
+    tickKind*: Option[TickKind] ## Kind of tick. One sided (`tkOneSide`) or two sided (`tkBothSides`)
     # legend
     legendPosition*: Option[Coord]
     legendOrder*: Option[seq[int]]
