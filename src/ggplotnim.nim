@@ -2133,50 +2133,10 @@ proc applyTheme(pltTheme: var Theme, theme: Theme) =
   template ifSome(it: untyped): untyped =
     if theme.it.isSome:
       pltTheme.it = theme.it
-  # TODO: about time we make this a macro...
-  ifSome(xLabelMargin)
-  ifSome(yLabelMargin)
-  ifSome(xTickLabelMargin)
-  ifSome(yTickLabelMargin)
-  ifSome(xLabel)
-  ifSome(yLabel)
-  ifSome(xTicksTextAlign)
-  ifSome(yTicksTextAlign)
-  ifSome(xTicksRotate)
-  ifSome(yTicksRotate)
-  ifSome(legendPosition)
-  ifSome(legendOrder)
-  ifSome(hideLegend)
-  ifSome(labelFont)
-  ifSome(tickLabelFont)
-  ifSome(titleFont)
-  ifSome(subTitleFont)
-  ifSome(tickLabelFont)
-  ifSome(title)
-  ifSome(subTitle)
-  ifSome(plotBackgroundColor)
-  ifSome(canvasColor)
-  ifSome(gridLines)
-  ifSome(gridLineWidth)
-  ifSome(gridLineColor)
-  ifSome(minorGridLines)
-  ifSome(minorGridLineWidth)
-  ifSome(onlyAxes)
-  ifSome(xRange)
-  ifSome(yRange)
-  ifSome(xMargin)
-  ifSome(yMargin)
-  ifSome(xOutsideRange)
-  ifSome(yOutsideRange)
-  ifSome(hideTicks)
-  ifSome(hideTickLabels)
-  ifSome(hideLabels)
-  ifSome(plotMarginLeft)
-  ifSome(plotMarginRight)
-  ifSome(plotMarginTop)
-  ifSome(plotMarginBottom)
-  ifSome(facetMargin)
-  ifSome(preferRowsOverColumns)
+  for field, v1, v2 in fieldPairs(pltTheme, theme):
+    when typeof(v1) is Option: ## Copy all option fields
+      if v2.isSome:
+        v1 = v2
 
 proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   ## adds the given theme (or theme element) to the GgPlot object
