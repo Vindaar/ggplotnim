@@ -1632,19 +1632,22 @@ proc genContinuousLegend(view: var Viewport,
     # |   |     |cm| leg.   |
     # |   |     |  | labels |
     # -----------------------
+    let bScale = theme.baseScale.get(1.0)
+    let legendHeaderHeight = if theme.legendTitleFont.isSome: theme.legendTitleFont.get.size / 12.0 else: 1.0
+    let legendHeight = if theme.legendFont.isSome: theme.legendFont.get.size / 12.0 * 4.5 else: 4.5
     view.layout(2, 2,
-                colWidths = @[quant(0.5, ukCentimeter), # for space to plot
+                colWidths = @[quant(0.5 * bScale, ukCentimeter), # for space to plot
                               quant(0.0, ukRelative)], # for legend. incl header
-                rowHeights = @[quant(1.0, ukCentimeter), # for header
-                               quant(4.5, ukCentimeter)]) # for act. legend
-    var legView = view[3]
+                rowHeights = @[quant(legendHeaderHeight, ukCentimeter), # for header
+                               quant(legendHeight, ukCentimeter)]) # for act. legend
+    var legView = view[3] # bottom right
     legView.yScale = cat.dataScale
-    legView.layout(3, 1, colWidths = @[quant(1.0, ukCentimeter),
-                                       quant(0.5, ukCentimeter),
+    legView.layout(3, 1, colWidths = @[quant(1.0 * bScale, ukCentimeter),
+                                       quant(0.5 * bScale, ukCentimeter),
                                        quant(0.0, ukRelative)])
     var legGrad = legView[0]
     # add markers
-    let markers = legGrad.generateLegendMarkers(cat, accessIdx, geomKind)
+    let markers = legGrad.generateLegendMarkers(cat, theme, geomKind)
     legGrad.addObj markers
     let cmap = cat.colorScale
     let colors = cmap.colors.mapIt(it.toColor)
@@ -1725,8 +1728,7 @@ proc legendFont*[F1: PossibleFont; F2: PossibleFont](font: F1 = missing(), tickF
 proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## puts the legend at position `(x, y)` in relative coordinates of
   ## the plot viewport in range (0.0 .. 1.0)
-  result = Theme(legendPosition: some(Coord(x: c1(x),
-                                            y: c1(y))))
+  result = Theme(legendPosition: some(c(x, y)))
 
 proc legendOrder*(idx: seq[int]): Theme =
   ## uses the ordering given by the indices `idx` to arrange the order of
@@ -1859,6 +1861,41 @@ proc theme_latex*(): Theme =
   ## without manual adjustment of figure sizes.
   result = Theme(titleFont: some(font(10.0)),
                  labelFont: some(font(10.0)))
+
+func default_scale*(): Theme =
+  result = Theme(titleFont: some(font(16.0)),
+                 labelFont: some(font(12.0)),
+                 tickLabelFont: some(font(8.0)),
+                 tickLength: some(5.0),
+                 tickWidth: some(1.0),
+                 legendFont: some(font(12.0)),
+                 legendTitleFont: some(font(12.0, bold = true)),
+                 facetHeaderFont: some(font(8.0, alignKind = taCenter)),
+                 baseScale: some(1.0))
+
+func theme_scale*(scale: float, family = ""): Theme =
+  ## Returns a theme that scales all fonts, tick sizes etc. by the given factor compared
+  ## to the default values.
+  ##
+  ## If `family` given will overwrite the font family of all fonts to this.
+  result = default_scale()
+  proc `*`(x: Option[float], s: float): Option[float] =
+    doAssert x.isSome
+    result = some(x.get * s)
+  proc `*`(x: Option[Font], s: float): Option[Font] =
+    doAssert x.isSome
+    let f = x.get
+    let fam = if family.len > 0: family else: f.family
+    result = some(font(f.size * s, bold = f.bold, family = fam, alignKind = f.alignKind))
+  result.titleFont = result.titleFont * scale
+  result.labelFont = result.labelFont * scale
+  result.tickLabelFont = result.tickLabelFont * scale
+  result.tickLength = result.tickLength * scale
+  result.tickWidth = result.tickWidth * scale
+  result.legendFont = result.legendFont * scale
+  result.legendTitleFont = result.legendTitleFont * scale
+  result.facetHeaderFont = result.facetHeaderFont * scale
+  result.baseScale = result.baseScale * scale
 
 proc prefer_columns*(): Theme =
   ## Sets the preference in a facet to be num(cols) > num(rows)
@@ -2255,23 +2292,24 @@ proc requiresLegend(filledScales: FilledScales,
 proc initThemeMarginLayout(theme: Theme,
                            tightLayout: bool,
                            requiresLegend: bool): ThemeMarginLayout =
+  let sc = theme.baseScale.get(1.0)
   result = ThemeMarginLayout(
     left: if theme.plotMarginLeft.isSome: theme.plotMarginLeft.get
-          elif tightLayout: quant(0.2, ukCentimeter)
-          else: quant(2.5, ukCentimeter),
+          elif tightLayout: quant(0.2 * sc, ukCentimeter)
+          else: quant(2.5 * sc, ukCentimeter),
     right: if theme.plotMarginRight.isSome: theme.plotMarginRight.get
-           elif tightLayout: quant(0.2, ukCentimeter)
-           elif requiresLegend: quant(5.0, ukCentimeter)
-           else: quant(1.0, ukCentimeter),
+           elif tightLayout: quant(0.2 * sc, ukCentimeter)
+           elif requiresLegend: quant(5.0 * sc, ukCentimeter)
+           else: quant(1.0 * sc, ukCentimeter),
     top: if theme.plotMarginTop.isSome: theme.plotMarginTop.get
          # this is not really a good solution. Legacy. Should depend on whether
          # there is a title instead!
-         elif tightLayout: quant(0.2, ukCentimeter)
-         elif requiresLegend: quant(1.0, ukCentimeter)
-         else: quant(1.0, ukCentimeter),
+         elif tightLayout: quant(0.2 * sc, ukCentimeter)
+         elif requiresLegend: quant(1.0 * sc, ukCentimeter)
+         else: quant(1.0 * sc, ukCentimeter),
     bottom: if theme.plotMarginBottom.isSome: theme.plotMarginBottom.get
-            elif tightLayout: quant(0.2, ukCentimeter)
-            else: quant(2.0, ukCentimeter),
+            elif tightLayout: quant(0.2 * sc, ukCentimeter)
+            else: quant(2.0 * sc, ukCentimeter),
     requiresLegend: requiresLegend
   )
 
@@ -2511,12 +2549,12 @@ proc handleLabels(view: Viewport, theme: Theme) =
         marginVar = Coord1D(pos: 1.0, kind: ukStrHeight,
                             backend: view.backend,
                             text: labNames[labLens], font: font) +
-          Coord1D(pos: 0.3, kind: ukCentimeter)
+          Coord1D(pos: 0.3 * theme.baseScale.get(1.0), kind: ukCentimeter)
       of akY:
         marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
                             backend: view.backend,
                             text: labNames[labLens], font: font) +
-                    Coord1D(pos: 0.3, kind: ukCentimeter)
+                    Coord1D(pos: 0.3 * theme.baseScale.get(1.0), kind: ukCentimeter)
     else:
       marginVar = Coord1D(pos: themeField.get, kind: ukCentimeter)
 
