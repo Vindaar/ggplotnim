@@ -1756,6 +1756,14 @@ proc hideLegend*(): Theme =
   ## hides the legend, even if it would otherwise be required
   result = Theme(hideLegend: some(true))
 
+func facetHeaderText*[F: PossibleFont](font: F = missing(), x = 0.5, y = 0.5): Theme =
+  ## Adjusts the facet header text. The `f` argument adjusts the font used
+  ## while the `x`, `y` adjusts the placement of the text in relative coordinates
+  ## within the header of each facet. The default is (0.5, 0.5), i.e. the  center.
+  let fontOpt = when F is Missing: font(8.0, alignKind = taCenter)
+                else: font
+  result = Theme(facetHeaderFont: some(fontOpt), facetHeaderPos: some(c(x, y)))
+
 proc canvasColor*[C: PossibleColor](color: C): Theme =
   ## sets the canvas color of the plot to the given color
   let colorOpt = toOptColor(color)
@@ -2824,6 +2832,7 @@ proc calcScalesForLabel(theme: var Theme, facet: Facet,
 
 proc generateFacetPlots(view: Viewport, p: GgPlot,
                         filledScales: FilledScales,
+                        theme: Theme,
                         hideLabels = false,
                         hideTicks = false) =
   var p = p
@@ -2887,11 +2896,13 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     headerView.background()
     # put in the text
     let text = $label #pair.mapIt($it[0] & ": " & $it[1]).join(", ")
-    let headerText = headerView.initText(c(0.5, 0.5),
+    let facetFont = theme.facetHeaderFont.get(font(8.0, alignKind = taCenter))
+    let facetPos = theme.facetHeaderPos.get(c(0.5, 0.5))
+    let headerText = headerView.initText(facetPos,
                                          text,
                                          textKind = goText,
-                                         alignKind = taCenter,
-                                         font = some(font(8.0)),
+                                         alignKind = facetFont.alignKind,
+                                         font = some(facetFont),
                                          name = "facetHeaderText")
     headerView.addObj headerText
     headerView.name = "facetHeader"
@@ -3075,7 +3086,7 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
   ## the header viewport + right side margin), we automatically wrap the
   ## title to multiple lines.
   var title = title
-  let font = if theme.titleFont.isSome: theme.titleFont.get else: font(16.0)
+  let font = theme.titleFont.get(font(16.0))
   if "\n" notin title and view.backend != bkTikZ: # for tikZ let LaTeX handle line wrapping
     # user does not do manual wrapping. Check if needs to be wrapped.
     let strWidth = getStrWidth(view, title, font)
@@ -3147,8 +3158,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   var pltBase = img[4]
 
   if p.facet.isSome:
-    pltBase.generateFacetPlots(p,
-                               filledScales,
+    pltBase.generateFacetPlots(p, filledScales, theme,
                                hideLabels = hideLabels,
                                hideTicks = hideTicks)
   else:

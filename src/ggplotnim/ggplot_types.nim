@@ -389,6 +389,7 @@ type
     titleFont*: Option[Font]
     subTitleFont*: Option[Font]
     tickLabelFont*: Option[Font]
+    facetHeaderFont*: Option[Font]
     legendFont*: Option[Font]
     legendTitleFont*: Option[Font]
     # hide parts of plot
@@ -399,6 +400,8 @@ type
     title*: Option[string]
     subTitle*: Option[string]
     titlePosition*: Option[Coord]
+    # facet
+    facetHeaderPos*: Option[Coord] # Position of the text inside the facet header
     # labels
     xLabel*: Option[string]
     xLabelMargin*: Option[float]
