@@ -1538,11 +1538,11 @@ proc ggtitle*(title: string, subTitle = "",
     result.subTitleFont = some(subTitleFont)
 
 proc generateLegendMarkers(plt: Viewport, scale: Scale,
-                           accessIdx: Option[seq[int]],
+                           theme: Theme,
                            geomKind: GeomKind): seq[GraphObject]
 proc genDiscreteLegend(view: var Viewport,
                        cat: Scale,
-                       accessIdx: Option[seq[int]],
+                       theme: Theme,
                        geomKind: GeomKind) =
   # TODO: add support for legend font in Theme / `let label` near botton!
   # _______________________
@@ -1553,7 +1553,7 @@ proc genDiscreteLegend(view: var Viewport,
   # |   |     |cm| leg.   |
   # |   |     |  | labels |
   # -----------------------
-  let markers = view.generateLegendMarkers(cat, accessIdx, geomKind)
+  let markers = view.generateLegendMarkers(cat, theme, geomKind)
   let numElems = cat.valueMap.len
   view.layout(2, 2,
               colWidths = @[quant(0.5, ukCentimeter), # for space to plot
@@ -1597,6 +1597,7 @@ proc genDiscreteLegend(view: var Viewport,
       labelText = markers[j].name
     else:
       raise newException(Exception, "`createLegend` unsupported for " & $cat.scKind)
+    let legendFont = theme.legendFont.get(font(12.0))
     let label = legLabel.initText(
       Coord(
         x: c1(0.0),
@@ -1604,7 +1605,7 @@ proc genDiscreteLegend(view: var Viewport,
       labelText,
       textKind = goText,
       alignKind = taLeft,
-      #font = some(font(10.0)), ## XXX: make `Theme` element!
+      font = some(legendFont),
       name = "markerText"
     )
     legBox.addObj [rect, markers[j]]
@@ -1616,7 +1617,7 @@ proc genDiscreteLegend(view: var Viewport,
 
 proc genContinuousLegend(view: var Viewport,
                          cat: Scale,
-                         accessIdx: Option[seq[int]],
+                         theme: Theme,
                          geomKind: GeomKind) =
   case cat.scKind
   of scSize:
@@ -1662,32 +1663,31 @@ proc genContinuousLegend(view: var Viewport,
 
 proc createLegend(view: var Viewport,
                   cat: Scale,
-                  accessIdx: Option[seq[int]],
+                  theme: Theme,
                   geomKind: GeomKind) =
   ## creates a full legend within the given viewport based on the categories
   ## in `cat` with a headline `title` showing data points of `markers`
   let startIdx = view.len
   case cat.dcKind
   of dcDiscrete:
-    view.genDiscreteLegend(cat, accessIdx, geomKind)
+    view.genDiscreteLegend(cat, theme, geomKind)
   of dcContinuous:
     # for now 5 sizes...
-    view.genContinuousLegend(cat, accessIdx, geomKind)
+    view.genContinuousLegend(cat, theme, geomKind)
 
   # get the first viewport for the header
   if startIdx < view.len:
     var header = view[1]
     # TODO: add support to change font of legend
+    let legendTitleFont = theme.legendTitleFont.get(font(12.0, bold = true))
     var label = header.initText(
       Coord(x: c1(0.0),
             y: c1(0.5)),
       evaluate(cat.col).toStr,
       textKind = goText,
       alignKind = taLeft,
-      #font = some(font(10.0)), ## XXX: make `Theme` element!
+      font = some(legendTitleFont),
       name = "legendHeader")
-    # set to bold
-    label.txtFont.bold = true
     header.addObj label
     view[1] = header
 
@@ -1717,6 +1717,10 @@ proc finalizeLegend(view: var Viewport,
     var ml = legends[i - 1]
     ml.origin = view[i].origin
     view[i] = ml
+
+proc legendFont*[F1: PossibleFont; F2: PossibleFont](font: F1 = missing(), tickFont: F2 = missing()): Theme =
+  ## Adjusts the font of the legend title and / or the legend tick label font.
+  result = Theme(legendTitleFont: toOptFont(font), legendFont: toOptFont(tickFont))
 
 proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## puts the legend at position `(x, y)` in relative coordinates of
@@ -2333,7 +2337,7 @@ proc createLayout(view: var Viewport,
 
 proc generateLegendMarkers(plt: Viewport,
                            scale: Scale,
-                           accessIdx: Option[seq[int]],
+                           theme: Theme,
                            geomKind: GeomKind): seq[GraphObject] =
   ## generate the required Legend Markers for the given `aes`
   ## TODO: add different objects to be shown depending on the scale and geom.
@@ -2342,6 +2346,7 @@ proc generateLegendMarkers(plt: Viewport,
   ## Thus also put the rectangle drawing here.
   case scale.dcKind
   of dcDiscrete:
+    let accessIdx = theme.legendOrder
     let idx = if accessIdx.isNone: toSeq(0 ..< scale.valueMap.len) else: accessIdx.get
     doAssert idx.len == scale.valueMap.len,
       "Custom ordering of legend keys must assign each key only once! " &
@@ -3190,7 +3195,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
 
       ## XXX: not only hand geom kind, but also the used setting, e.g. the marker style if constant
       ## or a constant color
-      lg.createLegend(scale, theme.legendOrder, geomKind)
+      lg.createLegend(scale, theme, geomKind)
       if scaleCol notin scaleNames:
         legends.add lg
         drawnLegends.incl (scale.dcKind, scale.scKind, geomKind)
