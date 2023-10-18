@@ -1555,6 +1555,7 @@ proc genDiscreteLegend(view: var Viewport,
   # -----------------------
   let markers = view.generateLegendMarkers(cat, theme, geomKind)
   let numElems = cat.valueMap.len
+  ## XXX: Still need to be scaled by `baseScale`!
   view.layout(2, 2,
               colWidths = @[quant(0.5, ukCentimeter), # for space to plot
                             quant(0.0, ukRelative)], # for legend. incl header
