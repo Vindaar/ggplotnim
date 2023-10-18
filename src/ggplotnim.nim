@@ -1897,6 +1897,12 @@ func theme_scale*(scale: float, family = ""): Theme =
   result.facetHeaderFont = result.facetHeaderFont * scale
   result.baseScale = result.baseScale * scale
 
+func theme_font_scale*(scale: float, family = ""): Theme =
+  ## Returns a theme similar to `theme_scale` but in which the margins are not
+  ## scaled.
+  result = theme_scale(scale, family)
+  result.baseScale = some(1.0)
+
 proc prefer_columns*(): Theme =
   ## Sets the preference in a facet to be num(cols) > num(rows)
   result = Theme(preferRowsOverColumns: some(false))
