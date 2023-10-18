@@ -1660,7 +1660,7 @@ proc genContinuousLegend(view: var Viewport,
     legGrad.addObj gradRect
     legView[0] = legGrad
     view[3] = legView
-    view.height = quant(5.5, ukCentimeter)
+    view.height = quant(5.5 * bScale, ukCentimeter)
   else:
     discard
 
