@@ -1,3 +1,18 @@
+* v0.6.3
+- allow adjustment of title position in relative coordinates using
+  ~titlePosition~
+- allow adjustment of tick style using ~tickLength~, ~tickWidth~,
+  ~tickColor~ and ~tickKind~
+  - adds ~tickLength~ argument to ~x/ylab~
+- allow adjustment of legend title font and legend tick label font
+  using ~legendFont~
+- allow adjustment of font and placement of text in facet header using
+  ~facetHeaderText~
+- add experimental ~theme_scale~ to scale up/down all fonts / tick
+  sizes etc. by a factor. Useful to effectively change the DPI of the
+  figure.
+- add experimental ~theme_font_scale~ which acts like ~theme_scale~,
+  but does not adjust the base scale (related to scaling the margins)  
 * v0.6.2
 - handle geom calls with constant values better. Previously we
   sometimes ended up drawing the same e.g. text multiple times, once
