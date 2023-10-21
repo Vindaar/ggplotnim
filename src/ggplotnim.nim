@@ -3053,6 +3053,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     let totalHeight = quant(
       getStrHeight(view, annot.text, annot.font).val + marginH.pos * 2.0,
       unit = ukPoint)
+
     # find longest line of annotation to base background on
     let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
     let maxLine = annot.text.splitLines.sortedByIt(
@@ -3086,7 +3087,8 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       textKind = goText,
       alignKind = annot.alignKind,
       rotate = annot.rotate,
-      fontOpt = some(annot.font))
+      fontOpt = some(annot.font),
+      useRealText = false) # use `My` to determine height of single line to get consistent line spacing
     if not annotRect.isNil:
       view.addObj concat(@[annotRect], annotText)
     else:
@@ -3124,7 +3126,8 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
                                         title,
                                         textKind = goText,
                                         alignKind = taLeft,
-                                        fontOpt = some(font))
+                                        fontOpt = some(font),
+                                        useRealText = false) # use `My` to determine height of single line to get consistent line spacing
   view.addObj titleObj
 
 proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): PlotView =
