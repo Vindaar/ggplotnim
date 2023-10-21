@@ -12,7 +12,8 @@
   sizes etc. by a factor. Useful to effectively change the DPI of the
   figure.
 - add experimental ~theme_font_scale~ which acts like ~theme_scale~,
-  but does not adjust the base scale (related to scaling the margins)  
+  but does not adjust the base scale (related to scaling the margins)
+- allow to assign custom order in ~facet_wrap~ based on a ~order: seq[Value]~ argument
 * v0.6.2
 - handle geom calls with constant values better. Previously we
   sometimes ended up drawing the same e.g. text multiple times, once
