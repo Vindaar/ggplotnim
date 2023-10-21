@@ -13,7 +13,14 @@
   figure.
 - add experimental ~theme_font_scale~ which acts like ~theme_scale~,
   but does not adjust the base scale (related to scaling the margins)
-- allow to assign custom order in ~facet_wrap~ based on a ~order: seq[Value]~ argument
+- allow to assign custom order in ~facet_wrap~ based on a ~order:
+  seq[Value]~ argument
+- add new feature helping with reproducibility of plots: 
+  If compiled with ~-d:WritePlotCsv~ ~ggplotnim~ now provides the option to automatically
+  write out CSV files for input DF for each plot that is created (if
+  enabled via environment variable ~WRITE_PLOT_CSV=true~). Also all
+  DFs associated with individual geoms will be written with a geom
+  specific suffix.
 * v0.6.2
 - handle geom calls with constant values better. Previously we
   sometimes ended up drawing the same e.g. text multiple times, once
