@@ -231,6 +231,7 @@ type
   Facet* = object
     columns*: seq[string]
     sfKind*: ScaleFreeKind
+    order*: seq[Value] ## Facets will be arranged in this order top left to bottom right if any given
 
   Ridges* = object
     col*: FormulaNode
