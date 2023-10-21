@@ -3178,6 +3178,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   ## viewport.
   if p.geoms.len == 0:
     raise newException(ValueError, "Please use at least one `geom`!")
+
   let width = width.float
   let height = height.float
   var filledScales: FilledScales
@@ -3383,6 +3384,9 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions,
   else:
     result.backend = backend
 
+when defined(WritePlotCsv):
+  from std / os import getEnv
+  import std / strformat
 proc ggsave*(
   p: GgPlot, fname: string, width = 640.0, height = 480.0,
   texOptions: TeXOptions, backend: BackendKind = bkNone) =
@@ -3395,6 +3399,25 @@ proc ggsave*(
   # make sure the target directory exists, create if not
   createDir(fname.splitFile().dir)
   plt.view.ggdraw(fname, texOptions)
+
+  when defined(WritePlotCsv):
+    ## You can activate this branch by compiling with `-d:WritePlotCsv`. If you then
+    ## define the environment variable `WRITE_PLOT_CSV` `ggplotnim` will write the a
+    ## CSV file for every plot you create with the same path and name as the output plot
+    ## but `.csv` suffix. This is extremely useful if you wish to make the data for all
+    ## your plots easily available (and for all their annoyances this is one of the use
+    ## cases where CSV files are handy :/)
+    let toWrite = getEnv("WRITE_PLOT_CSV", "false").parseBool
+    if toWrite:
+      let csvName = fname & ".csv"
+      proc write(df: DataFrame, f: string) =
+        echo "[INFO] Writing CSV file: ", csvName
+        df.writeCsv(csvName)
+      write(p.data, csvName)
+      # now write any geom associated DF with a `geom_<idx>_<geomKind>.csv` suffix
+      for i, g in p.geoms:
+        if g.data.isSome:
+          write(g.data.get, csvName.replace(".csv", &"_geom_{i}_{g.kind}.csv"))
 
 proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
              useTeX = false,
