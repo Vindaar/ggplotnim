@@ -844,9 +844,32 @@ proc ggridges*[T: FormulaNode | string](col: T, overlap = 1.3,
 
 
 proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
-                                          scales = "fixed"): Facet =
+                                          scales = "fixed",
+                                          order: seq[Value] = @[]): Facet =
+  ## Creates a facet plot (a grid based on grouped data given the arguments
+  ## `fns`). `scales` decides whether the x or y or both axes are fixed between
+  ## all plots or can be independent.
+  ##
+  ## `order` allows to customize the order in which the plots appear on the grid
+  ## going from top left to bottom right (row wise).
+  ##
+  ## The order is given as a `seq[Value]`, which is one `VObejct` value for each
+  ## subplot that will be produced.
+  ##
+  ## Say your DF contains a column Class with 3 distinct labels `["A", "B", "C"]` and
+  ## many other entries for each label. Then `facet_wrap("Class")` will produce one
+  ## subplot for each of the three labels.
+  ##
+  ## To decide the order in which they appear, you would define a seq containing
+  ##
+  ## ```nim
+  ## let order = %~ { "Class" : "A", "Class" : "B", "Class" : "C" }
+  ## ```
+  ##
+  ## The apparent duplication of `Class` is because it is possible to create a
+  ## facet wrap due based on multiple classes.
   let sfKind = parseEnum[ScaleFreeKind](scales)
-  result = Facet(sfKind: sfKind)
+  result = Facet(sfKind: sfKind, order: order)
   for f in fns:
     when T is FormulaNode:
       doAssert f.kind == fkVariable
@@ -2786,17 +2809,28 @@ proc determineExistingCombinations(fs: FilledScales,
     for i, fc in facets:
       comb.add ($fc.col, c[i])
     combLabels.add toObject(comb)
-  combLabels = combLabels.sorted
+
   # combinations possibly contains non existing combinations too!
-  result = initOrderedSet[Value]()
+  var exists = newSeq[Value]()
   # now check each geom for each `yieldData` element and see which
   # combination exists in them
   for fg in fs.geoms:
     for cb in combLabels:
       for xk in keys(fg.yieldData):
         if cb in xk:
-          result.incl cb
+          exists.add cb
+  result = exists.sorted.toOrderedSet # order based on label
   doAssert result.card <= combinations.len
+  # check user input
+  if facet.order.len > 0: # if user given order, overwrite the result!
+    if facet.order.len != result.card: # but only if they match in terms of content
+      raise newException(ValueError, "Input labels for facet to order by has " & $facet.order.len &
+        " elements, but there are " & $result.card & " facet elements in total.")
+    for x in facet.order:
+      if x notin result:
+        raise newException(ValueError, "Label " & $x & " not found in deduced " &
+          " labels, but is present in custom ordered labels!")
+    result = facet.order.toOrderedSet
 
 proc calcFacetViewMap(combLabels: OrderedSet[Value]): OrderedTable[Value, int] =
   var idx = 0
