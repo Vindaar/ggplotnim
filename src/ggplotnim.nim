@@ -1895,6 +1895,7 @@ func default_scale*(): Theme =
                  legendFont: some(font(12.0)),
                  legendTitleFont: some(font(12.0, bold = true)),
                  facetHeaderFont: some(font(8.0, alignKind = taCenter)),
+                 baseLabelMargin: some(3.0),
                  baseScale: some(1.0))
 
 func theme_scale*(scale: float, family = ""): Theme =
@@ -1919,6 +1920,7 @@ func theme_scale*(scale: float, family = ""): Theme =
   result.legendFont = result.legendFont * scale
   result.legendTitleFont = result.legendTitleFont * scale
   result.facetHeaderFont = result.facetHeaderFont * scale
+  result.baseLabelMargin = result.baseLabelMargin * scale
   result.baseScale = result.baseScale * scale
 
 func theme_font_scale*(scale: float, family = ""): Theme =
@@ -1926,6 +1928,11 @@ func theme_font_scale*(scale: float, family = ""): Theme =
   ## scaled.
   result = theme_scale(scale, family)
   result.baseScale = some(1.0)
+
+func baseLabelMargin*(margin: float): Theme =
+  ## Base label margin between the width / height of a tick label and the
+  ## axis label. By default 0.3 cm (added to the width / height of the tick labels).
+  result = Theme(baseLabelMargin: some(margin))
 
 proc prefer_columns*(): Theme =
   ## Sets the preference in a facet to be num(cols) > num(rows)
@@ -2574,17 +2581,19 @@ proc handleLabels(view: Viewport, theme: Theme) =
       let labLens = labNames.argMaxIt(len(it))
       # TODO: use custom label font for margin calc?
       let font = theme.labelFont.get(font(8.0))
+      let tlOffset = theme.baseLabelMargin.get(0.3) ## Default: 0.3 cm
+      # if `theme_scale` used, already pre multiplied by `baseScale`
       case axKind
       of akX:
-        marginVar = Coord1D(pos: 1.0, kind: ukStrHeight,
+        marginVar = Coord1D(pos: 1.5, kind: ukStrHeight,
                             backend: view.backend,
                             text: labNames[labLens], font: font) +
-          Coord1D(pos: 0.3 * theme.baseScale.get(1.0), kind: ukCentimeter)
+                    Coord1D(pos: tlOffset, kind: ukCentimeter)
       of akY:
         marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
                             backend: view.backend,
                             text: labNames[labLens], font: font) +
-                    Coord1D(pos: 0.3 * theme.baseScale.get(1.0), kind: ukCentimeter)
+                    Coord1D(pos: tlOffset, kind: ukCentimeter)
     else:
       marginVar = Coord1D(pos: themeField.get, kind: ukCentimeter)
 
