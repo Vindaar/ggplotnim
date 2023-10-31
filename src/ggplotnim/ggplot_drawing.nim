@@ -249,7 +249,8 @@ proc getDrawPos(view: Viewport, viewIdx: int,
                 fg: FilledGeom,
                 p: tuple[x: Value, y: Value],
                 binWidths: tuple[x, y: float], # bin widths
-                df: DataFrame, idx: int): Coord =
+                df: DataFrame, idx: int,
+                minVal: float): Coord =
   const CoordsFlipped = false # placeholder. Will be part of Theme
                               # if true, a discrete stacking / bar plot
                               # will be done parallel to x axis instead
@@ -258,9 +259,9 @@ proc getDrawPos(view: Viewport, viewIdx: int,
     var mp = p
     if fg.geomKind == gkBar or (fg.geomKind == gkHistogram and fg.hdKind == hdBars):
       when not CoordsFlipped:
-        mp.y = %~ 0.0
+        mp.y = %~ minVal
       else:
-        mp.x = %~ 0.0
+        mp.x = %~ minVal
     result.x = view.getDrawPosImpl(fg, mp.x, binWidths.x, fg.dcKindX, akX)
     result.y = view.getDrawPosImpl(fg, mp.y, binWidths.y, fg.dcKindY, akY)
   of pkStack:
@@ -389,9 +390,10 @@ proc draw(view: var Viewport, fg: FilledGeom, pos: Coord,
   of gkHistogram, gkBar:
     let binWidth = readOrCalcBinWidth(df, idx, fg.xCol, dcKind = fg.dcKindX)
     doAssert binWidth == binWidths.x
+    let height = y.toFloat(allowNull = true)
     view.addObj view.initRect(pos,
                               quant(binWidth, ukData),
-                              quant(-y.toFloat(allowNull = true), ukData),
+                              quant(-height, ukData),
                               style = some(style))
   of gkLine, gkFreqPoly:
     doAssert false, "Already handled in `drawSubDf`!"
@@ -440,7 +442,8 @@ proc getView(viewMap: Table[(Value, Value), int], p: tuple[x, y: Value], fg: Fil
   result = viewMap[(px, py)]
 
 proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
-                      df: DataFrame, fg: FilledGeom) =
+                      df: DataFrame, fg: FilledGeom,
+                      minVal: float) =
   ## extends the given `linePoints` down to the axis given by `axKind` or
   ## simply to the extension of the full bin width to left and right.
   ## This makes sure all lines start at the main axis and on the outside edges
@@ -453,7 +456,7 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
   of akX:
     # normal case, main axis is x
     # get bin width and add extension to left
-    lStart.y.pos = 0.0
+    lStart.y.pos = minVal
     var binWidth: float
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
       binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
@@ -461,7 +464,7 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
     # insert at beginning
     linePoints.insert(lStart, 0)
     # now get last bin  width and extend to right
-    lEnd.y.pos = 0.0
+    lEnd.y.pos = minVal
     if fg.geomKind == gkFreqPoly: # extend by bin width for freq poly
       binWidth = readOrCalcBinWidth(df, df.high - 1, fg.xCol, dcKind = fg.dcKindX)
       lEnd.x.pos = lEnd.x.pos + binWidth
@@ -486,7 +489,8 @@ proc extendLineToAxis(linePoints: var seq[Coord], axKind: AxisKind,
     linePoints.add(lEnd)
 
 proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
-                              linePoints: seq[Coord]): seq[Coord] =
+                              linePoints: seq[Coord],
+                              minVal: float): seq[Coord] =
   ## converts a given set of coordinates describing a histogram to a line,
   ## which describes the outline of a histogram. This is a useful way of
   ## drawing histograms as an alternative to drawing individual bars, because
@@ -502,7 +506,7 @@ proc convertPointsToHistogram(df: DataFrame, fg: FilledGeom,
     p: Coord = linePoints[0]
     curP: Coord
     curX: float = p.x.pos
-    curY: float = 0.0
+    curY: float = minVal
   var binWidth = readOrCalcBinWidth(df, 0, fg.xCol, dcKind = fg.dcKindX)
   p.x.pos = curX
   p.y.pos = curY
@@ -541,10 +545,15 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
     p: tuple[x, y: Value]
     pos: Coord
     binWidths: tuple[x, y: float]
+
   let needBinWidth = (fg.geomKind in {gkBar, gkHistogram, gkTile, gkRaster} or
                       fg.geom.binPosition in {bpCenter, bpRight})
 
   var linePoints: seq[Coord]
+
+  ## XXX: change this to use correct axis if horizontal bars!
+  let minAxisVal = view.yScale.low ## Get the minimum value of the y axis (technically the we want to draw
+                                   ## a histogram on. But we still haven't implemented horizontal histos)
   if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
     var xT = df[$fg.xCol].toTensor(Value)
@@ -571,7 +580,8 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
                        fg,
                        p = p,
                        binWidths = binWidths,
-                       df, i)
+                       df, i,
+                       minAxisVal)
       case fg.geom.position
       of pkIdentity, pkStack:
         case fg.geomKind
@@ -592,7 +602,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
   # return ``early`` if histogram, cause bar histogram already drawn
   if fg.geomKind == gkHistogram and fg.hdKind == hdBars: return
   elif fg.geomKind == gkHistogram:
-    linePoints = df.convertPointsToHistogram(fg, linePoints)
+    linePoints = df.convertPointsToHistogram(fg, linePoints, minAxisVal)
 
   # for `gkLine`, `gkFreqPoly` now draw the lines
   case fg.geomKind
@@ -602,7 +612,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
       # connect line down to axis, if fill color is not transparent
       if style.fillColor != transparent or fg.geomKind == gkFreqPoly:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
-        linePoints.extendLineToAxis(akX, df, fg)
+        linePoints.extendLineToAxis(akX, df, fg, minAxisVal)
       view.addObj view.initPolyLine(linePoints, some(style))
     else:
       # since `ginger` doesn't support gradients on lines atm, we just draw from
@@ -611,7 +621,7 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
       echo "WARNING: using non-gradient drawing of line with multiple colors!"
       if style.fillColor != transparent or fg.geomKind == gkFreqPoly:
         ## TODO: check `CoordFlipped` so that we know where "down" is!
-        linePoints.extendLineToAxis(akX, df, fg)
+        linePoints.extendLineToAxis(akX, df, fg, minAxisVal)
       for i in 0 ..< styles.high: # last element covered by i + 1
         let style = mergeUserStyle(styles[i], fg)
         view.addObj view.initPolyLine(@[linePoints[i], linePoints[i+1]], some(style))
