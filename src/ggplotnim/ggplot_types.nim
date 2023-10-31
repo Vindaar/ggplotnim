@@ -412,6 +412,8 @@ type
     yLabel*: Option[string]
     yLabelMargin*: Option[float]
     yLabelSecondary*: Option[string]
+    baseLabelMargin*: Option[float] ## The base margin added to the width / height of tick labels to label.
+                                    ## Default: 0.3 cm
     # ticks
     xTicksRotate*: Option[float]
     xTicksTextAlign*: Option[TextAlignKind]
