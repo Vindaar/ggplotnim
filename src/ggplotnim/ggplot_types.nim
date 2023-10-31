@@ -544,6 +544,8 @@ type
       fillDataScale*: ginger.Scale
       width*: Option[string]
       height*: Option[string]
+      rasterXScale*: ginger.Scale # x scale of the raster data only
+      rasterYScale*: ginger.Scale # y scale of the raster data only
       colorScale*: ColorScale # the color scale used to plot this
       trans*: ScaleTransform # for log10 of color scale
       invTrans*: ScaleTransform
