@@ -21,6 +21,14 @@
   enabled via environment variable ~WRITE_PLOT_CSV=true~). Also all
   DFs associated with individual geoms will be written with a geom
   specific suffix.
+- fix ~geom_raster~ when used in conjunction with another geom that
+  has a larger data range
+- allow adjustment of margin used by default between the tick labels
+  and the labels. Default is 0.3 cm, can be changed using
+  ~baseLabelMargin~ proc / ~Theme~ field
+- improve logic for histograms in the case where the minimum viewport
+  is not 0, which can happen for custom ~ylim~ calls (for example for
+  manual log10 histograms via ~stat = "identity"~)
 * v0.6.2
 - handle geom calls with constant values better. Previously we
   sometimes ended up drawing the same e.g. text multiple times, once
