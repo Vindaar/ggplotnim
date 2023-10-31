@@ -1093,7 +1093,7 @@ proc toColor*(c: Value): Color =
       result = c.toStr.parseHtmlColor()
     except InvalidColor:
       raise newException(ValueError, "Invalid color: " & $c & ". " &
-        "If you are referring to a column name, does this column exist?")
+        "Did you forget a `#` prefix? If you are referring to a column name, does this column exist?")
   else:
     raise newException(ValueError, "Value of kind: " & $c.kind & " cannot represent a " &
       "valid color. Value is: " & $c)

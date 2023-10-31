@@ -3418,10 +3418,11 @@ proc ggsave*(
     ## cases where CSV files are handy :/)
     let toWrite = getEnv("WRITE_PLOT_CSV", "false").parseBool
     if toWrite:
+      proc write(df: DataFrame, fname: string) =
+        echo "[INFO] Writing CSV file: ", fname
+        df.writeCsv(fname)
+
       let csvName = fname & ".csv"
-      proc write(df: DataFrame, f: string) =
-        echo "[INFO] Writing CSV file: ", csvName
-        df.writeCsv(csvName)
       write(p.data, csvName)
       # now write any geom associated DF with a `geom_<idx>_<geomKind>.csv` suffix
       for i, g in p.geoms:
