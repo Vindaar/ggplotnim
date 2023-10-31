@@ -317,11 +317,12 @@ proc drawErrorBar(view: var Viewport, fg: FilledGeom,
                           style = some(style))
 
 proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
+  # get maximum size of the coordinates of the raster data
   let
-    maxXCol = fg.xScale.high
-    minXCol = fg.xScale.low
-    maxYCol = fg.yScale.high
-    minYCol = fg.yScale.low
+    maxXCol = fg.rasterXScale.high
+    minXCol = fg.rasterXScale.low
+    maxYCol = fg.rasterYScale.high
+    minYCol = fg.rasterYScale.low
     (wv, hv) = readWidthHeight(df, 0, fg)
   let height = (maxYCol - minYCol + hv)
   let width = (maxXCol - minXCol + wv)

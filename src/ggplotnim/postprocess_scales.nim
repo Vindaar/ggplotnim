@@ -326,6 +326,8 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     let
       hS = getHeightScale(fs, fg.geom)
       wS = getWidthScale(fs, fg.geom)
+      xS = getXScale(fs, fg.geom)
+      yS = getYScale(fs, fg.geom)
       xMinS = getXMinScale(fs, fg.geom)
       xMaxS = getXMaxScale(fs, fg.geom)
       yMinS = getYMinScale(fs, fg.geom)
@@ -356,17 +358,18 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     elif xMinS.isSome and xMaxS.isSome:
       let minName = getColName(xMinS.get)
       let maxName = getColName(xMaxS.get)
-      let xColName = getColName(getXScale(fs, fg.geom))
+      let xColName = getColName(xS)
       df = df.mutate(f{float -> float: "width" ~ idx(maxName) - idx(minName)},
                      f{float -> float: xColName ~ idx(minName)})
       fg.width = some("width")
+
     elif xMinS.isSome or xMaxS.isSome:
       raise newException(AestheticError, "Invalid combination of aesthetics! If no width " &
         "given both an `xMin` and `xMax` has to be supplied for geom_raster!")
     else:
       echo "INFO: using default width of 1 since no raster width information supplied. " &
         "Add `width` or (`xMin`, `xMax`) as aesthetics for a different values."
-      let xCol = df[getXScale(fs, fg.geom).getColName].unique
+      let xCol = df[xS.getColName].unique
       fg.numX = xCol.len
       df["width"] = constantColumn(abs((xCol[1, float] - xCol[0, float])), df.len)
       fg.width = some("width")
@@ -381,6 +384,20 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     ## Assign potential transformation
     fg.trans = fs.transC
     fg.invTrans = fs.invTransC
+    ## Assign x / y scale of *raster* data
+    block RasterScales:
+      let xCol = df[xs.getColName]
+      if xCol.kind in {colFloat, colInt}:
+        fg.rasterXScale = (low: xCol.toTensor(float).min, high: xCol.toTensor(float).max)
+      else:
+        raise newException(ValueError, "The `x` data aesthetics for the raster plot is neither " &
+          "`float` or `int` data. Instead it is: " & $xCol.kind)
+      let yCol = df[ys.getColName]
+      if yCol.kind in {colFloat, colInt}:
+        fg.rasterYScale = (low: yCol.toTensor(float).min, high: yCol.toTensor(float).max)
+      else:
+        raise newException(ValueError, "The `y` data aesthetics for the raster plot is neither " &
+          "`float` or `int` data. Instead it is: " & $yCol.kind)
 
   of gkText:
     fg.text = $getTextScale(fs, fg.geom).col
