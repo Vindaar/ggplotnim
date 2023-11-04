@@ -1895,7 +1895,7 @@ func default_scale*(): Theme =
                  legendFont: some(font(12.0)),
                  legendTitleFont: some(font(12.0, bold = true)),
                  facetHeaderFont: some(font(8.0, alignKind = taCenter)),
-                 baseLabelMargin: some(3.0),
+                 baseLabelMargin: some(0.3),
                  baseScale: some(1.0))
 
 func theme_scale*(scale: float, family = ""): Theme =
