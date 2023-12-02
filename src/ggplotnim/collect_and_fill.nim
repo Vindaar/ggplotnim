@@ -657,7 +657,9 @@ proc collectScales*(p: GgPlot): FilledScales =
   # possibly assign `reversedX` for filledScales
   if xs.anyIt(it.scale.reversed):
     result.reversedX = true
-  if xFilled.anyIt(it.dcKind == dcDiscrete):
+  if xFilled.anyIt(it.dcKind == dcContinuous):
+    result.discreteX = false
+  else:
     result.discreteX = true
 
   let xsMin = collect(p, xMin)
@@ -675,7 +677,9 @@ proc collectScales*(p: GgPlot): FilledScales =
   # possibly assign `reversedX` for filledScales
   if ys.anyIt(it.scale.reversed):
     result.reversedY = true
-  if yFilled.anyIt(it.dcKind == dcDiscrete):
+  if yFilled.anyIt(it.dcKind == dcContinuous):
+    result.discreteY = false
+  else:
     result.discreteY = true
 
   let ysMin = collect(p, yMin)
