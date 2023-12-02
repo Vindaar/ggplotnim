@@ -485,8 +485,8 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
   result = FilledGeom(geom: g,
                       xCol: getColName(x),
                       yCol: getColName(y),
-                      dcKindX: x.dcKind,
-                      dcKindY: y.dcKind,
+                      dcKindX: (if filledScales.discreteX: dcDiscrete else: dcContinuous),
+                      dcKindY: (if filledScales.discreteY: dcDiscrete else: dcContinuous),
                       geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
   result.yScale = determineDataScale(y, cont, df)
@@ -750,7 +750,8 @@ proc filledBinDensityGeom(df: var DataFrame, g: Geom, filledScales: FilledScales
   result = FilledGeom(geom: g,
                       xCol: getColName(x),
                       yCol: countCol,
-                      dcKindX: x.dcKind,
+                      #dcKindX: x.dcKind,
+                      dcKindX: (if filledScales.discreteX: dcDiscrete else: dcContinuous),
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
   # for histogram data we don't take into account the raw data, because
@@ -910,7 +911,8 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   result = FilledGeom(geom: g,
                       xCol: xCol,
                       yCol: CountCol,
-                      dcKindX: x.dcKind,
+                      #dcKindX: x.dcKind,
+                      dcKindX: (if filledScales.discreteX: dcDiscrete else: dcContinuous),#x.dcKind,
                       dcKindY: dcContinuous,
                       geomKind: g.kind)
   result.xScale = determineDataScale(x, cont, df)
