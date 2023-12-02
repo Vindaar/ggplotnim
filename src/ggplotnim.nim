@@ -3394,7 +3394,7 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions,
     result.backend = backend
 
 when defined(WritePlotCsv):
-  from std / os import getEnv
+  from std / os import getEnv, expandTilde
   import std / strformat
 proc ggsave*(
   p: GgPlot, fname: string, width = 640.0, height = 480.0,
@@ -3406,7 +3406,7 @@ proc ggsave*(
   let p = p.assignBackend(fname, texOptions, backend) # local copy w/ correct backend
   let plt = p.ggcreate(width = width, height = height)
   # make sure the target directory exists, create if not
-  createDir(fname.splitFile().dir)
+  createDir(fname.expandTilde().splitFile().dir)
   plt.view.ggdraw(fname, texOptions)
 
   when defined(WritePlotCsv):
