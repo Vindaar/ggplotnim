@@ -1892,18 +1892,19 @@ func default_scale*(): Theme =
                  tickLabelFont: some(font(8.0)),
                  tickLength: some(5.0),
                  tickWidth: some(1.0),
+                 gridLineWidth: some(1.0),
                  legendFont: some(font(12.0)),
                  legendTitleFont: some(font(12.0, bold = true)),
                  facetHeaderFont: some(font(8.0, alignKind = taCenter)),
                  baseLabelMargin: some(0.3),
                  baseScale: some(1.0))
 
-func theme_scale*(scale: float, family = ""): Theme =
+proc theme_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): Theme =
   ## Returns a theme that scales all fonts, tick sizes etc. by the given factor compared
   ## to the default values.
   ##
   ## If `family` given will overwrite the font family of all fonts to this.
-  result = default_scale()
+  result = if baseTheme != nil: baseTheme() else: default_scale()
   proc `*`(x: Option[float], s: float): Option[float] =
     doAssert x.isSome
     result = some(x.get * s)
@@ -1917,16 +1918,18 @@ func theme_scale*(scale: float, family = ""): Theme =
   result.tickLabelFont = result.tickLabelFont * scale
   result.tickLength = result.tickLength * scale
   result.tickWidth = result.tickWidth * scale
+  result.gridLineWidth = result.gridLineWidth * scale
   result.legendFont = result.legendFont * scale
   result.legendTitleFont = result.legendTitleFont * scale
   result.facetHeaderFont = result.facetHeaderFont * scale
+  result.annotationFont = result.annotationFont * scale
   result.baseLabelMargin = result.baseLabelMargin * scale
   result.baseScale = result.baseScale * scale
 
-func theme_font_scale*(scale: float, family = ""): Theme =
+proc theme_font_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): Theme =
   ## Returns a theme similar to `theme_scale` but in which the margins are not
   ## scaled.
-  result = theme_scale(scale, family)
+  result = theme_scale(scale, family, baseTheme)
   result.baseScale = some(1.0)
 
 func baseLabelMargin*(margin: float): Theme =
