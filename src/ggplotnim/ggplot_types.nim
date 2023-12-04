@@ -383,6 +383,9 @@ type
 
   # what might become a theming object
   Theme* = object
+    # plot size
+    width*: Option[float]
+    height*: Option[float]
     # font
     baseFontSize*: Option[float] # base size for fonts NOT IMPL'd
     fontSizeScale*: Option[float] # scales all fonts by given value NOT IMPL'd
