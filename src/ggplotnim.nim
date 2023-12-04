@@ -3086,24 +3086,26 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     let rectStyle = Style(fillColor: annot.backgroundColor,
                           color: annot.backgroundColor)
     let (left, bottom) = view.getLeftBottom(annot)
+
+    # Use font specified by theme, if any
+    let annotFont = p.theme.annotationFont.get(annot.font)
+
     # Get a well defined margin based on `M` character at current font
-    let marginH = strHeight(view, AnnotRectMargin, annot.font)
+    let marginH = strHeight(view, AnnotRectMargin, annotFont)
       .toPoints()
     # use same amount of space for width (x) margin
-    let marginW = strHeight(view, AnnotRectMargin, annot.font)
+    let marginW = strHeight(view, AnnotRectMargin, annotFont)
       .toPoints()
     # Total height of the text + 2 margin
     let totalHeight = quant(
-      getStrHeight(view, annot.text, annot.font).val + marginH.pos * 2.0,
+      getStrHeight(view, annot.text, annotFont).val + marginH.pos * 2.0,
       unit = ukPoint)
-
     # find longest line of annotation to base background on
-    let font = annot.font # refs https://github.com/nim-lang/Nim/pull/14447
     let maxLine = annot.text.splitLines.sortedByIt(
-      getStrWidth(backend, fType, it, font).val
+      getStrWidth(backend, fType, it, annotFont).val
     )[^1]
     # and get its actual width
-    let maxWidth = getStrWidth(view, maxLine, annot.font)
+    let maxWidth = getStrWidth(view, maxLine, annotFont)
     # calculate required width for background rectangle. string width + 2 * margin
     let rectWidth = quant(
       maxWidth.val + marginW.pos * 2.0,
@@ -3130,7 +3132,7 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
       textKind = goText,
       alignKind = annot.alignKind,
       rotate = annot.rotate,
-      fontOpt = some(annot.font),
+      fontOpt = some(annotFont),
       useRealText = false) # use `My` to determine height of single line to get consistent line spacing
     if not annotRect.isNil:
       view.addObj concat(@[annotRect], annotText)

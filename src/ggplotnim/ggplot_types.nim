@@ -396,6 +396,7 @@ type
     facetHeaderFont*: Option[Font]
     legendFont*: Option[Font]
     legendTitleFont*: Option[Font]
+    annotationFont*: Option[Font]
     # general
     baseScale*: Option[float] ## Base scale to scale "everything" by
     # hide parts of plot
