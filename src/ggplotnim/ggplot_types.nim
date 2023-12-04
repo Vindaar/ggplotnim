@@ -249,6 +249,7 @@ type
     height*: Option[float]
     texOptions*: TeXOptions
     backend*: BackendKind # allows to overwrite backend selection
+    dataAsBitmap*: bool ## Will draw the actual data of the plot as bitmap and insert (similar to raster)
 
   ## helper to generate a json file from a ggplot call by creating a `JsonNode`
   ## of the final plot `Viewport`. This is mainly used for the CI.
