@@ -3188,8 +3188,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   if p.geoms.len == 0:
     raise newException(ValueError, "Please use at least one `geom`!")
 
-  let width = width.float
-  let height = height.float
+  let width = p.theme.width.get(width.float)
+  let height = p.theme.height.get(height.float)
   var filledScales: FilledScales
   if p.ridges.isSome:
     # update all aesthetics to include the `yRidges` scale
