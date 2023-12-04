@@ -2814,7 +2814,8 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
 proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
                   theme: Theme,
                   hideLabels = false,
-                  hideTicks = false) =
+                  hideTicks = false,
+                  dataAsBitmap = false) =
   # first write all plots into dummy viewport
   view.background(style = some(getPlotBackground(theme)))
 
@@ -2826,6 +2827,7 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
     view.generateRidge(ridge, p, filledScales, theme, hideLabels, hideTicks)
   else:
     view.yScale = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
+    var fullPlot = view.addViewport(name = "full_GGPLOT", dataAsBitmap = dataAsBitmap)
     for fg in filledScales.geoms:
       # for each geom, we create a child viewport of `view` covering
       # the whole viewport, which will house the data we just created.
@@ -2833,11 +2835,13 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       # ticks will be below the data.
       # On the other hand this allows us to draw several geoms in on a plot and have the
       # order of the function calls `geom_*` be preserved
-      var pChild = view.addViewport(name = "data")
+      var pChild = fullPlot.addViewport(name = "data")
       # DF here not needed anymore!
       pChild.createGobjFromGeom(fg, theme)
       # add the data viewport to the view
-      view.children.add pChild
+      fullPlot.children.add pChild
+    # add the child that contains all plot data
+    view.children.add fullPlot
 
     var
       xticks: seq[GraphObject]
@@ -3253,7 +3257,7 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
                                         useRealText = false) # use `My` to determine height of single line to get consistent line spacing
   view.addObj titleObj
 
-proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): PlotView =
+proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, dataAsBitmap = false): PlotView =
   ## Applies all calculations to the `GgPlot` object required to draw
   ## the plot with the selected backend (either determined via filetype in `ggsave`,
   ## handed manually to `ggplot`) and returns a `PlotView`.
@@ -3303,7 +3307,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0): P
   else:
     pltBase.generatePlot(p, filledScales, theme,
                          hideLabels = hideLabels,
-                         hideTicks = hideTicks)
+                         hideTicks = hideTicks,
+                         dataAsBitmap = dataAsBitmap)
   let xScale = pltBase.xScale
   let yScale = pltBase.yScale
   img.xScale = xScale
@@ -3389,7 +3394,8 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
               texTemplate = "",
               caption = "",
               label = "",
-              placement = "htbp"
+              placement = "htbp",
+              dataAsBitmap = false
              ) =
   ## Creates a simple multi plot in a grid. Currently no smart layouting.
   ## If `widths` and `heights` is given, expects a sequence of numbers of the length
@@ -3438,7 +3444,7 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
     # get correct width / height.
     let wVal = if i < widths.len: widths[i] else: width
     let hVal = if i < heights.len: heights[i] else: height
-    let pp =  ggcreate(pltB, width = wVal, height = hVal)
+    let pp =  ggcreate(pltB, width = wVal, height = hVal, dataAsBitmap = dataAsBitmap)
     # embed the finished plots into the the new viewport
     img.embedAt(i, pp.view)
 
@@ -3478,13 +3484,14 @@ when defined(WritePlotCsv):
   import std / strformat
 proc ggsave*(
   p: GgPlot, fname: string, width = 640.0, height = 480.0,
-  texOptions: TeXOptions, backend: BackendKind = bkNone) =
+  texOptions: TeXOptions, backend: BackendKind = bkNone,
+  dataAsBitmap = false) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
   ## See the docstring there.
   let p = p.assignBackend(fname, texOptions, backend) # local copy w/ correct backend
-  let plt = p.ggcreate(width = width, height = height)
+  let plt = p.ggcreate(width = width, height = height, dataAsBitmap = dataAsBitmap)
   # make sure the target directory exists, create if not
   createDir(fname.expandTilde().splitFile().dir)
   plt.view.ggdraw(fname, texOptions)
@@ -3516,7 +3523,8 @@ proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
              texTemplate = "",
              caption = "",
              label = "",
-             placement = "htbp"
+             placement = "htbp",
+             dataAsBitmap = false
             ) =
   ## This is the same as the `ggsave` proc below for the use case of calling it
   ## directly on a `GgPlot` object with the possible TeX options.
@@ -3524,7 +3532,7 @@ proc ggsave*(p: GgPlot, fname: string, width = 640.0, height = 480.0,
   ## See the docstring below.
   let texOptions = toTeXOptions(useTeX, onlyTikZ, standalone, texTemplate,
                                 caption, label, placement)
-  p.ggsave(fname, width, height, texOptions)
+  p.ggsave(fname, width, height, texOptions, dataAsBitmap = dataAsBitmap)
 
 proc ggsave*(fname: string, width = 640.0, height = 480.0,
              useTeX = false,
@@ -3534,7 +3542,8 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
              caption = "",
              label = "",
              placement = "htbp",
-             backend = bkNone
+             backend = bkNone,
+             dataAsBitmap = false
             ): Draw =
   ## Generates the plot and saves it as `fname` with the given
   ## `width` and `height`.
@@ -3635,7 +3644,8 @@ proc ggsave*(fname: string, width = 640.0, height = 480.0,
        width: some(width),
        height: some(height),
        texOptions: texOptions,
-       backend: backend)
+       backend: backend,
+       dataAsBitmap: dataAsBitmap)
 
 proc `+`*(p: GgPlot, d: Draw) =
   if d.width.isSome and d.height.isSome:
@@ -3643,10 +3653,12 @@ proc `+`*(p: GgPlot, d: Draw) =
              width = d.width.get,
              height = d.height.get,
              texOptions = d.texOptions,
-             backend = d.backend)
+             backend = d.backend,
+             dataAsBitmap = d.dataAsBitmap)
   else:
     p.ggsave(d.fname, texOptions = d.texOptions,
-             backend = d.backend)
+             backend = d.backend,
+             dataAsBitmap = d.dataAsBitmap)
 
 from json import `%`
 proc ggvega*[PB: PossibleBool](
