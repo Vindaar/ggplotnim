@@ -1880,12 +1880,6 @@ func gridLineColor*[C: PossibleColor](color: C = white): Theme {.deprecated: "Us
   let colorOpt = toOptColor(color)
   result = Theme(gridLineColor: colorOpt)
 
-proc theme_latex*(): Theme =
-  ## Returns a theme that is designed to produce figures that look nice in a LaTeX document
-  ## without manual adjustment of figure sizes.
-  result = Theme(titleFont: some(font(10.0)),
-                 labelFont: some(font(10.0)))
-
 func default_scale*(): Theme =
   result = Theme(titleFont: some(font(16.0)),
                  labelFont: some(font(12.0)),
@@ -1932,8 +1926,86 @@ proc theme_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): 
 proc theme_font_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): Theme =
   ## Returns a theme similar to `theme_scale` but in which the margins are not
   ## scaled.
+  ##
+  ## The margins can be scaled optionally using `baseScale` to a custom value.
+  let bt = baseTheme()
   result = theme_scale(scale, family, baseTheme)
-  result.baseScale = some(1.0)
+  result.baseScale = bt.baseScale
+
+func sideBySide*(): Theme =
+  result = Theme(titleFont: some(font(9.0)),
+                 labelFont: some(font(9.0)),
+                 tickLabelFont: some(font(7.0)),
+                 tickLength: some(5.0),
+                 tickWidth: some(1.0),
+                 gridLineWidth: some(1.0),
+                 legendFont: some(font(9.0)),
+                 legendTitleFont: some(font(9.0, bold = true)),
+                 facetHeaderFont: some(font(7.0, alignKind = taCenter)),
+                 baseLabelMargin: some(0.35),
+                 annotationFont: some(font(7.0, family = "monospace")),
+                 baseScale: some(1.5)) # won't be scaled!
+
+func singlePlot*(): Theme =
+  result = Theme(titleFont: some(font(10.0)),
+                 labelFont: some(font(10.0)),
+                 tickLabelFont: some(font(9.0)),
+                 tickLength: some(5.0),
+                 tickWidth: some(1.0),
+                 gridLineWidth: some(1.0),
+                 legendFont: some(font(9.0)),
+                 legendTitleFont: some(font(9.0, bold = true)),
+                 facetHeaderFont: some(font(9.0, alignKind = taCenter)),
+                 baseLabelMargin: some(0.35),
+                 annotationFont: some(font(9.0, family = "monospace")),
+                 baseScale: some(1.0)) # won't be scaled!
+
+proc themeLatex*(fWidth: float, width: float,
+                 baseTheme: (proc(): Theme),
+                 height = -1.0, ratio = -1.0,
+                 textWidth = 458.29268, # 455.24411
+                ): Theme =
+  ## This is a good theme to use in LaTeX documents. It handles scaling the
+  ## plot to the desired size, where `fWidth` is the size it will be inserted
+  ## by into the TeX document via
+  ##
+  ## `\includegraphics[width=fWidth\textwidth]{...}`
+  ##
+  ## and `width`, `height` or `ratio` for the produced PDF in pixel. The sizes
+  ## are scaled according to a text width corresponding to an A4 paper at a margin
+  ## of 2.5cm on each side, resulting in 455.24411pt (TeX `pt`!) in width for
+  ## a full `\textwidth` (determine for your document using `\the\textwidth`).
+  ##
+  ## For KOMAscript A4 scrbook with DIV=14, BOC=5mm it yields 458.29268pt.
+  ##
+  ## If a ratio is given it is interpreted as ``width to height``,
+  ## i.e. ``height = width / ratio``.
+  ## Text width / line width in `bp` (TeX pixels of 72 dpi)
+  # rescale text width to `bp` (72 DPI pixels)
+  let textWidth = textWidth / 72.27 * 72.0
+  const goldenRatio = (sqrt(5.0) + 1.0) / 2.0 # Aesthetic ratio, φ
+  var h = 0.0
+  if height < 0.0 and ratio < 0.0:
+    echo "[INFO]: No plot ratio given, using golden ratio."
+    h = width / goldenRatio
+  elif height > 0.0:
+    h = height
+  else:
+    h = height / ratio
+
+  # with width and height adjust the scale factor to use for all fonts
+  # For a `textWidth` wide plot then, a font size of 11 pt would be exactly
+  # like 11pt in the TeX document itself. So at e.g. 600 `width`, it needs to
+  # be scaled up by that ratio
+  # `factor` used as `fontSize * factor` to get final font size
+  var factor = width / textWidth
+  # scale by the fractional width on the page (e.g. `fWidth = 0.5` for 50%
+  # of `\textwidth`:
+  factor /= fWidth
+  # We hand a custom `baseTheme`
+  result = theme_font_scale(factor, baseTheme = baseTheme)
+  result.width = some(width)
+  result.height = some(h) # Note: use `h`!
 
 func baseLabelMargin*(margin: float): Theme =
   ## Base label margin between the width / height of a tick label and the
