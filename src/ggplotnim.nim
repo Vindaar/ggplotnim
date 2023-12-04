@@ -1,7 +1,7 @@
 ## .. include:: ./docs/ggplotnim_autogen.rst
 
 import std / [sequtils, tables, sets, algorithm, strutils, macros, hashes, math, times]
-from os import createDir, splitFile
+from os import createDir, splitFile, expandTilde
 
 when (NimMajor, NimMinor, NimPatch) > (1, 3, 0):
   export strutils.nimIdentNormalize # for parseEnum to work
@@ -1904,6 +1904,9 @@ proc theme_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): 
   ## to the default values.
   ##
   ## If `family` given will overwrite the font family of all fonts to this.
+  ##
+  ## `baseTheme` is a procedure which is called that yields the base sizes and settings
+  ## to scale. I.e. an equivalent of `default_scale` above.
   result = if baseTheme != nil: baseTheme() else: default_scale()
   proc `*`(x: Option[float], s: float): Option[float] =
     doAssert x.isSome
