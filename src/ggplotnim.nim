@@ -1939,12 +1939,12 @@ func sideBySide*(): Theme =
                  tickLength: some(5.0),
                  tickWidth: some(1.0),
                  gridLineWidth: some(1.0),
-                 legendFont: some(font(9.0)),
-                 legendTitleFont: some(font(9.0, bold = true)),
+                 legendFont: some(font(7.0)),
+                 legendTitleFont: some(font(7.0, bold = true)),
                  facetHeaderFont: some(font(7.0, alignKind = taCenter)),
-                 baseLabelMargin: some(0.35),
+                 baseLabelMargin: some(0.25),
                  annotationFont: some(font(7.0, family = "monospace")),
-                 baseScale: some(1.5)) # won't be scaled!
+                 baseScale: some(1.25)) # won't be scaled!
 
 func singlePlot*(): Theme =
   result = Theme(titleFont: some(font(10.0)),
