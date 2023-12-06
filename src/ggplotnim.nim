@@ -1903,13 +1903,13 @@ proc theme_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = nil): 
   ## to scale. I.e. an equivalent of `default_scale` above.
   result = if baseTheme != nil: baseTheme() else: default_scale()
   proc `*`(x: Option[float], s: float): Option[float] =
-    doAssert x.isSome
-    result = some(x.get * s)
+    if x.isSome:
+      result = some(x.get * s)
   proc `*`(x: Option[Font], s: float): Option[Font] =
-    doAssert x.isSome
-    let f = x.get
-    let fam = if family.len > 0: family else: f.family
-    result = some(font(f.size * s, bold = f.bold, family = fam, alignKind = f.alignKind))
+    if x.isSome:
+      let f = x.get
+      let fam = if family.len > 0: family else: f.family
+      result = some(font(f.size * s, bold = f.bold, family = fam, alignKind = f.alignKind))
   result.titleFont = result.titleFont * scale
   result.labelFont = result.labelFont * scale
   result.tickLabelFont = result.tickLabelFont * scale
