@@ -2007,6 +2007,11 @@ proc themeLatex*(fWidth: float, width: float,
   result.width = some(width)
   result.height = some(h) # Note: use `h`!
 
+func coord_fixed*(ratio: float): Theme =
+  ## Produces a plot where the ratio of the plot itself is the given ratio.
+  ## Useful to produce a plot where x and y axes have a scale of e.g. 1:1 or 1:2.
+  result = Theme(fixedRatio: some(ratio))
+
 func baseLabelMargin*(margin: float): Theme =
   ## Base label margin between the width / height of a tick label and the
   ## axis label. By default 0.3 cm (added to the width / height of the tick labels).
@@ -3257,6 +3262,32 @@ proc drawTitle(view: Viewport, title: string, theme: Theme, width: Quantity) =
                                         useRealText = false) # use `My` to determine height of single line to get consistent line spacing
   view.addObj titleObj
 
+proc determinePlotHeight(theme: Theme, filledScales: FilledScales, width, height: float, hideLabels, hideTicks: bool): float =
+  ## Determines the correct plot height. This is:
+  ##
+  ## - calculated based on margins and plot scales if `fixedRatio` is set in `Theme`
+  ## - or value given as `height` field to theme
+  ## - or argument given to `ggcreate`
+  let tightLayout = hideLabels and hideTicks
+  let layout = initThemeMarginLayout(theme, tightLayout,
+                                     filledScales.requiresLegend(theme))
+  # if `OneToOne` adjust height to match one to one data
+  if theme.fixedRatio.isSome:
+    let xS = filledScales.xScale
+    let xD = xS.high - xS.low
+    let yS = filledScales.yScale
+    let yD = ys.high - ys.low
+    let ratio = yD / xD
+    let spacingLR = add(layout.left, layout.right)
+    doAssert spacingLR.unit == ukCentimeter
+    let spacingTB = add(layout.top, layout.bottom)
+    doAssert spacingTB.unit == ukCentimeter
+    echo "Spacing TB : ", spacingTB, " Spacing LR : ", spacingLR, " width: ", width
+    proc toPt(x: float): float = x / 2.54 * DPI
+    result = theme.fixedRatio.get * (spacingTB.val.toPt() + ratio * (width - spacingLR.val.toPt()))
+  else:
+    result = theme.height.get(height.float) # use theme height or else `ggcreate` `height` argument
+
 proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, dataAsBitmap = false): PlotView =
   ## Applies all calculations to the `GgPlot` object required to draw
   ## the plot with the selected backend (either determined via filetype in `ggsave`,
@@ -3272,8 +3303,6 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, da
   if p.geoms.len == 0:
     raise newException(ValueError, "Please use at least one `geom`!")
 
-  let width = p.theme.width.get(width.float)
-  let height = p.theme.height.get(height.float)
   var filledScales: FilledScales
   if p.ridges.isSome:
     # update all aesthetics to include the `yRidges` scale
@@ -3286,6 +3315,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, da
   let hideLabels = if theme.hideLabels.isSome: theme.hideLabels.unsafeGet
                    else: false
 
+  let width = p.theme.width.get(width.float)
+  let height = determinePlotHeight(p.theme, filledScales, width, height.float, hideTicks, hideLabels)
   # create the plot
   var img = initViewport(name = "root",
                          wImg = width,

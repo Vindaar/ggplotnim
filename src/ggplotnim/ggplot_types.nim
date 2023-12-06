@@ -387,6 +387,7 @@ type
     # plot size
     width*: Option[float]
     height*: Option[float]
+    fixedRatio*: Option[float] # height will be computed based on this fixed data ratio
     # font
     baseFontSize*: Option[float] # base size for fonts NOT IMPL'd
     fontSizeScale*: Option[float] # scales all fonts by given value NOT IMPL'd
