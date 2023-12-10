@@ -231,3 +231,49 @@ func hasSecondary*(filledScales: FilledScales, axKind: AxisKind): bool =
     let yScale = filledScales.getYScale()
     if yScale.secondaryAxis.isSome:
       result = true
+
+func isEmpty*(s: ginger.Scale): bool =
+  ## checks if the given scale is empty
+  result = s.low == s.high
+
+func mergeScales*(s1, s2: ginger.Scale): ginger.Scale =
+  ## merges the two data scales and returns a version encompassing both
+  ## TODO: think about how we might allow (0.0, 0.0) for cases where the
+  ## input data has N elements all 0. This is useful for e.g.
+  ## having 0 data, but assigning only a yMin = -1. That results in a
+  ## useable (-1, 0) data scale! Currently would not work!
+  if not (s1.isEmpty and s1.low == 0):
+    result = (low: min(s1.low, s2.low),
+              high: max(s1.high, s2.high))
+  else:
+    result = s2
+
+func encompassingDataScale*(scales: seq[Scale],
+                           axKind: AxisKind,
+                           baseScale: ginger.Scale = (low: 0.0, high: 0.0)): ginger.Scale =
+  ## calculate the encompassing data scale spanned by all
+  ## given `scales` of kind `scLinearData`, `scTransformedData`.
+  if not baseScale.isEmpty:
+    result = baseScale
+  for s in scales:
+    if s.scKind in {scLinearData, scTransformedData} and
+       s.axKind == axKind:
+      result = mergeScales(result, s.dataScale)
+
+proc findData*(fg: FilledGeom, label: Value): DataFrame =
+  ## returns the `DataFrame` of the given `fg` of that label, which
+  ## contains `label` in `yieldData`
+  result = newDataFrame()
+  for key, val in fg.yieldData:
+    if label in key:
+      # multiple keys may match, add DFs!
+      result.add val[2]
+  doAssert result.len > 0, "Invalid call to find, `label` not found in `yieldData`!"
+
+proc findData*(fs: FilledScales, label: Value): DataFrame =
+  ## returns the `DataFrame` of matching `label` of all `FilledGeoms`.
+  ## contains `label` in `yieldData`
+  var data = newSeq[DataFrame]()
+  for fg in fs.geoms:
+    data.add findData(fg, label)
+  result = assignStack(data)

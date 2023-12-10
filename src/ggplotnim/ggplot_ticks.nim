@@ -158,7 +158,7 @@ proc toCoord1D*(ticks: seq[float], axKind: AxisKind, scale: ginger.Scale): seq[C
   ## returns the given ticks as `Coord1D`
   result = ticks.mapIt(Coord1D(pos: it, kind: ukData, scale: scale, axis: axKind))
 
-proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
+proc handleContinuousTicks(view: Viewport, axKind: AxisKind,
                            dataScale: ginger.Scale,
                            scKind: ScaleKind,
                            numTicks: int, theme: Theme,
@@ -233,7 +233,7 @@ proc handleContinuousTicks(view: Viewport, p: GgPlot, axKind: AxisKind,
     result = tickObjs
   else: discard
 
-proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
+proc handleDiscreteTicks*(view: Viewport, axKind: AxisKind,
                           labelSeq: seq[Value],
                           theme: Theme,
                           isSecondary = false,
@@ -253,7 +253,7 @@ proc handleDiscreteTicks*(view: Viewport, p: GgPlot, axKind: AxisKind,
   var tickLocs: seq[Coord1D]
 
   # TODO: check if we should use w/hImg here, distinguish the axes
-  let discrMarginOpt = p.theme.discreteScaleMargin
+  let discrMarginOpt = theme.discreteScaleMargin
   var discrMargin = 0.0
   if discrMarginOpt.isSome:
     case axKind
@@ -364,11 +364,33 @@ proc computeTickPosByDateSpacing(firstTick, lastTick: DateTime,
     t = t + dateSpacing
     result.add t
 
-proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: Scale,
+proc getDateTimeData(filledScales: FilledScales, label: Value, col: string, dateScale: DateScale): seq[DateTime] =
+  let df = findData(filledScales, label)
+  let timeZone = dateScale.timeZone
+  case dateScale.dateAlgo
+  of dtaFilter:
+    if dateScale.isTimestamp:
+      result = df[col, int].map_inline(x.fromUnix().inZone(timeZone)).toSeq1D
+    else:
+      result = df[col, string].map_inline(dateScale.parseDate(x)).toSeq1D
+  of dtaAddDuration:
+    if dateScale.isTimestamp:
+      result = df[col, int].map_inline(x.fromUnix().inZone(timeZone)).toSeq1D.sorted
+    else:
+      # apply `parseDate` and sort the dates. `toSeq1D` required due to tensor `sorted` regression
+      result = df[col, string].map_inline(dateScale.parseDate(x)).toSeq1D.sorted
+  else:
+    discard # nothing to do. Don't need any dates
+
+proc handleDateScaleTicks*(view: Viewport, filledScales: FilledScales, axKind: AxisKind,
+                           colName: string,
+                           dateScale: DateScale, # scale for the *Dates*
+                           dataScale: ginger.Scale, # range scale for the data in x/y
                            theme: Theme,
                            hideTickLabels = false,
                            margin = none[Coord1D](),
-                           tStyle = none[Style]()): seq[GraphObject] =
+                           tStyle = none[Style](),
+                           label = null()): seq[GraphObject] =
   ## Handles generation of ticks that respect the `DateScale` object. Namely parses the data
   ## in the given axis according to `isTimestamp` or `parseDate` and then leaves only those
   ## ticks within `dateSpacing` according to `formatString`.
@@ -381,19 +403,13 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
   of akY:
     rotate = theme.yTicksRotate
     alignTo = theme.yTicksTextAlign
-  # get data for column
-  let dateScale = scale.dateScale.get
   let timeZone = dateScale.timeZone
   var
     tickLabels: seq[string]
     tickPosUnix: seq[float]
+  let data = getDateTimeData(filledScales, label, colName, dateScale)
   case dateScale.dateAlgo
   of dtaFilter:
-    var data: seq[DateTime]
-    if dateScale.isTimestamp:
-      data = p.data[getColName(scale), int].map_inline(x.fromUnix().inZone(timeZone)).toSeq1D
-    else:
-      data = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D
     let firstTick = data.min
     let offset = (firstTick - firstTick.format(dateScale.formatString).parse(dateScale.formatString))
     # using date time data, compute the ticks using `formatString`
@@ -404,17 +420,7 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
     # remove those that are too close
     removeTicksWithinSpacing(tickPosUnix, tickLabels, dateScale.dateSpacing, timeZone)
   of dtaAddDuration:
-    var
-      firstTick: DateTime
-      lastTick: DateTime
-    if dateScale.isTimestamp:
-      firstTick = p.data[getColName(scale), int].min.fromUnix().inZone(timeZone)
-      lastTick  = p.data[getColName(scale), int].max.fromUnix().inZone(timeZone)
-    else:
-      # apply `parseDate` and sort the dates. `toSeq1D` required due to tensor `sorted` regression
-      let dates = p.data[getColName(scale), string].map_inline(dateScale.parseDate(x)).toSeq1D.sorted
-      firstTick = dates.min
-      lastTick  = dates.max
+    let (firstTick, lastTick) = (data.min, data.max)
     let offset = (firstTick - firstTick.format(dateScale.formatString).parse(dateScale.formatString))
     let tickPos = computeTickPosByDateSpacing(firstTick, lastTick,
                                               dateScale.dateSpacing)
@@ -432,7 +438,7 @@ proc handleDateScaleTicks*(view: Viewport, p: GgPlot, axKind: AxisKind, scale: S
       raise newException(ValueError, "`dateAlgo` is dtaCustomBreaks, but no `breaks` are given " &
         "in the call to `scale_x/y_date`.")
 
-  let tickCoord = tickPosUnix.toCoord1D(axKind, scale.dataScale) # convert to coordinates
+  let tickCoord = tickPosUnix.toCoord1D(axKind, dataScale) # convert to coordinates
   let (tickObjs, labObjs) = view.tickLabels(tickCoord, tickLabels, axKind, isSecondary = false,
                                             rotate = rotate,
                                             alignToOverride = alignTo,
@@ -458,14 +464,18 @@ proc tickStyle*(theme: Theme, width, height: float): Option[Style] =
                       lineType: ltSolid))
 
 
-proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
+proc handleTicks*(view: Viewport, filledScales: FilledScales,
                   axKind: AxisKind, theme: Theme,
                   hideTickLabels = false,
                   numTicksOpt = none[int](),
-                  boundScaleOpt = none[ginger.Scale]()): seq[GraphObject] =
+                  boundScaleOpt = none[ginger.Scale](),
+                  label = null()): seq[GraphObject] =
   ## This handles the creation of the tick positions and tick labels.
   ## It automatically updates the x and y scales of both the viewport and the `filledScales`!
   ## `margin` is the tick label margin in centimeter!
+  ##
+  ## `label` is used to access all the data stored in the `filledScales` geom `yieldData`
+  ## DFs if needed (facet plots mainly, in particular for a date scale.
   let tStyle = tickStyle(theme, view.wImg.val, view.hImg.val) # wImg/hImg is in points
   var marginOpt: Option[Coord1D]
   var scale: Scale
@@ -482,6 +492,11 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
     if theme.yTickLabelMargin.isSome:
       marginOpt = some(view.getTickLabelMargin(theme, axKind))
   let hasScale = scale.col.name.len > 0
+
+  ## NOTE: get the data scale from the *Viewport* and not the `FilledScales` x/y scale.
+  ## Relevant for `Facet` plots, where it depens on the individual facet.
+  let dataScale = view.getCorrectDataScale(axKind)
+
   if hasScale:
     case scale.dcKind
     of dcDiscrete:
@@ -489,25 +504,27 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
         if scale.formatDiscreteLabel != nil: scale.formatDiscreteLabel
         else: (proc(x: Value): string = $x)
       if scale.dateScale.isNone:
-        result = view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
+        result = view.handleDiscreteTicks(axKind, scale.labelSeq, theme = theme,
                                           hideTickLabels = hideTickLabels,
                                           margin = marginOpt,
                                           format = format,
                                           tStyle = tStyle)
       else:
-        result = view.handleDateScaleTicks(p, axKind, scale, theme,
-                                           hideTickLabels, marginOpt)
+        result = view.handleDateScaleTicks(filledScales, axKind,
+                                           getColName(scale), scale.dateScale.get, dataScale,
+                                           theme,
+                                           hideTickLabels, marginOpt,
+                                           label = label)
       if hasSecondary(filledScales, axKind):
-        result.add view.handleDiscreteTicks(p, axKind, scale.labelSeq, theme = theme,
+        result.add view.handleDiscreteTicks(axKind, scale.labelSeq, theme = theme,
                                             isSecondary = true,
                                             hideTickLabels = hideTickLabels,
                                             margin = marginOpt,
                                             format = format,
                                             tStyle = tStyle)
     of dcContinuous:
-      let dataScale = view.getCorrectDataScale(axKind)
       if scale.dateScale.isNone:
-        result = view.handleContinuousTicks(p, axKind, dataScale,
+        result = view.handleContinuousTicks(axKind, dataScale,
                                             scale.scKind,
                                             numTicks,
                                             breaks = scale.breaks, # might be empty
@@ -519,9 +536,12 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                                             format = scale.formatContinuousLabel,
                                             tStyle = tStyle)
       else:
-        result = view.handleDateScaleTicks(p, axKind, scale, theme,
+        result = view.handleDateScaleTicks(filledScales, axKind,
+                                           getColName(scale), scale.dateScale.get, dataScale,
+                                           theme,
                                            hideTickLabels, marginOpt,
-                                           tStyle = tStyle)
+                                           tStyle = tStyle,
+                                           label = label)
       if hasSecondary(filledScales, axKind):
         let secAxis = filledScales.getSecondaryAxis(axKind)
         # we discard the result, because we only use it to generate the grid lines. Those
@@ -532,7 +552,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales, p: GgPlot,
                       else: nil
         let invTransFn = if secAxis.scKind == scTransformedData: secAxis.invTransFn
                       else: nil
-        discard view.handleContinuousTicks(p, axKind, dataScale,
+        discard view.handleContinuousTicks(axKind, dataScale,
                                            secAxis.scKind,
                                            numTicks,
                                            breaks = scale.breaks, # might be empty

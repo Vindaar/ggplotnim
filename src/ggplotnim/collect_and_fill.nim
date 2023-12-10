@@ -613,19 +613,21 @@ proc callFillScale(pData: DataFrame, scales: seq[ScaleData],
 proc addFacets(fs: var FilledScales, p: GgPlot) =
   ## fills and adds the scales used as facets to the FilledScales object
   doAssert p.facet.isSome
-  let facet = p.facet.unsafeGet
-  for fc in facet.columns:
-    let sc = (
-      dataFrame: none[DataFrame](),
-      scale: Scale(col: f{fc},
-                   name: fc,
-                   hasDiscreteness: true,
-                   dcKind: dcDiscrete,
-                   ids: {0'u16 .. high(uint16)}) # all geoms affected
-    )
+  var facet = p.facet.unsafeGet
+  let initScales = facet.columns
+  facet.columns.setLen(0) # reset the scales in `Facet`
+  for sc in initScales:
     # NOTE: we have to add each facet column individually to make sure their
     # discrete data is not mangled together in the `labelSeq` of each scale.
-    fs.facets.add callFillScale(p.data, @[sc], scLinearData)
+    let sData = (
+      dataFrame: none[DataFrame](),
+      scale: sc
+    )
+    let scales = callFillScale(p.data, @[sData], scLinearData)
+    # add the returned scales
+    facet.columns.add scales
+  # assign the finally modified `Facet` to `FilledScales`
+  fs.facets = facet
 
 macro collect(p: GgPlot, field: untyped): untyped =
   result = quote do:
