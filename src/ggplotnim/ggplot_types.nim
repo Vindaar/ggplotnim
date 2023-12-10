@@ -1,4 +1,4 @@
-import options, tables, hashes, macros, strformat, times
+import std / [options, tables, hashes, macros, strformat, times, sets]
 import chroma
 import datamancer
 import ginger except Scale
@@ -228,10 +228,18 @@ type
     sfFreeY = "free_y" # y is free
     sfFree = "free" # each subplot uses its own scale
 
+  SingleFacet* = object
+    idx*: int
+    xScale*: ginger.Scale
+    yScale*: ginger.Scale
+
   Facet* = object
-    columns*: seq[string]
+    columns*: seq[Scale] # the Scales associated based on their columns
     sfKind*: ScaleFreeKind
     order*: seq[Value] ## Facets will be arranged in this order top left to bottom right if any given
+    # The below fields are filled in `postproccess_scales`
+    combinations*: OrderedSet[Value] # all labels that produce a facet
+    facets*: OrderedTable[Value, SingleFacet] # Maps each label to a SingleFacet, which stores all data of interest
 
   Ridges* = object
     col*: FormulaNode
@@ -589,7 +597,8 @@ type
     text*: MainAddScales # not needed, since we don't collect text
     yRidges*: MainAddScales
     weight*: MainAddScales
-    facets*: seq[Scale] # no difference between main / more
+    facets*: Facet # Filled `Facet` object containing multiple `Scales` and additional
+                   # information about the labels
 
   # `PlotView` describes the object the final representation of a `GgPlot` before
   # being drawn.
@@ -852,9 +861,11 @@ proc `$`*(f: Facet): string =
   result = "(columns: "
   for i, x in f.columns:
     if i == f.columns.len - 1:
-      result.add x & ")"
+      result.add $x & ")"
     else:
-      result.add x & ", "
+      result.add $x & ", "
+  result.add $(f.combinations)
+  result.add $(f.facets)
 
 proc hash*(x: StyleLabel): Hash =
   result = hash(x.style)

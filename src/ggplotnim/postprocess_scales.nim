@@ -1,4 +1,4 @@
-import std / [sequtils, algorithm, tables]
+import std / [sequtils, algorithm, tables, sets]
 
 import ggplot_types, ggplot_styles, ggplot_scales
 from ggplot_ticks import getXTicks, getYTicks
@@ -62,23 +62,7 @@ proc getScales(geom: Geom, filledScales: FilledScales,
   addIfAny(result[2], getScale(filledScales.yRidges))
   addIfAny(result[2], getScale(filledScales.width))
   # finally add facets
-  result[2].add filledScales.facets
-
-func isEmpty(s: ginger.Scale): bool =
-  ## checks if the given scale is empty
-  result = s.low == s.high
-
-func mergeScales(s1, s2: ginger.Scale): ginger.Scale =
-  ## merges the two data scales and returns a version encompassing both
-  ## TODO: think about how we might allow (0.0, 0.0) for cases where the
-  ## input data has N elements all 0. This is useful for e.g.
-  ## having 0 data, but assigning only a yMin = -1. That results in a
-  ## useable (-1, 0) data scale! Currently would not work!
-  if not (s1.isEmpty and s1.low == 0):
-    result = (low: min(s1.low, s2.low),
-              high: max(s1.high, s2.high))
-  else:
-    result = s2
+  result[2].add filledScales.facets.columns # get the scales of the Facet
 
 proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
   ## Given a sequence of scales applies all transformations of the `scales`.
@@ -404,18 +388,6 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
   of gkHistogram:
     fg.hdKind = fg.geom.hdKind
   else: discard
-
-func encompassingDataScale(scales: seq[Scale],
-                           axKind: AxisKind,
-                           baseScale: ginger.Scale = (low: 0.0, high: 0.0)): ginger.Scale =
-  ## calculate the encompassing data scale spanned by all
-  ## given `scales` of kind `scLinearData`, `scTransformedData`.
-  if not baseScale.isEmpty:
-    result = baseScale
-  for s in scales:
-    if s.scKind in {scLinearData, scTransformedData} and
-       s.axKind == axKind:
-      result = mergeScales(result, s.dataScale)
 
 proc determineDataScale(s: Scale,
                         additional: seq[Scale], df: DataFrame): ginger.Scale =
@@ -976,6 +948,117 @@ proc filledCountGeom(df: var DataFrame, g: Geom, filledScales: FilledScales): Fi
   result.numY = result.yScale.high.round.int
   doAssert result.numX == allClasses.len
 
+proc determineExistingCombinations(fs: FilledScales): OrderedSet[Value] =
+  # all possible combinations of the keys we group by
+  let facet = fs.facets
+  let facetScales = facet.columns # get scales of the Facet
+  doAssert facetScales.len > 0
+  var combinations: seq[seq[Value]]
+  if facet.columns.len > 1:
+    combinations = product(facetScales.mapIt(it.labelSeq))
+  else:
+    combinations = facetScales[0].labelSeq.mapIt(@[it])
+  # create key / value pairs
+  var combLabels: seq[Value]
+  for c in combinations:
+    var comb: seq[(string, Value)]
+    for i, fc in facetScales:
+      comb.add ($fc.col, c[i])
+    combLabels.add toObject(comb)
+
+  # combinations possibly contains non existing combinations too!
+  var exists = newSeq[Value]()
+  #var exists = initTable[Value, DataFrame]()
+  # now check each geom for each `yieldData` element and see which
+  # combination exists in them
+  ##
+  ## XXX: compute scales and (if needed) date ticks here?
+  for fg in fs.geoms:
+    for cb in combLabels:
+      for xk in keys(fg.yieldData):
+        if cb in xk:
+          exists.add cb
+          #var df = fg.yiedData[xk]
+          #if cb notin exists:
+          #  exists[cb] = df
+          #else:
+          #  let eDf = exists[cb]
+          #  df = df.add eDf
+          #  exists[cb] = df
+          #exists.add (cb, scale, df)
+          ## Extend xScale, yScale! Fully encompassing data scale of all geom data (can have different columns!) on the facet
+
+  # determine x and y scale for each axis, and if applicable
+  #let existSorted = exists.sortedByIt(it[0])
+  #let combExists = existSorted.mapIt(it[0])
+  #result = combExists.toOrderedSet # order based on label
+  result = exists.sorted.toOrderedSet
+  doAssert result.card <= combinations.len
+  # check user input
+  if facet.order.len > 0: # if user given order, overwrite the result!
+    if facet.order.len != result.card: # but only if they match in terms of content
+      raise newException(ValueError, "Input labels for facet to order by has " & $facet.order.len &
+        " elements, but there are " & $result.card & " facet elements in total.")
+    for x in facet.order:
+      if x notin result:
+        raise newException(ValueError, "Label " & $x & " not found in deduced " &
+          " labels, but is present in custom ordered labels!")
+    result = facet.order.toOrderedSet
+
+proc calcScalesForLabel(facet: Facet,
+                        fg: FilledGeom, label: Value): (ginger.Scale, ginger.Scale) =
+  ## Given the `ScaleFreeKind` of the `facet` possibly calculate the
+  ## real data range of the current label
+  proc calcScale(df: DataFrame, col: string): ginger.Scale =
+    let data = df[col].toTensor(Value)
+    result = (low: min(data).toFloat(allowNull = true),
+              high: max(data).toFloat(allowNull = true))
+  if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
+    # find the correct DF in the `yieldData` table for this label
+    let labDf = fg.findData(label)
+    if facet.sfKind in {sfFreeX, sfFree} and fg.dcKindX == dcContinuous:
+      let xScale = calcScale(labDf, fg.xCol)
+      # only change the scale, if it's not high == low
+      result[0] = if xScale.low != xScale.high: xScale
+                  else: fg.xScale
+    if facet.sfKind in {sfFreeY, sfFree} and fg.dcKindY == dcContinuous:
+      let yScale = calcScale(labDf, fg.yCol)
+      # only change the scale, if it's not high == low
+      result[1] = if yScale.low != yScale.high: yScale
+                  else: fg.yScale
+
+proc calcScalesForLabel(facet: Facet, geoms: seq[FilledGeom], label: Value): (ginger.Scale, ginger.Scale) =
+  for fg in geoms:
+    let (xScale, yScale) = calcScalesForLabel(facet, fg, label)
+    template set(idx, scale): untyped = # set scale or merge
+      if result[idx].isEmpty:
+        result[idx] = scale
+      else:
+        result[idx] = mergeScales(result[idx], scale)
+    set(0, xScale)
+    set(1, yScale)
+
+proc calcSingleFacets(facet: Facet, geoms: seq[FilledGeom]): OrderedTable[Value, SingleFacet] =
+  var idx = 0
+  for label in facet.combinations:
+    # 1. calculate scales of each single facet using `yieldData`
+    let (xScale, yScale) = calcScalesForLabel(facet, geoms, label)
+    # 2. fill `Scale` fields that are needed, i.e.
+    # `dateScale` field updated to fill `breaks`
+    let singleFacet = SingleFacet(xScale: xScale,
+                                  yScale: yScale,
+                                  idx: idx)
+    result[label] = singleFacet
+    inc idx
+
+proc postProcessFacet*(filledScales: var FilledScales, p: GgPlot) =
+  ## Performs the post processing of the possible `Facets`. That means computing all possible
+  ## single facets (i.e. the distinct labels) and computing the data scales of each facet.
+  # 1. Compute all distinct labels for the facet scales
+  filledScales.facets.combinations = determineExistingCombinations(filledScales)
+  # 2. compute the individual facets and their scales
+  filledScales.facets.facets = calcSingleFacets(filledScales.facets, filledScales.geoms)
+
 proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
   ## walk all geoms and create the dataframes required to draw the
   ## geoms
@@ -1051,3 +1134,7 @@ proc postProcessScales*(filledScales: var FilledScales, p: GgPlot) =
 
   filledScales.xScale = finalXScale
   filledScales.yScale = finalYScale
+
+  # finally fill data relevant for facet plots
+  if filledScales.facets.columns.len > 0:
+    postProcessFacet(filledScales, p)

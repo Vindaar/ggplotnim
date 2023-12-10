@@ -873,9 +873,15 @@ proc facet_wrap*[T: FormulaNode | string](fns: varargs[T],
   for f in fns:
     when T is FormulaNode:
       doAssert f.kind == fkVariable
-      result.columns.add f.name
+      let fn = f
     else:
-      result.columns.add f
+      let fn = f{f}
+    let sc = Scale(col: fn,
+                   name: fn.name,
+                   hasDiscreteness: true,
+                   dcKind: dcDiscrete,
+                   ids: {0'u16 .. high(uint16)}) # all geoms affected
+    result.columns.add sc
 
 proc scale_x_log10*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale =
   ## Sets the X scale of the plot to a log10 scale.
@@ -2789,19 +2795,20 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
       viewLabel.children.add pChild
     if ridge.showTicks:
       ## TODO: fix the hack using `1e-5`!. Needed for the side effect of adding to viewport!
-      discard viewLabel.handleTicks(filledScales, p, akY, theme = theme,
+      discard viewLabel.handleTicks(filledScales, akY, theme = theme,
                                     numTicksOpt = some(5),
                                     boundScaleOpt = some(
                                               (low: yScale.low + 1e-5,
-                                               high: yScale.high - 1e-5)))
+                                               high: yScale.high - 1e-5)),
+                                    label = label)
 
   if not hideTicks:
-    var xticks = view.handleTicks(filledScales, p, akX, theme = theme)
+    var xticks = view.handleTicks(filledScales, akX, theme = theme)
     let format =
       if yRidgeScale.formatDiscreteLabel != nil: yRidgeScale.formatDiscreteLabel
       else: (proc(x: Value): string = $x)
     # we create the ticks manually with `discreteTickLabels` to set the labels
-    var yticks = view.handleDiscreteTicks(p, akY, yLabelSeq,
+    var yticks = view.handleDiscreteTicks(akY, yLabelSeq,
                                           theme = theme, centerTicks = false,
                                           format = format)
     let grdLines = view.handleGridLines(xticks, yticks, theme)
@@ -2852,10 +2859,10 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       xticks: seq[GraphObject]
       yticks: seq[GraphObject]
     if not hideTicks:
-      xticks = view.handleTicks(filledScales, p, akX,
+      xticks = view.handleTicks(filledScales, akX,
                                 numTicksOpt = some(filledScales.getXTicks()),
                                 theme = theme)
-      yticks = view.handleTicks(filledScales, p, akY,
+      yticks = view.handleTicks(filledScales, akY,
                                 numTicksOpt = some(filledScales.getYTicks()),
                                 theme = theme)
 
@@ -2888,90 +2895,6 @@ proc generatePlot(view: Viewport, p: GgPlot, filledScales: FilledScales,
       view.handleLabels(theme)
     view.addObj grdLines
 
-proc determineExistingCombinations(fs: FilledScales,
-                                   facet: Facet): OrderedSet[Value] =
-  # all possible combinations of the keys we group by
-  let facets = fs.facets
-  doAssert facets.len > 0
-  var combinations: seq[seq[Value]]
-  if facet.columns.len > 1:
-    combinations = product(facets.mapIt(it.labelSeq))
-  else:
-    combinations = facets[0].labelSeq.mapIt(@[it])
-  # create key / value pairs
-  var combLabels: seq[Value]
-  for c in combinations:
-    var comb: seq[(string, Value)]
-    for i, fc in facets:
-      comb.add ($fc.col, c[i])
-    combLabels.add toObject(comb)
-
-  # combinations possibly contains non existing combinations too!
-  var exists = newSeq[Value]()
-  # now check each geom for each `yieldData` element and see which
-  # combination exists in them
-  for fg in fs.geoms:
-    for cb in combLabels:
-      for xk in keys(fg.yieldData):
-        if cb in xk:
-          exists.add cb
-  result = exists.sorted.toOrderedSet # order based on label
-  doAssert result.card <= combinations.len
-  # check user input
-  if facet.order.len > 0: # if user given order, overwrite the result!
-    if facet.order.len != result.card: # but only if they match in terms of content
-      raise newException(ValueError, "Input labels for facet to order by has " & $facet.order.len &
-        " elements, but there are " & $result.card & " facet elements in total.")
-    for x in facet.order:
-      if x notin result:
-        raise newException(ValueError, "Label " & $x & " not found in deduced " &
-          " labels, but is present in custom ordered labels!")
-    result = facet.order.toOrderedSet
-
-proc calcFacetViewMap(combLabels: OrderedSet[Value]): OrderedTable[Value, int] =
-  var idx = 0
-  for cb in combLabels:
-    result[cb] = idx
-    inc idx
-
-proc find(fg: FilledGeom, label: Value): DataFrame =
-  ## returns the `DataFrame` of the given `fg` of that label, which
-  ## contains `label` in `yieldData`
-  result = newDataFrame()
-  for key, val in fg.yieldData:
-    if label in key:
-      # multiple keys may match, add DFs!
-      result.add val[2]
-  doAssert result.len > 0, "Invalid call to find, `label` not found in `yieldData`!"
-
-proc calcScalesForLabel(theme: var Theme, facet: Facet,
-                        fg: FilledGeom, label: Value) =
-  ## Given the `ScaleFreeKind` of the `facet` possibly calculate the
-  ## real data range of the current label
-  proc calcScale(df: DataFrame, col: string): ginger.Scale =
-    let data = df[col].toTensor(Value)
-    result = (low: min(data).toFloat(allowNull = true),
-              high: max(data).toFloat(allowNull = true))
-  if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
-    # find the correct DF in the `yieldData` table for this label
-    let labDf = fg.find(label)
-    if facet.sfKind in {sfFreeX, sfFree} and fg.dcKindX == dcContinuous:
-      let xScale = calcScale(labDf, fg.xCol)
-      # only change the scale, if it's not high == low
-      if xScale.low != xScale.high:
-        theme.xMarginRange = calculateMarginRange(theme, xScale, akX)
-      else:
-        # base on filled geom's scale instead
-        theme.xMarginRange = calculateMarginRange(theme, fg.xScale, akX)
-    if facet.sfKind in {sfFreeY, sfFree} and fg.dcKindY == dcContinuous:
-      let yScale = calcScale(labDf, fg.yCol)
-      # only change the scale, if it's not high == low
-      if yScale.low != yScale.high:
-        theme.yMarginRange = calculateMarginRange(theme, yScale, akY)
-      else:
-        # base on filled geom's scale instead
-        theme.yMarginRange = calculateMarginRange(theme, fg.yScale, akY)
-
 proc generateFacetPlots(view: Viewport, p: GgPlot,
                         filledScales: FilledScales,
                         theme: Theme,
@@ -2979,11 +2902,9 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
                         hideTicks = false) =
   var p = p
   doAssert p.facet.isSome
-  let facet = p.facet.unsafeGet
+  let facet = filledScales.facets
   # combine scales / plot theme for final theme
-
-  let existComb = determineExistingCombinations(filledScales, facet)
-  let numExist = existComb.card
+  let numExist = facet.combinations.card
   # set margin of plot to avoid tick labels getting too close
   # TODO: only set if user did not set xlim, ylim (theme x/yRange)?
   p.theme.xMargin = some(0.05)
@@ -3011,7 +2932,6 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   else:
     # default
     (rows, cols) = calcRowsColumns(0, 0, numExist)
-  let viewMap = calcFacetViewMap(existComb)
   if facet.sfKind in {sfFreeX, sfFreeY, sfFree}:
     let margin = if theme.facetMargin.isSome: theme.facetMargin.get
                  else: quant(0.015, ukRelative)
@@ -3025,7 +2945,9 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     xticks: seq[GraphObject]
     yticks: seq[GraphObject]
   let lastCol = numExist mod cols
-  for label, idx in pairs(viewMap):
+
+  for (label, sFacet) in pairs(facet.facets):
+    let idx = sFacet.idx
     var viewLabel = view[idx]
     ## perform steps only required `once` for each label
     # create the layout for a facet + header
@@ -3075,9 +2997,10 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       if not setGridAndTicks:
         ## TODO: this means we currently use the margin range of the ``first``
         ## geom in a single facet. They should all agree I guess?
-        # determine data scale of the current labels data if a scale is free.
+        # compute the data scale with a small margin used for facets
         # This changes `x/yMarginRange` of the theme
-        theme.calcScalesForLabel(facet, fg, label)
+        theme.xMarginRange = calculateMarginRange(theme, sFacet.xScale, akX)
+        theme.yMarginRange = calculateMarginRange(theme, sFacet.yScale, akY)
         # assign theme ranges to this views scale
         plotView.xScale = theme.xMarginRange
         plotView.yScale = theme.yMarginRange
@@ -3089,11 +3012,14 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
                        5
                      else:
                        filledScales.getXTicks()
-        xticks = plotView.handleTicks(filledScales, p, akX, theme = theme,
+
+        xticks = plotView.handleTicks(filledScales, akX, theme = theme,
                                       numTicksOpt = some(xTickNum),
-                                      hideTickLabels = hideXLabels)
-        yticks = plotView.handleTicks(filledScales, p, akY, theme = theme,
-                                      hideTickLabels = hideYLabels)
+                                      hideTickLabels = hideXLabels,
+                                      label = label)
+        yticks = plotView.handleTicks(filledScales, akY, theme = theme,
+                                      hideTickLabels = hideYLabels,
+                                      label = label)
 
         let grdLines = plotView.handleGridLines(xticks, yticks, theme)
         plotView.addObj grdLines
@@ -3273,9 +3199,9 @@ proc determinePlotHeight(theme: Theme, filledScales: FilledScales, width, height
                                      filledScales.requiresLegend(theme))
   # if `OneToOne` adjust height to match one to one data
   if theme.fixedRatio.isSome:
-    let xS = filledScales.xScale
+    let xS = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
     let xD = xS.high - xS.low
-    let yS = filledScales.yScale
+    let yS = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
     let yD = ys.high - ys.low
     let ratio = yD / xD
     let spacingLR = add(layout.left, layout.right)
