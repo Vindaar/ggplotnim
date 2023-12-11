@@ -1985,6 +1985,7 @@ proc themeLatex*(fWidth: float, width: float,
   ## a full `\textwidth` (determine for your document using `\the\textwidth`).
   ##
   ## For KOMAscript A4 scrbook with DIV=14, BOC=5mm it yields 458.29268pt.
+  ## The `textheight` comes out to 677.3971pt yielding a ratio of 1.47808841285.
   ##
   ## If a ratio is given it is interpreted as ``width to height``,
   ## i.e. ``height = width / ratio``.
