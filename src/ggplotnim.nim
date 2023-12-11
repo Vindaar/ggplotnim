@@ -1934,7 +1934,9 @@ proc theme_font_scale*(scale: float, family = "", baseTheme: (proc(): Theme) = n
   ## scaled.
   ##
   ## The margins can be scaled optionally using `baseScale` to a custom value.
-  let bt = baseTheme()
+
+  let bt = if baseTheme == nil: default_scale()
+           else: baseTheme()
   result = theme_scale(scale, family, baseTheme)
   result.baseScale = bt.baseScale
 
