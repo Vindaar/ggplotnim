@@ -59,7 +59,8 @@ proc orNone(f: float): Option[float] =
 proc orNoneScale*[T: string | SomeNumber | FormulaNode](
   s: T, scKind: static ScaleKind,
   axKind = akX,
-  hasDiscreteness = false): Option[Scale] =
+  hasDiscreteness = false,
+  dcKind = dcDiscrete): Option[Scale] =
   ## returns either a `some(Scale)` of kind `ScaleKind` or `none[Scale]` if
   ## `s` is empty
   if ($s).len > 0:
@@ -70,42 +71,54 @@ proc orNoneScale*[T: string | SomeNumber | FormulaNode](
     case scKind
     of scLinearData:
       result = some(Scale(scKind: scLinearData, col: fs, axKind: axKind,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     of scTransformedData:
       result = some(Scale(scKind: scTransformedData, col: fs, axKind: axKind,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     of scSize:
       result = some(Scale(scKind: scSize, col: fs,
                           sizeRange: DefaultSizeRange,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     of scAlpha:
       result = some(Scale(scKind: scAlpha, col: fs,
                           alphaRange: DefaultAlphaRange,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     of scColor:
       result = some(Scale(scKind: scColor, col: fs,
                           colorScale: DefaultColorScale,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     of scFillColor:
       result = some(Scale(scKind: scFillColor, col: fs,
                           colorScale: DefaultColorScale,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
     else:
       result = some(Scale(scKind: scKind, col: fs,
-                          hasDiscreteness: hasDiscreteness))
+                          hasDiscreteness: hasDiscreteness,
+                          dcKind: dcKind))
   else:
     result = none[Scale]()
 
 template hasFactor(n: NimNode): untyped = n.kind == nnkCall and n[0].strVal == "factor"
+template hasGradient(n: NimNode): untyped = n.kind == nnkCall and n[0].strVal == "gradient"
 
 proc initField*(name: string, val: NimNode): NimNode =
   # determine if magic `factor` used to designate a scale as discrete
-  let hasDiscreteness = hasFactor(val)
+  let isDiscrete = hasFactor(val)
+  let isContinuous = hasGradient(val)
   # if so, use the actual arg as value
-  var val = if hasDiscreteness: val[1] else: val
+  var val = if isDiscrete or isContinuous: val[1] else: val
+  let dcKind = if isDiscrete: dcDiscrete elif isContinuous: dcContinuous else: dcDiscrete
   template call(kind: untyped, ax = akX): untyped =
     result = nnkCall.newTree(ident"orNoneScale", val, newLit kind, newLit ax,
-                             newLit hasDiscreteness)
+                             newLit (isDiscrete or isContinuous),
+                             newLit dcKind)
+
   case name.normalize
   of "x" : call(scLinearData, akX)
   of "y" : call(scLinearData, akY)
@@ -148,8 +161,10 @@ proc getArgValue(n: NimNode, arg: string): NimNode =
     # some compuatition, e.g. `someVar + 2.0`
     result = n
   of nnkCall:
-    # either function call returning some normal value or magic `factor`
+    # either function call returning some normal value or magic `factor`, `gradient`
     if hasFactor(n):
+      result = nnkCall.newTree(n[0], getArgValue(n[1], arg))
+    elif hasGradient(n):
       result = nnkCall.newTree(n[0], getArgValue(n[1], arg))
     else:
       result = n
