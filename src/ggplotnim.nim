@@ -1620,6 +1620,7 @@ proc genDiscreteLegend(view: var Viewport,
              rowHeights = rH)
   # iterate only over added children, skip first, because we actual legend first
   var j = 0
+
   for i in countup(0, leg.children.len - 1, 3):
     # create rectangle showing style of data points
     var legBox = leg[i]
@@ -1705,7 +1706,9 @@ proc genContinuousLegend(view: var Viewport,
     legGrad.addObj gradRect
     legView[0] = legGrad
     view[3] = legView
-    view.height = quant(5.5 * bScale, ukCentimeter)
+
+    let totalHeight = legendHeaderHeight + legendHeight
+    view.height = quant(totalHeight * bScale, ukCentimeter)
   else:
     discard
 
