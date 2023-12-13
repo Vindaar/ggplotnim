@@ -2856,14 +2856,21 @@ proc generateRidge*(view: Viewport, ridge: Ridges, p: GgPlot, filledScales: Fill
                                     label = label)
 
   if not hideTicks:
-    var xticks = view.handleTicks(filledScales, akX, theme = theme)
+    let hideX = theme.hideXTickLabels.get(false)
+    let hideY = theme.hideYTickLabels.get(false)
+    var xticks = view.handleTicks(filledScales, akX, theme = theme, hideTickLabels = hideX)
     let format =
       if yRidgeScale.formatDiscreteLabel != nil: yRidgeScale.formatDiscreteLabel
       else: (proc(x: Value): string = $x)
     # we create the ticks manually with `discreteTickLabels` to set the labels
+    let tStyle = tickStyle(theme) # wImg/hImg is in points
+    let marginOpt = some(view.getTickLabelMargin(theme, akY))
     var yticks = view.handleDiscreteTicks(akY, yLabelSeq,
                                           theme = theme, centerTicks = false,
-                                          format = format)
+                                          format = format,
+                                          hideTickLabels = hideY,
+                                          margin = marginOpt,
+                                          tStyle = tStyle)
     let grdLines = view.handleGridLines(xticks, yticks, theme)
     view.addObj grdLines
   if not hideLabels:
