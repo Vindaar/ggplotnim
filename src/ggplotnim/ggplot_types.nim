@@ -413,7 +413,11 @@ type
     # hide parts of plot
     hideTicks*: Option[bool]
     hideTickLabels*: Option[bool]
+    hideXTickLabels*: Option[bool] # only hide X tick labels (does not adjust margins)
+    hideYTickLabels*: Option[bool] # only hide Y tick labels (does not adjust margins)
     hideLabels*: Option[bool]
+    hideXLabels*: Option[bool] # only hide X labels (does not adjust margins)
+    hideYLabels*: Option[bool] # only hide Y labels (does not adjust margins)
     # titles
     title*: Option[string]
     subTitle*: Option[string]
