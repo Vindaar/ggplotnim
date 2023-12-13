@@ -294,7 +294,7 @@ proc handleDiscreteTicks*(view: Viewport, axKind: AxisKind,
     view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
-proc getTickLabelMargin(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D =
+proc getTickLabelMargin*(view: Viewport, theme: Theme, axKind: AxisKind): Coord1D =
   ## takes the given tick label margin if user defined or else defines a suitable
   ## margin based on the font.
   var margin = 0.0
@@ -450,7 +450,7 @@ proc handleDateScaleTicks*(view: Viewport, filledScales: FilledScales, axKind: A
     view.addObj concat(tickObjs, labObjs)
   result = tickObjs
 
-proc tickStyle*(theme: Theme, width, height: float): Option[Style] =
+proc tickStyle*(theme: Theme): Option[Style] =
   ## Note: currently we rescale the ticks such that at height 480 they have a length of 5
   ## and for higher / lower values scaled linearly.
   ##
@@ -476,7 +476,7 @@ proc handleTicks*(view: Viewport, filledScales: FilledScales,
   ##
   ## `label` is used to access all the data stored in the `filledScales` geom `yieldData`
   ## DFs if needed (facet plots mainly, in particular for a date scale.
-  let tStyle = tickStyle(theme, view.wImg.val, view.hImg.val) # wImg/hImg is in points
+  let tStyle = tickStyle(theme) # wImg/hImg is in points
   var marginOpt: Option[Coord1D]
   var scale: Scale
   var numTicks: int

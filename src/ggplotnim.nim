@@ -2581,7 +2581,7 @@ proc generateLegendMarkers(plt: Viewport,
     case scale.scKind
     of scColor, scFillColor:
       # replace yScale by scale of `scale`
-      let tStyle = tickStyle(theme, plt.wImg.val, plt.hImg.val) # w/hImg is in points
+      let tStyle = tickStyle(theme)
       var mplt = plt
       mplt.yScale = scale.dataScale
       # use 5 ticks by default
