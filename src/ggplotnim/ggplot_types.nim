@@ -409,6 +409,7 @@ type
     annotationFont*: Option[Font]
     # general
     baseScale*: Option[float] ## Base scale to scale "everything" by
+    texOptions*: Option[TeXOptions] ## If given overwrites any TeX related argument to `ggsave`
     # hide parts of plot
     hideTicks*: Option[bool]
     hideTickLabels*: Option[bool]
