@@ -1806,6 +1806,14 @@ proc hideLegend*(): Theme =
   ## hides the legend, even if it would otherwise be required
   result = Theme(hideLegend: some(true))
 
+proc hideLabels*(): Theme = Theme(hideLabels: some(true))
+proc hideXLabels*(): Theme = Theme(hideXLabels: some(true))
+proc hideYLabels*(): Theme = Theme(hideYLabels: some(true))
+proc hideTicks*(): Theme = Theme(hideTicks: some(true))
+proc hideTickLabels*(): Theme = Theme(hideTickLabels: some(true))
+proc hideXTickLabels*(): Theme = Theme(hideXTickLabels: some(true))
+proc hideYTickLabels*(): Theme = Theme(hideYTickLabels: some(true))
+
 func facetHeaderText*[F: PossibleFont](font: F = missing(), x = 0.5, y = 0.5): Theme =
   ## Adjusts the facet header text. The `f` argument adjusts the font used
   ## while the `x`, `y` adjusts the placement of the text in relative coordinates
@@ -2692,6 +2700,8 @@ proc handleLabels(view: Viewport, theme: Theme) =
   ## potentially moves the label positions and enlarges the areas (not yet)
   ## for the y label / tick label column or x row.
   # TODO: clean this up!
+  let hideX = theme.hideXLabels.get(false)
+  let hideY = theme.hideYLabels.get(false)
   var
     xLabObj: GraphObject
     yLabObj: GraphObject
@@ -2741,11 +2751,15 @@ proc handleLabels(view: Viewport, theme: Theme) =
                       margin = marginVal,
                       isSecondary = isSecond,
                       font = fnt)
-  getMargin(xMargin, theme.xLabelMargin, "xtickLabel", akX)
-  getMargin(yMargin, theme.yLabelMargin, "ytickLabel", akY)
-  createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
-  createLabel(xLabObj, xlabel, xLabTxt, theme.xLabelMargin, xMargin)
-  view.addObj @[xLabObj, yLabObj]
+
+  if not hideX:
+    getMargin(xMargin, theme.xLabelMargin, "xtickLabel", akX)
+    createLabel(xLabObj, xlabel, xLabTxt, theme.xLabelMargin, xMargin)
+    view.addObj xLabObj
+  if not hideY:
+    getMargin(yMargin, theme.yLabelMargin, "ytickLabel", akY)
+    createLabel(yLabObj, ylabel, yLabTxt, theme.yLabelMargin, yMargin)
+    view.addObj yLabObj
 
   if theme.hasSecondary(akX):
     let secAxisLabel = theme.xLabelSecondary.unwrap()
