@@ -1986,10 +1986,25 @@ func singlePlot*(): Theme =
                  annotationFont: some(font(9.0, family = "monospace")),
                  baseScale: some(1.0)) # won't be scaled!
 
+proc toTeXOptions*(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
+                   caption, label, placement: string): TeXOptions =
+  result = TeXOptions(
+      texTemplate: if texTemplate.len > 0: some(texTemplate)
+                   else: none(string),
+      standalone: standalone,
+      onlyTikZ: onlyTikZ,
+      useTeX: useTeX,
+      caption: if caption.len > 0: some(caption) else: none(string),
+      label: if label.len > 0: some(label) else: none(string),
+      placement: placement
+  )
+
 proc themeLatex*(fWidth: float, width: float,
                  baseTheme: (proc(): Theme),
                  height = -1.0, ratio = -1.0,
                  textWidth = 458.29268, # 455.24411
+                 useTeX = true,
+                 texOptions = toTeXOptions(true, false, true, "", "", "", "")
                 ): Theme =
   ## This is a good theme to use in LaTeX documents. It handles scaling the
   ## plot to the desired size, where `fWidth` is the size it will be inserted
@@ -2033,6 +2048,9 @@ proc themeLatex*(fWidth: float, width: float,
   result = theme_font_scale(factor, baseTheme = baseTheme)
   result.width = some(width)
   result.height = some(h) # Note: use `h`!
+
+  if useTeX: ## `useTeX` allows to disable it easily
+    result.texOptions = some(texOptions)
 
 func coord_fixed*(ratio: float): Theme =
   ## Produces a plot where the ratio of the plot itself is the given ratio.
@@ -3350,19 +3368,6 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, da
   result.filledScales = filledScales
   result.view = img
 
-proc toTeXOptions*(useTeX, onlyTikZ, standalone: bool, texTemplate: string,
-                   caption, label, placement: string): TeXOptions =
-  result = TeXOptions(
-      texTemplate: if texTemplate.len > 0: some(texTemplate)
-                   else: none(string),
-      standalone: standalone,
-      onlyTikZ: onlyTikZ,
-      useTeX: useTeX,
-      caption: if caption.len > 0: some(caption) else: none(string),
-      label: if label.len > 0: some(label) else: none(string),
-      placement: placement
-  )
-
 proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
               widths: seq[int] = @[],
               heights: seq[int] = @[],
@@ -3468,6 +3473,7 @@ proc ggsave*(
   ## directly on a `GgPlot` object using a possible TeX options object.
   ##
   ## See the docstring there.
+  let texOptions = p.theme.texOptions.get(texOptions)
   let p = p.assignBackend(fname, texOptions, backend) # local copy w/ correct backend
   let plt = p.ggcreate(width = width, height = height, dataAsBitmap = dataAsBitmap)
   # make sure the target directory exists, create if not
