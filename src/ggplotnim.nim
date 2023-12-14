@@ -1600,22 +1600,29 @@ proc genDiscreteLegend(view: var Viewport,
   let markers = view.generateLegendMarkers(cat, theme, geomKind)
   let numElems = cat.valueMap.len
   ## XXX: Still need to be scaled by `baseScale`!
+  let bScale = theme.baseScale.get(1.0)
+  let width = theme.discreteLegendWidth.get(1.0) * bScale
+  let height = theme.discreteLegendHeight.get(1.0) * bScale
+  let spacingOffset = 0.05 * bScale
+  let spacing = (1 + spacingOffset) * height
+  let totalBlockHeight = spacing * numElems.float
+
   view.layout(2, 2,
-              colWidths = @[quant(0.5, ukCentimeter), # for space to plot
+              colWidths = @[quant(0.5 * bScale, ukCentimeter), # for space to plot
                             quant(0.0, ukRelative)], # for legend. incl header
-              rowHeights = @[quant(1.0, ukCentimeter), # for header
-                             quant(1.05 * numElems.float, ukCentimeter)],
+              rowHeights = @[quant(height, ukCentimeter), # for header
+                             quant(totalBlockHeight, ukCentimeter)],
               ignoreOverflow = true) # for act. legend
   # now set the `height` according to the real legend height. This important
   # to get proper alignment of the scale / multiple scales in `finalizeLegend`!
-  view.height = quant(1.0 + 1.05 * numElems.float, ukCentimeter)
+  view.height = quant(height + totalBlockHeight, ukCentimeter)
   var leg = view[3]
 
-  let rH = newSeqWith(numElems, quant(1.05, ukCentimeter))
+  let rH = newSeqWith(numElems, quant(spacing, ukCentimeter))
 
   leg.layout(3, rows = numElems,
-             colWidths = @[quant(1.0, ukCentimeter),
-                           quant(0.3, ukCentimeter),
+             colWidths = @[quant(width, ukCentimeter),
+                           quant(0.3 * bScale, ukCentimeter),
                            quant(0.0, ukRelative)],
              rowHeights = rH)
   # iterate only over added children, skip first, because we actual legend first
@@ -1631,9 +1638,9 @@ proc genDiscreteLegend(view: var Viewport,
                       color: color(1.0, 1.0, 1.0),
                       fillColor: grey92)
     let rect = legBox.initRect(Coord(x: c1(0.0),
-                                     y: c1(0.0) + legBox.c1(0.025, akY, ukCentimeter)),
-                               quant(1.0, ukCentimeter),
-                               quant(1.0, ukCentimeter),
+                                     y: c1(0.0) + legBox.c1(spacingOffset / 2.0, akY, ukCentimeter)),
+                               quant(width, ukCentimeter),
+                               quant(height, ukCentimeter),
                                style = some(style),
                                name = "markerRectangle")
     # add marker ontop of rect
@@ -1679,8 +1686,9 @@ proc genContinuousLegend(view: var Viewport,
     # |   |     |  | labels |
     # -----------------------
     let bScale = theme.baseScale.get(1.0)
+    let height = theme.continuousLegendHeight.get(4.5)
     let legendHeaderHeight = if theme.legendTitleFont.isSome: theme.legendTitleFont.get.size / 12.0 else: 1.0
-    let legendHeight = if theme.legendFont.isSome: theme.legendFont.get.size / 12.0 * 4.5 else: 4.5
+    let legendHeight = if theme.legendFont.isSome: theme.legendFont.get.size / 12.0 * height else: height
     view.layout(2, 2,
                 colWidths = @[quant(0.5 * bScale, ukCentimeter), # for space to plot
                               quant(0.0, ukRelative)], # for legend. incl header
@@ -1688,7 +1696,8 @@ proc genContinuousLegend(view: var Viewport,
                                quant(legendHeight, ukCentimeter)]) # for act. legend
     var legView = view[3] # bottom right
     legView.yScale = cat.dataScale
-    legView.layout(3, 1, colWidths = @[quant(1.0 * bScale, ukCentimeter),
+    let width = theme.continuousLegendWidth.get(1.0)
+    legView.layout(3, 1, colWidths = @[quant(width * bScale, ukCentimeter),
                                        quant(0.5 * bScale, ukCentimeter),
                                        quant(0.0, ukRelative)])
     var legGrad = legView[0]
