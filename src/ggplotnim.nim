@@ -33,7 +33,7 @@ export ggplot_types
 export ggplot_utils
 
 import ggplotnim / colormaps / colormaps
-export viridis, magma, inferno, plasma
+export viridis, magma, inferno, plasma, cool
 
 import chroma
 export chroma
