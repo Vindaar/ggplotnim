@@ -2154,7 +2154,7 @@ func xlim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## it here, but it will probably result in an ugly plot!
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
-  let range = if low != high: some((low: low.float, high: high.float)) else: none(ginger.Scale)
+  let range = if low.float != high.float: some((low: low.float, high: high.float)) else: none(ginger.Scale)
   result = Theme(xRange: range, xOutsideRange: orOpt)
 
 func ylim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
@@ -2183,7 +2183,7 @@ func ylim*[T, U: SomeNumber](low: T, high: U, outsideRange = ""): Theme =
   ## it here, but it will probably result in an ugly plot!
   let orOpt = if outsideRange.len > 0: some(parseEnum[OutsideRangeKind](outsideRange))
               else: none[OutsideRangeKind]()
-  let range = if low != high: some((low: low.float, high: high.float)) else: none(ginger.Scale)
+  let range = if low.float != high.float: some((low: low.float, high: high.float)) else: none(ginger.Scale)
   result = Theme(yRange: range, yOutsideRange: orOpt)
 
 proc xMargin*[T: SomeNumber](margin: T, outsideRange = ""): Theme =
