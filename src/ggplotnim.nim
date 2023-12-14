@@ -1355,7 +1355,8 @@ proc scale_fill_log10*[S: ColorScale | seq[uint32] | Missing;
     else:
       result.colorScale = ColorScale(name: name, colors: colorScale)
 
-proc scale_fill_continuous*(name: string = "",
+proc scale_fill_continuous*(colormap: ColorScale | seq[uint32] = DefaultColorScale,
+                            name: string = "",
                             scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
   ## Forces the fill scale to be continuous.
   ##
@@ -1364,8 +1365,12 @@ proc scale_fill_continuous*(name: string = "",
                  scKind: scFillColor,
                  dcKind: dcContinuous,
                  dataScale: scale,
-                 colorScale: DefaultColorScale,
                  hasDiscreteness: true)
+  when colormap is ColorScale:
+    result.colorScale = colormap
+  else:
+    result.colorScale = ColorScale(name: name, colors: colormap)
+
 
 proc scale_fill_discrete*(name: string = ""): Scale =
   ## Forces the fill scale to be discrete.
@@ -1387,14 +1392,18 @@ proc scale_fill_manual*[T](values: Table[T, Color]): Scale =
     result.valueMap[kVal] = ScaleValue(kind: scFillColor, color: values[k])
     result.labelSeq[i] = kVal
 
-proc scale_color_continuous*(name: string = "",
+proc scale_color_continuous*(colormap: ColorScale | seq[uint32] = DefaultColorScale,
+                             name: string = "",
                              scale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
   result = Scale(name: name,
                  scKind: scColor,
                  dcKind: dcContinuous,
                  dataScale: scale,
-                 colorScale: DefaultColorScale,
                  hasDiscreteness: true)
+  when colormap is ColorScale:
+    result.colorScale = colormap
+  else:
+    result.colorScale = ColorScale(name: name, colors: colormap)
 
 proc scale_color_manual*[T](values: Table[T, Color]): Scale =
   ## allows to set custom colors, by handing a table mapping the
@@ -1410,7 +1419,8 @@ proc scale_color_manual*[T](values: Table[T, Color]): Scale =
     result.labelSeq[i] = kVal
 
 proc scale_color_gradient*(scale: ColorScale | seq[uint32],
-                           name: string = "custom"): Scale =
+                           name: string = "custom",
+                           dataScale: ginger.Scale = (low: 0.0, high: 0.0)): Scale =
   ## Allows to customize the color gradient used for the `color` aesthetic.
   ##
   ## Either call one of:
@@ -1438,6 +1448,7 @@ proc scale_color_gradient*(scale: ColorScale | seq[uint32],
   ## is not particularly important.
   result = Scale(scKind: scColor,
                  dcKind: dcContinuous,
+                 dataScale: dataScale,
                  hasDiscreteness: true)
   when scale is ColorScale:
     result.colorScale = scale
@@ -1485,7 +1496,9 @@ proc scale_alpha_identity*(col = ""): Scale =
                  dataKind: dkSetting)
 
 proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
-                          name: string = "custom"): Scale =
+                          name: string = "custom",
+                          dataScale: ginger.Scale = (low: 0.0, high: 0.0),
+                         ): Scale =
   ## Allows to customize the color gradient used for the `color` aesthetic.
   ##
   ## Either call one of:
@@ -1513,6 +1526,7 @@ proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
   ## is not particularly important.
   result = Scale(scKind: scFillColor,
                  dcKind: dcContinuous,
+                 dataScale: dataScale,
                  hasDiscreteness: true)
   when scale is ColorScale:
     result.colorScale = scale
