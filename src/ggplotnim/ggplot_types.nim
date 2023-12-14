@@ -449,6 +449,10 @@ type
     legendPosition*: Option[Coord]
     legendOrder*: Option[seq[int]]
     hideLegend*: Option[bool]
+    continuousLegendHeight*: Option[float] # Height of a continuous legend in Centimeter
+    continuousLegendWidth*: Option[float] # Width of a continuous legend in Centimeter
+    discreteLegendHeight*: Option[float] # Height of a discrete legend block in Centimeter
+    discreteLegendWidth*: Option[float] # Width of a discrete legend block in Centimeter
     # canvas
     canvasColor*: Option[Color] # background color of the whole canvas
     plotBackgroundColor*: Option[Color] # background color of a plot. By default grey92

@@ -1778,6 +1778,34 @@ proc legendPosition*(x = 0.0, y = 0.0): Theme =
   ## the plot viewport in range (0.0 .. 1.0)
   result = Theme(legendPosition: some(c(x, y)))
 
+proc continuousLegendHeight*(height: float): Theme =
+  ## Sets the height of a continuous legend to this height in Centimeter
+  ##
+  ## Default is 4.5 cm.
+  result = Theme(continuousLegendHeight: some(height))
+
+proc continuousLegendWidth*(width: float): Theme =
+  ## Sets the width of a continuous legend to this width in Centimeter
+  ##
+  ## Default is 1.0 cm.
+  result = Theme(continuousLegendWidth: some(width))
+
+proc discreteLegendHeight*(height: float): Theme =
+  ## Sets the height of a discrete legend to this height in Centimeter.
+  ##
+  ## This is the height of a single block.
+  ##
+  ## Default is 1.0 cm.
+  result = Theme(discreteLegendHeight: some(height))
+
+proc discreteLegendWidth*(width: float): Theme =
+  ## Sets the width of a discrete legend to this width in Centimeter
+  ##
+  ## This is the width of a single block.
+  ##
+  ## Default is 1.0 cm.
+  result = Theme(discreteLegendWidth: some(width))
+
 proc legendOrder*(idx: seq[int]): Theme =
   ## uses the ordering given by the indices `idx` to arrange the order of
   ## the label.
