@@ -1038,6 +1038,13 @@ let PlasmaRaw* = [
   [0.940015, 0.975158, 0.131326]
 ]
 
+type
+  LinearColorDescriptor = tuple[x, y: float]
+
+let Cool* = [[(x: 0.0, y: 0.0), (x: 1.0, y: 1.0)],
+             [(x: 0.0, y: 1.0), (x: 1.0, y: 0.0)],
+             [(x: 0.0, y: 1.0), (x: 1.0, y: 1.0)]]
+
 #(255 shl 24 or
 #                                             to256(cVal[0]) shl 16 or
 #                                             to256(cVal[1]) shl 8 or
@@ -1060,6 +1067,23 @@ toColorScale(viridis, ViridisRaw)
 toColorScale(magma,   MagmaRaw)
 toColorScale(inferno, InfernoRaw)
 toColorScale(plasma,  PlasmaRaw)
+
+## XXX: fix me, actually use `Cool` array!
+template toSequentialColormap(cName: untyped): untyped =
+  proc `cName`*(): ColorScale =
+    var colors = newSeq[uint32](256)
+    for i in 0 ..< 256:
+      let
+        t = float(i) / float(256 - 1)
+        r = 0.0 + (1.0 - 0.0) * t # Start at 0.0, end at 1.0
+        g = 1.0 - (1.0 - 0.0) * t # Start at 1.0, end at 0.0
+        b = 1.0 # Blue starts at 1.0 and remains constant
+      colors[i] = (255 shl 24) or
+                  (toVal(r) shl 16) or
+                  (toVal(g) shl 8) or
+                   toVal(b)
+    result = ColorScale(name: astToStr(cName), colors: colors)
+toSequentialColormap(cool)
 
 proc toRGBA*(c: uint32): ColorRGBA {.inline.} =
   result = rgba((c shr 16 and 0xff).uint8, # red
