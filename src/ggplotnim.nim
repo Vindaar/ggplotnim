@@ -2409,6 +2409,14 @@ proc `+`*(p: GgPlot, theme: Theme): GgPlot =
   if result.theme.subTitle.isSome:
     result.subTitle = result.theme.subTitle.get
 
+proc `+`*(t1: Theme, t2: Theme): Theme =
+  ## Helper to just combine two themes in the same way as adding them to a `GgPlot`
+  ##
+  ## For all fields defined in `t1` and `t2`, `t2` overwrites the fields of `t1`. This is
+  ## to keep the sane order of 'last wins'.
+  result = t1
+  applyTheme(result, t2)
+
 proc applyScale(aes: Aesthetics, scale: Scale): Aesthetics =
   ## applies the given `scale` to the `aes` by returning a modified
   ## `aes`
