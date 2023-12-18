@@ -1731,7 +1731,7 @@ proc genContinuousLegend(view: var Viewport,
     view[3] = legView
 
     let totalHeight = legendHeaderHeight + legendHeight
-    view.height = quant(totalHeight * bScale, ukCentimeter)
+    view.height = quant(totalHeight, ukCentimeter)
   else:
     discard
 
