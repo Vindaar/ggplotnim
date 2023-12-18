@@ -585,6 +585,7 @@ type
   FilledScales* = object
     xScale*: ginger.Scale
     yScale*: ginger.Scale
+    inputData*: DataFrame # The input DF of the `GgPlot.data` field
     reversedX*: bool
     reversedY*: bool
     discreteX*: bool
