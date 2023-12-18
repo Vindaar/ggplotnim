@@ -2063,7 +2063,8 @@ proc themeLatex*(fWidth: float, width: float,
                  height = -1.0, ratio = -1.0,
                  textWidth = 458.29268, # 455.24411
                  useTeX = true,
-                 texOptions = toTeXOptions(true, false, true, "", "", "", "")
+                 texOptions = toTeXOptions(true, false, true, "", "", "", ""),
+                 useWithoutTeX = true
                 ): Theme =
   ## This is a good theme to use in LaTeX documents. It handles scaling the
   ## plot to the desired size, where `fWidth` is the size it will be inserted
@@ -2082,6 +2083,10 @@ proc themeLatex*(fWidth: float, width: float,
   ## If a ratio is given it is interpreted as ``width to height``,
   ## i.e. ``height = width / ratio``.
   ## Text width / line width in `bp` (TeX pixels of 72 dpi)
+  ##
+  ## If `useTeX` is `true`, we assign the `TeXOptions` for a standalone PDF using the
+  ## TikZ backend (or the `texOptions` given). If `useWithoutTeX` is true, we *also*
+  ## apply the same theme even on the non TeX backend (i.e. `useTeX = false`).
   # rescale text width to `bp` (72 DPI pixels)
   let textWidth = textWidth / 72.27 * 72.0
   const goldenRatio = (sqrt(5.0) + 1.0) / 2.0 # Aesthetic ratio, φ
@@ -2104,9 +2109,10 @@ proc themeLatex*(fWidth: float, width: float,
   # of `\textwidth`:
   factor /= fWidth
   # We hand a custom `baseTheme`
-  result = theme_font_scale(factor, baseTheme = baseTheme)
-  result.width = some(width)
-  result.height = some(h) # Note: use `h`!
+  if useWithoutTeX:
+    result = theme_font_scale(factor, baseTheme = baseTheme)
+    result.width = some(width)
+    result.height = some(h) # Note: use `h`!
 
   if useTeX: ## `useTeX` allows to disable it easily
     result.texOptions = some(texOptions)
@@ -3327,7 +3333,6 @@ proc determinePlotHeight(theme: Theme, filledScales: FilledScales, width, height
     doAssert spacingLR.unit == ukCentimeter
     let spacingTB = add(layout.top, layout.bottom)
     doAssert spacingTB.unit == ukCentimeter
-    echo "Spacing TB : ", spacingTB, " Spacing LR : ", spacingLR, " width: ", width
     proc toPt(x: float): float = x / 2.54 * DPI
     result = theme.fixedRatio.get * (spacingTB.val.toPt() + ratio * (width - spacingLR.val.toPt()))
   else:
