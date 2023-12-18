@@ -265,10 +265,9 @@ proc findData*(fg: FilledGeom, label: Value): DataFrame =
   ## contains `label` in `yieldData`
   result = newDataFrame()
   for key, val in fg.yieldData:
-    if label in key:
+    if key.kind == VObject and label.kind == VObject and label in key:
       # multiple keys may match, add DFs!
       result.add val[2]
-  doAssert result.len > 0, "Invalid call to find, `label` not found in `yieldData`!"
 
 proc findData*(fs: FilledScales, label: Value): DataFrame =
   ## returns the `DataFrame` of matching `label` of all `FilledGeoms`.
@@ -277,3 +276,5 @@ proc findData*(fs: FilledScales, label: Value): DataFrame =
   for fg in fs.geoms:
     data.add findData(fg, label)
   result = assignStack(data)
+  if result.len == 0: # use the input data frame instead. No facet plot used
+    result = fs.inputData

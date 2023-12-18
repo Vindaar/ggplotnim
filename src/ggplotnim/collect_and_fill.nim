@@ -647,6 +647,8 @@ proc collectScales*(p: GgPlot): FilledScales =
   ## Collects all scales required to draw the plot. This means comparing each
   ## possible aesthetic scale of the `GgPlot p` itself with its geoms and
   ## building the final `Scale` for each.
+  result.inputData = p.data # assign input data field
+
   template fillField(f: untyped, arg: typed): untyped =
     if arg.len > 0 and arg[0].ids == {0'u16 .. high(uint16)}:
       result.f = (main: some(arg[0]), more: arg[1 .. ^1])
