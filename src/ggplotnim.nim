@@ -3124,8 +3124,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
         ## geom in a single facet. They should all agree I guess?
         # compute the data scale with a small margin used for facets
         # This changes `x/yMarginRange` of the theme
-        theme.xMarginRange = calculateMarginRange(theme, sFacet.xScale, akX)
-        theme.yMarginRange = calculateMarginRange(theme, sFacet.yScale, akY)
+        let xScale = if facet.sfKind in {sfFreeX, sfFree}: sFacet.xScale else: filledScales.xScale
+        let yScale = if facet.sfKind in {sfFreeY, sfFree}: sFacet.yScale else: filledScales.yScale
+
+        theme.xMarginRange = calculateMarginRange(theme, xScale, akX)
+        theme.yMarginRange = calculateMarginRange(theme, yScale, akY)
         # assign theme ranges to this views scale
         plotView.xScale = theme.xMarginRange
         plotView.yScale = theme.yMarginRange
