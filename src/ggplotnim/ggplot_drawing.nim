@@ -104,9 +104,12 @@ proc readWidthHeight(df: DataFrame, idx: int, fg: FilledGeom):
   else:
     result.height = 1.0
 
+from std/os import getEnv
+from std/strutils import parseInt
+let TextPrecision = getEnv("TEXT_PRECISION", "4").parseInt
 proc readText(df: DataFrame, idx: int, fg: FilledGeom): string =
   ## reads all error data available
-  result = df[fg.text][idx, string]
+  result = pretty(df[fg.text, Value][idx], precision = TextPrecision)
 
 proc getOrDefault[T](val: Option[T], default: T = default(T)): T =
   result = if val.isSome: val.unsafeGet else: default
