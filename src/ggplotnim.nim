@@ -1522,7 +1522,7 @@ proc scale_fill_gradient*(scale: ColorScale | seq[uint32],
   ## values for whatever reason. For those you can just convert them to `uint32`.
   ## Both of these options provide your typical "named CSS-like" colors.
   ##
-  ## The `name` argumnet is only used in case a `seq[uint32]` is given and
+  ## The `name` argument is only used in case a `seq[uint32]` is given and
   ## is not particularly important.
   result = Scale(scKind: scFillColor,
                  dcKind: dcContinuous,
