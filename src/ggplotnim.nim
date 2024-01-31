@@ -2693,7 +2693,7 @@ proc generateLegendMarkers(plt: Viewport,
         let tickLabs = mplt.tickLabels(ticks, isSecondary = true,
                                        #margin = some(plt.c1(0.3, akX, ukCentimeter)),
                                        format = scale.formatContinuousLabel,
-                                       font = theme.tickLabelFont)
+                                       font = theme.legendFont)
         result = concat(tickLabs, ticks)
       else:
         doAssert scale.invTransC != nil, "Inverse transformation must exist if forward exists."
@@ -2718,7 +2718,7 @@ proc generateLegendMarkers(plt: Viewport,
                                                   #rotate = rotate,
                                                   style = tStyle,
                                                   alignToOverride = some(taLeft),
-                                                  font = theme.tickLabelFont)
+                                                  font = theme.legendFont)
                                                   #margin = margin)
         if true: # not hideTickLabels:
           mplt.addObj concat(tickObjs, labObjs)
