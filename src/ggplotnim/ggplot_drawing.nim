@@ -551,9 +551,10 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
 
   var linePoints: seq[Coord]
 
-  ## XXX: change this to use correct axis if horizontal bars!
-  let minAxisVal = view.yScale.low ## Get the minimum value of the y axis (technically the we want to draw
-                                   ## a histogram on. But we still haven't implemented horizontal histos)
+  ## Get the minimum value of the y axis (technically the we want to draw
+  ## a histogram on. But we still haven't implemented horizontal histos)
+  let minAxisVal = fg.yScale.low
+
   if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
     var xT = if fg.xCol.len > 0: df[$fg.xCol].toTensor(Value) else: newTensor[Value](0)
