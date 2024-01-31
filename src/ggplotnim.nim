@@ -16,7 +16,7 @@ import datamancer
 export datamancer
 
 import ggplotnim / [
-  ggplot_utils, ggplot_types, ggplot_theme, ggplot_ticks, ggplot_styles,
+  ggplot_utils, ggplot_types, ggplot_theme, ggplot_ticks, ggplot_styles, theme_toml,
   # utils dealing with scales
   ggplot_scales,
   # first stage of drawing: collect and fill `Scales`:
@@ -2116,6 +2116,10 @@ proc themeLatex*(fWidth: float, width: float,
 
   if useTeX: ## `useTeX` allows to disable it easily
     result.texOptions = some(texOptions)
+
+proc tomlTheme*(fname: string): Theme =
+  ## Reads a custom theme at runtime from a TOML file
+  result = parseTheme(fname.expandTilde)
 
 func coord_fixed*(ratio: float): Theme =
   ## Produces a plot where the ratio of the plot itself is the given ratio.
