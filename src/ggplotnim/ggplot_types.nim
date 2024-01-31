@@ -496,6 +496,8 @@ type
     bottom*: Option[float]
     x*: Option[float]
     y*: Option[float]
+    top*: Option[float]
+    right*: Option[float]
     text*: string
     font*: Font
     rotate*: Option[float]
