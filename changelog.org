@@ -1,3 +1,78 @@
+* v0.7.0
+This release is a rather big one. The majority of features added
+relates to customization of plots.
+~Theme~ related improvements:
+- ~baseLabelMargin~ field to adjust the default range between tick
+  labels and labels in cm.
+- allow adjustment of plot size via ~Theme~
+- adjustment of annotation font via ~Theme~
+- scale grid lines via ~Theme~
+- add ~themeLatex~, a very useful helper when producing PDF plots via
+  TikZ where the actual target is a TeX file. Its argument ~fWidth~
+  combined with ~width~ (in pixel), ~textWidth~ (in pt of the actual
+  ~\textwidth~ of the LaTeX document to be inserted) it allows to
+  exactly specify font sizes of plots such that they match a given
+  size in the resulting PDF. E.g. a plot to be inserted at
+  ~0.9\textwidth~ using ~fWidth = 0.9~, a plot size of e.g. ~width =
+  600~ pixel (for the standalone plot) and a ~textWidth~ of ~450 pt~
+  (LaTeX pt) produces a resulting PDF after inserting the plot at the
+  ~0.9\textwidth~ that matches exactly the font sizes given by
+  ~ggplotnim~. The ~baseTheme~ is an argument of a procedure that
+  returns the desired ~Theme~ to be used as a base.
+  - ~singlePlot~ and ~sideBySide~ are two ~baseTheme~ procedures that
+    produce nice looking graphs when inserting as a single or 2
+    side-by-side setup in a TeX file.
+- add ~coord_fixed~ option that creates the actual data portion of the
+  plot in fixed ratio. E.g. an argument of ~1.0~ creates a plot of
+  user given ~width~ where the height is computed precisely such that
+  the data portion is of ratio 1:1. Useful for physical coordinates in
+  a plot to correspond to the desired ratio.
+- allow setting ~useTeX~ argument via ~Theme~ (to enable/disable TikZ
+  backend)
+- allow hiding x or y labels individually
+- adjust styling of ridgeline plots
+- add ~cool~ colormap
+- fields ~discrete/continuousLegendWidth/Height~ fields to ~Theme~ to
+  adjust the size of continuous / discrete legends
+- add helper to add two ~Themes~ via ~+~
+- respect user set margins in facet plots
+- add ~tomlTheme~ to set a theme at runtime from a TOML file. Example
+  given in PR description (PR #176)
+
+- add ~dataAsBitmap~ feature for Cairo, TikZ backend. In a vector
+  graphic target will draw all the actual data as a PNG, similar to in
+  a raster plot. This makes plots with large amounts of data as a
+  vector graphic feasible.
+- make ~aes~ arguments to initial ~ggplot~ call optional. This of
+  course implies arguments to ~geom_*~ calls are mandatory. There is a
+  chance this is a breaking change in some contexts and decreases
+  CT safety to some extent. But it can be very useful when combining
+  different geoms that don't share column names as well as using
+  different aesthetics.  
+- add experimental (CT + RT) option ~WritePlotCsv~. If compiled with
+  ~-d:WritePlotCsv~ and then a ~WRITE_PLOT_CSV=true~ environment
+  variable set, ~ggplotnim~ will write CSV files for every plot
+  produced. The filename is the filename of the plot with ~.csv~
+  suffix. For each geom that has a separate dataframe an extra CSV
+  file is produced. This allows for easy sharing of data that is used
+  to produce a plot.
+- add ~TEXT_PRECISION~ environment variable check for ~geom_text~ to
+  adjust the precision used for floating point numbers.  
+- allow assignment of facets in user given order by ~order~ argument
+  to ~facet_wrap~
+- add option ~gradient~ opposite to ~factor~ to force an aesthetic argument to
+  be continuous
+- adjust data scale in ~scale_fill/color_continuous/gradient~ procs
+- allow annotations to be placed at ~top/right~ positions in addition
+  to ~left/bottom~
+- fixes to raster plots with other geoms resulting in bad data ranges
+- better support for histograms with minimal values != 0
+- use ~expandTilde~ in ~ggsave~
+- improve logic detecting discreteness of arguments  
+- better exception message when color parsing fails
+- refactoring of facet logic
+- fixes to legend heights in some setups
+- better date logic for non facet plots  
 * v0.6.3
 - allow adjustment of title position in relative coordinates using
   ~titlePosition~
