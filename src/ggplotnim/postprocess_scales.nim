@@ -35,18 +35,10 @@ proc getScales(geom: Geom, filledScales: FilledScales,
   # just normal x against y
   let xOpt = getScale(filledScales.x)
   let yOpt = getScale(filledScales.y)
-  doAssert xOpt.isSome
-  result[0] = xOpt.get
-  if not yIsNone:
-    if yOpt.isNone: # should not happen, but if it does, throw
-      raise newException(AestheticError, "The desired geom `" & $geom.kind & "` requires a " &
-        "`y` scale, but none was given. (Note: The name may differ to the one used in your code " &
-        "as multple `geom_*` procedures are mapped to the same kind)")
+  if xOpt.isSome:
+    result[0] = xOpt.get
+  if yOpt.isSome:
     result[1] = yOpt.get
-  elif yIsNone and yOpt.isSome: # the inverse case
-    raise newException(AestheticError, "The desired geom `" & $geom.kind & "` was given a " &
-      "`y` scale, but none was expected. (Note: The name may differ to the one used in your code " &
-      "as multple `geom_*` procedures are mapped to the same kind)")
 
   addIfAny(result[2], getScale(filledScales.color))
   addIfAny(result[2], getScale(filledScales.fill))
@@ -112,6 +104,7 @@ proc separateScalesApplyTrafos(
     tuple[x: Scale, y: Scale, discretes: seq[Scale], cont: seq[Scale]] =
   # NOTE: if `yIsNone = true` the `y` in the next line will be an empty scale,
   # caller has to be aware of that!
+  let yIsNone = yIsNone # or geom.kind in {gkErrorBar} # modify here for simplicity
   let (x, y, scales) = getScales(geom, filledScales, yIsNone = yIsNone)
   # split by discrete and continuous
   let discretes = scales.filterIt(it.dcKind == dcDiscrete)
@@ -123,10 +116,8 @@ proc separateScalesApplyTrafos(
   if discrCols.len > 0:
     df = df.group_by(discrCols, add = true)
   # apply scale transformations
-  if not yIsNone:
-    df.applyTransformations(concat(@[x, y], scales))
-  else:
-    df.applyTransformations(concat(@[x], scales))
+  let xyScales = @[x, y].filterIt(not it.isNil)
+  df.applyTransformations(concat(xyScales, scales))
   result = (x: x, y: y, discretes: discretes, cont: cont)
 
 proc splitDiscreteSetMap(df: DataFrame,
@@ -152,23 +143,24 @@ proc setXAttributes(fg: var FilledGeom,
   ## number of elements. Mainly this means to set the `xScale` either according to
   ## the current DF and the last one (given discrete classification) and determine
   ## the number of elements in X
-  case scale.dcKind
-  of dcDiscrete:
-    # for discrete scales the number of elements is the number of unique elements
-    # (consider mpg w/ gkPoint using aes("cyl", "hwy") gives N entries for each "cyl"
-    fg.numX = max(fg.numX, scale.col.evaluate(df).unique.len)
-    # for a discrete scale an X scale isn't needed and makes it harder to produce
-    # gkLine plots with a discrete scale
-    fg.xScale = (low: 0.0, high: 1.0)
-    # and assign the label sequence
-    fg.xLabelSeq = scale.labelSeq
-  of dcContinuous:
-    case fg.geomKind:
-    of gkRaster:
-      # For raster this is already set in `fillOptFields` for performance reasons
-      discard
-    else:
-      fg.numX = max(fg.numX, df.len)
+  if not scale.isNil:
+    case scale.dcKind
+    of dcDiscrete:
+      # for discrete scales the number of elements is the number of unique elements
+      # (consider mpg w/ gkPoint using aes("cyl", "hwy") gives N entries for each "cyl"
+      fg.numX = max(fg.numX, scale.col.evaluate(df).unique.len)
+      # for a discrete scale an X scale isn't needed and makes it harder to produce
+      # gkLine plots with a discrete scale
+      fg.xScale = (low: 0.0, high: 1.0)
+      # and assign the label sequence
+      fg.xLabelSeq = scale.labelSeq
+    of dcContinuous:
+      case fg.geomKind:
+      of gkRaster:
+        # For raster this is already set in `fillOptFields` for performance reasons
+        discard
+      else:
+        fg.numX = max(fg.numX, df.len)
 
 proc applyContScaleIfAny(yieldDf: DataFrame,
                          scales: seq[Scale], baseStyle: GgStyle,
@@ -396,6 +388,7 @@ proc determineDataScale(s: Scale,
   ## NOTE: by this time we should (if the code before is correct) certainly
   ## have the `s.col` column in `df`, since `applyTransformations` should have
   ## created it before!
+  if s.isNil: return
   assert s.col.isColumn(df)
   case s.dcKind
   of dcContinuous:
@@ -510,9 +503,10 @@ proc filledIdentityGeom(df: var DataFrame, g: Geom,
     let key = ("", Value(kind: VNull))
     result.yieldData[toObject(key)] = applyContScaleIfAny(yieldDf, cont, style, g.kind)
 
-  case y.dcKind
-  of dcDiscrete: result.yLabelSeq = y.labelSeq
-  else: discard
+  if not y.isNil:
+    case y.dcKind
+    of dcDiscrete: result.yLabelSeq = y.labelSeq
+    else: discard
   # `numX` == `numY` since `identity` maps `X -> Y`
   result.numY = result.numX
 
@@ -731,6 +725,7 @@ proc filledBinDensityGeom(df: var DataFrame, g: Geom, filledScales: FilledScales
   result.xScale = encompassingDataScale(cont, akX)
   # y scale is not defined yet, only use continuous scales too
   result.yScale = encompassingDataScale(cont, akY)
+
   result.fillOptFields(filledScales, df)
   # w/ all groupings
   var style: GgStyle

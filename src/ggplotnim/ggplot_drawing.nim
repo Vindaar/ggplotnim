@@ -14,8 +14,8 @@ template getXY(view, df, xT, yT, fg, i, theme, xORK, yORK: untyped,
   ## this template retrieves the current x and y values at index `i` from the `df`
   ## taking into account the view's scale and theme settings.
   # x may be a string! TODO: y at some point too.
-  var x = xT[i]
-  var y = yT[i]
+  var x = if i < xT.len: xT[i] else: null()
+  var y = if i < yT.len: yT[i] else: null()
   x = if x.kind == VNull: %~ 0.0 else: x
   y = if y.kind == VNull: %~ 0.0 else: y
   # modify according to ranges of viewport (may be different from real data ranges, assigned
@@ -556,8 +556,8 @@ proc drawSubDf(view: var Viewport, fg: FilledGeom,
                                    ## a histogram on. But we still haven't implemented horizontal histos)
   if fg.geomKind notin {gkRaster}:
     linePoints = newSeqOfCap[Coord](df.len)
-    var xT = df[$fg.xCol].toTensor(Value)
-    var yT = df[$fg.yCol].toTensor(Value)
+    var xT = if fg.xCol.len > 0: df[$fg.xCol].toTensor(Value) else: newTensor[Value](0)
+    var yT = if fg.yCol.len > 0: df[$fg.yCol].toTensor(Value) else: newTensor[Value](0)
     # determine last position to draw. If `binPosition` is `bpNone` we're not interpreting data as
     # bins, use last. Else last is right bin edge, drop it
     let lastElement = if fg.geom.binPosition == bpNone: df.high
