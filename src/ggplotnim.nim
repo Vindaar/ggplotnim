@@ -3036,10 +3036,11 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
   # combine scales / plot theme for final theme
   let numExist = facet.combinations.card
   # set margin of plot to avoid tick labels getting too close
-  # TODO: only set if user did not set xlim, ylim (theme x/yRange)?
-  p.theme.xMargin = some(0.05)
-  p.theme.yMargin = some(0.05)
-  var theme = buildTheme(filledScales, p)
+  var theme = theme
+  if theme.xMargin.isNone:
+    theme.xMargin = some(0.05)
+  if theme.yMargin.isNone:
+    theme.yMargin = some(0.05)
   # create a theme, which ignores points outside the scale (which happens
   # due to overlap!)
   theme.xTickLabelMargin = if theme.xTickLabelMargin.isSome: theme.xTickLabelMargin
