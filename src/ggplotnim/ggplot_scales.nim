@@ -55,6 +55,7 @@ proc getColName*(s: Scale): string =
   ## existing column. This is because otherwise we modify the DF (we call
   ## `mutateInplace`) and will apply the transformations multiple times
   ## if several geoms are plotted!
+  if s.isNil: return "" # can happen even in sane code paths!
   case s.scKind
   of scTransformedData:
     ## TODO: determine name of `trans` based on transformation proc!
