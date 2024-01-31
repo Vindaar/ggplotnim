@@ -15,6 +15,7 @@ requires "datamancer >= 0.3.2"
 requires "arraymancer >= 0.7.22"
 requires "shell >= 0.4.3"
 requires "webview"
+requires "parsetoml"
 requires "https://github.com/SciNim/scinim >= 0.1.0"
 
 task testCI, "Run standard tests w/o cairo dependency":
