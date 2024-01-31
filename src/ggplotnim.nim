@@ -2340,6 +2340,8 @@ proc annotate*(text: string,
                bottom = NaN,
                x = NaN,
                y = NaN,
+               top = NaN,
+               right = NaN,
                font = font(12.0),
                rotate = 0.0,
                backgroundColor = white,
@@ -2351,7 +2353,7 @@ proc annotate*(text: string,
   ## - `(left, bottom)`, where these correspond to relative coordinates
   ##   mapping out the plot area as (0.0, 1.0). NOTE: smaller and larger
   ##   values than 0.0 and 1.0 are supported and will put the annotation outside
-  ##   the plot area.
+  ##   the plot area. Alternatively (!), either can be replaced by `right` or `top`.
   ## - `(x, y)` where `x` and `y` are values in the scale of the data
   ##   being plotted. This is useful if the annotation is to be placed relative
   ##   to specific data points. NOTE: for a discrete axis data scale is not
@@ -2364,14 +2366,16 @@ proc annotate*(text: string,
                       bottom: bottom.orNone,
                       x: x.orNone,
                       y: y.orNone,
+                      top: top.orNone,
+                      right: right.orNone,
                       text: text,
                       font: font,
                       rotate: some(rotate),
                       alignKind: alignKind,
                       backgroundColor: backgroundColor)
-  if result.x.isNone and result.left.isNone or
-     result.y.isNone and result.bottom.isNone:
-    raise newException(ValueError, "Both an x/left and y/bottom position has to " &
+  if result.x.isNone and result.left.isNone and result.right.isNone or
+     result.y.isNone and result.bottom.isNone and result.top.isNone:
+    raise newException(ValueError, "Both an x/left/right and y/bottom/top position has to " &
       "given to `annotate`!")
 
 proc `+`*(p: GgPlot, geom: Geom): GgPlot =
@@ -3181,7 +3185,9 @@ proc customPosition(t: Theme): bool =
   ## returns true if `legendPosition` is set and thus legend sits at custom pos
   result = t.legendPosition.isSome
 
-proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom: float] =
+proc getLeftBottom(view: Viewport, annot: Annotation,
+                   height, width: Quantity
+                  ): tuple[left: float, bottom: float] =
   ## Given an annotation this proc returns the relative `(left, bottom)`
   ## coordinates of either the `(x, y)` values in data space converted
   ## using the `x, y: ginger.Scale` of the viewport or directly using
@@ -3190,6 +3196,10 @@ proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom
     result.left = toPoints(quant(annot.left.unsafeGet, ukRelative),
                            length = some(pointWidth(view))
     ).val
+  elif annot.right.isSome:
+    let right = toPoints(quant(annot.left.unsafeGet, ukRelative),
+                         length = some(pointWidth(view)))
+    result.left = sub(right, width).val
   else:
     # NOTE: we make sure in during `annotate` that either `left` or
     # `x` is defined!
@@ -3203,6 +3213,10 @@ proc getLeftBottom(view: Viewport, annot: Annotation): tuple[left: float, bottom
     result.bottom = toPoints(quant(annot.bottom.unsafeGet, ukRelative),
                              length = some(pointHeight(view))
     ).val
+  elif annot.top.isSome:
+    let top = toPoints(quant(annot.top.unsafeGet, ukRelative),
+                             length = some(pointHeight(view)))
+    result.bottom = add(top, height).val
   else:
     # NOTE: we make sure in during `annotate` that either `bottom` or
     # `y` is defined!
@@ -3226,8 +3240,6 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     # style to use for this annotation
     let rectStyle = Style(fillColor: annot.backgroundColor,
                           color: annot.backgroundColor)
-    let (left, bottom) = view.getLeftBottom(annot)
-
     # Use font specified by theme, if any
     let annotFont = p.theme.annotationFont.get(annot.font)
 
@@ -3241,12 +3253,17 @@ proc drawAnnotations*(view: var Viewport, p: GgPlot) =
     let totalHeight = quant(
       getStrHeight(view, annot.text, annotFont).val + marginH.pos * 2.0,
       unit = ukPoint)
+
     # find longest line of annotation to base background on
     let maxLine = annot.text.splitLines.sortedByIt(
       getStrWidth(backend, fType, it, annotFont).val
     )[^1]
     # and get its actual width
     let maxWidth = getStrWidth(view, maxLine, annotFont)
+
+    # get the left and bottom position
+    let (left, bottom) = view.getLeftBottom(annot, totalHeight, maxWidth)
+
     # calculate required width for background rectangle. string width + 2 * margin
     let rectWidth = quant(
       maxWidth.val + marginW.pos * 2.0,
