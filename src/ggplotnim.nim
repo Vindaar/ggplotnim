@@ -3028,7 +3028,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
                         filledScales: FilledScales,
                         theme: Theme,
                         hideLabels = false,
-                        hideTicks = false) =
+                        hideTicks = false,
+                        dataAsBitmap = false) =
   var p = p
   doAssert p.facet.isSome
   let facet = filledScales.facets
@@ -3120,6 +3121,8 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
     # assign names
     plotView.name = "facetPlot"
     viewLabel.name = "facet_" & text
+    # generate the actual plot viewport
+    var fullPlot = view.addViewport(name = "full_GGPLOT", dataAsBitmap = dataAsBitmap)
 
     var setGridAndTicks = false
     for fg in filledScales.geoms:
@@ -3161,7 +3164,9 @@ proc generateFacetPlots(view: Viewport, p: GgPlot,
       var pChild = plotView.addViewport(name = "data")
       pChild.createGobjFromGeom(fg, theme, labelVal = some(label))
       # add the data viewport to the view
-      plotView.children.add pChild
+      fullPlot.children.add pChild
+
+    plotView.children.add fullPlot
 
     # possibly update x/y scale of parent
     viewLabel.xScale = plotView.xScale
@@ -3404,7 +3409,8 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, da
   if p.facet.isSome:
     pltBase.generateFacetPlots(p, filledScales, theme,
                                hideLabels = hideLabels,
-                               hideTicks = hideTicks)
+                               hideTicks = hideTicks,
+                               dataAsBitmap = dataAsBitmap)
   else:
     pltBase.generatePlot(p, filledScales, theme,
                          hideLabels = hideLabels,
