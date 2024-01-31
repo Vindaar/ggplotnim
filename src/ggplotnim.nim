@@ -1617,6 +1617,7 @@ proc genDiscreteLegend(view: var Viewport,
   let bScale = theme.baseScale.get(1.0)
   let width = theme.discreteLegendWidth.get(1.0) * bScale
   let height = theme.discreteLegendHeight.get(1.0) * bScale
+  let legendHeaderHeight = if theme.legendTitleFont.isSome: theme.legendTitleFont.get.size / 12.0 else: 1.0
   let spacingOffset = 0.05 * bScale
   let spacing = (1 + spacingOffset) * height
   let totalBlockHeight = spacing * numElems.float
@@ -1624,12 +1625,12 @@ proc genDiscreteLegend(view: var Viewport,
   view.layout(2, 2,
               colWidths = @[quant(0.5 * bScale, ukCentimeter), # for space to plot
                             quant(0.0, ukRelative)], # for legend. incl header
-              rowHeights = @[quant(height, ukCentimeter), # for header
+              rowHeights = @[quant(legendHeaderHeight, ukCentimeter), # for header
                              quant(totalBlockHeight, ukCentimeter)],
               ignoreOverflow = true) # for act. legend
   # now set the `height` according to the real legend height. This important
   # to get proper alignment of the scale / multiple scales in `finalizeLegend`!
-  view.height = quant(height + totalBlockHeight, ukCentimeter)
+  view.height = quant(legendHeaderHeight + totalBlockHeight, ukCentimeter)
   var leg = view[3]
 
   let rH = newSeqWith(numElems, quant(spacing, ukCentimeter))
