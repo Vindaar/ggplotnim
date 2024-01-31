@@ -6,13 +6,15 @@ from ginger import Font, FontSlant, TextAlignKind, Quantity, quant, Color, ukCen
 proc assignKey(f: var Font, argTup: seq[string]) =
   ## Assigns the key (arg 0) to the correct field using value (arg 1)
   doAssert argTup.len == 2
-  case argTup[0]
-  of "bold": f.bold = parseBool argTup[1]
-  of "family": f.family = argTup[1]
-  of "size": f.size = parseFloat argTup[1]
-  of "slant": f.slant = parseEnum[FontSlant](argTup[1])
-  of "color": f.color = toOptColor(argTup[1]).get
-  of "alignKind": f.alignKind = parseEnum[TextAlignKind](argTup[1])
+  let key = argTup[0].strip()
+  let val = argTup[1].strip()
+  case key
+  of "bold": f.bold = parseBool val
+  of "family": f.family = val
+  of "size": f.size = parseFloat val
+  of "slant": f.slant = parseEnum[FontSlant](val)
+  of "color": f.color = toOptColor(val).get
+  of "alignKind": f.alignKind = parseEnum[TextAlignKind](val)
 
 proc assignIdx(f: var Font, arg: string, idx: int) =
   ## Assigns the value of `arg` to the field index `idx` of the proc `ggplot_utils/font`
@@ -43,7 +45,7 @@ proc parseFont(fnt: string): Font =
       # has a key
       result.assignKey(arg.split("="))
     else:
-      result.assignIdx(arg, argIdx)
+      result.assignIdx(arg.strip(), argIdx)
     inc argIdx
 
 template getInnerOptionType(t: typed): untyped =
