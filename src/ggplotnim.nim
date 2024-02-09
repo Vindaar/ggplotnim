@@ -1859,6 +1859,7 @@ proc hideLegend*(): Theme =
   result = Theme(hideLegend: some(true))
 
 proc hideLabels*(): Theme = Theme(hideLabels: some(true))
+proc hideTitle*(): Theme = Theme(hideTitle: some(true))
 proc hideXLabels*(): Theme = Theme(hideXLabels: some(true))
 proc hideYLabels*(): Theme = Theme(hideYLabels: some(true))
 proc hideTicks*(): Theme = Theme(hideTicks: some(true))
@@ -3479,7 +3480,7 @@ proc ggcreate*[T: SomeNumber](p: GgPlot, width: T = 640.0, height: T = 480.0, da
   # draw available annotations,
   img[4].drawAnnotations(p)
 
-  if p.title.len > 0:
+  if p.title.len > 0 and not p.theme.hideTitle.get(false):
     img[1].drawTitle(p.title, theme, add(img[1].pointWidth, img[2].pointWidth))
 
   result.filledScales = filledScales
