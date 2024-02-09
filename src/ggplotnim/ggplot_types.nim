@@ -411,6 +411,7 @@ type
     baseScale*: Option[float] ## Base scale to scale "everything" by
     texOptions*: Option[TeXOptions] ## If given overwrites any TeX related argument to `ggsave`
     # hide parts of plot
+    hideTitle*: Option[bool]
     hideTicks*: Option[bool]
     hideTickLabels*: Option[bool]
     hideXTickLabels*: Option[bool] # only hide X tick labels (does not adjust margins)
