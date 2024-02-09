@@ -38,6 +38,8 @@ relates to customization of plots.
 - respect user set margins in facet plots
 - add ~tomlTheme~ to set a theme at runtime from a TOML file. Example
   given in PR description (PR #176)
+- draw histograms as lines in discrete legends
+- add ~hideTitle~ to disable title (among other ~hide~ procedures)    
 
 - add ~dataAsBitmap~ feature for Cairo, TikZ backend. In a vector
   graphic target will draw all the actual data as a PNG, similar to in
