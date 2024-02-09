@@ -1,10 +1,13 @@
 \documentclass[tikz,border=0mm]{standalone}
 \usepackage[utf8]{inputenc}
-\usepackage{unicode-math}
+\usepackage{unicode-math} % for unicode support in math environments
 \usepackage{amsmath}
 \usepackage{siunitx}
+\usepackage{booktabs}
+\sisetup{mode=text,range-phrase = {\text{~to~}}, range-units=single, print-unity-mantissa=false}
 \usepackage{mhchem}
 \usepackage{tikz}
+
 
 
 \begin{document}
@@ -20,7 +23,7 @@
 
 \draw [color = drawColor, fill = fillColor, draw opacity = 0.0, fill opacity = 1.0, line width = 0.0bp] (0.0000bp, 480.0000bp) rectangle (640.0000bp, 0.0000bp) ;
 \node [right, font=\fontsize{16.0}{19.2}\selectfont
-, anchor=west] at (70.8661bp, 464.2537bp){Approximation of Landau distribution: $p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$} ;
+, anchor=west] at (70.8661bp, 463.5125bp){Approximation of Landau distribution: $p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$} ;
 \definecolor{drawColor}{rgb}{0.0, 0.0, 0.0}
 \definecolor{fillColor}{rgb}{0.9200000166893005, 0.9200000166893005, 0.9200000166893005}
 
@@ -34,15 +37,15 @@
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (464.1661bp, 51.6929bp)--(464.1661bp, 56.6929bp) ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (587.0723bp, 51.6929bp)--(587.0723bp, 56.6929bp) ;
 \node [font=\fontsize{8.0}{9.6}\selectfont
-] at (95.4474bp, 45.7962bp){-5} ;
+] at (95.4474bp, 46.3613bp){-5} ;
 \node [font=\fontsize{8.0}{9.6}\selectfont
-] at (218.3536bp, 45.7962bp){0} ;
+] at (218.3536bp, 46.3319bp){0} ;
 \node [font=\fontsize{8.0}{9.6}\selectfont
-] at (341.2598bp, 45.7962bp){5} ;
+] at (341.2598bp, 46.3613bp){5} ;
 \node [font=\fontsize{8.0}{9.6}\selectfont
-] at (464.1661bp, 45.7962bp){10} ;
+] at (464.1661bp, 46.3319bp){10} ;
 \node [font=\fontsize{8.0}{9.6}\selectfont
-] at (587.0723bp, 45.7962bp){15} ;
+] at (587.0723bp, 46.3535bp){15} ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 56.6929bp)--(65.8661bp, 56.6929bp) ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 135.6850bp)--(65.8661bp, 135.6850bp) ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 214.6772bp)--(65.8661bp, 214.6772bp) ;
@@ -50,21 +53,21 @@
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 372.6614bp)--(65.8661bp, 372.6614bp) ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 451.6535bp)--(65.8661bp, 451.6535bp) ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 56.6929bp){0} ;
+, anchor=east] at (63.1381bp, 56.6929bp){0} ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 135.6850bp){0.05} ;
+, anchor=east] at (63.1381bp, 135.6850bp){0.05} ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 214.6772bp){0.1} ;
+, anchor=east] at (63.1381bp, 214.6772bp){0.1} ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 293.6693bp){0.15} ;
+, anchor=east] at (63.1381bp, 293.6693bp){0.15} ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 372.6614bp){0.2} ;
+, anchor=east] at (63.1381bp, 372.6614bp){0.2} ;
 \node [left, font=\fontsize{8.0}{9.6}\selectfont
-, anchor=east] at (62.6394bp, 451.6535bp){0.25} ;
+, anchor=east] at (63.1381bp, 451.6535bp){0.25} ;
 \node [font=\fontsize{12.0}{14.4}\selectfont
-] at (341.2598bp, 28.3465bp){x} ;
+] at (341.2598bp, 26.2053bp){x} ;
 \node [rotate = 90.0, font=\fontsize{12.0}{14.4}\selectfont
-] at (33.0283bp, 254.1732bp){y} ;
+] at (33.9522bp, 254.1732bp){y} ;
 \definecolor{drawColor}{rgb}{1.0, 1.0, 1.0}
 \definecolor{fillColor}{rgb}{0.0, 0.0, 0.0}
 
@@ -80,7 +83,12 @@
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 372.6614bp)--(611.6535bp, 372.6614bp) ;
 \draw [color = drawColor, fill = fillColor, draw opacity = 1.0, fill opacity = 0.0, line width = 1.0bp] (70.8661bp, 451.6535bp)--(611.6535bp, 451.6535bp) ;
 \node [right, rotate = -0.0, font=\fontsize{12.0}{14.4}\selectfont
-, align=left] at (341.2598bp, 223.7903bp){The Landau distribution\\ \\ $p(x) = \frac{1}{2πi}\int_{a-i∞}^{a+i∞} e^{s \log(s) + xs}\, ds$\\ \\reduces to the approximation:\\ \\ $p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$\\ \\ for $μ = 0, c = 1$} ;
+, anchor=south west] at (341.2598bp, 214.6772bp){
+\begin{tabular}{@{}l@{}}
+The Landau distribution\\\\$p(x) = \frac{1}{2πi}\int_{a-i∞}^{a+i∞} e^{s \log(s) + xs}\, ds$\\\\reduces to the approximation:\\\\$p(x) \approx \frac{1}{\sqrt{2π}} \exp\left(- \frac{x + e^{-x}}{2} \right)$\\\\for $μ = 0, c = 1$
+\end{tabular}
+
+} ;
 \definecolor{drawColor}{rgb}{0.2000000029802322, 0.2000000029802322, 0.2000000029802322}
 \definecolor{fillColor}{rgb}{0.0, 0.0, 0.0}
 
