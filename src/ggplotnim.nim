@@ -2615,7 +2615,7 @@ proc generateLegendMarkers(plt: Viewport,
       for i in idx:
         let color = scale.getValue(scale.getLabelKey(i)).color
         case geomKind
-        of gkLine:
+        of gkLine, gkHistogram:
           var st = LineDefaultStyle
           st.color = color
           st.lineWidth = 2.0
