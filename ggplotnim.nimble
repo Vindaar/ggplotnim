@@ -127,5 +127,5 @@ task generateAll, "Generate all output files (requires lualatex, inkscape)":
   exec "nim c -r recipes/rTikZLandau.nim" # generate `.tex` file for Landau
   exec "lualatex --shell-escape media/recipes/rTikZLandau.tex"
   exec "inkscape --export-type=png --pdf-poppler rTikZLandau.pdf"
-  exec "mv rTikZLandau.pdf.png media/recipes/rTikZLandau.png"
+  exec "mv rTikZLandau.png media/recipes/rTikZLandau.png"
   exec "rm rTikZLandau.pdf rTikZLandau.aux rTikZLandau.log"
