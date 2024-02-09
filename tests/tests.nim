@@ -614,7 +614,6 @@ suite "Annotations":
     spikes.add newSeqWith(26, 502)
     let df = toDf(spikes, neurons)
 
-
     block:
       let plt = ggcreate(
         ggplot(df, aes("spikes", "neurons"), backend = Backend) +
@@ -648,7 +647,10 @@ suite "Annotations":
 
       # now check if we have two child viewports for discrete X scale
       # now get data viewport of plot and check it has 4 children
-      let dataView = plt.view[4][0]
+      var dataView = plt.view[4][0]
+      check dataView.name == "full_GGPLOT" # container viewport for entire plot to turn it into bitmap if desired
+      check dataView.children.len == 1
+      dataView = dataView[0]
       check dataView.name == "data"
       check dataView.children.len == 4
       check dataView.xScale == (0.0, 1.0)
@@ -686,7 +688,10 @@ suite "Annotations":
 
       # now check if we have two child viewports for discrete X scale
       # now get data viewport of plot and check it has 4 children
-      let dataView = plt.view[4][0]
+      var dataView = plt.view[4][0]
+      check dataView.name == "full_GGPLOT" # container viewport for entire plot to turn it into bitmap if desired
+      check dataView.children.len == 1
+      dataView = dataView[0]
       check dataView.name == "data"
       check dataView.children.len == 4
       check dataView.xScale == (0.0, 1.0)
