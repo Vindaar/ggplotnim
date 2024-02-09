@@ -2065,7 +2065,7 @@ proc themeLatex*(fWidth: float, width: float,
                  textWidth = 458.29268, # 455.24411
                  useTeX = true,
                  texOptions = toTeXOptions(true, false, true, "", "", "", ""),
-                 useWithoutTeX = true
+                 useWithoutTeX = false
                 ): Theme =
   ## This is a good theme to use in LaTeX documents. It handles scaling the
   ## plot to the desired size, where `fWidth` is the size it will be inserted
@@ -2110,7 +2110,7 @@ proc themeLatex*(fWidth: float, width: float,
   # of `\textwidth`:
   factor /= fWidth
   # We hand a custom `baseTheme`
-  if useWithoutTeX:
+  if useTeX or useWithoutTeX:
     result = theme_font_scale(factor, baseTheme = baseTheme)
     result.width = some(width)
     result.height = some(h) # Note: use `h`!
