@@ -266,6 +266,7 @@ type
     width*: Option[float]
     height*: Option[float]
     backend*: BackendKind # required to generate actual numbers
+    fType*: FileTypeKind
 
   # helper object to compose `ggvega` via `+` with `ggplot`
   # Used to show a plot using the Vega-Lite backend

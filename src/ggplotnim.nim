@@ -265,15 +265,16 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.yRidges)
   fillIt(result.weight)
 
-proc ggplot*(data: DataFrame, aes: Aesthetics = aes(),
-             backend = bkNone): GgPlot =
+proc ggplot*(data: DataFrame, aes: Aesthetics = aes();
+             backend = bkNone; fType: FileTypeKind = fkNone): GgPlot =
   ## Note: The backend argument is required when using `ggcreate` with a
   ## a `ggplot` argument without `ggsave`. All string related placements
   ## require knowledge of a backend to compute absolute positions.
   # create new DF object (underlying data same) so that we don't mess up
   # the table of the user
   result = GgPlot(data: data.shallowCopy,
-                  backend: backend)
+                  backend: backend,
+                  fType: fType)
   result.aes = aes.fillIds({0'u16 .. high(uint16)})
   # TODO: fill others with defaults
   # add default theme
@@ -3828,12 +3829,13 @@ proc `%`*(t: tuple): json.JsonNode =
   for k, v in t.fieldPairs:
     json.`[]=`(result, k, %v)
 
-proc ggjson*(fname: string, width = 640.0, height = 480.0, backend = bkCairo): JsonDummyDraw =
+proc ggjson*(fname: string, width = 640.0, height = 480.0, backend = bkCairo, fType = fkPdf): JsonDummyDraw =
   let (_, _, fext) = fname.splitFile
   JsonDummyDraw(fname: fname.replace(fext, ".json"),
                 width: some(width),
                 height: some(height),
-                backend: backend)
+                backend: backend,
+                fType: fType)
 
 proc `%`(fn: proc(): seq[uint32] {.closure.}): json.JsonNode =
   result = % fn()
@@ -3842,11 +3844,13 @@ proc `+`*(p: GgPlot, jsDraw: JsonDummyDraw) =
   ## generate a JSON file from the given filename by replacing the file
   ## extension by `.json` and converting the `Viewport` to JSON after
   ## calling `ggcreate`. Used for CI.
+  ##
+  ## Note that it still needs a backend to determine the text information from.
   doAssert jsDraw.width.isSome and jsDraw.height.isSome
-  var p = p
-  p.backend = jsDraw.backend
+  let p = p.assignBackend(jsDraw.fname, TexOptions(), jsDraw.backend) # local copy w/ correct backend
   let plt = p.ggcreate(width = jsDraw.width.get,
                        height = jsDraw.height.get)
+
   writeFile(jsDraw.fname, json.`$`(% plt.view))
 
 when defined(experimentalSDL2):
