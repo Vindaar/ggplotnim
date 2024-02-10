@@ -10,7 +10,7 @@ for i in 0 ..< 5:
   df.add toDf({"x" : xs, "y" : i })
   
 for scale in [viridis(), magma(), plasma(), inferno()]:
-  plts.add ggplot(df, aes("x", "y", fill = "x")) +
+  plts.add ggplot(df, aes("x", "y", fill = "x"), backend = bkCairo, fType = fkPng) +
     scale_fill_gradient(scale) + # assign the correct scale
     geom_raster() +
     ylim(0, 5) +   # due to our weird data (height deduced as 1, set correct limits)
