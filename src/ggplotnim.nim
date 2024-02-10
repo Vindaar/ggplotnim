@@ -2799,12 +2799,12 @@ proc handleLabels(view: Viewport, theme: Theme) =
       case axKind
       of akX:
         marginVar = Coord1D(pos: 1.5, kind: ukStrHeight,
-                            backend: view.backend,
+                            backend: view.backend, fType: view.fType,
                             text: labNames[labLens], font: font) +
                     Coord1D(pos: tlOffset, kind: ukCentimeter)
       of akY:
         marginVar = Coord1D(pos: 1.0, kind: ukStrWidth,
-                            backend: view.backend,
+                            backend: view.backend, fType: view.fType,
                             text: labNames[labLens], font: font) +
                     Coord1D(pos: tlOffset, kind: ukCentimeter)
     else:
@@ -3570,13 +3570,13 @@ proc assignBackend(p: GgPlot, fname: string, texOptions: TeXOptions,
                    backend: BackendKind): GgPlot =
   ## assigns the correct backend based on filename `fname` and `texOptions`
   result = p
+  result.fType = parseFilename(fname)
   case backend
   of bkNone: # no user given backend?
     if p.backend != bkNone: # User given to `ggplot()`!
       result = p.assignBackend(fname, texOptions, p.backend)
     else: # really no user given
-      let fType = parseFilename(fname)
-      result.backend = fType.toBackend(texOptions)
+      result.backend = result.fType.toBackend(texOptions)
   else:
     result.backend = backend
 
