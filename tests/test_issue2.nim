@@ -11,7 +11,7 @@ test "Issue2":
   let plt = ggplot(seqsToDf({ "x" : xdata,
                               "y" : ydata }),
                    aes("x", "y"),
-                   backend = Backend) +
+                   backend = Backend, fType = fkSvg) +
     geom_line()
 
   let plotView = plt.ggcreate()
