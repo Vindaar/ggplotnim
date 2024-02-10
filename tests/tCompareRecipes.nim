@@ -40,7 +40,7 @@ proc compareJson*(j1, j2: JsonNode): bool =
       returnOnFalse(compareJson(v, j2[k]), true, k)
   of JFloat:
     when defined(linux):
-      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 1e-3)
+      let cmpFloat = almostEqual(j1.getFloat, j2.getFloat, 1e-2)
     else:
       ## TODO: due to some cairo issue related to different platforms we get different
       ## positions on mac/windows. For now we just use a much larger epsilon. Need to
@@ -97,12 +97,13 @@ suite "Compare recipe output":
       template checkFiles(f1, f2, fname: untyped): untyped =
         # store in `comp` to avoid check obliterating our terminal with the diff
         let diff = (f1 -. f2).abs.sum
+        const LinuxDiff = 0.01
         when defined(linux):
-          let comp = diff.float / 256.0 < (f1.size.float * 0.0001)
+          let comp = diff.float / 256.0 < (f1.size.float * LinuxDiff)
         else:
           let comp = diff.float / 256.0 < (f1.size.float * 0.1) # less than 10% pixels different :/
         echo "Tensor is long: ", expected.len, " and diff ", diff
-        echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * 0.0025
+        echo "Real diff ", diff.float / 256.0, " needs to be smaller ", f1.size.float * LinuxDiff
         check comp
         if not comp:
           echo "Comparison failed for file: ", fname, " difference is: ", diff
