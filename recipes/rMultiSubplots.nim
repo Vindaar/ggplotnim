@@ -7,7 +7,7 @@ let df = toDf({ "t" : t,
                     "Im x(t)" : y2 })
 let plt1 = ggcreate(
   ggplot(df, aes("t", "Re x(t)"),
-         backend = bkCairo) + # tell `ggsave` we wish to create the plot on the cairo backend
+         backend = bkCairo, fType = fkPng) + # tell `ggsave` we wish to create the plot on the cairo backend and as a PNG 
     geom_line() + 
     xlim(-0.02, 0.05) + 
     ggtitle("Real part of x(t)=e^{j 100 π t}"),
@@ -15,7 +15,7 @@ let plt1 = ggcreate(
 )
 let plt2 = ggcreate(
   ggplot(df, aes("t", "Im x(t)"),
-         backend = bkCairo) +
+         backend = bkCairo, fType = fkPng) +
     geom_line() + 
     xlim(-0.02, 0.05) + 
     ggtitle("Imaginary part of x(t)=e^{j 100 π t}"),
