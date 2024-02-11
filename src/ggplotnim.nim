@@ -266,7 +266,7 @@ func fillIds*(aes: Aesthetics, gids: set[uint16]): Aesthetics =
   fillIt(result.weight)
 
 proc ggplot*(data: DataFrame, aes: Aesthetics = aes();
-             backend = bkNone; fType: FileTypeKind = fkNone): GgPlot =
+             backend = bkNone; fType: FileTypeKind = fkNull): GgPlot =
   ## Note: The backend argument is required when using `ggcreate` with a
   ## a `ggplot` argument without `ggsave`. All string related placements
   ## require knowledge of a backend to compute absolute positions.
