@@ -64,7 +64,7 @@ proc parseTheme*(fname: string, tab = "Theme"): Theme =
   let config = parseToml.parseFile(fname)
   for field, val in fieldPairs(result):
     if field in config[tab]:
-      let cVal = config[tab][field]
+      let cVal {.used.} = config[tab][field]
       when typeof(val) is Option[SomeNumber]:
         val = some(getInnerOptionType(val)(cVal.getFloat))
       elif typeof(val) is Option[Font]:
