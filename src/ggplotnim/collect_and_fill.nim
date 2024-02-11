@@ -614,8 +614,11 @@ proc addFacets(fs: var FilledScales, p: GgPlot) =
   ## fills and adds the scales used as facets to the FilledScales object
   doAssert p.facet.isSome
   var facet = p.facet.unsafeGet
-  let initScales = facet.columns
-  facet.columns.setLen(0) # reset the scales in `Facet`
+  when not defined(gcDestructors):
+    let initScales = facet.columns.deepCopy() # for refc it just copies the ref to the seq!
+  else:
+    let initScales = facet.columns
+  facet.columns.setLen(0) # reset the scales in `Facet` | ^--- and this line here would reset both
   for sc in initScales:
     # NOTE: we have to add each facet column individually to make sure their
     # discrete data is not mangled together in the `labelSeq` of each scale.
