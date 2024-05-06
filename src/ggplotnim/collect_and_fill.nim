@@ -10,6 +10,7 @@ import datamancer
 import ginger except Scale
 
 const StartHue {.intdefine.} = 15
+const ggPlotDebugTypeInfer {.booldefine.} = false
 
 proc addIdentityData(data: var Column, df: DataFrame, s: Scale) =
   case s.col.kind
@@ -55,18 +56,20 @@ proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
     let elements = indices.mapIt(col[it, int]).toHashSet
     if elements.card > (indices.len.float * discreteThreshold).round.int:
       result = false
-      echo "INFO: The integer column `", $s.col, "` has been automatically ",
-       "determined to be continuous. To overwrite this behavior add a ",
-       "`+ scale_x/y_discrete()` call to the plotting chain. Choose `x`",
-       " or `y` depending on which axis this column refers to. Or apply a",
-       " `factor` to the column name in the `aes` call, i.e.",
-       " `aes(..., factor(\"" & $s.col & "\"), ...)`."
+      when ggPlotDebugTypeInfer:
+        echo "INFO: The integer column `", $s.col, "` has been automatically ",
+         "determined to be continuous. To overwrite this behavior add a ",
+         "`+ scale_x/y_discrete()` call to the plotting chain. Choose `x`",
+         " or `y` depending on which axis this column refers to. Or apply a",
+         " `factor` to the column name in the `aes` call, i.e.",
+         " `aes(..., factor(\"" & $s.col & "\"), ...)`."
     else:
       result = true
-      echo "INFO: The integer column `", $s.col, "` has been automatically ",
-       "determined to be discrete. To overwrite this behavior add a ",
-       "`+ scale_x/y_continuous()` call to the plotting chain. Choose `x`",
-       " or `y` depending on which axis this column refers to."
+      when ggPlotDebugTypeInfer:
+        echo "INFO: The integer column `", $s.col, "` has been automatically ",
+         "determined to be discrete. To overwrite this behavior add a ",
+         "`+ scale_x/y_continuous()` call to the plotting chain. Choose `x`",
+         " or `y` depending on which axis this column refers to."
   of colFloat:
      result = false
   of colString:
@@ -100,15 +103,17 @@ proc isDiscreteData(col: Column, s: Scale, drawSamples: static bool = true,
         discreteObjectCol = true
     if not discreteObjectCol:
       result = false
-      echo "INFO: The object column `", $s.col, "` has been automatically ",
-       "determined to be continuous. To overwrite this behavior use ",
-       "`scale_x/y_discrete` or apply `factor` to the column name in the `aes` ",
-       "call."
+      when ggPlotDebugTypeInfer:
+        echo "INFO: The object column `", $s.col, "` has been automatically ",
+         "determined to be continuous. To overwrite this behavior use ",
+         "`scale_x/y_discrete` or apply `factor` to the column name in the `aes` ",
+         "call."
     else:
       result = true
-      echo "INFO: The object column `", $s.col, "` has been automatically ",
-       "determined to be discrete. To overwrite this behavior use ",
-       "`scale_x/y_continuous`."
+      when ggPlotDebugTypeInfer:
+        echo "INFO: The object column `", $s.col, "` has been automatically ",
+         "determined to be discrete. To overwrite this behavior use ",
+         "`scale_x/y_continuous`."
   of colNone:
     raise newException(ValueError, "Input column " & $s.col & " is empty. Such a column " &
       "cannot be plotted.")
