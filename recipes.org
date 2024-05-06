@@ -2447,7 +2447,7 @@ This gives us two =seq[float]=, but we need a =DataFrame=. So we
 combine the two:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
 var df = toDf({ "r / m" : radii,
-                    "g(r) / m s¯²" : a})
+                "g(r) / m s¯²" : a})
 #+END_SRC
 which gives us a data frame with two columns. The names are, as one can
 guess, the given strings. (Note that in practice one might not want to
@@ -2481,7 +2481,7 @@ At this point we might ask "Do we recover the known 9.81 m/s^2 at the
 surface?". Let's see. There's many different ways we could go on about
 this. We'll use summarize:
 #+BEGIN_SRC nim :tangle recipes/rNewtonAcceleration.nim
-let maxG = df.summarize(f{float: "g_max" << max(c"g(r) / m s¯²")})
+let maxG = df.summarize(f{float: "g_max" << max(col("g(r) / m s¯²"))})
 #+END_SRC
 
 An alternative way would be to access the data column directly, like
