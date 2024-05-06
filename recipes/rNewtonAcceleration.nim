@@ -19,7 +19,7 @@ let radii = linspace(0.0, 35_000_000, 1000) # up to geostationary orbit
 let a = radii.mapIt(newtonAcceleration(it))
 
 var df = toDf({ "r / m" : radii,
-                    "g(r) / m s¯²" : a})
+                "g(r) / m s¯²" : a})
 
 df = df.transmute(f{"r / km" ~ c"r / m" / 1000.0}, f{"g(r) / m s¯²"})
 
@@ -28,7 +28,7 @@ ggplot(df, aes("r / km", "g(r) / m s¯²")) +
   ggtitle("Gravitational acceleration of Earth depending on radial distance") +
   ggsave("media/recipes/rNewtonAcceleration.png")
 
-let maxG = df.summarize(f{float: "g_max" << max(c"g(r) / m s¯²")})
+let maxG = df.summarize(f{float: "g_max" << max(col("g(r) / m s¯²"))})
 
 let maxG_alt = df["g(r) / m s¯²"].toTensor(float).max
 
