@@ -11,16 +11,16 @@ const vegaLiteTmpl = """
 """
 
 let mapping = { "title" : "title" }.toTable
-let geom_mapping = { "geom_point" : "point",
-                     "geom_rect" : "rect",
-                     "geom_line" : "line",
-                     "geom_histogram" : "bar",
-                     "geom_bar" : "bar",
-                     "geom_freqpoly" : "line",
-                     "geom_tile" : "rect",
-                     "geom_text" : "text",
-                     "geom_raster" : "rect", # or image?,
-                     "geom_errorbar" : "errorbar" # non trivial because they are split in vega
+let geom_mapping = { "point" : "point",
+                     "rect" : "rect",
+                     "line" : "line",
+                     "histogram" : "bar",
+                     "bar" : "bar",
+                     "freqpoly" : "line",
+                     "tile" : "rect",
+                     "text" : "text",
+                     "raster" : "rect", # or image?,
+                     "errorbar" : "errorbar" # non trivial because they are split in vega
                    }.toTable
 
 template toVegaField(f: string): string =
