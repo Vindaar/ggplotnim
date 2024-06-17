@@ -281,6 +281,33 @@ proc ggplot*(data: DataFrame, aes: Aesthetics = aes();
   result.theme = Theme(discreteScaleMargin: some(quant(0.2,
                                                        ukCentimeter)))
 
+template ggplot*[T](y: Tensor[T]): GgPlot =
+  ## Plot a single rank-1 tensor (vs its element indexes)
+  ##
+  ## Uses the input expression as the "y" label
+  let y_name = getSymbolName(y)
+  doAssert y.rank == 1, "ggplot input tensor rank must be 1 but is " & $y.rank
+  let y_data = y
+  let x = arange(y_data.len)
+  let df = toDf({"x": x, y_name: y_data})
+  ggplot(df, aes("x", y_name)) + geom_line()
+
+template ggplot*[T](x, y: Tensor[T]): GgPlot =
+  ## Plot a rank-1 tensor vs another
+  ##
+  ## Uses the input expressions as the "x" and "y" labels
+  let x_name = getSymbolName(x)
+  let y_name = getSymbolName(y)
+  doAssert x.rank == 1,
+    "First ggplot input tensor rank must be 1 but is " & $x.rank
+  doAssert y.rank == 1,
+    "First ggplot input tensor rank must be 1 but is " & $y.rank
+  doAssert x.len == y.len,
+    "ggplot input tensor lengths are not the same (" &
+    $x.len & " != " & $y.len & ")"
+  let df = toDf({x_name: x, y_name: y})
+  ggplot(df, aes(x_name, y_name))
+
 template assignBinFields(res: var Geom, stKind, bins,
                          binWidth, breaks, bbVal, density: untyped): untyped =
   case stKind
