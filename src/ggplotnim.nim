@@ -3360,7 +3360,7 @@ proc determinePlotHeight(theme: Theme, filledScales: FilledScales, width, height
     let xS = if theme.xRange.isSome: theme.xRange.unsafeGet else: filledScales.xScale
     let xD = xS.high - xS.low
     let yS = if theme.yRange.isSome: theme.yRange.unsafeGet else: filledScales.yScale
-    let yD = ys.high - ys.low
+    let yD = yS.high - yS.low
     let ratio = yD / xD
     let spacingLR = add(layout.left, layout.right)
     doAssert spacingLR.unit == ukCentimeter

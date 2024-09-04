@@ -362,13 +362,13 @@ proc fillOptFields(fg: var FilledGeom, fs: FilledScales, df: var DataFrame) =
     fg.invTrans = fs.invTransC
     ## Assign x / y scale of *raster* data
     block RasterScales:
-      let xCol = df[xs.getColName]
+      let xCol = df[xS.getColName]
       if xCol.kind in {colFloat, colInt}:
         fg.rasterXScale = (low: xCol.toTensor(float).min, high: xCol.toTensor(float).max)
       else:
         raise newException(ValueError, "The `x` data aesthetics for the raster plot is neither " &
           "`float` or `int` data. Instead it is: " & $xCol.kind)
-      let yCol = df[ys.getColName]
+      let yCol = df[yS.getColName]
       if yCol.kind in {colFloat, colInt}:
         fg.rasterYScale = (low: yCol.toTensor(float).min, high: yCol.toTensor(float).max)
       else:
