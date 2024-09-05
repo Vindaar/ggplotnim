@@ -38,6 +38,7 @@ proc parseFont(fnt: string): Font =
   if not fnt.startsWith("font("):
     raise newException(ValueError, "Invalid font description in the TOML file. Field is " &
       fnt & ", but should be of type `font(<args>)`.")
+  result.color = toOptColor("black").get
   let args = fnt.dup(removePrefix("font(")).dup(removeSuffix(")")).split(",")
   var argIdx = 0
   for arg in args:
