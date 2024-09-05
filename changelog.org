@@ -1,3 +1,15 @@
+* v0.7.1
+- update datamancer dependency for the fix of ~arrange~ in
+  https://github.com/SciNim/Datamancer/pull/68 for issue
+  https://github.com/Vindaar/ggplotnim/issues/180
+- make sure to set black font as default for TOML theme customization
+- make ggplotnim compile with ~--styleCheck:error~ (PR
+  https://github.com/Vindaar/ggplotnim/pull/182 by @c-blake)
+- add a ~{.booldefine.}~ variable to quiet ggplotnim when converting
+  integers to floats, ~const ggPlotDebugTypeInfer {.booldefine.} =
+  false~. Compile with ~-d:ggPlotDebugTypeInfer=true~ to enable the
+  info messages (old behavior) (PR
+  https://github.com/Vindaar/ggplotnim/pull/179 by @c-blake)
 * v0.7.0
 This release is a rather big one. The majority of features added
 relates to customization of plots.
