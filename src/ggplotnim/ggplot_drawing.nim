@@ -336,7 +336,7 @@ proc drawRaster(view: var Viewport, fg: FilledGeom, df: DataFrame) =
     numY = (height / hv).round.int
     cMap = fg.colorScale
 
-  let α = if fg.geom.userstyle.alpha.isSome: fg.geom.userstyle.alpha.get else: 1.0
+  let α = if fg.geom.userStyle.alpha.isSome: fg.geom.userStyle.alpha.get else: 1.0
   let αU32 = clamp(α * 255.0, 0.0, 255.0).uint32
   var drawCb = proc(): seq[uint32] =
     result = newSeq[uint32](df.len)
