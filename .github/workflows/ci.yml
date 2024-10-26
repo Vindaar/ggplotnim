@@ -6,6 +6,8 @@ on:
       - 'src/**'
       - 'ggplotnim.nimble'
       - '.github/workflows/ci.yml'
+    branches:
+      - 'master'
   pull_request:
     paths:
       - 'tests/**'
