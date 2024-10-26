@@ -1,3 +1,7 @@
+* v0.7.2
+- fix ~scale_x/y_log2/10~ when using it on scales that 'appear' to be
+  discrete based on their data. It was missing the boolean to indicate
+  that a fixed discreteness is set
 * v0.7.1
 - update datamancer dependency for the fix of ~arrange~ in
   https://github.com/SciNim/Datamancer/pull/68 for issue
