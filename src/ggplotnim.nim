@@ -917,6 +917,7 @@ proc scale_x_log10*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scal
                  scKind: scTransformedData,
                  axKind: akX,
                  dcKind: dcContinuous,
+                 hasDiscreteness: true,
                  trans: trans,
                  invTrans: invTrans)
   result.assignBreaks(breaks)
@@ -939,6 +940,7 @@ proc scale_y_log10*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scal
                  scKind: scTransformedData,
                  axKind: akY,
                  dcKind: dcContinuous,
+                 hasDiscreteness: true,
                  trans: trans,
                  invTrans: invTrans)
   result.assignBreaks(breaks)
@@ -961,6 +963,7 @@ proc scale_x_log2*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale
                  scKind: scTransformedData,
                  axKind: akX,
                  dcKind: dcContinuous,
+                 hasDiscreteness: true,
                  trans: trans,
                  invTrans: invTrans)
   result.assignBreaks(breaks)
@@ -983,6 +986,7 @@ proc scale_y_log2*[T: int | seq[SomeNumber]](breaks: T = newSeq[float]()): Scale
                  scKind: scTransformedData,
                  axKind: akY,
                  dcKind: dcContinuous,
+                 hasDiscreteness: true,
                  trans: trans,
                  invTrans: invTrans)
   result.assignBreaks(breaks)
