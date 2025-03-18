@@ -1,3 +1,7 @@
+* v0.7.3
+- relax restrictions for legend sizing. I.e. if a plot has a legend
+  and one sets the margin on the right to zero, previously it caused a
+  runtime error.
 * v0.7.2
 - fix ~scale_x/y_log2/10~ when using it on scales that 'appear' to be
   discrete based on their data. It was missing the boolean to indicate
