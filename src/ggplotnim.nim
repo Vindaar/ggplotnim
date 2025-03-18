@@ -1644,7 +1644,8 @@ proc genDiscreteLegend(view: var Viewport,
              colWidths = @[quant(width, ukCentimeter),
                            quant(0.3 * bScale, ukCentimeter),
                            quant(0.0, ukRelative)],
-             rowHeights = rH)
+             rowHeights = rH,
+             ignoreOverflow = true)
   # iterate only over added children, skip first, because we actual legend first
   var j = 0
 
@@ -1694,7 +1695,8 @@ proc genContinuousLegend(view: var Viewport,
                          geomKind: GeomKind) =
   case cat.scKind
   of scSize:
-    view.layout(1, rows = 5 + 1)
+    view.layout(1, rows = 5 + 1,
+                ignoreOverflow = true)
   of scColor, scFillColor:
     # create following legend layout
     # _______________________
@@ -1713,13 +1715,15 @@ proc genContinuousLegend(view: var Viewport,
                 colWidths = @[quant(0.5 * bScale, ukCentimeter), # for space to plot
                               quant(0.0, ukRelative)], # for legend. incl header
                 rowHeights = @[quant(legendHeaderHeight, ukCentimeter), # for header
-                               quant(legendHeight, ukCentimeter)]) # for act. legend
+                               quant(legendHeight, ukCentimeter)],
+                ignoreOverflow = true) # for act. legend
     var legView = view[3] # bottom right
     legView.yScale = cat.dataScale
     let width = theme.continuousLegendWidth.get(1.0)
     legView.layout(3, 1, colWidths = @[quant(width * bScale, ukCentimeter),
                                        quant(0.5 * bScale, ukCentimeter),
-                                       quant(0.0, ukRelative)])
+                                       quant(0.0, ukRelative)],
+                   ignoreOverflow = true)
     var legGrad = legView[0]
     # add markers
     let markers = legGrad.generateLegendMarkers(cat, theme, geomKind)
