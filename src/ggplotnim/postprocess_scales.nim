@@ -183,7 +183,8 @@ proc applyContScaleIfAny(yieldDf: DataFrame,
     result[2] = clone(yieldDf)
   for c in scales:
     ## TODO: verify this should be `yieldDf`
-    result[2][getColName(c)] = c.col.evaluate(result[2])
+    ## XXX: We need to better verify that this assertion will always hold!
+    doAssert getColName(c) in result[2], "Continuous data column " & $getColName(c) & " does not exist in DF."
     case c.scKind
     of scLinearData, scTransformedData:
       # for linear and transformed data we don't change the style
