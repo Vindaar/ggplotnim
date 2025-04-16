@@ -78,6 +78,8 @@ proc applyTransformations(df: var DataFrame, scales: seq[Scale]) =
         let col = evaluate(s.col)
         let colStr = getColName(s)
         # make a copy of `s` which we hand to the closure
+        fns.add s.col # add `col` itself so that if this creates a new column, we compute it before
+                      # applying the transformation
         let ms = s
         let fn = f{float: colStr ~ ms.trans( idx(col.toStr) ) }
         fns.add fn
