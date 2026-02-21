@@ -3561,6 +3561,64 @@ proc ggmulti*(plts: openArray[GgPlot], fname: string, width = 640, height = 480,
   # combine both into a single viewport to draw as one image
   img.draw(fname, texOptions)
 
+proc embed*(vp: var Viewport, plt: GgPlot,
+            width = 1.0,
+            height = -1.0,
+            x = 0.0, y = 0.0,
+            asRelative = true,
+            dataAsBitmap = false) =
+  ## Embeds the given `GgPlot` into the viewport `vp` at relative
+  ## coordinates `(x, y)` with relative `width` and `height`.
+  ##
+  ## If `height` is not given (< 0), it is computed from `width` and
+  ## the plot's actual aspect ratio (as determined by its theme).
+  ##
+  ## If `asRelative` is true (default), all sizes in the plot (fonts,
+  ## ticks, line widths, margins, etc.) are scaled proportionally with
+  ## the embedded size. Horizontal sizes scale with `width`, vertical
+  ## sizes scale with `height`, and isotropic sizes (fonts, line widths)
+  ## scale with `min(width, height)`. If false, absolute sizes are
+  ## preserved.
+  ##
+  ## With default arguments (x=0, y=0, width=1.0), the plot fills
+  ## the entire viewport.
+
+  # Create the plot first so we know its actual dimensions
+  # (the theme may override the width/height we pass)
+  var pltB = plt
+  pltB.backend = vp.backend
+  pltB.fType = vp.fType
+  let pv = ggcreate(pltB, width = vp.wImg.val, height = vp.hImg.val,
+                    dataAsBitmap = dataAsBitmap)
+
+  # Compute relative height: if not given, derive from the plot's
+  # actual aspect ratio so the embed preserves it
+  let relHeight = if height < 0:
+    let plotW = pv.view.wImg.val
+    let plotH = pv.view.hImg.val
+    width * (plotH / plotW) * (vp.wImg.val / vp.hImg.val)
+  else:
+    height
+
+  # Create a placeholder child viewport at the desired position/size
+  let ch = vp.addViewport(
+    left = x, bottom = y,
+    width = width, height = relHeight,
+    name = "embed_" & $vp.children.len
+  )
+  vp.children.add(ch)
+
+  if asRelative:
+    # Scale absolute sizes with directional factors:
+    # - x-direction by `width`, y-direction by `relHeight`
+    # - isotropic sizes (fonts, line widths) by min of both
+    var scaledView = pv.view
+    scaledView.scaleAllSizes(xFactor = width, yFactor = relHeight,
+                             isoFactor = min(width, relHeight))
+    vp.embedAt(vp.children.high, scaledView)
+  else:
+    vp.embedAt(vp.children.high, pv.view)
+
 proc ggdraw*(view: Viewport, fname: string,
              texOptions: TeXOptions = TeXOptions()) =
   ## draws the given viewport and stores it in `fname`.
