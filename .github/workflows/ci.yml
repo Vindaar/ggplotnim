@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: [version-2-0, version-1-6, devel]
+        nim: ['2.2.x', 'devel']
         target: [linux, macos, windows]
         include:
           - target: linux
@@ -29,7 +29,7 @@ jobs:
             builder: macos-latest
           - target: windows
             builder: windows-latest
-    name: '${{ matrix.target }} (${{ matrix.branch }})'
+    name: '${{ matrix.target }} (${{ matrix.nim }})'
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
@@ -38,10 +38,11 @@ jobs:
           path: ggplotnim
 
       - name: Setup Nim
-        uses: alaviss/setup-nim@0.1.1
+        uses: jiro4989/setup-nim-action@v2
         with:
-          path: nim
-          version: ${{ matrix.branch }}
+          nim-version: ${{ matrix.nim }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          use-nightlies: ${{ matrix.nim == 'devel' }}
 
       - name: Install dependencies (Ubuntu)
         if: ${{matrix.target == 'linux'}}
@@ -101,7 +102,7 @@ jobs:
       - name: Build docs
         if: >
           github.event_name == 'push' && github.ref == 'refs/heads/master' &&
-          matrix.target == 'linux' && matrix.branch == 'devel'
+          matrix.target == 'linux' && matrix.nim == 'devel'
         shell: bash
         run: |
           cd ggplotnim
@@ -116,7 +117,7 @@ jobs:
       - name: Publish docs
         if: >
           github.event_name == 'push' && github.ref == 'refs/heads/master' &&
-          matrix.target == 'linux' && matrix.branch == 'devel'
+          matrix.target == 'linux' && matrix.nim == 'devel'
         uses: crazy-max/ghaction-github-pages@v1
         with:
           build_dir: ggplotnim/docs
