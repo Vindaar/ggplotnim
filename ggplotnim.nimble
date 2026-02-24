@@ -14,7 +14,7 @@ requires "ginger == 0.6.2"
 requires "datamancer >= 0.5.1"
 requires "arraymancer >= 0.7.22"
 requires "shell >= 0.4.3"
-requires "webview"
+requires "https://github.com/Vindaar/webview"
 requires "parsetoml"
 requires "https://github.com/SciNim/scinim >= 0.1.0"
 
