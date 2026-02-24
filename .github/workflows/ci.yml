@@ -29,9 +29,6 @@ jobs:
             builder: macos-latest
           - target: windows
             builder: windows-latest
-        exclude:
-          - target: windows
-            branch: devel
     name: '${{ matrix.target }} (${{ matrix.nim }})'
     runs-on: ${{ matrix.builder }}
     steps:
