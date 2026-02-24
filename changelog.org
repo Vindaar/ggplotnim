@@ -1,3 +1,7 @@
+* v0.7.6
+- hotfix for ~ginger~ dependency
+- fix ~webview~ dependency
+- fix CI for MacOS
 * v0.7.5
 - add ~embed~ to embed multiple plots into a ~ginger~ ~Viewport~ with
   correct scaling of all plot objects
